@@ -128,7 +128,8 @@ const columns: ColumnDef<Task>[] = [
   nothing touches the network. `mode="server"`: pass the current page (or loaded rows) and `total`, set `loading` /
   `error` / `onRetry`, and fetch in `onStateChange(state)` — it fires once per change, after a 300 ms typing pause.
   The Frappe entry (`@solvfast/ui/frappe`, increment 5.4) wires this to Frappe's REST API.
-- **Grouping.** Client mode groups every row and shows no pager while grouped. Server mode groups the loaded rows; if
+- **Grouping.** One table: each group is a section with its own header row (collapse, count, select-all for the
+  group), so columns line up across groups. Client mode groups every row and shows no pager while grouped. Server mode groups the loaded rows; if
   fewer than `total` are loaded, a banner says so and **Load more** calls `onLoadMore`.
 - **Row actions** are a fixed last column (never sorted, filtered, hidden or moved). With `confirm`, the package shows
   the confirmation dialog — red confirm button when `tone: "destructive"` — and calls your `onSelect` only after the
@@ -157,7 +158,8 @@ Not bundled. Add to `index.html`:
   `prefers-reduced-motion`. Sear's glass buttons run on the glass engine's 0.4 s / 0.16 s instead — an intended difference.
 - Path B: glass controls can re-rasterize slightly differently from path A after a stylesheet is added at runtime
   (e.g. when a menu opens, ≤27/255 on the bell's glass). Styles are identical (docs/VALIDATION.md).
-- List View: each group is its own table (as in PMO), so column widths can differ from group to group.
+- List View, grouped: all groups share one table and its column layout; collapsing a group can re-balance the
+  widths (every group still agrees with the header).
 - List View: the Frappe data mode, metadata-driven columns and the standard fields (ID, Created On, Last Updated)
   arrive with `@solvfast/ui/frappe` (increment 5.4).
 - React 19 and Tailwind 4 are untested.

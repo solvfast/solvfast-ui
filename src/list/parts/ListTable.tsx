@@ -3,10 +3,11 @@
  * plus PMO's ListTable features (solvfast_pmo components/lists/ListTable.tsx, GroupedListTable.tsx).
  *
  * From PMO: selection column with select-all, keyboard-openable rows (Enter), `rowClassName`, selected-row tint,
- * collapsible groups with counts. Fixes: non-sortable columns no longer render a sort button that does nothing (Sear's
- * `actions` column) — their label keeps the same case as the sortable ones (Tailwind's preflight sets `text-transform: none`
- * on buttons, so Sear's `uppercase` header row never showed uppercase); `aria-sort` on sorted headers; select-all reflects only the rows it acts on (PMO's grouped
- * select-all compared a group's rows with the whole selection).
+ * collapsible groups with counts — in one shared table (PMO drew a table per group, so columns didn't line up).
+ * Fixes: non-sortable columns no longer render a sort button that does nothing (Sear's `actions` column) — their
+ * label keeps the same case as the sortable ones (Tailwind's preflight sets `text-transform: none` on buttons, so
+ * Sear's `uppercase` header row never showed uppercase); `aria-sort` on sorted headers; select-all reflects only the
+ * rows it acts on (PMO's grouped select-all compared a group's rows with the whole selection).
  */
 import * as React from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, X } from "lucide-react";
@@ -71,15 +72,85 @@ export interface ListTableProps<T> {
   empty?: React.ReactNode;
   /** Extra classes for the card. */
   className?: string;
+  /** Grouped display: one table, one header, a collapsible section per group (`rows` is then ignored). */
+  groups?: RowGroup<T>[];
+  /** Only part of the records is loaded (server mode, rule C1): group counts end in "+". */
+  partial?: boolean;
 }
 
+/**
+ * Grouping keeps ONE table: every group is a `<tbody>` led by a header row (collapse toggle, label, count, and the
+ * group's select-all), so all groups share the header's column order and widths. PMO drew a separate table per group,
+ * so columns didn't line up from group to group. The header's select-all covers the rows on screen (expanded groups).
+ */
 export function ListTable<T>({
   columns, rows, rowKey, sort, onSortToggle, onRowClick, rowClassName, selection, loading, error, onRetry, empty, className,
+  groups, partial,
 }: ListTableProps<T>) {
   const { language, t } = useLocale();
+  const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
+  const toggleGroup = (key: string) => setCollapsed((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const shown = groups ? groups.flatMap((g) => (collapsed.has(g.key) ? [] : g.rows)) : rows;
+  const any = groups ? groups.some((g) => g.rows.length > 0) : rows.length > 0;
   const colCount = Math.max(columns.length, 1) + (selection ? 1 : 0);
-  const allOn = !!selection && rows.length > 0 && rows.every((r) => selection.isSelected(r));
-  const someOn = !!selection && !allOn && rows.some((r) => selection.isSelected(r));
+  const allOn = !!selection && shown.length > 0 && shown.every((r) => selection.isSelected(r));
+  const someOn = !!selection && !allOn && shown.some((r) => selection.isSelected(r));
+
+  const renderRow = (row: T) => {
+    const on = !!selection?.isSelected(row);
+    return (
+      <tr
+        key={rowKey(row)}
+        tabIndex={onRowClick ? 0 : undefined}
+        onClick={() => onRowClick?.(row)}
+        onKeyDown={(e) => { if (onRowClick && e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); }}
+        aria-selected={selection ? on : undefined}
+        className={cn(
+          "border-b border-border last:border-0",
+          onRowClick && "cursor-pointer outline-none hover:bg-accent/50 focus-visible:bg-accent/60",
+          on && "bg-primary/5",
+          rowClassName?.(row),
+        )}
+      >
+        {selection && (
+          <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+            <Checkbox checked={on} onCheckedChange={() => selection.toggleRow(row)} aria-label={t("selectRow")} />
+          </td>
+        )}
+        {columns.map((c) => (
+          <td key={c.key} className={cn("px-4 py-3", c.align === "end" && "text-end", c.className)}>
+            {c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} />}
+          </td>
+        ))}
+      </tr>
+    );
+  };
+
+  const renderGroup = (g: RowGroup<T>) => {
+    const open = !collapsed.has(g.key);
+    const gAll = !!selection && g.rows.length > 0 && g.rows.every((r) => selection.isSelected(r));
+    const gSome = !!selection && !gAll && g.rows.some((r) => selection.isSelected(r));
+    return (
+      <tbody key={g.key} data-group={g.key}>
+        <tr data-group-header="" className="border-y border-border bg-muted/20">
+          {selection && (
+            <td className="w-10 px-3 py-2">
+              <Checkbox checked={gAll ? true : gSome ? "indeterminate" : false} onCheckedChange={(c) => selection.setRowsSelected(g.rows, c === true)}
+                aria-label={t("selectGroup").replace("{group}", g.label)} />
+            </td>
+          )}
+          <td colSpan={Math.max(columns.length, 1)} className="px-4 py-2">
+            <button type="button" onClick={() => toggleGroup(g.key)} aria-expanded={open} className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4 rtl:rotate-180" />}
+              <span>{g.label}</span>
+              <span className="rounded-full bg-muted px-2 text-xs font-normal text-muted-foreground">{g.rows.length}{partial ? "+" : ""}</span>
+            </button>
+          </td>
+        </tr>
+        {open && g.rows.map(renderRow)}
+      </tbody>
+    );
+  };
 
   return (
     <Card className={cn("overflow-hidden", className)}>
@@ -89,7 +160,7 @@ export function ListTable<T>({
             <tr>
               {selection && (
                 <th className="w-10 px-3 py-2.5">
-                  <Checkbox checked={allOn ? true : someOn ? "indeterminate" : false} onCheckedChange={(c) => selection.setRowsSelected(rows, c === true)} aria-label={t("selectAll")} />
+                  <Checkbox checked={allOn ? true : someOn ? "indeterminate" : false} onCheckedChange={(c) => selection.setRowsSelected(shown, c === true)} aria-label={t("selectAll")} />
                 </th>
               )}
               {columns.map((c) => {
@@ -108,82 +179,36 @@ export function ListTable<T>({
               })}
             </tr>
           </thead>
-          <tbody>
-            {loading && rows.length === 0 &&
-              Array.from({ length: 6 }).map((_, i) => (
-                <tr key={i} className="border-b border-border last:border-0" aria-hidden>
-                  {selection && <td className="px-3 py-3" />}
-                  {columns.map((c) => <td key={c.key} className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>)}
-                </tr>
-              ))}
-            {!loading && error && (
-              <tr><td colSpan={colCount} className="py-12 text-center">
-                <div className="flex flex-col items-center gap-3" role="alert">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="h-5 w-5" /></div>
-                  <p className="text-sm text-muted-foreground">{error === true ? t("loadError") : error}</p>
-                  {onRetry && <Button variant="outline" size="sm" onClick={onRetry}>{t("retry")}</Button>}
-                </div>
-              </td></tr>
-            )}
-            {!loading && !error && rows.length === 0 && (
-              <tr><td colSpan={colCount} className="py-12 text-center text-muted-foreground">{empty ?? t("noData")}</td></tr>
-            )}
-            {!error && rows.map((row) => {
-              const on = !!selection?.isSelected(row);
-              return (
-                <tr
-                  key={rowKey(row)}
-                  tabIndex={onRowClick ? 0 : undefined}
-                  onClick={() => onRowClick?.(row)}
-                  onKeyDown={(e) => { if (onRowClick && e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); }}
-                  aria-selected={selection ? on : undefined}
-                  className={cn(
-                    "border-b border-border last:border-0",
-                    onRowClick && "cursor-pointer outline-none hover:bg-accent/50 focus-visible:bg-accent/60",
-                    on && "bg-primary/5",
-                    rowClassName?.(row),
-                  )}
-                >
-                  {selection && (
-                    <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox checked={on} onCheckedChange={() => selection.toggleRow(row)} aria-label={t("selectRow")} />
-                    </td>
-                  )}
-                  {columns.map((c) => (
-                    <td key={c.key} className={cn("px-4 py-3", c.align === "end" && "text-end", c.className)}>
-                      {c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} />}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
+          {(loading && !any) || error || !any ? (
+            <tbody>
+              {loading && !any &&
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="border-b border-border last:border-0" aria-hidden>
+                    {selection && <td className="px-3 py-3" />}
+                    {columns.map((c) => <td key={c.key} className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>)}
+                  </tr>
+                ))}
+              {!loading && error && (
+                <tr><td colSpan={colCount} className="py-12 text-center">
+                  <div className="flex flex-col items-center gap-3" role="alert">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="h-5 w-5" /></div>
+                    <p className="text-sm text-muted-foreground">{error === true ? t("loadError") : error}</p>
+                    {onRetry && <Button variant="outline" size="sm" onClick={onRetry}>{t("retry")}</Button>}
+                  </div>
+                </td></tr>
+              )}
+              {!loading && !error && !any && (
+                <tr><td colSpan={colCount} className="py-12 text-center text-muted-foreground">{empty ?? t("noData")}</td></tr>
+              )}
+            </tbody>
+          ) : groups ? groups.map(renderGroup) : <tbody>{rows.map(renderRow)}</tbody>}
         </table>
       </div>
     </Card>
   );
 }
 
-/** Collapsible groups, one table each, with a count (PMO GroupedListTable). `partial` adds "+" to counts when only
- *  part of the records is loaded (server mode, rule C1). */
-export function GroupedListTable<T>({ groups, partial, ...table }: Omit<ListTableProps<T>, "rows"> & { groups: RowGroup<T>[]; partial?: boolean }) {
-  const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
-  const toggle = (key: string) => setCollapsed((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
-  return (
-    <div className="space-y-3">
-      {groups.map((g) => {
-        const open = !collapsed.has(g.key);
-        return (
-          <div key={g.key} className="space-y-2">
-            <button type="button" onClick={() => toggle(g.key)} aria-expanded={open} className="flex w-full items-center gap-2 text-sm font-semibold text-foreground">
-              {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4 rtl:rotate-180" />}
-              <span>{g.label}</span>
-              <span className="rounded-full bg-muted px-2 text-xs font-normal text-muted-foreground">{g.rows.length}{partial ? "+" : ""}</span>
-            </button>
-            {open && <ListTable {...table} rows={g.rows} />}
-          </div>
-        );
-      })}
-    </div>
-  );
+/** Grouped display (PMO GroupedListTable): the same single table as `ListTable` with `groups`. */
+export function GroupedListTable<T>({ groups, partial, ...table }: Omit<ListTableProps<T>, "rows" | "groups"> & { groups: RowGroup<T>[]; partial?: boolean }) {
+  return <ListTable {...table} rows={[]} groups={groups} partial={partial} />;
 }

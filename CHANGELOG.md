@@ -7,6 +7,10 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 ## [Unreleased]
 
 ### Changed — after the 5.3 review
+- List View, grouped: all groups are sections of one table (a header row per group with collapse, count and the
+  group's select-all), so they share the header's column order and widths; the table scrolls horizontally inside its
+  card when narrow. The header's select-all covers the rows on screen (expanded groups). Was one table per group (PMO),
+  whose columns didn't line up. New message key `selectGroup`.
 - Buttons: the glass variants (default, secondary, outline, ghost, destructive) now use the DS Button's documented
   motion — 180 ms hover, 120 ms press (design_system `button.tsx`, v0.3.0) — instead of the glass engine's 0.4 s /
   0.16 s, which they had in Sear. Nothing else changes: an audit of every element's transition on the primitives,

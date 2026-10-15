@@ -1,0 +1,13 @@
+== grouped columns (node e2e/list-groups.mjs <playground>) — after
+✔ 1440px en grouped: 1 table(s), 10 rows in 4 groups + header, 0 column mismatches
+✔ 1440px en first group collapsed: 1 table(s), 7 rows in 3 groups + header, 0 column mismatches
+✔ 1440px ar grouped: 1 table(s), 10 rows in 4 groups + header, 0 column mismatches
+✔ 1440px ar first group collapsed: 1 table(s), 7 rows in 3 groups + header, 0 column mismatches
+✔ 390px en grouped: 1 table(s), 10 rows in 4 groups + header, 0 column mismatches
+✔ 390px en first group collapsed: 1 table(s), 7 rows in 3 groups + header, 0 column mismatches
+✔ 390px: the table scrolls inside its card (680 > 342 px; card ends at 366 ≤ 390 px)
+✔ every group shares the header's column layout
+
+== negative control: the same script on the 5.3 build (a table per group)
+✖ 1440px en grouped: 4 table(s) … 36 column mismatches (e.g. Name column 921.8 px in the header, 822.6 px in a group)
+✖ … every state ✖ (1440 en/ar, collapsed, 390 px) → exit 1

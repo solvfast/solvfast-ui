@@ -29,7 +29,7 @@ Source: **S** Sear only · **P** PMO only · **B** both, consolidated · **A** a
 | F16 | Value inputs: date picker, async link | P + A | glass `DateField` (YYYY-MM-DD); `loadOptions` with 300 ms debounce | ✅ tested |
 | F17 | Saved filters | B / X | one UI over `SavedFiltersStorage` (sync or async); localStorage default, per view and per user | ✅ tested (PMO's server DocType is an app adapter) |
 | F18 | Column manager | B + A | Sear's popover + drag reorder, keyboard up/down, locked columns, search above 10 columns | ✅ tested; parity except the intended Actions difference (below) |
-| F19 | Group-by | P + A | `groupByOptions`, `GroupByMenu`, collapsible groups with counts, empty group last | ✅ tested |
+| F19 | Group-by | P + A | `groupByOptions`, `GroupByMenu`, collapsible groups with counts, empty group last; all groups in one table, so they share the header's column order and widths (horizontal scroll when narrow) | ✅ tested (structure in unit tests; widths measured in the browser, `e2e/list-groups.mjs`) |
 | F20 | Row selection | P + A | `selectable`; rules C3 | ✅ tested |
 | F21 | Bulk action bar | A | `bulkActions` (`run(keys, rows)`) or `renderBulkActions` | ✅ tested |
 | F22 | Keyboard rows | P | rows focusable, Enter opens | ✅ tested |
@@ -85,6 +85,7 @@ Each fix has a test that fails when the old behaviour is put back (mutation chec
 | Search and text filters are debounced in server mode: one request per typing pause | a request per keystroke | both |
 | Selection is pruned when search or filters change | stale selections stayed and bulk actions acted on them | PMO `TaskList.tsx` |
 | Select-all in a group reflects that group | compared a group's rows with the whole selection | PMO `ListTable.tsx` |
+| Groups share one column layout (one table, a header row per group) | a separate table per group, so column widths differed from group to group | PMO `GroupedListTable.tsx` |
 | Filter value inputs keep their DOM node and focus while typing | declared inside render, remounted on every keystroke | PMO `AdvancedFilter.tsx` |
 | Condition ids never collide | the counter restarted on each mount | PMO `AdvancedFilter.tsx` |
 | Saved-filter storage failures reach the app (`onSavedFiltersError`) | swallowed | — (new adapter API) |

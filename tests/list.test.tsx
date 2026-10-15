@@ -54,7 +54,7 @@ function renderList(props: Partial<ListViewProps<Row>> = {}, lang: "en" | "ar" =
   const utils = render(<Wrap lang={lang}><ListView<Row> {...all} /></Wrap>);
   return { ...utils, rerenderList: (p: Partial<ListViewProps<Row>>) => utils.rerender(<Wrap lang={lang}><ListView<Row> {...all} {...p} /></Wrap>) };
 }
-const bodyRows = () => [...document.querySelectorAll<HTMLElement>("tbody tr")].filter((tr) => !tr.hasAttribute("aria-hidden") && tr.querySelectorAll("td").length > 1);
+const bodyRows = () => [...document.querySelectorAll<HTMLElement>("tbody tr")].filter((tr) => !tr.hasAttribute("aria-hidden") && !tr.hasAttribute("data-group-header") && tr.querySelectorAll("td").length > 1);
 const titles = () => bodyRows().map((tr) => tr.querySelector("td:not(:has([role=checkbox]))")?.textContent);
 const th = (name: string) => [...document.querySelectorAll("thead th")].find((h) => h.textContent?.trim() === name) as HTMLElement;
 const btn = (name: string | RegExp) => screen.getByRole("button", { name });
@@ -578,6 +578,43 @@ describe("F19 group-by and rule C1", () => {
     expect(bodyRows()).toHaveLength(3);
   });
 
+  it("all groups share one table: one header, every row's cells in the header's order (fix: PMO drew a table per group)", () => {
+    renderList({ groupByOptions: [BY_STATUS], columns: [COLUMNS[2], COLUMNS[0], COLUMNS[1]] });
+    pickMenu("Group by", "Status");
+    expect(document.querySelectorAll("table")).toHaveLength(1);
+    expect(document.querySelectorAll("thead")).toHaveLength(1);
+    expect([...document.querySelectorAll("tbody[data-group]")].map((b) => b.getAttribute("data-group"))).toEqual(["Done", "Open", "Working"]);
+    const header = [...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim());
+    expect(header).toEqual(["Points", "Title", "Status"]);
+    const check = () => {
+      for (const tr of bodyRows()) {
+        const row = ROWS.find((r) => r.title === tr.querySelectorAll("td")[header.indexOf("Title")].textContent)!;
+        expect(tr.querySelectorAll("td")).toHaveLength(header.length);
+        expect(tr.querySelectorAll("td")[header.indexOf("Status")].textContent).toBe(row.status);
+        expect(tr.closest("tbody")!.getAttribute("data-group")).toBe(row.status);
+      }
+    };
+    check();
+    // a column move applies to every group at once
+    fireEvent.click(btn("Columns"));
+    fireEvent.click(within(within(popover()).getByText("Status").closest("div")!).getByRole("button", { name: "Move up" }));
+    header.splice(0, header.length, ...[...document.querySelectorAll("thead th")].map((h) => h.textContent!.trim()));
+    expect(header).toEqual(["Points", "Status", "Title"]);
+    check();
+    expect(bodyRows()).toHaveLength(25);
+  });
+
+  it("C3 grouped: the header's select-all covers the rows on screen (expanded groups); each group has its own", () => {
+    renderList({ selectable: true, bulkActions: [{ key: "a", label: "A", run: () => {} }], groupByOptions: [BY_STATUS] });
+    pickMenu("Group by", "Status");
+    fireEvent.click(screen.getByRole("button", { name: /^Working/ })); // collapse Working (8)
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
+    expect(screen.getByRole("region").querySelector("[aria-live]")!.textContent).toBe("17 selected"); // Done 8 + Open 9
+    expect(screen.getByRole("checkbox", { name: "Select all in Working" }).getAttribute("data-state")).toBe("unchecked");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all in Working" })); // acts on the group even when collapsed
+    expect(screen.getByRole("region").querySelector("[aria-live]")!.textContent).toBe("25 selected");
+  });
+
   it("C1 client mode: grouping covers every row and turns paging off — negative control: ungrouped pages", () => {
     renderList({ groupByOptions: [BY_STATUS] });
     expect(bodyRows()).toHaveLength(20);
@@ -640,13 +677,13 @@ describe("F20 selection (rule C3) and F21 bulk actions", () => {
     expect(count()).toBe("20 selected");
     fireEvent.click(btn("Clear selection"));
     pickMenu("Group by", "Status");
-    const groupBox = (i: number) => screen.getAllByRole("checkbox", { name: "Select all" })[i];
-    fireEvent.click(groupBox(1)); // Open: 9 rows
+    const groupBox = (g: string) => screen.getByRole("checkbox", { name: `Select all in ${g}` });
+    fireEvent.click(groupBox("Open")); // Open: 9 rows
     expect(count()).toBe("9 selected");
-    expect(groupBox(1).getAttribute("data-state")).toBe("checked");
-    expect(groupBox(0).getAttribute("data-state")).toBe("unchecked");
-    fireEvent.click(groupBox(0)); // Done: 8
-    expect(groupBox(1).getAttribute("data-state")).toBe("checked");
+    expect(groupBox("Open").getAttribute("data-state")).toBe("checked");
+    expect(groupBox("Done").getAttribute("data-state")).toBe("unchecked");
+    fireEvent.click(groupBox("Done")); // Done: 8
+    expect(groupBox("Open").getAttribute("data-state")).toBe("checked");
     // PMO ListTable.tsx:38: `selected.length === rows.length` with a group's rows and the whole selection
     const pmoAllChecked = (groupRowsCount: number, selectedTotal: number) => groupRowsCount > 0 && selectedTotal === groupRowsCount;
     expect(pmoAllChecked(9, 17)).toBe(false); // Open fully selected, but PMO shows it unchecked
