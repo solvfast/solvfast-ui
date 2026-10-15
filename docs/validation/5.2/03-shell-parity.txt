@@ -1,0 +1,22 @@
+== shell parity vs Sear's StudioShell
+identical: 25   imperceptible(<=2/255): 4   different: 15   only-in-A: 0   only-in-B: 0
+  NEAR light-en__collapsed.png max delta 2/255 in box (12, 69, 54, 101)
+  NEAR light-en__nested.png max delta 2/255 in box (12, 145, 16, 181)
+  NEAR light-en__notifications-unread.png max delta 2/255 in box (12, 69, 16, 105)
+  NEAR light-en__notifications.png max delta 2/255 in box (12, 69, 16, 105)
+  DIFF dark-ar__mobile-more.png max delta 246/255 in box (0, 0, 390, 844)
+  DIFF dark-ar__nested.png max delta 40/255 in box (99, 11, 121, 26)
+  DIFF dark-ar__notifications-unread.png max delta 132/255 in box (0, 56, 360, 900)
+  DIFF dark-ar__notifications.png max delta 132/255 in box (0, 56, 360, 900)
+  DIFF dark-ar__switcher-current.png max delta 228/255 in box (1076, 62, 1385, 584)
+  DIFF dark-ar__switcher-sub.png max delta 212/255 in box (1065, 62, 1385, 150)
+  DIFF dark-ar__switcher.png max delta 211/255 in box (1236, 62, 1385, 150)
+  DIFF dark-en__notifications-unread.png max delta 103/255 in box (1080, 56, 1440, 900)
+  DIFF dark-en__notifications.png max delta 103/255 in box (1080, 56, 1440, 900)
+  DIFF dark-en__switcher-current.png max delta 228/255 in box (287, 573, 364, 584)
+  DIFF light-ar__mobile-more.png max delta 213/255 in box (0, 0, 390, 844)
+  DIFF light-ar__switcher-current.png max delta 226/255 in box (1076, 62, 1385, 584)
+  DIFF light-ar__switcher-sub.png max delta 226/255 in box (1065, 62, 1385, 150)
+  DIFF light-ar__switcher.png max delta 226/255 in box (1236, 62, 1385, 150)
+  DIFF light-en__switcher-current.png max delta 212/255 in box (287, 573, 364, 584)
+{}

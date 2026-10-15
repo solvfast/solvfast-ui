@@ -21,6 +21,10 @@ const pinned: Record<string, string> = {
   "src/sear-studio.css": "sear-studio.css", "src/index.css": "index.css", "tailwind.config.ts": "tailwind.config.ts",
   "src/sear_studio/components/DateTimeField.tsx": "DateTimeField.tsx", "src/sear_studio/lib/datetime.ts": "datetime.ts",
   "src/contexts/AppContext.tsx": "AppContext.tsx",
+  "src/sear_studio_app/StudioShell.tsx": "StudioShell.tsx", "src/sear_studio_app/SearStudioLayout.tsx": "SearStudioLayout.tsx",
+  "src/sear_studio/components/NotificationCenter.tsx": "NotificationCenter.tsx",
+  "src/sear_studio/pages/Notifications/notificationCenterStore.ts": "notificationCenterStore.ts",
+  "src/shared/injection/binaDropdown.js": "binaDropdown.js",
 };
 const sha = (f: string) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
 for (const [live, copy] of Object.entries(pinned)) {
@@ -37,6 +41,10 @@ const content = [
   path.join(repo, "playground/src/showcase/**/*.tsx"),
   path.join(DS_FE, "src/components/ui/**/*.tsx"),
   path.join(SEAR_FE, "src/sear_studio/components/DateTimeField.tsx"),
+  // the shell (increment 5.2)
+  path.join(SEAR_FE, "src/sear_studio_app/StudioShell.tsx"),
+  path.join(SEAR_FE, "src/sear_studio/components/NotificationCenter.tsx"),
+  path.join(SEAR_FE, "src/sear_studio/components/daleel/**/*.tsx"),
 ];
 
 export default defineConfig({
@@ -45,6 +53,8 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: "@ui", replacement: path.join(__dirname, "sear-ui.ts") },
+      // Sear's router (only Sear's shell uses it; the package has no router)
+      { find: /^react-router-dom$/, replacement: path.join(SEAR_FE, "node_modules/react-router-dom") },
       { find: /^@ds\//, replacement: path.join(DS_FE, "src") + "/" },
       { find: /^@sear\//, replacement: path.join(SEAR_FE, "src/sear_studio") + "/" },
       { find: /^@\//, replacement: path.join(SEAR_FE, "src") + "/" },

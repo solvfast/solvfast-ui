@@ -43,3 +43,37 @@ The documented 180/120 ms govern `ai-outline` (and Calendar's `text` day buttons
 the glass engine's own timings — **identical to Sear**: the engine's transition rule loads after Tailwind's duration
 utilities and wins, in Sear as in the package. Making 180/120 apply to glass buttons would change how every Sear
 button feels; left as a design decision.
+
+## 5.2 — app shell (2026-10-15)
+
+| Check | Command | Result |
+|---|---|---|
+| Type check, unit tests, build + boundaries | `npm run typecheck`, `npm test`, `npm run build` | pass — 20/20 tests (7 theme + 13 shell); core entry 36 modules, no `@tanstack/*` / Frappe |
+| Shell parity with Sear's real StudioShell | `node e2e/shell-parity.mjs <playground> <tools/parity>` | 30 identical of 44; the other **14 are the 4 intended bug fixes**, nothing else (`03b-shell-parity.txt`) |
+| Primitives parity (5.1 regression) | `e2e/run-parity.sh` | 51 identical + 1 at 1/255 of 52 |
+| Clean installs incl. the shell | `e2e/consumers/run.sh` | path A and path B: strict `tsc`, build, one React |
+| Path A vs path B — shell | shell-parity over the two consumer apps | 39 identical + 2 imperceptible + 3 small (see below) |
+| Path A vs path B — primitives | `e2e/parity.mjs` over the consumer apps | as in 5.1 (the two half-pixel sheet shots) |
+| Button motion | `node e2e/motion-check.mjs` | pass (unchanged) |
+
+Shell states compared (each in light/dark × en/ar): page, nested route (group open, child active), collapsed rail,
+collapsed-rail tooltip, app switcher, its "My Workspace" sub-menu, the current-app row, notifications (All, Unread),
+mobile bar, mobile "More" sheet.
+
+**The 14 intended differences** (before/after on the review page):
+1. Notification panel in dark mode (4 shots): glass, as in light mode — Sear's dark override made it opaque.
+2. App switcher in Arabic (6 shots): Arabic labels — Sear's were English-only.
+3. Current-app row (4 shots): highlighted — Sear's name comparison never matched.
+4. Mobile "More" sheet in Arabic (2 shots): opens on the right (start) edge — Sear's opened on the left.
+
+**Harness note.** The first shell runs injected a `<style>` after load (caret hiding). In path B that made the
+notification bell's glass re-render slightly differently (≤40/255 in a 13×26 px area) although every computed style
+over that area was identical; without the injection A and B match. The shell runner no longer injects styles.
+
+**Remaining path B differences (3 shots, ≤27/255, the bell's glass only).** One appears when the app switcher opens
+— Radix adds its scroll-lock style at runtime, the same "late stylesheet" trigger — and two mobile ones are ≤5/255.
+Computed styles are identical; path A is unaffected. Same engine-level family as the 5.1 half-pixel sheet; documented,
+not a CSS defect.
+
+**Transient.** One run showed `dark-ar__nested` differing at the bell (40/255); it did not reproduce in 3 + 3 isolated
+renders or in the next full run.

@@ -1,0 +1,7 @@
+== path A vs path B — shell (no late style injection)
+identical: 39   imperceptible(<=2/255): 2   different: 3   only-in-A: 0   only-in-B: 0
+  NEAR light-ar__collapsed.png max delta 2/255 in box (1385, 69, 1428, 101)
+  NEAR light-ar__mobile-more.png max delta 1/255 in box (88, 5, 126, 37)
+  DIFF dark-en__switcher.png max delta 27/255 in box (1320, 11, 1342, 37)
+  DIFF light-ar__mobile.png max delta 3/255 in box (88, 12, 113, 37)
+  DIFF light-en__mobile.png max delta 5/255 in box (278, 12, 302, 37)

@@ -6,6 +6,17 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+### Added — increment 5.2 (app shell)
+- `AppShell`, `Sidebar`, `Navbar`, `MobileNav`, `AppSwitcher`, `NotificationPanel` — Sear's StudioShell with its
+  navigation, routing, switcher sections, notifications, help and search supplied by the app; `NavItem` model with
+  any nesting depth; `relativeTime` / `timeGroup`; shell strings in Arabic and English.
+
+### Fixed — shell (relative to Sear)
+- Notification panel is glass in dark mode too (Sear's dark override made it opaque).
+- Mobile "More" sheet opens on the start edge in Arabic (Sear: the left edge).
+- The app switcher highlights the current app (Sear's name comparison never matched).
+- The top bar renders without a provider; app-switcher and shell labels are localized (Sear's were English-only).
+
 ### Added — increment 5.1 (foundation)
 - Core entry `@solvfast/ui`: `ThemeProvider` (`useTheme`, `useLocale`, `usePortalContainer`), `cn`, and 23 primitives
   vendored from the DS v0.3.0 with Sear's effective look (VENDORED.md), plus `DateField` / `TimeField` / `DateTimeField`.

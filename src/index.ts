@@ -57,3 +57,21 @@ export {
 } from "./primitives/sheet";
 export { Calendar } from "./primitives/calendar";
 export { DateField, TimeField, DateTimeField } from "./primitives/date-time-field";
+
+// App shell (Sear's StudioShell, made configurable — increment 5.2)
+export { AppShell } from "./shell/AppShell";
+export type { AppShellProps } from "./shell/AppShell";
+export { Navbar } from "./shell/Navbar";
+export type { NavbarProps, NavbarSearch } from "./shell/Navbar";
+export { Sidebar } from "./shell/Sidebar";
+export type { SidebarProps, ShellBrand } from "./shell/Sidebar";
+export { MobileNav } from "./shell/MobileNav";
+export type { MobileNavProps } from "./shell/MobileNav";
+export { AppSwitcher } from "./shell/AppSwitcher";
+export type { AppSwitcherProps, SwitcherApp, SwitcherSection } from "./shell/AppSwitcher";
+export { NotificationPanel } from "./shell/NotificationPanel";
+export type { NotificationPanelProps, NotificationItem } from "./shell/NotificationPanel";
+export { defaultIsActive, pathMatches, deepestActive, loc } from "./shell/nav";
+export type { NavItem, Localized, IsActive } from "./shell/nav";
+export { relativeTime, timeGroup } from "./lib/relative-time";
+export type { TimeGroup } from "./lib/relative-time";

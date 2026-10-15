@@ -1,0 +1,11 @@
+== typecheck
+OK
+== unit tests
+ ✓ tests/theme.test.tsx (7 tests) 133ms
+ ✓ tests/shell.test.tsx (13 tests) 355ms
+      Tests  20 passed (20)
+== build
+  full.css 78.7 kB · full-base 5.5 kB (Tailwind base rules re-scoped: 41); theme 13.5 · glass 11.2 · base 1.1 kB
+  core entry reaches 36 modules — none import @tanstack/* or the Frappe layer
+✔ boundaries OK
+✔ @solvfast/ui@0.0.0 built → dist/
