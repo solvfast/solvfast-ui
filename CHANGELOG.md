@@ -7,6 +7,8 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 ## [Unreleased]
 
 ### Changed — after the 5.3 review
+- List View on phones: the toolbar's buttons wrap instead of widening the page (Sear's list page was 506 px wide at
+  390 px, with its page action cut off). Desktop unchanged.
 - List View, grouped: all groups are sections of one table (a header row per group with collapse, count and the
   group's select-all), so they share the header's column order and widths; the table scrolls horizontally inside its
   card when narrow. The header's select-all covers the rows on screen (expanded groups). Was one table per group (PMO),

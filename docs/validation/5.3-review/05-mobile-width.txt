@@ -1,0 +1,19 @@
+== page width on phones (node e2e/list-mobile.mjs) — Sear's page (unchanged, negative control)
+✖ http://localhost:4802/ (default) 360px en: page 506px, table scrolls in its card
+✖ http://localhost:4802/ (default) 360px ar: page 496px, table scrolls in its card
+✖ http://localhost:4802/ (default) 390px en: page 506px, table scrolls in its card
+✖ http://localhost:4802/ (default) 390px ar: page 496px, table scrolls in its card
+✖ http://localhost:4802/&demo=features 360px en: page 506px, table scrolls in its card
+✖ http://localhost:4802/&demo=features 360px ar: page 496px, table scrolls in its card
+✖ http://localhost:4802/&demo=features 390px en: page 506px, table scrolls in its card
+✖ http://localhost:4802/&demo=features 390px ar: page 496px, table scrolls in its card
+
+== package, after
+✔ http://localhost:4801/ (default) 360px en: page 360px, table scrolls in its card
+✔ http://localhost:4801/ (default) 360px ar: page 360px, table scrolls in its card
+✔ http://localhost:4801/ (default) 390px en: page 390px, table scrolls in its card
+✔ http://localhost:4801/ (default) 390px ar: page 390px, table scrolls in its card
+✔ http://localhost:4801/&demo=features 360px en: page 360px, table scrolls in its card
+✔ http://localhost:4801/&demo=features 360px ar: page 360px, table scrolls in its card
+✔ http://localhost:4801/&demo=features 390px en: page 390px, table scrolls in its card
+✔ http://localhost:4801/&demo=features 390px ar: page 390px, table scrolls in its card

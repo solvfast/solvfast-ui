@@ -132,3 +132,9 @@ specificity over the engine, duration only) restores the documented values on el
 | Unit tests | `npm test` | 73/73 (2 new: one table / one header / cells in header order across groups, also after a column move; header select-all covers expanded groups, per-group select-all named per group). Both new tests fail against the 5.3 `ListTable` |
 | Column positions in the browser | `node e2e/list-groups.mjs <playground>` | every data row of every group matches the header's column left edge and width (±0.5 px): 1440 px en/ar, with a group collapsed, and 390 px, where the table scrolls inside its card. Negative control: the 5.3 build fails every state (36 mismatches) (`docs/validation/5.3-review/03-grouped-columns.txt`) |
 | Ungrouped list still matches Sear | `node e2e/list-parity.mjs` | 36/44, the same 8 intended Actions differences |
+
+### List toolbar on phones
+| Check | Command | Result |
+|---|---|---|
+| Page fits the screen | `node e2e/list-mobile.mjs <url>` | package: 8/8 (360 and 390 px × en/ar × default and every-option list), page width = viewport, table scrolls in its card. Sear's page (negative control): 506 px (en) / 496 px (ar) wide at 360–390 px |
+| List vs Sear | `node e2e/list-parity.mjs` | **32 identical of 44**; the 12 others are the two intentional differences: the 8 Actions shots and the 4 mobile shots (toolbar wraps). All 40 desktop shots are unchanged by this fix. Evidence: `docs/validation/5.3-review/mobile-toolbar/` |

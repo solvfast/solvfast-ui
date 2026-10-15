@@ -44,7 +44,7 @@ Source: **S** Sear only · **P** PMO only · **B** both, consolidated · **A** a
 | F31 | Frappe data mode (stock REST) | S | `@solvfast/ui/frappe` | ⏳ 5.4 |
 | F32 | Base filters | S | Frappe option | ⏳ 5.4 |
 | F33 | Metadata (`in_list_view`, `in_standard_filter`, `title_field`, standard fields ID / Created On / Last Updated) | S | Frappe entry | ⏳ 5.4 |
-| F34 | Responsive and RTL | B | horizontal scroll inside the card; logical properties | ✅ parity (mobile + Arabic shots) |
+| F34 | Responsive and RTL | B | horizontal scroll inside the card; toolbar buttons wrap on phones; logical properties | ✅ `e2e/list-mobile.mjs` (page fits 360/390 px, en/ar); Arabic parity shots |
 | F35 | i18n | A | list messages in ar/en, overridable through `ThemeProvider` messages | ✅ tested |
 | F36 | Save-filter feedback | A | `onFilterSaved(filter)`, `onSavedFiltersError(error, action)` | ✅ tested |
 | F37 | Permission gating | X | the app passes `selectable`, `bulkActions`, `rowActions` per permission | — |
@@ -53,12 +53,18 @@ Source: **S** Sear only · **P** PMO only · **B** both, consolidated · **A** a
 | F40 | Per-DocType custom endpoints | X | stock REST | — |
 | F41 | Visual look | S | Sear is the reference | ✅ parity (docs/VALIDATION.md) |
 
-## Intentional visual difference from Sear
+## Intentional visual differences from Sear
 
 Row actions are a fixed last column, separate from the data columns: not sortable, filterable, hideable or
 reorderable. Sear's Field Library modelled them as an ordinary `actions` field, so 8 of the 44 list-parity
 screenshots differ (column manager open, and the column order after showing a hidden column, in light/dark × en/ar);
 the other 36 are pixel-identical. Evidence: `docs/validation/5.3/actions-column/`.
+
+On phones the toolbar's buttons wrap onto a second line instead of making the page wider than the screen (Sear's
+page was 506 px wide at 390 px, cutting off its "Create" button, and shifted in Arabic). Desktop is unchanged; the 4
+mobile parity shots differ. Evidence: `docs/validation/5.3-review/mobile-toolbar/`.
+
+With both, the list matches Sear in **32 of 44** parity screenshots; the other 12 are these two differences.
 
 ## Behaviour rules
 
@@ -85,6 +91,7 @@ Each fix has a test that fails when the old behaviour is put back (mutation chec
 | Search and text filters are debounced in server mode: one request per typing pause | a request per keystroke | both |
 | Selection is pruned when search or filters change | stale selections stayed and bulk actions acted on them | PMO `TaskList.tsx` |
 | Select-all in a group reflects that group | compared a group's rows with the whole selection | PMO `ListTable.tsx` |
+| On phones the toolbar wraps and the page fits the screen | wider than the screen; the page action was cut off | Sear DataGrid toolbar |
 | Groups share one column layout (one table, a header row per group) | a separate table per group, so column widths differed from group to group | PMO `GroupedListTable.tsx` |
 | Filter value inputs keep their DOM node and focus while typing | declared inside render, remounted on every keystroke | PMO `AdvancedFilter.tsx` |
 | Condition ids never collide | the counter restarted on each mount | PMO `AdvancedFilter.tsx` |

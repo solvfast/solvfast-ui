@@ -136,7 +136,9 @@ export function ListView<T>(props: ListViewProps<T>) {
           </div>
         )}
         <QuickFilters fields={s.filterFields} shown={s.quickFields} onShownChange={s.setQuickFields} customizable={c.quickFiltersCustomizable} query={s.query} onChange={s.setQuery} />
-        <div className="ms-auto flex items-center gap-2">
+        {/* Sear's group with `flex-wrap justify-end`: on a phone its buttons wrap instead of widening the page (Sear's
+            list page was 506 px wide at 390 px). One line wherever they fit, as in Sear. */}
+        <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
           {c.savedFilters && s.canSave && <SavedFilters saved={s.saved} activeCount={s.activeCount} onApply={s.applySaved} onSave={s.saveCurrent} onDelete={s.removeSaved} />}
           {c.filter && <FilterBuilder fields={s.filterFields} query={s.query} onChange={s.setQuery} activeCount={s.activeCount} loadOptions={loadOptions} />}
           {s.groupByOptions.length > 0 && <GroupByMenu options={s.groupByOptions} value={s.groupBy} onChange={s.setGroupBy} />}
