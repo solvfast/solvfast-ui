@@ -1,0 +1,351 @@
+/* ==========================================================================
+   GLASS DS — 02. MATERIAL ENGINE
+   The glass "look" is not a background. It is a stack of inset shadows that
+   fake a thick, bevelled pane: a hairline rim, two specular edges (top-left
+   catches light, bottom-right catches bounce), a soft inner falloff, and the
+   dark side-walls of the bevel. Then, and only then, a blurred backdrop.
+
+   Every layer is expressed as a mix between --c-light / --c-dark and
+   transparent, multiplied by the theme's reflex strength. That is what lets
+   one recipe survive light, dark and tinted themes.
+   ========================================================================== */
+
+/* ── REFLEX RAMP ──────────────────────────────────────────────────────────
+   Pre-mixed steps so the shadow recipes below stay readable. Declared on
+   :root *and* .glass so a component can locally override --glass-reflex-*
+   (e.g. a dark chip inside a light theme) and have the ramp follow it.     */
+:root,
+.glass,
+.glass-pane {
+  --gl-10: color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 10%), transparent);
+  --gl-60: color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 60%), transparent);
+  --gl-80: color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 80%), transparent);
+  --gl-90: color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 90%), transparent);
+
+  --gd-08: color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 8%), transparent);
+  --gd-10: color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 10%), transparent);
+  --gd-12: color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 12%), transparent);
+  --gd-20: color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 20%), transparent);
+  --gd-22: color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 22%), transparent);
+  --gd-30: color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 30%), transparent);
+}
+
+/* ── BEVEL RECIPES ───────────────────────────────────────────────────────
+   Three grades. The offsets are tuned to the physical size of the element,
+   not scaled arbitrarily — a 28px chip and a 400px card need different
+   bevel geometry to read as the same thickness of glass.                   */
+:root,
+.glass {
+  /* sm — chips, toggles, thumbs, anything under ~40px tall */
+  --glass-bevel-sm:
+    inset 0 0 0 1px var(--gl-10),
+    inset 1.4px 1px 0 -1px var(--gl-90),
+    inset -1.4px -1px 0 -1px var(--gl-80),
+    inset -2px -5px 1px -4px var(--gl-60),
+    inset -0.2px -0.6px 2px 0 var(--gd-12),
+    inset -1px 1.6px 0 -1px var(--gd-20),
+    inset 0 2px 3px -1.5px var(--gd-20),
+    inset 1.4px -3.5px 1px -3px var(--gd-10);
+
+  /* md — buttons, inputs, bars, pills. The workhorse. */
+  --glass-bevel-md:
+    inset 0 0 0 1px var(--gl-10),
+    inset 1.8px 3px 0 -2px var(--gl-90),
+    inset -2px -2px 0 -2px var(--gl-80),
+    inset -3px -8px 1px -6px var(--gl-60),
+    inset -0.3px -1px 4px 0 var(--gd-12),
+    inset -1.5px 2.5px 0 -2px var(--gd-20),
+    inset 0 3px 4px -2px var(--gd-20),
+    inset 2px -6.5px 1px -4px var(--gd-10);
+
+  /* lg — cards, sheets, dialogs, panels */
+  --glass-bevel-lg:
+    inset 0 0 0 1px var(--gl-10),
+    inset 2.6px 4.4px 0 -3px var(--gl-90),
+    inset -3px -3px 0 -3px var(--gl-80),
+    inset -5px -13px 2px -10px var(--gl-60),
+    inset -0.5px -1.6px 7px 0 var(--gd-12),
+    inset -2.4px 4px 0 -3px var(--gd-20),
+    inset 0 5px 7px -3px var(--gd-20),
+    inset 3.2px -10px 2px -6px var(--gd-10);
+
+  /* ── CAST SHADOW / ELEVATION ─────────────────────────────────────────── */
+  --glass-lift-0: 0 0 0 0 transparent;
+  --glass-lift-1: 0 1px 3px 0 var(--gd-10), 0 3px 8px 0 var(--gd-08);
+  --glass-lift-2: 0 1px 5px 0 var(--gd-10), 0 6px 16px 0 var(--gd-08);
+  --glass-lift-3: 0 2px 8px 0 var(--gd-10), 0 14px 34px 0 var(--gd-10);
+  --glass-lift-4: 0 4px 14px 0 var(--gd-12), 0 28px 64px 0 var(--gd-12);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE .glass PRIMITIVE
+   Put this on anything. Tune with --glass-tint / --glass-blur / the
+   --glass-bevel + --glass-lift pair.
+   ══════════════════════════════════════════════════════════════════════════ */
+.glass {
+  --_bevel: var(--glass-bevel-md);
+  --_lift: var(--glass-lift-2);
+
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--_bevel), var(--_lift);
+  border: none;
+  transition:
+    background-color var(--t-slow) var(--ease-glass),
+    box-shadow var(--t-slow) var(--ease-glass),
+    translate var(--t-base) var(--ease-out),
+    scale var(--t-base) var(--ease-out);
+}
+
+/* Bevel grade */
+.glass--sm { --_bevel: var(--glass-bevel-sm); }
+.glass--md { --_bevel: var(--glass-bevel-md); }
+.glass--lg { --_bevel: var(--glass-bevel-lg); }
+
+/* Elevation */
+.glass--flat     { --_lift: var(--glass-lift-0); }
+.glass--raised   { --_lift: var(--glass-lift-1); }
+.glass--floating { --_lift: var(--glass-lift-3); }
+.glass--lifted   { --_lift: var(--glass-lift-4); }
+
+/* Frost depth */
+.glass--clear { --glass-blur: 2px;  --glass-tint: 7%;  }
+.glass--frost { --glass-blur: 12px; --glass-tint: 18%; }
+.glass--solid { --glass-blur: 18px; --glass-tint: 34%; }
+
+/* Colour-cast glass — the pane borrows a semantic hue instead of neutral */
+.glass--action   { --c-glass: var(--c-action);   --glass-tint: 22%; }
+.glass--positive { --c-glass: var(--c-positive); --glass-tint: 22%; }
+.glass--warning  { --c-glass: var(--c-warning);  --glass-tint: 22%; }
+.glass--negative { --c-glass: var(--c-negative); --glass-tint: 22%; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE .glass-pane PRIMITIVE — CONTAINER TIER
+   Flat glass. No bevel: one crisp rim, a crown highlight along the top edge,
+   an optional coloured glow, and a soft cast.
+
+   The rule that keeps the system coherent: a container must not compete with
+   what it contains. Panes are flat so the liquid, bevelled .glass controls
+   sitting inside them are the only thing with depth. Nesting a pane inside a
+   pane is fine; nesting .glass inside .glass rarely is.
+   ══════════════════════════════════════════════════════════════════════════ */
+.glass-pane {
+  --pane-tint: 26%;
+  --pane-blur: 12px;
+  --pane-refraction: 1.2;
+
+  /* Rim + crown. --c-rim flips per theme: dark grounds define an edge with
+     light, light grounds define it with ink. A white rim on white glass is
+     an invisible border, which is why this is not just --c-light. */
+  --pane-rim: color-mix(in srgb, var(--c-rim) calc(var(--rim-alpha) * 100%), transparent);
+  --pane-crown: color-mix(in srgb, var(--c-light) calc(var(--crown-alpha) * 100%), transparent);
+  --pane-cast: 0 8px 24px -8px var(--gd-22);
+
+  /* Glow ring + halo. Transparent by default — opt in per pane. */
+  --pane-glow: transparent;
+  --pane-glow-ring: transparent;
+
+  /* Hover sheen */
+  --gh-rgba: var(--gl-10);
+  --gh-angle: -35deg;
+  --gh-duration: 700ms;
+  --gh-size: 280%;
+
+  position: relative;
+  isolation: isolate;
+  border: none;
+  /* DEVIATION from vendored DS: radius stays with the consumer (Cards use rounded-[20px],
+     bars use 0). An unlayered var(--r-md) here would beat the consumer's Tailwind rounded-*. */
+  background: color-mix(in srgb, var(--c-glass) var(--pane-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+  backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+  box-shadow:
+    inset 0 1px 0 var(--pane-crown),
+    inset 0 0 0 1px var(--pane-rim),
+    0 0 0 1px var(--pane-glow-ring),
+    var(--pane-cast),
+    0 8px 28px -8px var(--pane-glow);
+  transition:
+    background-color var(--t-slow) var(--ease-glass),
+    box-shadow var(--t-base) var(--ease-out),
+    translate var(--t-base) var(--ease-out);
+}
+
+/* Tint depth */
+.glass-pane--airy  { --pane-tint: 6%;  --pane-blur: 8px; }
+.glass-pane--clear { --pane-tint: 14%; --pane-blur: 8px; }
+.glass-pane--frost { --pane-tint: 36%; --pane-blur: 16px; }
+
+/* Elevation */
+.glass-pane--flat  { --pane-cast: 0 1px 2px 0 var(--gd-10); }
+.glass-pane--raise { --pane-cast: 0 14px 34px -10px var(--gd-30); }
+
+/* ── GLOWING BORDERS ─────────────────────────────────────────────────────
+   The ring is what reads as "glowing border"; the halo is what makes it
+   glow rather than just outline. Both derive from one semantic colour.    */
+.glass-pane--glow {
+  --pane-rim: color-mix(in srgb, var(--c-glow) 34%, transparent);
+  --pane-glow-ring: color-mix(in srgb, var(--c-glow) 26%, transparent);
+  --pane-glow: color-mix(in srgb, var(--c-glow) 48%, transparent);
+}
+.glass-pane--glow-action   { --c-glow: var(--c-action); }
+.glass-pane--glow-positive { --c-glow: var(--c-positive); }
+.glass-pane--glow-warning  { --c-glow: var(--c-warning); }
+.glass-pane--glow-negative { --c-glow: var(--c-negative); }
+
+/* ── HOVER SHEEN ─────────────────────────────────────────────────────────
+   A diagonal band swept across the pane by moving its background-position.
+   No overflow:hidden needed — backgrounds already clip to the border box,
+   so panes can still emit tooltips and popovers past their edge.          */
+.glass-pane--sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: linear-gradient(
+    var(--gh-angle),
+    transparent 40%,
+    var(--gh-rgba) 50%,
+    transparent 60%
+  );
+  background-repeat: no-repeat;
+  background-size: var(--gh-size) var(--gh-size);
+  background-position: 220% 0;
+  transition: background-position var(--gh-duration) ease;
+}
+.glass-pane--sheen:hover::after,
+.glass-pane--sheen:focus-within::after {
+  background-position: -120% 0;
+}
+
+/* ── INTERACTION ─────────────────────────────────────────────────────────
+   Panes rise; they do not compress. Compression is a control gesture and
+   belongs to .glass--interactive.                                          */
+.glass-pane--interactive {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.glass-pane--interactive:hover {
+  --pane-tint: 34%;
+  --pane-cast: 0 14px 34px -10px var(--gd-30);
+  --pane-rim: color-mix(in srgb, var(--c-rim) calc(var(--rim-alpha) * 170%), transparent);
+  translate: 0 -2px;
+}
+.glass-pane--interactive:active { translate: 0 0; transition-duration: var(--t-fast); }
+
+/* ── REFRACTION (progressive enhancement) ─────────────────────────────────
+   Real liquid glass bends what is behind it at the rim. That needs an SVG
+   displacement map in backdrop-filter, which today only Chromium honours —
+   so js/glass.js sets data-refract="on" only where it actually renders.
+   Everything above already looks like glass without it.                     */
+:root[data-refract="on"] .glass--refract {
+  -webkit-backdrop-filter: blur(var(--glass-blur)) url(#glass-refraction) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) url(#glass-refraction) saturate(var(--saturation));
+}
+:root[data-refract="on"] .glass--refract-strong {
+  -webkit-backdrop-filter: blur(var(--glass-blur)) url(#glass-refraction-strong) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) url(#glass-refraction-strong) saturate(var(--saturation));
+}
+
+/* Panes read their blur and saturation from the pane knobs, so they need
+   their own pairing rather than inheriting the .glass values. */
+:root[data-refract="on"] .glass-pane.glass--refract {
+  -webkit-backdrop-filter: blur(var(--pane-blur)) url(#glass-refraction) saturate(calc(var(--pane-refraction) * 130%));
+  backdrop-filter: blur(var(--pane-blur)) url(#glass-refraction) saturate(calc(var(--pane-refraction) * 130%));
+}
+
+/* The filter host — present in the DOM, never visible, never focusable. */
+.glass-filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── INTERACTION ─────────────────────────────────────────────────────────
+   Glass reacts by gaining tint and rising, then compressing on press. The
+   bevel stays put — thickness does not change when you touch something.    */
+.glass--interactive {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.glass--interactive:hover {
+  --glass-tint: 20%;
+  --_lift: var(--glass-lift-3);
+}
+.glass--interactive:active {
+  --glass-tint: 26%;
+  --_lift: var(--glass-lift-1);
+  scale: 0.985;
+  transition-duration: var(--t-fast);
+}
+
+/* ── FOCUS ───────────────────────────────────────────────────────────────
+   One ring, everywhere, always visible on both light and dark glass.       */
+.glass:focus-visible,
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+/* ── DISABLED ────────────────────────────────────────────────────────────
+   Glass goes inert: no reflex, no lift, no backdrop punch.                 */
+.glass:disabled,
+.glass[aria-disabled="true"],
+.glass[data-disabled] {
+  --glass-reflex-light: 0.25;
+  --glass-reflex-dark: 0.4;
+  --_lift: var(--glass-lift-0);
+  --saturation: 100%;
+  opacity: 0.55;
+  cursor: not-allowed;
+  scale: 1;
+  pointer-events: none;
+}
+
+/* ── ACCESSIBILITY FALLBACKS ─────────────────────────────────────────────── */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background-color: color-mix(in srgb, var(--c-glass) 62%, var(--c-bg)); }
+  .glass-pane { background: color-mix(in srgb, var(--c-glass) 70%, var(--c-bg)); }
+}
+
+@media (prefers-contrast: more) {
+  .glass {
+    --glass-tint: 55%;
+    outline: 1px solid var(--c-content-3);
+    outline-offset: -1px;
+  }
+  .glass-pane {
+    --pane-tint: 62%;
+    --rim-alpha: 0.55;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    --glass-blur: 0px;
+    background-color: color-mix(in srgb, var(--c-glass) 70%, var(--c-bg));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .glass-pane {
+    background: color-mix(in srgb, var(--c-glass) 78%, var(--c-bg));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .glass-pane--sheen::after { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,6 @@
+== path A (Tailwind) vs path B (precompiled)
+identical: 48   imperceptible(<=2/255): 2   different: 2   only-in-A: 0   only-in-B: 0
+  NEAR dark-ar__desktop__popover.png max delta 2/255 in box (832, 351, 835, 387)
+  NEAR dark-en__desktop__sheet.png max delta 1/255 in box (117, 77, 414, 79)
+  DIFF dark-en__mobile__sheet.png max delta 126/255 in box (185, 0, 390, 844)
+  DIFF light-en__mobile__sheet.png max delta 82/255 in box (185, 0, 390, 844)

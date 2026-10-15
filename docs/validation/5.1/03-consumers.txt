@@ -1,0 +1,8 @@
+== consumer a
+  tsc OK
+  build OK
+  react copies: 1
+== consumer b
+  tsc OK
+  build OK
+  react copies: 1

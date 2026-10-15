@@ -1,0 +1,465 @@
+/*
+ * Sear Studio design tokens — ported from ServeFast's src/index.css.
+ *
+ * SCOPED under `.sear-studio` so the ServeFast palette/keyframes/utilities do NOT
+ * leak into the existing client_s_ia screens (Entry / Workspace / Accounts).
+ *
+ * Mapping from ServeFast:
+ *   :root   -> .sear-studio
+ *   .dark   -> .sear-studio.dark, .dark .sear-studio
+ */
+
+@font-face {
+  font-family: 'Agency';
+  src: url('/fonts/agency.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Studio accent vars only — the CORE palette (background/foreground/card/primary/…)
+ * intentionally falls through to sear_product's own theme tokens in index.css so the
+ * studio adopts OUR colors. Only the studio's decorative gradient accents + sidebar
+ * mappings are (re)defined here. */
+@layer base {
+  .sear-studio {
+    /* Brand accents tuned to the Design System palette so the studio's brand-* utilities
+       resolve to the SAME colours the code used to hardcode (#FE4E18, #11BF9D, #25D0FE,
+       #00264C). --brand-violet is deliberately NOT redefined here: it inherits the DS
+       :root/.dark value (#512195 light), which is what the hex literals used. */
+    --brand-flame: 14 99% 55%;    /* #FE4E18 — DS flame orange */
+    --brand-orange: 14 99% 55%;
+    --brand-purple: var(--brand-violet);
+    --brand-sky: 193 99% 57%;     /* #25D0FE — DS sky blue */
+    --brand-teal: 168 84% 41%;    /* #11BF9D — DS teal turquoise */
+    --brand-cyan: 193 99% 57%;
+    --brand-midnight: 210 100% 15%; /* #00264C — DS midnight blue */
+    --brand-forest: 174 41% 13%;
+    --gradient-flame-violet: linear-gradient(135deg, hsl(var(--brand-flame)), hsl(var(--brand-violet)));
+    --gradient-violet-sky: linear-gradient(135deg, hsl(var(--brand-violet)), hsl(var(--brand-sky)));
+    --sidebar-background: var(--card);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-border: var(--border);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--accent-foreground);
+    --sidebar-ring: var(--ring);
+  }
+  /* Dark mode needs no brand overrides: --brand-violet comes from the DS .dark block
+     (lightened for contrast) and the gradients are built from the vars above. */
+}
+
+
+@layer base {
+  /* Apply ServeFast base typography/colors only within the scope. */
+  .sear-studio {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    /* font-family: 'Zain', sans-serif; */
+  }
+  .sear-studio * {
+    border-color: hsl(var(--border));
+  }
+}
+
+@layer utilities {
+  .sear-studio .glass-morphism {
+    background: hsl(0 0% 100% / 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .dark .sear-studio .glass-morphism,
+  .sear-studio.dark .glass-morphism {
+    background: hsl(0 0% 8% / 0.6);
+  }
+  .font-agency {
+    font-family: 'Agency', sans-serif;
+  }
+  .sear-studio .bg-gradient-flame-violet {
+    background-image: var(--gradient-flame-violet);
+  }
+  .sear-studio .bg-gradient-violet-sky {
+    background-image: var(--gradient-violet-sky);
+  }
+  .sear-studio .text-gradient-flame-violet {
+    background-image: var(--gradient-flame-violet);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  /* Brand-gradient border helper for controls that explicitly opt in. */
+  .sear-studio .gradient-border-hover {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(hsl(var(--popover)), hsl(var(--popover))) padding-box,
+      linear-gradient(135deg, hsl(var(--brand-flame) / 0.6), hsl(var(--brand-violet) / 0.6)) border-box;
+    background-clip: padding-box, border-box;
+  }
+
+  .sear-studio .gradient-border-hover-target {
+    border: 1px solid transparent;
+    background-color: transparent;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .sear-studio .gradient-border-hover-target:hover,
+  .sear-studio .gradient-border-hover-target:focus,
+  .sear-studio .gradient-border-hover-target[data-highlighted],
+  .sear-studio .gradient-border-hover-target[data-active="true"],
+  .sear-studio .gradient-border-hover-target[data-state="checked"] {
+    background: linear-gradient(135deg, hsl(var(--brand-flame) / 0.10), hsl(var(--brand-violet) / 0.14)) !important;
+    color: hsl(var(--foreground)) !important;
+    border-color: transparent !important;
+  }
+
+  .sear-studio .gradient-trigger {
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+  .sear-studio .gradient-trigger:hover,
+  .sear-studio .gradient-trigger[data-state="open"] {
+    border: 1px solid transparent !important;
+    background:
+      linear-gradient(hsl(var(--background)), hsl(var(--background))) padding-box,
+      linear-gradient(135deg, hsl(var(--brand-flame)), hsl(var(--brand-violet))) border-box !important;
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .sear-studio .glass-card {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.4);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+
+  .sear-studio .senaiy-gradient-text {
+    background: linear-gradient(135deg, #fe4e18, #512195);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .sear-studio .senaiy-btn-filled {
+    background: linear-gradient(135deg, #fe4e18, #512195);
+    border: 0;
+  }
+  .sear-studio .senaiy-btn-filled:hover { opacity: 0.92; }
+  .sear-studio .senaiy-btn-outline {
+    border-color: color-mix(in oklab, #512195 35%, transparent);
+  }
+  .sear-studio .senaiy-btn-outline:hover {
+    background: color-mix(in oklab, #512195 8%, transparent);
+  }
+}
+
+@layer utilities {
+  .transition-smooth { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+}
+
+/* ── DS AdvancedFilter: "Add filter" colour ───────────────────────────────────
+   The Design System hardcodes this action as `text-info` (Sky Blue) in
+   design_system/.../components/data-grid/AdvancedFilter.tsx:102. Measured on the live
+   popover surface that is 1.75:1 — far below the DS's own stated 4.5:1 body-text rule.
+
+   We use the theme primary instead: Deep Violet in light, Flame in dark, i.e. the same
+   colour every other action in the product uses, and it follows the theme flip.
+
+   Scoping notes:
+   · The filter popover is rendered through a Radix portal to <body>, so it sits OUTSIDE
+     the `.sear-studio` wrapper and cannot be scoped under it.
+   · `button.text-info` is safe as a global hook: Sear's own source uses `text-info`
+     ZERO times (only bg-/border-/ring-info), so this can only match the DS filter action.
+   · Left unlayered on purpose — unlayered rules beat Tailwind's `@layer utilities`,
+     so this wins over `.text-info` without needing `!important`.
+   · This overrides a DS component from outside. It is deliberate and user-requested;
+     the underlying fix belongs upstream in the Design System. */
+button.text-info {
+  color: hsl(var(--primary));
+}
+
+/* ── Popovers & dropdown menus: liquid `.glass` instead of the pane tier ──────
+   The DS gives PopoverContent `aurora-bar glass-elevated glass-flush`
+   (popover.tsx:22) and DropdownMenuContent `glass-elevated glass-flush`
+   (dropdown-menu.tsx:50). `.aurora-bar` (index.css:734) also paints three radial gradients
+   (violet / flame / sky) and swaps the glass tint for an opaque background, which is why the
+   DataGrid's Filter / Saved / Columns popovers looked like coloured gradient panels while the
+   menus looked flat.
+
+   Per request, BOTH surfaces now use the LIQUID `.glass` treatment (engine.css:85) rather than
+   the flat `.glass-elevated` pane: bevel + lift + the liquid tint/blur. The gradient is removed.
+
+   ⚠️ This is a deliberate deviation from the DS. Its integration rule (StyleGuide.tsx:4343)
+   assigns "menus, popovers & drawers → .glass-elevated", i.e. the flat pane tier, precisely so
+   a container does not compete with the liquid controls inside it (engine.css:125 — "nesting
+   .glass inside .glass rarely is" correct). Requested knowingly; the upstream-consistent choice
+   would be to keep `.glass-elevated` and only drop `aurora-bar`.
+
+   Scoping notes:
+   · Restricted to `[data-radix-popper-content-wrapper]` — portaled popper surfaces only.
+     Dialogs (`.lg-surface.aurora-bar`) and drawers are untouched.
+   · The ancestor also lifts specificity above the DS rules, needed because sear-studio.css is
+     @imported BEFORE the DS token layer. */
+/* `.glass-flush` is on BOTH PopoverContent and DropdownMenuContent, and lifts this to
+   (0,3,0) so it beats the DS `.glass-elevated.aurora-bar` rule at (0,2,0). Without it the
+   two tie and the DS wins on source order, leaving the gradient in place. */
+[data-radix-popper-content-wrapper] .glass-elevated.glass-flush {
+  --_bevel: var(--glass-bevel-md);
+  --_lift: var(--glass-lift-2);
+  background-image: none;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--_bevel), var(--_lift);
+  border: none;
+}
+
+/* ── Keep the glass on small screens ──────────────────────────────────────────
+   The DS force-disables backdrop-blur below 640px for every pane tier
+   (glass.css:148) — a performance guard for persistent bars on phones. That made the
+   mobile bottom nav, the nav Sheet and dialogs render as flat solid surfaces while
+   everything else stayed glassy. Per request we restore the glass there.
+
+   What is deliberately NOT overridden — these remain genuine fallbacks:
+   · `@supports not (backdrop-filter)` — hence the @supports guard below; without blur a
+     translucent background would just look washed out.
+   · `prefers-reduced-transparency: reduce` — hence `no-preference`; a user who asks for
+     less transparency still gets the solid surface.
+   · `prefers-contrast: more` and `prefers-reduced-motion` are untouched.
+
+   Specificity note: the DS rule is (0,1,0) and `glass.css` loads AFTER this file, so an
+   equal-specificity rule would lose. The doubled class selectors give (0,2,0) and win,
+   without needing !important. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (max-width: 640px) and (prefers-reduced-transparency: no-preference) {
+    .glass-subtle.glass-subtle,
+    .glass-elevated.glass-elevated,
+    .glass-premium.glass-premium,
+    .glass-bar.glass-bar,
+    .lg-surface.lg-surface {
+      background: color-mix(in srgb, var(--c-glass) var(--pane-tint), transparent);
+      -webkit-backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+      backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+    }
+  }
+}
+
+/* ── Form-builder field grid: collapse when the canvas is narrow ──────────────
+   The Field-Library preview renders a section in its authored 2–3 column layout. When the
+   canvas shrinks (the field properties panel opens) each field drops to ~97px, leaving ~73px
+   of usable width — far less than its own placeholder needs (measured: "name@example.com"
+   requires 134px at 14px). Shrinking the font does not close that gap, so the grid collapses
+   to one column instead and the authored layout returns once there is room.
+
+   Uses native CSS container queries (no Tailwind plugin needed). `!important` is required to
+   override the `grid-cols-*` and `col-start-*` utilities on the same elements. */
+.sear-fieldgrid-host { container-type: inline-size; }
+
+@container (max-width: 420px) {
+  .sear-fieldgrid { grid-template-columns: 1fr !important; }
+  .sear-fieldgrid > * { grid-column: auto !important; }
+}
+
+/* Section row — same reasoning one level up. `md:grid-cols-6` keys off the viewport, but the
+   builder canvas is far narrower (sidebar + properties panel), so two half-width sections could
+   end up ~176px each. Collapse the row to one section until the canvas can carry them. */
+.sear-sectionrow-host { container-type: inline-size; }
+
+@container (max-width: 680px) {
+  .sear-sectionrow { grid-template-columns: 1fr !important; }
+  .sear-sectionrow > * { grid-column: auto !important; }
+}
+
+/* ── Date picker calendar: let the popover's glass through ────────────────────
+   The DS Calendar root carries `aurora-bar !rounded-none` (calendar.tsx:32), so inside a
+   Popover it paints an OPAQUE gradient panel with square corners on top of the already
+   glassy, 16px-rounded PopoverContent. Measured in the date picker: popover = 12% glass /
+   16px radius, calendar = rgb(249,249,251) / gradient / 0px radius.
+
+   Making the calendar transparent lets the popover surface show through, and matching the
+   radius keeps the corners clean. Applies to the date-only, time and date+time pickers,
+   which all render the same Calendar inside a PopoverContent.
+
+   `!important` is required: `!rounded-none` is itself `border-radius: 0 !important`, so only
+   an !important declaration at higher specificity can win. */
+[data-radix-popper-content-wrapper] .rdp-root {
+  background-image: none !important;
+  background-color: transparent !important;
+  border-radius: 1rem !important;
+}
+
+/* ── Opt-in glassy dialog (no aurora gradient) ────────────────────────────────
+   The DS gives every DialogContent `aurora-bar lg-surface` (dialog.tsx:41). `.aurora-bar`
+   (index.css:734) paints three radial gradients over an OPAQUE background-color, so a
+   dialog reads as a coloured gradient panel rather than glass. The popover/menu block
+   above already swaps that for the liquid `.glass` treatment; this does the same for
+   dialogs that opt in, keeping the two surfaces consistent.
+
+   Opt-in by marker class rather than a blanket `.lg-surface` override, because the DS
+   assigns dialogs their own tier on purpose and only the surfaces the user asked about
+   should move. Currently used by: ConnectorDetailsDialog.
+
+   The DS rule is `.lg-surface.aurora-bar` at (0,2,0), so the marker is doubled AND paired
+   with `.lg-surface` to reach (0,3,0). An equal-specificity (0,2,0) selector is NOT enough:
+   sear-studio.css is @imported BEFORE the DS token layer, so a tie loses on source order —
+   the same trap as the popover rule above. */
+.sear-glass-dialog.sear-glass-dialog.lg-surface {
+  background-image: none;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--glass-bevel-md), var(--glass-lift-2);
+  border: none;
+}
+
+/* ── Senaiy chat sheet: one close button, in the header group ─────────────────
+   DS `SheetContent` always renders its own close at `absolute end-4 top-4`
+   (sheet.tsx:67). The chat panel puts Close alongside History / New in the header
+   so the three share one style, so the built-in corner button is hidden here to
+   avoid two X's stacked in the same corner. Scoped to this sheet only — every
+   other sheet keeps the DS default. */
+.sear-chat-sheet > button.absolute.end-4.top-4 { display: none; }
+
+/* ── App aurora — dark mode only ───────────────────────────────────────────────
+   The colourful wash behind the whole app, so the translucent glass surfaces have
+   something to refract instead of sitting on flat near-black. This is the DS's own
+   `.app-bg` recipe (index.css:710) — violet lead, orange glow bleeding out of it, a
+   faint warm bridge into the cyan corner, teal quiet support — expressed with the
+   same hsl tokens so it tracks the DS palette rather than freezing hex values.
+
+   Applied as a rule rather than by adding the `app-bg` class because `.app-bg` also
+   paints in light mode, and the request is dark-only.
+
+   NOTE this only shows where nothing opaque is stacked on top: the page-root
+   containers used to carry a redundant `bg-background` that hid it, which is why
+   several pages (workflow detail, overview, the SLA form, the lifecycle designer)
+   looked unaffected. Those were removed. Solid side panels — the sidebar, the
+   playbook steps rail and the lifecycle/routing inspectors — still cover their own
+   column by design.
+
+   The DS pairs this with `background-size: 200% 200%` + a 42s `app-bg-drift`
+   animation. That is deliberately omitted: a permanently animating full-viewport
+   background makes every screenshot in the visual suite non-deterministic, and the
+   request was for the image. Add `.app-bg`'s two lines here if the drift is wanted. */
+.dark .sear-studio,
+.sear-studio.dark {
+  background-image:
+    /* violet lead — top-start, strongest (painted on top) */
+    radial-gradient(52% 46% at 16% 18%, hsl(265 85% 62% / 0.34), transparent 64%),
+    /* orange warm glow — wide + soft, overlapping the violet's flank across the top */
+    radial-gradient(70% 55% at 55% 8%, hsl(14 92% 58% / 0.21), transparent 70%),
+    /* warm→cyan bridge — faint peach veil down the end edge into the cyan corner */
+    radial-gradient(60% 60% at 92% 45%, hsl(24 90% 60% / 0.1), transparent 70%),
+    /* cyan finish — bottom-end */
+    radial-gradient(50% 46% at 86% 84%, hsl(193 92% 56% / 0.28), transparent 64%),
+    /* teal — quiet support, bottom-start */
+    radial-gradient(46% 42% at 12% 88%, hsl(168 82% 46% / 0.21), transparent 64%);
+}
+
+/* ── DataGrid pagination → the DS Pagination pattern ──────────────────────────
+   The DS's own DataGrid (data-grid/DataGrid.tsx:107-113) renders its pager as two
+   `<Button variant="outline" size="icon">` plus a bare page number — it does NOT use the
+   DS's documented Pagination component (StyleGuide.tsx:2436-2466), which is a `glass`
+   pill rail: `glass inline-flex items-center gap-2 !rounded-full p-1`, borderless circular
+   prev/next, and the current page in mono type tinted with the primary.
+
+   That mismatch is a DESIGN-SYSTEM side defect — the right fix is upstream so every app
+   gets it. `apps/design_system` is outside this app's scope, so Sear re-skins the markup it
+   is given instead. Every `<DataGrid>` here passes `className="sear-datagrid"` (the DS
+   forwards it to the grid root) so this stays scoped to Sear and cannot leak.
+
+   Structure being targeted (stable, from DataGrid.tsx):
+     .sear-datagrid > div:last-child                  ← the "Total: n ... pager" row
+                     > div:last-child                 ← the pager group
+                       > button | span                ← prev · page · next
+   Matching the DS "compact" variant, which is the shape the DataGrid actually renders
+   (prev · current · next) rather than a numbered rail. */
+.sear-datagrid > div:last-child > div:last-child {
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--glass-bevel-md), var(--glass-lift-2);
+}
+
+/* Prev / next: strip the outline Button's border + glass so they read as the DS's plain
+   circular controls. `!important` is needed only because the DS button variant sets these
+   through its own class, which lands later in the cascade. */
+.sear-datagrid > div:last-child > div:last-child > button {
+  height: 1.75rem;
+  width: 1.75rem;
+  border: none !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 150ms, color 150ms;
+}
+.sear-datagrid > div:last-child > div:last-child > button:not(:disabled):hover {
+  background: hsl(var(--foreground) / 0.05) !important;
+  color: hsl(var(--foreground));
+}
+.sear-datagrid > div:last-child > div:last-child > button:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Current page — DS uses mono type in the primary, weight 600. */
+.sear-datagrid > div:last-child > div:last-child > span {
+  padding-inline: 0.25rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+}
+
+/* ── Command palettes inside popovers: let the glass through ──────────────────
+   `PopoverContent` already gets the liquid `.glass` treatment from the popper rule
+   above, but the DS `Command` root carries an OPAQUE `bg-popover` (command.tsx:18).
+   Nested inside a popover that background paints straight over the glass, so pickers
+   built as Popover + Command (the linked-playbook picker, the searchable selects, the
+   permission/assignee pickers…) rendered as flat solid panels while every other
+   dropdown in the app was glassy.
+
+   Scoped to `[data-radix-popper-content-wrapper]` so it ONLY affects Command when it is
+   inside a floating popover. A Command rendered inline on the page — the holidays
+   "Add country" panel, for one — keeps its solid surface, which is correct: it sits on
+   the page, not on glass. CommandDialog is likewise untouched.
+
+   Only the surface is cleared; the item hover/selected tint (`data-[selected=true]:bg-accent`,
+   command.tsx:118) and the input's border stay, so the list still reads as a menu. */
+[data-radix-popper-content-wrapper] [cmdk-root] {
+  background-color: transparent;
+}
+
+/* ── Command palette search row: ring in the app's accent, not sky ────────────
+   The DS `CommandInput` (command.tsx:47) is a deliberately borderless search row with
+   only a `border-b` under it — correct for a command palette, so the layout is kept.
+   What looked wrong is the FOCUS RING: the input sets `outline-none` and no Tailwind
+   ring, so it falls through to the glass engine's generic rule
+   (`engine.css:291` → `outline: 2px solid var(--c-focus)`), and `--c-focus` resolves to
+   `--c-sky` (tokens.css:22). cmdk autofocuses the input the moment the menu opens, so
+   every one of these pickers opened with a bright CYAN box around its search row, while
+   every other field in Sear rings flame via Tailwind's `--ring`.
+
+   This only re-points the colour at `--ring` so the ring matches the rest of the app;
+   width, offset and the DS layout are untouched. Scoped to command inputs inside a
+   popover, so inline Command palettes and all other focus rings keep the DS behaviour. */
+[data-radix-popper-content-wrapper] [cmdk-input]:focus-visible {
+  outline-color: hsl(var(--ring));
+}
+
+/* Nudge the command-palette search row down 3px so the input sits optically centred
+   against its `border-b` divider (DS `CommandInput` wrapper, command.tsx:42 —
+   `flex items-center border-b px-3`). Scoped to popovers, matching the two rules above;
+   an inline Command palette keeps the DS spacing. */
+[data-radix-popper-content-wrapper] [cmdk-input-wrapper] {
+  padding-top: 3px;
+}

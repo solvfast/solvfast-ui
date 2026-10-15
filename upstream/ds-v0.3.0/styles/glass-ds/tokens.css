@@ -1,0 +1,199 @@
+/* ==========================================================================
+   GLASS DS — 01. TOKENS
+   The only file you edit to rebrand. Everything downstream derives from here.
+   Themes are applied with  <html data-theme="light | dark | dim | senaiy">
+   ========================================================================== */
+
+
+:root {
+  /* ── BRAND PRIMARIES ────────────────────────────────────────────────────
+     Fixed across every theme. Brand colour does not change with the ground —
+     only the ground, the ink and the reflex strengths do.                   */
+  --c-flame: #FE4E18;      /* Flame Orange   — primary / CTA   */
+  --c-violet: #512195;     /* Deep Violet    — brand depth     */
+  --c-sky: #25D0FE;        /* Sky Blue       — links / focus   */
+  --c-teal: #11BF9D;       /* Teal Turquoise — success         */
+
+  /* ── SEMANTIC ROLES ─────────────────────────────────────────────────────
+     Split deliberately: --c-action drives CTAs, --c-focus drives rings and
+     links. They were one token before; the brand spec assigns them
+     different colours, so they are now different tokens.                    */
+  --c-action: var(--c-violet);   /* Primary / CTA colour — Purple #512195 in Light (Dark theme overrides to Flame #FE4E18) */
+  --c-focus: var(--c-sky);
+  --c-link: var(--c-sky);
+  --c-brand: var(--c-violet);
+  --c-positive: var(--c-teal);
+  --c-warning: #FFB020;    /* not in the brand set — kept clear of Flame */
+  --c-negative: #E5484D;
+
+  /* ── BRAND GRADIENTS ────────────────────────────────────────────────────
+     Logo, hero and marketing surfaces, and the animated CTA.
+     ASSUMPTION: stops inferred from the primaries — V1 runs Flame → Deep
+     Violet, V2 runs Deep Violet → Sky. If the real stops differ, these two
+     lines are the entire fix.                                               */
+  --grad-brand-v1: linear-gradient(135deg, var(--c-flame) 0%, var(--c-violet) 100%);
+  --grad-brand-v2: linear-gradient(145deg, var(--c-violet) 0%, var(--c-sky) 100%);
+
+  /* ── MATERIAL PHYSICS ───────────────────────────────────────────────────
+     --glass-reflex-* scale how hard the specular highlights and the inner
+     shading hit. Light themes need a balanced 1/1; dark themes need more
+     dark reflex and far less light.                                         */
+  --c-glass: #bbbbbc;          /* the pane itself — tinted, then made translucent */
+  --c-light: #ffffff;          /* specular / rim-light source */
+  --c-dark: #000000;           /* inner shading + cast shadow source */
+
+  --glass-reflex-light: 1;
+  --glass-reflex-dark: 1;
+
+  --saturation: 150%;          /* backdrop punch-up — what sells "real glass" */
+  --glass-blur: 6px;           /* default frost */
+  --glass-tint: 12%;           /* how much --c-glass sits in the pane */
+
+  /* Container-tier edge. --c-rim flips source per theme: dark grounds get
+     their edge from light, light grounds get it from ink. */
+  --c-rim: var(--c-content);
+  --rim-alpha: 0.16;
+  --crown-alpha: 0.9;
+  --c-glow: var(--c-action);   /* default source for .glass-pane--glow */
+
+  /* ── GROUND & INK ────────────────────────────────────────────────────── */
+  --c-bg: #F2F1F5;
+  --c-content: #1A1C23;
+
+  /* ── DERIVED CONTENT TONES ───────────────────────────────────────────── */
+  --c-content-2: color-mix(in srgb, var(--c-content) 78%, var(--c-bg));
+  --c-content-3: color-mix(in srgb, var(--c-content) 58%, var(--c-bg));
+  --c-content-4: color-mix(in srgb, var(--c-content) 40%, var(--c-bg));
+
+  /* ── RADIUS ──────────────────────────────────────────────────────────────
+     --r-md is the container radius. Cards, dialogs, docks and panes all
+     resolve to it, so 12px is the corner you see nearly everywhere.         */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-2xl: 24px;
+  --r-full: 999px;
+
+  /* ── SPACE ───────────────────────────────────────────────────────────── */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+
+  /* ── TYPE ────────────────────────────────────────────────────────────── */
+  --font: "DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.9375rem;
+  --fs-lg: 1.0625rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: 2rem;
+  --fs-3xl: 3rem;
+
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semi: 600;
+  --fw-bold: 700;
+
+  /* ── MOTION ──────────────────────────────────────────────────────────── */
+  --ease-glass: cubic-bezier(1, 0, 0.4, 1);      /* theme + material morphs */
+  --ease-out: cubic-bezier(0.5, 0, 0, 1);        /* travel, slides */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --t-fast: 160ms;
+  --t-base: 260ms;
+  --t-slow: 400ms;
+
+  /* ── LAYERS ──────────────────────────────────────────────────────────── */
+  --z-base: 1;
+  --z-sticky: 100;
+  --z-dock: 200;
+  --z-overlay: 300;
+  --z-tooltip: 400;
+
+  color-scheme: light;
+}
+
+/* ── DARK ─────────────────────────────────────────────────────────────────
+   Note the inversion: dark glass needs *double* dark reflex (to carve the
+   inner edges out of a dark backdrop) and only a third of the light reflex,
+   otherwise the rim-light blows out into a white outline.                   */
+:root[data-theme="dark"] {
+  --c-glass: #bbbbbc;
+  --c-bg: #16161A;
+  --c-content: #E8E9EC;
+  --c-action: var(--c-flame);   /* Primary / CTA colour — Orange #FE4E18 in Dark */
+
+  --glass-reflex-light: 0.3;
+  --glass-reflex-dark: 2;
+
+  --c-rim: var(--c-light);
+  --rim-alpha: 0.14;
+  --crown-alpha: 0.3;
+
+  color-scheme: dark;
+}
+
+/* ── DIM ─────────────────────────────────────────────────────────────────
+   The brand-depth theme: Deep Violet is the pane's own hue and the shading
+   source, so depth reads as brand colour rather than as neutral black.      */
+:root[data-theme="dim"] {
+  --c-glass: #8B5FD6;
+  --c-light: #D9C8FF;
+  --c-dark: #16062B;
+
+  --c-bg: #14101F;
+  --c-content: #E4E0F0;
+
+  --glass-reflex-light: 0.55;
+  --glass-reflex-dark: 2;
+  --saturation: 180%;
+
+  --c-rim: var(--c-light);
+  --rim-alpha: 0.2;
+  --crown-alpha: 0.35;
+
+  color-scheme: dark;
+}
+
+/* ── SENAIY ───────────────────────────────────────────────────────────────
+   The reference ground, expressed as tokens. The accents are inherited —
+   the brand primaries above already are Senaiy's --color-cta, --color-global
+   and --color-sovereign, so this block only sets the ground and the edge.   */
+:root[data-theme="senaiy"] {
+  --c-glass: #0B1F2B;          /* --card-dark */
+  --c-bg: #04121B;             /* --bg        */
+  --c-content: #E8F1F7;        /* --fg        */
+
+  --glass-reflex-light: 0.34;
+  --glass-reflex-dark: 2;
+  --saturation: 156%;          /* --lg-refraction 1.2 × 130% */
+
+  --c-rim: var(--c-light);
+  --rim-alpha: 0.12;           /* inset 0 0 0 1px hsl(0 0% 100% / .12) */
+  --crown-alpha: 0.3;          /* inset 0 1px 0 hsl(0 0% 100% / .3)    */
+
+  color-scheme: dark;
+}
+
+/* Respect the OS when no explicit theme has been chosen. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --c-bg: #16161A;
+    --c-content: #E8E9EC;
+    --glass-reflex-light: 0.3;
+    --glass-reflex-dark: 2;
+    --c-rim: var(--c-light);
+    --rim-alpha: 0.14;
+    --crown-alpha: 0.3;
+    color-scheme: dark;
+  }
+}

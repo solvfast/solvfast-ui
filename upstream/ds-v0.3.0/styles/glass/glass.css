@@ -1,0 +1,166 @@
+/* =============================================================================
+   SOLV FAST — Glass adapter (Glass DS adoption)
+   -----------------------------------------------------------------------------
+   The material is now the vendored "Glass DS" (src/styles/glass-ds/): flat glass
+   PANES for containers, liquid bevelled .glass for controls, driven by the --c-*
+   / reflex-ramp token system and the html[data-theme] themes.
+
+   This file is the ADAPTER: it re-expresses the app's existing semantic class
+   names (.glass-subtle / .glass-elevated / .glass-premium / .lg-surface /
+   .glass-bar / .glass-flush …) on the DS PANE recipe, so all existing markup
+   keeps working with zero JSX changes. (.glass card + .glass-pill live in
+   index.css, also on the pane recipe.) One definition per class — no duplicate
+   recipes, no leftover token block.
+   ============================================================================= */
+
+@import "../glass-ds/tokens.css";
+@import "../glass-ds/engine.css";
+
+/* ── PANE BASE ─────────────────────────────────────────────────────────────
+   Mirrors .glass-pane from the DS engine (flat glass: crown + rim + cast, over
+   a blurred saturated backdrop). Consumers keep controlling border-radius via
+   their Tailwind rounded-* utility. NOTE: intentionally NO position/isolation
+   here — .lg-surface (dialogs) is portaled + centered by Tailwind's .fixed, and
+   an unlayered `position` would override it. */
+.glass-subtle,
+.glass-elevated,
+.glass-premium,
+.glass-bar,
+.lg-surface {
+  --pane-tint: 26%;
+  --pane-blur: 12px;
+  --pane-refraction: 1.2;
+  --pane-rim: color-mix(in srgb, var(--c-rim) calc(var(--rim-alpha) * 100%), transparent);
+  --pane-crown: color-mix(in srgb, var(--c-light) calc(var(--crown-alpha) * 100%), transparent);
+  --pane-cast: 0 8px 24px -8px var(--gd-22);
+  --pane-glow: transparent;
+  --pane-glow-ring: transparent;
+  border: none;
+  background: color-mix(in srgb, var(--c-glass) var(--pane-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+  backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+  box-shadow:
+    inset 0 1px 0 var(--pane-crown),
+    inset 0 0 0 1px var(--pane-rim),
+    0 0 0 1px var(--pane-glow-ring),
+    var(--pane-cast),
+    0 8px 28px -8px var(--pane-glow);
+  transition:
+    background-color var(--t-slow) var(--ease-glass),
+    box-shadow var(--t-base) var(--ease-out);
+}
+
+/* ── TIER OVERRIDES ────────────────────────────────────────────────────────
+   Level 1 Subtle — clearest pane (cards' quieter cousin: previews, secondary). */
+.glass-subtle { --pane-tint: 14%; --pane-blur: 8px; }
+
+/* Level 2 Elevated — floating menus / dropdowns / popovers / drawers: frost + lift. */
+.glass-elevated {
+  --pane-tint: 36%;
+  --pane-blur: 16px;
+  --pane-cast: 0 14px 34px -10px var(--gd-30);
+}
+
+/* Level 3 Premium — AI hero / featured: frost + a subtle Deep-Violet brand glow. */
+.glass-premium {
+  --c-glow: var(--c-brand);
+  --pane-tint: 36%;
+  --pane-blur: 16px;
+  --pane-rim: color-mix(in srgb, var(--c-glow) 28%, transparent);
+  --pane-glow-ring: color-mix(in srgb, var(--c-glow) 20%, transparent);
+  --pane-glow: color-mix(in srgb, var(--c-glow) 34%, transparent);
+}
+
+/* Content surface — Dialogs / AlertDialogs / command palette. Readable frost.
+   NO position (dialog-safe, see note above). */
+.lg-surface {
+  --pane-tint: 44%;
+  --pane-blur: 18px;
+  --pane-cast: 0 24px 64px -18px var(--gd-30);
+}
+
+/* App bars — header / top nav: flat, square (bar spans the viewport). */
+.glass-bar {
+  --pane-tint: 22%;
+  --pane-blur: 12px;
+  --pane-cast: 0 1px 2px 0 var(--gd-10);
+  border-radius: 0;
+}
+
+/* Flush menu surfaces — GLOBAL Dropdown rule: open as ONE glass layer with the
+   trigger (no top seam). Drop the crown highlight; keep rim + cast + surface. */
+.glass-flush { --pane-crown: transparent; }
+
+/* ── INTERACTION ───────────────────────────────────────────────────────────
+   Opt-in via .glass-interactive (or native interactive glass surfaces). Panes
+   rise + gain tint; they never compress. Static cards do not animate. */
+.glass-interactive,
+:is(a, button, [role="button"]).glass-subtle,
+:is(a, button, [role="button"]).glass-elevated {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--t-fast) var(--ease-out),
+    box-shadow var(--t-fast) var(--ease-out),
+    translate var(--t-fast) var(--ease-out);
+}
+.glass-interactive:hover,
+:is(a, button, [role="button"]).glass-subtle:hover,
+:is(a, button, [role="button"]).glass-elevated:hover {
+  --pane-tint: 34%;
+  --pane-cast: 0 14px 34px -10px var(--gd-30);
+  translate: 0 -2px;
+}
+.glass-interactive:active,
+:is(a, button, [role="button"]).glass-subtle:active,
+:is(a, button, [role="button"]).glass-elevated:active {
+  translate: 0 0;
+  transition-duration: var(--t-fast);
+}
+
+/* Focus — one visible ring on any glass surface (DS focus token). */
+.glass-subtle:focus-visible,
+.glass-elevated:focus-visible,
+.glass-premium:focus-visible,
+.glass-interactive:focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+/* Disabled — inert: no reflex, no lift, no interaction. */
+.glass-subtle[aria-disabled="true"],
+.glass-elevated[aria-disabled="true"],
+.glass-interactive:disabled,
+.glass-interactive[aria-disabled="true"] {
+  opacity: 0.55;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/* ── FALLBACKS ─────────────────────────────────────────────────────────────
+   Mirror the DS pane fallbacks for the adapter's classes: solid where blur is
+   unsupported, on small screens, and under reduced transparency. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-subtle, .glass-elevated, .glass-premium, .glass-bar, .lg-surface {
+    background: color-mix(in srgb, var(--c-glass) 70%, var(--c-bg));
+  }
+}
+@media (max-width: 640px) {
+  .glass-subtle, .glass-elevated, .glass-premium, .glass-bar, .lg-surface {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--c-glass) 80%, var(--c-bg));
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-subtle, .glass-elevated, .glass-premium, .glass-bar, .lg-surface {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--c-glass) 82%, var(--c-bg));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-interactive,
+  :is(a, button, [role="button"]).glass-subtle,
+  :is(a, button, [role="button"]).glass-elevated { transition: none; }
+}

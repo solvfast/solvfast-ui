@@ -1,0 +1,6 @@
+/* Path A exactly as a consumer writes it (docs/CONSUMING.md): Tailwind's three layers, then the package theme. */
+@import "tailwindcss/base.css";
+@import "tailwindcss/components.css";
+@import "tailwindcss/utilities.css";
+@import "../../styles/theme.css";
+@import "../../styles/base.css"; /* opt-in element rules — Sear's full look (Arabic body size, Zain headings) */

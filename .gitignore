@@ -1,0 +1,8 @@
+node_modules/
+dist/
+playground/dist/
+tools/parity/dist/
+*.tsbuildinfo
+*.tgz
+test-results/
+e2e/output/

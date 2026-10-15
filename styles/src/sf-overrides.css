@@ -1,0 +1,109 @@
+/* Sear's effective look, re-targeted to @solvfast/ui's own classes.
+ *
+ * Source: apps/sear_product/frontend/src/sear-studio.css at the 7abc895-dirty baseline
+ * (copy + sha256 in upstream/). In Sear these rules reach DS components through GLOBAL selectors
+ * (`[data-radix-popper-content-wrapper] …`, `.sear-studio`). Here every rule is keyed to a class
+ * that only this package's components carry (`sf-popper`, `sf-app`), with the SAME specificity, so the
+ * look is identical while a consumer's own Radix poppers and page are never touched.
+ * Placed at the TOP of theme.css by scripts/extract-css.mjs — before the DS-derived rules, exactly where Sear
+ * @imports sear-studio.css — so ties on specificity resolve the same way as in Sear. */
+
+/* sear-studio.css:24-63 — app-scope tokens + surface. Set on the AppShell root (like `.sear-studio`),
+   so they win over inherited values in both themes exactly as in Sear. */
+@layer base {
+  .sf-app {
+    --brand-flame: 14 99% 55%;
+    --brand-orange: 14 99% 55%;
+    --brand-purple: var(--brand-violet);
+    --brand-sky: 193 99% 57%;
+    --brand-teal: 168 84% 41%;
+    --brand-cyan: 193 99% 57%;
+    --brand-midnight: 210 100% 15%;
+    --brand-forest: 174 41% 13%;
+    --sidebar-background: var(--card);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-border: var(--border);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--accent-foreground);
+    --sidebar-ring: var(--ring);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+  .sf-app * {
+    border-color: hsl(var(--border));
+  }
+}
+
+/* sear-studio.css:211-220 — popovers, selects and dropdown menus use the liquid glass recipe instead of
+   the opaque aurora gradient. (0,3,0), same as Sear's `[data-radix-popper-content-wrapper] .glass-elevated.glass-flush`. */
+.sf-popper.sf-glass-elevated.sf-glass-flush {
+  --_bevel: var(--glass-bevel-md);
+  --_lift: var(--glass-lift-2);
+  background-image: none;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--_bevel), var(--_lift);
+  border: none;
+}
+/* BUG FIX (not in Sear): Sear's popper rule out-ranks the adapter's accessibility fallbacks, so popovers
+   stayed translucent for users who ask for reduced transparency or whose browser has no backdrop-filter.
+   Same fallback values as the adapter (glass/glass.css:143-160). */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sf-popper.sf-glass-elevated.sf-glass-flush {
+    background-color: color-mix(in srgb, var(--c-glass) 70%, var(--c-bg));
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sf-popper.sf-glass-elevated.sf-glass-flush {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: color-mix(in srgb, var(--c-glass) 82%, var(--c-bg));
+  }
+}
+
+/* sear-studio.css:238-251 — keep the glass on small screens (the DS solidifies panes below 640px). */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (max-width: 640px) and (prefers-reduced-transparency: no-preference) {
+    .sf-glass-subtle.sf-glass-subtle,
+    .sf-glass-elevated.sf-glass-elevated,
+    .sf-glass-premium.sf-glass-premium,
+    .sf-glass-bar.sf-glass-bar,
+    .sf-lg-surface.sf-lg-surface {
+      background: color-mix(in srgb, var(--c-glass) var(--pane-tint), transparent);
+      -webkit-backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+      backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+    }
+  }
+}
+
+/* sear-studio.css:290-294 — a Calendar inside a popover lets the popover glass through. */
+.sf-popper .rdp-root {
+  background-image: none !important;
+  background-color: transparent !important;
+  border-radius: 1rem !important;
+}
+
+/* sear-studio.css:349-362 — dark-mode app aurora behind the shell (no drift animation, as in Sear). */
+.dark .sf-app,
+.sf-app.dark {
+  background-image:
+    radial-gradient(52% 46% at 16% 18%, hsl(265 85% 62% / 0.34), transparent 64%),
+    radial-gradient(70% 55% at 55% 8%, hsl(14 92% 58% / 0.21), transparent 70%),
+    radial-gradient(60% 60% at 92% 45%, hsl(24 90% 60% / 0.1), transparent 70%),
+    radial-gradient(50% 46% at 86% 84%, hsl(193 92% 56% / 0.28), transparent 64%),
+    radial-gradient(46% 42% at 12% 88%, hsl(168 82% 46% / 0.21), transparent 64%);
+}
+
+/* sear-studio.css:438-466 — Command inside a popover: transparent surface, ring-coloured focus, 3px nudge. */
+.sf-popper [cmdk-root] {
+  background-color: transparent;
+}
+.sf-popper [cmdk-input]:focus-visible {
+  outline-color: hsl(var(--ring));
+}
+.sf-popper [cmdk-input-wrapper] {
+  padding-top: 3px;
+}

@@ -1,0 +1,777 @@
+/* SOLV FAST Design System — the PUBLIC core stylesheet (contract: CONSUMING.md §B.4).
+   Design tokens (light + .dark), base styles, and the component/utility classes (AI, hero, gradient,
+   liquid glass). Moved verbatim from src/index.css. Consumers import it AFTER Tailwind's three layers
+   in their CSS entry, and load styles/glass/glass.css as a SEPARATE stylesheet afterwards:
+
+     index.css:                                 main.tsx:
+     @import "tailwindcss/base.css";             import "./index.css";
+     @import "tailwindcss/components.css";       import "@ds/styles/glass/glass.css";
+     @import "tailwindcss/utilities.css";
+     @import "@ds/styles/ds.css";
+
+   Why glass is separate: Tailwind appends variant utilities (hover:, dark:, md:…) at the end of the
+   stylesheet that holds the Tailwind layers. Inlining glass here would move it before them and change
+   the cascade (verified by diffing the built CSS). */
+
+/* SOLV FAST design tokens — vivid brand primaries on a quiet violet-tinted Ink neutral base. Surfaces use the
+   glass system (styles/glass/). The primary action colour is --primary: Deep Violet in light, Flame Orange in dark
+   (see CONSUMING.md D9 for the open question about the documented "Flame = primary"). */
+@layer base {
+  :root {
+    --background: 240 20% 98%;         /* ink-50  #F7F7FA */
+    --foreground: 240 19% 10%;         /* ink-900 #15151F */
+    --card: 0 0% 100%;
+    --card-foreground: 240 19% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 19% 10%;
+    --primary: 265 64% 36%;            /* Deep Violet #512195 — primary in Light (enterprise/calm) */
+    /* Primary BUTTON fill/text — brand colour at shade 700 (fill) + shade 50 (text). Light = Deep Violet. */
+    --btn-primary-bg: #441C7D;         /* violet-600 — primary button fill in Light */
+    --btn-primary-fg: #FFFFFF;         /* white — primary button text in Light */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 23% 94%;          /* ink-100 #EDEDF3 */
+    --secondary-foreground: 240 19% 15%;
+    --muted: 240 23% 94%;
+    --muted-foreground: 240 12% 38%;   /* ink-600 #55556B */
+    --accent: 240 23% 94%;             /* subtle hover bg */
+    --accent-foreground: 240 19% 15%;
+    --destructive: 354 73% 56%;        /* danger #E13B4C */
+    --destructive-foreground: 0 0% 100%;
+    --success: 168 84% 41%;            /* Teal Turquoise #11BF9D */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 91% 55%;             /* warning #F5A623 */
+    --warning-foreground: 240 19% 10%;
+    --info: 193 99% 57%;               /* Sky Blue #25D0FE */
+    --info-foreground: 240 19% 10%;
+    --brand-violet: 265 64% 36%;       /* Deep Violet #512195 */
+    --ai-border-neutral: #F3F3F3;      /* near-invisible neutral base for the AI outline ring */
+    /* Shared AI text-gradient token (drives .btn-ai-text + .ai-gradient-icon). Light identity —
+       unchanged. Palindrome (mirrors back to start) so the animated sweep loops seamlessly. */
+    --ai-text-gradient: linear-gradient(90deg, #FE4E18, #512195, #25D0FE, #512195, #FE4E18);
+    --border: 240 18% 90%;             /* ink-200 #DCDCE6 */
+    --input: 240 18% 90%;
+    --ring: 265 64% 36%;               /* focus ring follows the theme primary (Deep Violet) */
+    --radius: 0.625rem;                /* radius-md 10px */
+    --header-height: 57px;             /* sticky app header — section scroll-offset derives from this */
+    --shadow-glass: 0 1px 2px hsl(240 30% 12% / 0.06), 0 4px 12px hsl(240 30% 12% / 0.08);
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 240 19% 15%;
+    --sidebar-accent: 240 23% 94%;
+    --sidebar-border: 240 16% 90%;
+  }
+
+  .dark {
+    /* Premium low-light theme — layered deep surfaces (never pure black), distinguishable elevation. */
+    --background: 240 13% 9%;           /* #14141A — primary background */
+    --foreground: 0 0% 100%;            /* #FFFFFF — primary text */
+    --card: 240 15% 14%;               /* #1E1E29 — elevated card surface */
+    --card-foreground: 0 0% 100%;
+    --popover: 240 16% 16%;            /* #232330 — higher elevation (menus/dialogs) */
+    --popover-foreground: 0 0% 100%;
+    --primary: 14 99% 55%;             /* Flame Orange #FE4E18 — primary in Dark */
+    --btn-primary-bg: #D54214;         /* flame-600 — primary button fill in Dark */
+    --btn-primary-fg: #FFFFFF;         /* white — primary button text in Dark */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 14% 12%;          /* #1B1B24 — secondary surface */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 240 14% 12%;
+    --muted-foreground: 240 9% 72%;    /* ~rgba(255,255,255,0.72) secondary text */
+    --accent: 240 15% 20%;             /* #2A2A39 — interactive/hover surface */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 354 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 168 74% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 91% 58%;
+    --warning-foreground: 240 10% 9%;
+    --info: 193 95% 62%;
+    --info-foreground: 240 10% 9%;
+    --brand-violet: 265 60% 62%;
+    --ai-border-neutral: #2A2A31;      /* low-contrast dark-mode equivalent */
+    /* Dark-mode AI text-gradient — brighter, higher-contrast stops so the animated AI text stays
+       vivid & readable on #141414 / #1C1C1E / #2A2A2A. Identity kept: Orange → Pink → Purple → Cyan
+       → Teal (mirrored back for a seamless loop). Text-only; no outline/glow/shadow/container. */
+    --ai-text-gradient: linear-gradient(90deg, #FF6A00, #FF4D8D, #7A5CFF, #25D0FE, #11BF9D, #25D0FE, #7A5CFF, #FF4D8D, #FF6A00);
+    --border: 240 9% 20%;              /* soft translucent-feeling border (~rgba(255,255,255,0.08)) */
+    --input: 240 9% 20%;
+    --ring: 14 99% 58%;                /* focus ring follows the theme primary (Flame Orange) */
+    --shadow-glass: 0 1px 2px hsl(0 0% 0% / 0.4), 0 6px 18px hsl(0 0% 0% / 0.45);
+    --sidebar: 240 9% 11%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-accent: 240 7% 18%;
+    --sidebar-border: 240 7% 20%;
+  }
+}
+
+/* ===== SOLV FAST canonical token layer (from tokens.json) — reference these by name in components.
+   Additive: existing shadcn HSL tokens above still drive the app; these expose the design system's
+   documented names (--color-action-primary, --space-4, --radius-md, --shadow-xs, --motion-fast, …). ===== */
+@layer base {
+  :root {
+    /* Brand primitives */
+    --color-flame-orange: #FE4E18;
+    --color-deep-violet: #512195;
+    --color-sky-blue: #25D0FE;
+    --color-teal-turquoise: #11BF9D;
+    --color-electric-lime: #CBFE00;
+    --color-midnight-blue: #00264C;
+    --color-moderate-cyan: #49A8B3;
+    --color-forest-teal: #132E2C;
+    --color-danger: #E13B4C;
+    --color-warning: #F5A623;
+    /* Official SOLV FAST BRAND-MARK gradient (logo/hero/marketing) — all three colors, soft blended stops.
+       Distinct from the button "Primary / Gradient" (Purple→Cyan, orange-excluded by design). */
+    --gradient-brand: linear-gradient(135deg, #FE4E18 0%, #7A3A6E 18%, #512195 38%, #512195 75%, #25D0FE 100%);
+    --gradient-brand-v2: linear-gradient(145deg, #6B3384 0%, #512195 12%, #512195 82%, #4FC8E8 100%);
+    /* Neutral — Ink scale */
+    --ink-50: #F7F7FA; --ink-100: #EDEDF3; --ink-200: #DCDCE6; --ink-300: #C2C2D1; --ink-400: #9A9AAE;
+    --ink-500: #71718C; --ink-600: #55556B; --ink-700: #3F3F52; --ink-800: #27273A; --ink-900: #15151F;
+    /* Semantic colors (light) */
+    --color-bg-base: var(--ink-50);
+    --color-bg-surface: #FFFFFF;
+    --color-bg-inverse: var(--ink-900);
+    --color-bg-brand-deep: var(--color-midnight-blue);
+    --color-bg-brand-deepest: var(--color-forest-teal);
+    --color-text-primary: var(--ink-900);
+    --color-text-secondary: var(--ink-600);
+    --color-text-muted: var(--ink-400);
+    --color-border-default: var(--ink-200);
+    --color-border-strong: var(--ink-300);
+    --color-action-primary: var(--color-flame-orange);
+    --color-action-primary-hover: #E5430F;
+    --color-brand-secondary: var(--color-deep-violet);
+    --color-interactive: var(--color-sky-blue);
+    --color-interactive-muted: var(--color-moderate-cyan);
+    --color-success: var(--color-teal-turquoise);
+    --color-danger-default: var(--color-danger);
+    --color-warning-default: var(--color-warning);
+    --color-highlight: var(--color-electric-lime);
+    /* Spacing — 4px base */
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px;
+    --space-6: 32px; --space-7: 48px; --space-8: 64px; --space-9: 96px; --space-10: 128px;
+    /* Radius */
+    --radius-none: 0px; --radius-xs: 4px; --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 24px; --radius-full: 999px;
+    /* Shadow */
+    --shadow-xs: 0 1px 1px rgba(21,21,31,0.04);
+    --shadow-sm: 0 1px 2px rgba(21,21,31,0.06);
+    --shadow-md: 0 4px 12px rgba(21,21,31,0.08);
+    --shadow-lg: 0 12px 32px rgba(21,21,31,0.10);
+    --shadow-xl: 0 24px 64px rgba(21,21,31,0.14);
+    --shadow-focus: 0 0 0 3px rgba(37,208,254,0.35);
+    /* Opacity */
+    --opacity-0: 0; --opacity-5: 0.05; --opacity-10: 0.1; --opacity-20: 0.2; --opacity-30: 0.3;
+    --opacity-40: 0.4; --opacity-50: 0.5; --opacity-60: 0.6; --opacity-70: 0.7; --opacity-80: 0.8;
+    --opacity-90: 0.9; --opacity-100: 1;
+    /* Border widths */
+    --border-0: 0px; --border-xs: 1px; --border-sm: 2px; --border-md: 3px; --border-lg: 4px;
+    /* Motion — durations + easing */
+    --motion-instant: 0ms; --motion-fastest: 75ms; --motion-fast: 150ms; --motion-normal: 200ms;
+    --motion-medium: 250ms; --motion-slow: 300ms; --motion-slower: 400ms; --motion-spinner: 1000ms;
+    --ease-linear: linear; --ease-in: ease-in; --ease-out: ease-out; --ease-in-out: ease-in-out;
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1); --ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
+    /* Z-index */
+    --z-base: 0; --z-sticky: 100; --z-dropdown: 200; --z-popover: 300; --z-tooltip: 400;
+    --z-drawer: 500; --z-overlay: 550; --z-modal: 600; --z-toast: 700; --z-command-palette: 750;
+    --z-system: 800; --z-debug: 9999;
+    /* Breakpoints + containers (reference) */
+    --bp-xs: 0px; --bp-sm: 576px; --bp-md: 768px; --bp-lg: 1024px; --bp-xl: 1280px; --bp-2xl: 1440px; --bp-3xl: 1920px;
+    --container-sm: 540px; --container-md: 720px; --container-lg: 960px; --container-xl: 1140px; --container-2xl: 1320px; --container-fluid: 100%;
+    /* Typography */
+    --font-brand: 'Zain', 'IBM Plex Sans Arabic', sans-serif;       /* brand / display moments */
+    --font-display: 'Zain', 'IBM Plex Sans Arabic', sans-serif;
+    --font-heading: 'Geist', 'IBM Plex Sans Arabic', sans-serif;    /* product headings */
+    --font-body: 'Geist', 'IBM Plex Sans Arabic', -apple-system, sans-serif;
+    --font-mono: 'Geist Mono', 'SFMono-Regular', monospace;
+    --weight-regular: 400; --weight-medium: 500; --weight-semibold: 600; --weight-bold: 700;
+    --text-display-xl: 64px; --text-display-lg: 48px; --text-display-md: 36px;
+    --text-heading-lg: 28px; --text-heading-md: 22px; --text-heading-sm: 18px;
+    --text-body-lg: 18px; --text-body-md: 16px; --text-body-sm: 14px; --text-caption: 12px; --text-data: 14px;
+    --tracking-display: -0.01em; --tracking-body: 0em; --tracking-label-caps: 0.06em;
+  }
+
+  /* Dark mode remaps only the SEMANTIC color aliases; primitives are theme-independent. */
+  .dark {
+    --color-bg-base: var(--ink-900);
+    --color-bg-surface: #1D1D22;
+    --color-bg-inverse: #FFFFFF;
+    --color-text-primary: #FFFFFF;
+    --color-text-secondary: var(--ink-300);
+    --color-text-muted: var(--ink-400);
+    --color-border-default: var(--ink-700);
+    --color-border-strong: var(--ink-600);
+    --color-action-primary-hover: #FF6A3D;
+  }
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  /* Headings — Zain is the primary heading typeface EVERYWHERE (section titles, page
+     headings, card/panel/dialog titles). Family only — sizes, weights, and the rest of
+     the hierarchy are untouched. Body/labels/captions stay Geist (font-sans). */
+  h1, h2, h3, h4, h5, h6 { @apply font-brand; }
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    /* A static, very subtle gradient. NOTE: never use `background-attachment: fixed` here — it forces a
+       full-viewport GPU repaint on every scroll frame and makes the whole app feel laggy. */
+    background-image:
+      radial-gradient(1200px 600px at 100% -10%, hsl(var(--info) / 0.05), transparent 60%),
+      radial-gradient(1000px 700px at -10% 110%, hsl(var(--primary) / 0.04), transparent 55%);
+  }
+  /* IBM Plex Sans Arabic reads a touch small; nudge Arabic up for balance with Geist. */
+  html[lang="ar"] body { font-size: 1.03rem; }
+}
+
+/* Layered flowing-wave motion for the animated Primary/Gradient button:
+   L1 = drifting brand gradient (element background), L2 = soft luminous highlight (::before, drifts),
+   L3 = occasional diagonal shine streak (::after). Transform/position-based → GPU-friendly, text stays on top. */
+@keyframes brand-gradient-flow {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+@keyframes brand-highlight-move {
+  0% { transform: translate(-40%, -12%); opacity: 0.55; }
+  50% { transform: translate(40%, 12%); opacity: 1; }
+  100% { transform: translate(-40%, -12%); opacity: 0.55; }
+}
+@keyframes brand-shine-sweep {
+  0%, 74% { transform: translateX(-220%) skewX(-12deg); opacity: 0; }
+  82% { opacity: 1; }
+  94%, 100% { transform: translateX(260%) skewX(-12deg); opacity: 0; }
+}
+.bg-brand-gradient-animated::before {
+  content: ""; position: absolute; inset: -50% -20%; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.22), transparent 72%);
+  animation: brand-highlight-move 8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+.bg-brand-gradient-animated::after {
+  content: ""; position: absolute; top: -50%; bottom: -50%; inset-inline-start: -30%; width: 38%; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-220%) skewX(-12deg);
+  animation: brand-shine-sweep 9s ease-in-out infinite; animation-delay: 3s;
+  will-change: transform, opacity;
+}
+.bg-brand-gradient-animated:hover { animation-duration: 3s; }
+.bg-brand-gradient-animated:hover::before { animation-duration: 3s; }
+.bg-brand-gradient-animated:hover::after { animation-duration: 4.5s; animation-delay: 0s; }
+.bg-brand-gradient-animated:active,
+.bg-brand-gradient-animated:active::before,
+.bg-brand-gradient-animated:active::after { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .bg-brand-gradient-animated { animation: none; background-size: 100% 100%; }
+  .bg-brand-gradient-animated::before,
+  .bg-brand-gradient-animated::after { display: none; }
+}
+
+/* AI hero ambient mesh drift (respects reduced motion). */
+
+/* ============================================================================
+   SOLV FAST — Premium AI Hero glass system (AI-EXCLUSIVE signature).
+   Layer stack, back → front:
+     Aurora Mesh → Ambient Glow → Breathing Light → Energy Field →
+     Constellation → Glass Surface (blur + border + reflection + accent line + grain) → Content.
+   All motion is transform/opacity only (GPU) and frozen under reduced motion.
+   Reserved for AI experiences only — never applied to standard UI.
+   ============================================================================ */
+.ai-hero {
+  position: relative;
+  isolation: isolate; /* contain the hero's internal z-layers so nothing escapes above the fixed header */
+  border-radius: 28px;
+  /* Premium tier — consumes the centralized Glass border token (light hairline).
+     Dark keeps a soft white translucent edge. Tunable globally via --glass-*. */
+  border: 1px solid color-mix(in srgb, var(--c-rim) calc(var(--rim-alpha) * 100%), transparent);
+  box-shadow: 0 40px 90px -50px rgba(30, 12, 60, 0.45), 0 2px 10px -6px rgba(30, 12, 60, 0.18);
+  transition: box-shadow 500ms ease-out;
+}
+.dark .ai-hero { border-color: rgba(255, 255, 255, 0.12); box-shadow: 0 42px 100px -50px rgba(0, 0, 0, 0.6); }
+/* Hover — precision, not drama: brighter glass + border, a touch more glow. No scale, no bounce. */
+.ai-hero:hover { box-shadow: 0 46px 100px -46px rgba(30, 12, 60, 0.52), 0 3px 12px -6px rgba(30, 12, 60, 0.22); border-color: rgba(255, 255, 255, 0.18); }
+.ai-hero:hover .ai-hero-glass { filter: brightness(1.04); }
+.ai-hero:hover .ai-hero-ambient { opacity: 1; }
+.ai-hero:hover .ai-hero-energy { opacity: 1.25; }
+
+/* Aurora Mesh — oversized soft brand blobs melting together; purple-dominant, edge-faded. */
+.ai-hero-aurora {
+  position: absolute; inset: -12%; z-index: 0; pointer-events: none;
+  filter: blur(40px);
+  -webkit-mask: radial-gradient(120% 115% at 50% 42%, #000 52%, transparent 100%);
+  mask: radial-gradient(120% 115% at 50% 42%, #000 52%, transparent 100%);
+}
+.ai-mesh { position: absolute; border-radius: 50%; will-change: transform; }
+@keyframes ai-drift-1 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(14px, -10px); } }
+@keyframes ai-drift-2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-12px, 11px); } }
+@keyframes ai-drift-3 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(10px, 13px); } }
+@keyframes ai-drift-4 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-13px, -9px); } }
+
+/* Cinematic Lighting — independent ambient light sources that drift like changing daylight, blurred so
+   their origins disappear into the aurora. Purple dominant, orange warm key (upper-left, off-frame),
+   cyan cool rim (lower-right), green micro-accent. Container blur fuses them; each light moves on its own. */
+.ai-hero-ambient {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0.85;
+  transition: opacity 500ms ease-out;
+  filter: blur(66px);
+}
+.ai-light { position: absolute; border-radius: 50%; will-change: transform; }
+
+/* Breathing Light — the system feels quietly alive (96 → 100% intensity). */
+.ai-hero-breathe {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(44% 46% at 50% 56%, rgba(81, 33, 149, 0.14), transparent 70%);
+  animation: ai-breathe 15s ease-in-out infinite;
+}
+@keyframes ai-breathe { 0%, 100% { opacity: 0.86; } 50% { opacity: 1; } }
+
+/* Energy Field — ultra-thin flowing light paths (invisible data flow). */
+.ai-hero-energy { position: absolute; inset: 0; z-index: 0; pointer-events: none; width: 100%; height: 100%; transition: opacity 500ms ease-out; }
+.ai-flow { animation: ai-flow-fade 30s ease-in-out infinite; }
+@keyframes ai-flow-fade { 0%, 100% { opacity: 0; transform: translateX(0); } 50% { opacity: 0.05; transform: translateX(-14px); } }
+
+/* Constellation — sparse microscopic nodes + faint links (hidden intelligence). */
+.ai-hero-constellation { position: absolute; inset: 0; z-index: 0; pointer-events: none; width: 100%; height: 100%; }
+.ai-node { transform-box: fill-box; will-change: transform; animation: ai-node-drift 38s ease-in-out infinite; }
+@keyframes ai-node-drift { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(4px, -4px); } }
+.ai-link { animation: ai-link-fade 22s ease-in-out infinite; }
+@keyframes ai-link-fade { 0%, 100% { opacity: 0; } 50% { opacity: 0.025; } }
+
+/* Glass Surface — refined translucent pane that blurs every layer behind it. */
+.ai-hero-glass {
+  position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none;
+  /* Light: a brighter, more present pane so the aurora reads as a soft pastel wash and text stays highly
+     readable. Dark: a barely-there pane so the aurora glows vividly. Same layer, theme-adapted opacity. */
+  background: hsl(var(--card) / 0.55);
+  -webkit-backdrop-filter: blur(32px) saturate(120%);
+  backdrop-filter: blur(32px) saturate(120%);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.14), inset 0 -24px 60px -30px rgba(0, 0, 0, 0.05);
+  transition: filter 500ms ease-out;
+}
+.dark .ai-hero-glass { background: hsl(var(--card) / 0.10); }
+/* Mascot — theme-aware ambient shadow (soft violet in light, deep in dark). */
+.ai-hero-mascot { filter: drop-shadow(0 18px 30px rgba(30, 12, 60, 0.22)); }
+.dark .ai-hero-mascot { filter: drop-shadow(0 22px 34px rgba(10, 6, 25, 0.5)); }
+/* Very subtle grain (2–3%) so it reads as glass, not flat transparency. */
+.ai-hero-glass::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: 0.028; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* Soft diagonal reflection across the upper glass (barely there). */
+.ai-hero-reflection {
+  position: absolute; inset: 0 0 auto 0; height: 56%; z-index: 2; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 22%, transparent 48%);
+}
+/* Thin animated AI accent line travelling along the top edge (intelligent activity). */
+.ai-hero-line {
+  position: absolute; top: 0; left: 0; right: 0; height: 2px; z-index: 3; pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, #512195 28%, #25D0FE 50%, #FE4E18 72%, transparent 100%);
+  background-size: 45% 100%; background-repeat: no-repeat;
+  animation: ai-hero-line 7s ease-in-out infinite;
+}
+@keyframes ai-hero-line { 0% { background-position: -45% 0; } 100% { background-position: 145% 0; } }
+
+/* Scroll compression — --c (0→1) is scrubbed by a throttled scroll listener (JS), reduced-motion leaves it 0.
+   Decorative layers fade; the glass + interactive text stay fully opaque until they scroll away. No blur, no reflow. */
+.ai-hero-title { transform-origin: center; transform: scale(calc(1 - 0.12 * var(--c, 0))); }
+.ai-hero-desc { opacity: calc(1 - 0.12 * var(--c, 0)); }
+.ai-hero-prompt { transform: translateY(calc(-18px * var(--c, 0))); }
+.ai-hero-chips { opacity: calc(1 - 0.2 * var(--c, 0)); transform: translateY(calc(-12px * var(--c, 0))); }
+.ai-hero-aurora { opacity: calc(1 - 0.4 * var(--c, 0)); }
+.ai-hero-ambient { opacity: calc(0.85 * (1 - 0.55 * var(--c, 0))); }
+.ai-hero-energy { opacity: calc(1 - 0.5 * var(--c, 0)); }
+
+/* Section entry — first documentation block fades up as it enters (one-time, via IntersectionObserver). */
+@keyframes reveal-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.reveal-up { opacity: 0; }
+.reveal-up.in { animation: reveal-up 240ms ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-mesh, .ai-light, .ai-hero-breathe, .ai-flow, .ai-node, .ai-link, .ai-hero-line { animation: none !important; }
+  .ai-flow { opacity: 0.04; }
+  .reveal-up { opacity: 1; } .reveal-up.in { animation: none; }
+}
+
+/* Skeleton shimmer sweep (static fallback under reduced motion). */
+@keyframes skeleton-sweep { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .skeleton-shimmer::after { display: none; } }
+
+/* Chart line draw-in (progressive), static under reduced motion. Uses pathLength=1 to normalize. */
+@keyframes chart-draw { to { stroke-dashoffset: 0; } }
+.chart-line-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: chart-draw 350ms ease-out forwards; }
+@media (prefers-reduced-motion: reduce) { .chart-line-draw { stroke-dashoffset: 0; animation: none; } }
+
+/* Bar chart grow-from-baseline (350ms), static under reduced motion. */
+@keyframes bar-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.chart-bar-grow { transform-box: fill-box; transform-origin: bottom; animation: bar-grow 350ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .chart-bar-grow { animation: none; } }
+
+/* Donut chart reveal (400ms) — segments grow in, never a full-chart rotation. */
+@keyframes donut-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+.chart-donut-in { transform-box: fill-box; transform-origin: center; animation: donut-in 400ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .chart-donut-in { animation: none; } }
+
+/* AI Gradient Outline button — brand-gradient border ORBITING continuously around all four edges (conic,
+   seamless) via an animated @property angle. Transparent-look interior, brand-purple text, ambient glow.
+   AI actions only. Reduced-motion → static gradient border. */
+@property --ai-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+/* Transparent center at ALL times; the gradient shows ONLY on the ring via a masked ::before that orbits
+   continuously (never pauses on hover/focus/active). Hover/processing only enhance — never fill. */
+.btn-ai-outline {
+  position: relative;
+  background: transparent;
+  color: hsl(var(--brand-violet));
+  box-shadow: 0 0 20px hsl(var(--brand-violet) / 0.10);
+  transition: box-shadow 180ms ease-out, transform 180ms ease-out;
+}
+/* Dark mode — white label + icon (via currentColor) for stronger contrast on dark surfaces.
+   Text/icon only; the orbiting gradient border, glow, and all states are unchanged. Light mode
+   keeps the brand-violet text above. Applies to EVERY .btn-ai-outline (one shared rule). */
+.dark .btn-ai-outline { color: #ffffff; }
+.btn-ai-outline::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px; /* border thickness */
+  background: conic-gradient(from var(--ai-angle),
+    var(--ai-border-neutral) 0%, var(--ai-border-neutral) 30%,
+    #FE4E18 42%, #512195 52%, #25D0FE 62%,
+    var(--ai-border-neutral) 74%, var(--ai-border-neutral) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: ai-orbit 2.2s linear infinite;
+  pointer-events: none;
+}
+@keyframes ai-orbit { to { --ai-angle: 360deg; } }
+.btn-ai-outline:hover { box-shadow: 0 6px 26px hsl(var(--brand-violet) / 0.18); }
+.btn-ai-outline:hover::before { filter: saturate(1.08) brightness(1.06); animation-duration: 1.5s; }
+/* AI processing — orbit accelerates + ambient glow grows (the border IS the progress indicator, no fill). */
+.btn-ai-outline[aria-busy="true"] { box-shadow: 0 0 28px hsl(var(--brand-violet) / 0.22); }
+.btn-ai-outline[aria-busy="true"]::before { animation-duration: 1s; }
+@media (prefers-reduced-motion: reduce) { .btn-ai-outline::before { animation: none; } }
+
+/* Elevated surfaces (cards, menus, dialogs, sheets, header, sidebar). SOLID by design — see the perf note:
+   backdrop-filter (frosted-glass blur) on persistent or repeated surfaces re-samples the GPU every paint/
+   scroll frame and is the #1 cause of "laggy/heavy" UIs. Keep these blur-free; rely on border + soft shadow. */
+@layer components {
+  /* Official brand gradient — always reference these, never recreate the gradient manually. */
+  .bg-brand-gradient { background-image: var(--gradient-brand); }
+  .bg-brand-gradient-v2 { background-image: var(--gradient-brand-v2); }
+  /* Animated brand gradient — a slow flowing "wave of light" across the surface (Primary/Gradient button).
+     Colors never change; only the color distribution drifts. Typography/icons stay static. */
+  .bg-brand-gradient-animated {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-image: var(--gradient-brand);
+    background-size: 300% 300%;
+    animation: brand-gradient-flow 5s ease-in-out infinite;
+    will-change: background-position;
+  }
+  .text-brand-gradient {
+    background-image: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* AI Text Button — the animated SOLV FAST AI gradient painted ON the letters
+     (Orange → Purple → Cyan), no fill/border/shadow/shape. A 6s ease-in-out
+     background-position sweep loops seamlessly (gradient repeats symmetrically).
+     Icon support: .ai-gradient-icon — the official AiIcon shape as a CSS MASK over
+     the SAME gradient + SAME sweep animation (shared declaration below — one
+     gradient system, no duplicate). */
+  .btn-ai-text,
+  .ai-text-gradient,
+  .ai-gradient-icon {
+    background-image: var(--ai-text-gradient);
+    background-size: 300% 100%;
+    animation: ai-text-sweep 6s ease-in-out infinite;
+  }
+  .ai-gradient-icon {
+    display: inline-block;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+  .btn-ai-text:disabled .ai-gradient-icon,
+  .btn-ai-text[disabled] .ai-gradient-icon,
+  .btn-ai-text[aria-disabled="true"] .ai-gradient-icon {
+    animation: none;
+    background-image: linear-gradient(hsl(var(--muted-foreground)), hsl(var(--muted-foreground)));
+  }
+  .btn-ai-text,
+  .ai-text-gradient {
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: ai-text-sweep 6s ease-in-out infinite;
+    will-change: background-position;
+  }
+  /* Disabled — stop the animation, drop the gradient to the muted text token. */
+  .btn-ai-text:disabled, .btn-ai-text[disabled], .btn-ai-text[aria-disabled="true"] {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: hsl(var(--muted-foreground));
+    color: hsl(var(--muted-foreground));
+    filter: none;
+  }
+  @keyframes ai-text-sweep { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+  /* Reduced motion — freeze as a static gradient (never removed). */
+  @media (prefers-reduced-motion: reduce) {
+    .btn-ai-text, .ai-text-gradient, .ai-gradient-icon { animation: none; background-position: 0% 50%; }
+  }
+  /* Rating face — short selection-confirmation "pop" (subtle overshoot, not a bounce).
+     GPU-only (transform); restarted on each selection from the component. */
+  @keyframes rating-pop { 0% { transform: scale(1); } 55% { transform: scale(1.07); } 100% { transform: scale(1); } }
+  .rating-face.rating-pop { animation: rating-pop 240ms ease-out; }
+  @media (prefers-reduced-motion: reduce) { .rating-face.rating-pop { animation: none; } }
+  /* Hero-scoped glassmorphism (explicit exception to the solid-surface rule). Theme-aware, subtle. */
+  .glass-pill {
+    --pane-rim: color-mix(in srgb, var(--c-rim) calc(var(--rim-alpha) * 100%), transparent);
+    --pane-crown: color-mix(in srgb, var(--c-light) calc(var(--crown-alpha) * 100%), transparent);
+    border: none;
+    background: color-mix(in srgb, var(--c-glass) 14%, transparent);
+    -webkit-backdrop-filter: blur(8px) saturate(156%);
+    backdrop-filter: blur(8px) saturate(156%);
+    box-shadow: inset 0 1px 0 var(--pane-crown), inset 0 0 0 1px var(--pane-rim), 0 8px 24px -8px var(--gd-22);
+  }
+  /* Skeleton shimmer — soft low-contrast light sweeping left→right (GPU transform). */
+  .skeleton-shimmer { position: relative; overflow: hidden; background-color: hsl(var(--muted)); }
+  .skeleton-shimmer::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.07), transparent);
+    transform: translateX(-100%);
+    animation: skeleton-sweep 1.6s ease-in-out infinite;
+  }
+  /* Cards + containers use .glass-pane (flat container tier). The bare .glass class is the
+     Glass DS LIQUID control primitive (engine.css) — reserved for buttons, badges, stat
+     tiles and other content-tier controls. */
+  /* .glass-subtle / .glass-elevated / .glass-premium live in the reusable
+     Glass system → src/styles/glass/glass.css (loaded in main.tsx). */
+  /* Option A — plain dim scrim, NO blur (AlertDialog / confirmation dialogs / sheets).
+     Cheap, works everywhere; the safe default the spec recommends for frequent, fast dialogs. */
+  .glass-overlay {
+    @apply bg-black/50;
+  }
+  /* Option B — dim scrim + a GATED viewport backdrop-blur for the larger Modal (Dialog).
+     Full-viewport blur is the most expensive glass effect, so it's opt-in and fenced off:
+     only on ≥641px, only where backdrop-filter is supported, and only when the user hasn't
+     asked to reduce transparency. The dim scrim below is always the fallback. */
+  .glass-overlay-blur {
+    @apply bg-black/45;
+  }
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    @media (min-width: 641px) {
+      .glass-overlay-blur {
+        -webkit-backdrop-filter: blur(10px) saturate(156%);
+        backdrop-filter: blur(10px) saturate(156%);
+      }
+    }
+  }
+  /* Respect prefers-reduced-transparency (and honour it as the direct signal for "no glass"):
+     drop the backdrop blur AND fall back to a solid, opaque dialog surface. */
+  @media (prefers-reduced-transparency: reduce) {
+    .glass-overlay-blur { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+  /* Frappe-style filled field: soft gray fill, no border, ring on focus. */
+  .field-fill {
+    @apply border border-transparent bg-muted/60 transition-colors focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring/60;
+  }
+}
+
+/* =============================================================================
+   Liquid Glass — Apple-style SVG refraction (EXPERIMENTAL, showcase only).
+   Adapted from the macOS liquid-glass technique: an SVG feDisplacementMap warps
+   the backdrop for a true "liquid" refraction, plus inset highlights for the
+   glass edge. This is DELIBERATELY not the system glass: SVG displacement +
+   backdrop-filter is expensive and only reads over a busy/colourful background,
+   so it's scoped to a demo stage (and suitable for hero/marketing surfaces),
+   never applied to persistent/repeated chrome. Chromium shows it best.
+   ============================================================================= */
+.lg-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  min-height: 240px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(120deg, #512195, #7a2fb0, #fe4e18, #25d0fe, #11bf9d, #512195);
+  background-size: 300% 300%;
+  animation: lg-bg 20s ease infinite;
+}
+@keyframes lg-bg { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+@media (prefers-reduced-motion: reduce) { .lg-stage { animation: none; } }
+
+.lg-panel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 220px;
+  min-height: 130px;
+  padding: 1.25rem 1.5rem;
+  border-radius: 28px;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  z-index: 0;
+}
+.lg-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 28px;
+  pointer-events: none;
+  background-color: rgb(255 255 255 / 8%);
+  box-shadow: inset 2px 2px 0 -2px rgba(255, 255, 255, 0.7), inset 0 0 3px 1px rgba(255, 255, 255, 0.6);
+}
+.lg-panel::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: 28px;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  -webkit-filter: url(#lg-container);
+  filter: url(#lg-container);
+  isolation: isolate;
+}
+.lg-panel > * { position: relative; z-index: 2; }
+
+.lg-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  padding: 15px;
+  border: none;
+  background: transparent;
+  border-radius: 9999px;
+  cursor: pointer;
+  z-index: 0;
+  transition: transform 150ms ease;
+}
+.lg-btn:hover { transform: translateY(-2px); }
+.lg-btn:active { transform: scale(0.96); }
+.lg-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .lg-btn { transition: none; } .lg-btn:hover { transform: none; } }
+.lg-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 9999px;
+  pointer-events: none;
+  background-color: rgb(255 255 255 / 10%);
+  box-shadow: inset 2px 2px 0 -2px rgba(255, 255, 255, 0.7), inset 0 0 3px 1px rgba(255, 255, 255, 0.6);
+}
+.lg-btn::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: 9999px;
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
+  -webkit-filter: url(#lg-btn);
+  filter: url(#lg-btn);
+  isolation: isolate;
+}
+.lg-btn svg { position: relative; z-index: 2; width: 100%; height: 100%; stroke: #fff; }
+
+/* Image-backed liquid glass stage — shows transparency of glass objects over a photo. */
+.lg-stage-img {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  min-height: 280px;
+  padding: 1.5rem;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background-size: cover;
+  background-position: center;
+}
+
+/* =============================================================================
+   App background — a colourful, gently-animated aurora behind the ENTIRE app so
+   the (now translucent) glass surfaces have something to refract/blur. Base stays
+   the theme background colour for text readability; brand blobs add the colour the
+   glass picks up. This is what makes the liquid glass actually visible everywhere.
+   ============================================================================= */
+.app-bg {
+  /* Custom brand recipe: VIOLET DOMINANT · orange as a soft warm glow that bleeds out of the
+     violet (large, low-peak, overlapping — never a distinct blob) · a faint warm bridge veil
+     hands the glow off smoothly to the cyan corner (no hard separation) · teal quiet support ·
+     magenta removed. Premium + subtle; 42s drift preserved. */
+  background-color: hsl(var(--background));
+  background-image:
+    /* violet lead — top-start, strongest (painted on top) */
+    radial-gradient(52% 46% at 16% 18%, hsl(265 85% 62% / 0.34), transparent 64%),
+    /* orange warm glow — wide + soft, overlapping the violet's flank across the top */
+    radial-gradient(70% 55% at 55% 8%, hsl(14 92% 58% / 0.21), transparent 70%),
+    /* warm→cyan bridge — faint peach veil sliding down the end edge into the cyan corner */
+    radial-gradient(60% 60% at 92% 45%, hsl(24 90% 60% / 0.1), transparent 70%),
+    /* cyan finish — bottom-end */
+    radial-gradient(50% 46% at 86% 84%, hsl(193 92% 56% / 0.28), transparent 64%),
+    /* teal — quiet support, bottom-start */
+    radial-gradient(46% 42% at 12% 88%, hsl(168 82% 46% / 0.21), transparent 64%);
+  background-size: 200% 200%;
+  animation: app-bg-drift 42s ease-in-out infinite alternate;
+}
+@keyframes app-bg-drift { 0% { background-position: 0% 0%; } 100% { background-position: 100% 100%; } }
+@media (prefers-reduced-motion: reduce) { .app-bg { animation: none; } }
+
+/* .lg-surface (Liquid-Glass content surface for dialogs) now lives in the CENTRAL glass system
+   → src/styles/glass/glass.css — fully token-driven per the Glass integration rule. */
+
+/* Aurora bar — the App Aurora's exact palette (violet lead · soft orange glow · cyan finish,
+   toned-down intensities) as a compact wash for header strips (e.g. the AI Chat header). */
+.aurora-bar,
+.lg-surface.aurora-bar,
+.glass-elevated.aurora-bar {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(120% 190% at 12% 25%, hsl(265 85% 62% / 0.34), transparent 62%),
+    radial-gradient(150% 210% at 58% 0%, hsl(14 92% 58% / 0.21), transparent 66%),
+    radial-gradient(130% 200% at 96% 85%, hsl(193 92% 56% / 0.28), transparent 62%);
+}
+/* Dialog / popover aurora surfaces — translucent so their existing backdrop-blur shows the
+   dimmed page through as frosted glass. Base .aurora-bar (foundation, chat, calendar) stays solid. */
+.lg-surface.aurora-bar,
+.glass-elevated.aurora-bar {
+  background-color: hsl(var(--background) / 0.82);
+}
+
+/* Buttons — hierarchy showcase: every button shares the animated gradient button's
+   hover MOTION (lift + subtle brightness), then drops on press — regardless of its
+   variant/colour. Scoped to the section via `.btn-hover-gradient-motion`; each button
+   keeps its own colour and its existing shadow/tint growth. */
+.btn-hover-gradient-motion button:not(:disabled):not([aria-disabled="true"]):hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+.btn-hover-gradient-motion button:not(:disabled):not([aria-disabled="true"]):active {
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-hover-gradient-motion button:hover,
+  .btn-hover-gradient-motion button:active { transform: none; }
+}
+

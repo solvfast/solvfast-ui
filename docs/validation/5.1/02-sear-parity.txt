@@ -1,0 +1,4 @@
+== Sear parity
+identical: 50   imperceptible(<=2/255): 2   different: 0   only-in-A: 0   only-in-B: 0
+  NEAR dark-ar__desktop__sheet.png max delta 1/255 in box (905, 77, 1238, 94)
+  NEAR dark-en__desktop__dialog.png max delta 2/255 in box (38, 73, 326, 630)
