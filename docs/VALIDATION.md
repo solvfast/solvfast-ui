@@ -110,3 +110,18 @@ or modification date, so the two date filters cannot match anything there.
 **Found while testing.** V8's `Date.parse` accepts strings like "Task 10" (October 2001) and "Room 101" (the year
 101), so Sear's comparator sorted ordinary text containing a number as dates. The package compares only `Date` objects
 and ISO / Frappe date strings as dates.
+
+## After the 5.3 review (2026-10-15)
+
+### Glass button motion: 180 ms / 120 ms
+The DS Button documents hover 180 ms and press 120 ms (`design_system/frontend/src/components/ui/button.tsx:10`,
+v0.3.0) and carries the matching classes; on glass variants the glass engine's later `.sf-glass` transition overrode
+them (0.4 s / 0.26 s, pressed 0.16 s) — in Sear and in 5.1–5.3. A package rule (`styles/src/sf-fixes.css`,
+specificity over the engine, duration only) restores the documented values on elements built from `buttonVariants`
+(marker class `sf-button`).
+
+| Check | Command | Result |
+|---|---|---|
+| Nothing else changes | `node e2e/transition-audit.mjs` before (HEAD `01d8d00`) and after, `--diff … sf-button` | 67 elements changed, all `sf-button` glass buttons (0.4 s/0.26 s → 0.18 s); 0 outside; nothing changed under reduced motion; the list pager keeps 150 ms (`docs/validation/5.3-review/01-button-motion-audit.txt`) |
+| Measured motion | `node e2e/motion-check.mjs <playground> <sear>` | every variant 180 ms at rest / 120 ms pressed; none under reduced motion. Negative control: the check fails on Sear (0.4 s / 0.16 s) |
+| Screenshot parity | — | unaffected by construction: parity runs use `reducedMotion: "reduce"`, where the audit shows no change |

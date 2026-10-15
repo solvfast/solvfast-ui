@@ -153,7 +153,8 @@ Not bundled. Add to `index.html`:
 ## Known limitations
 - Path B: a sheet whose edge lands on a half pixel (e.g. the 75 %-wide sheet at 390 px) can rasterise with
   text/edge anti-aliasing that differs slightly from path A. Styles and layout are identical (docs/VALIDATION.md).
-- Button motion: glass buttons use the glass engine's timings (as in Sear); 180/120 ms apply to `ai-outline`.
+- Button motion: every variant uses the DS Button's documented 180 ms (hover) / 120 ms (press), none under
+  `prefers-reduced-motion`. Sear's glass buttons run on the glass engine's 0.4 s / 0.16 s instead — an intended difference.
 - Path B: glass controls can re-rasterize slightly differently from path A after a stylesheet is added at runtime
   (e.g. when a menu opens, ≤27/255 on the bell's glass). Styles are identical (docs/VALIDATION.md).
 - List View: each group is its own table (as in PMO), so column widths can differ from group to group.

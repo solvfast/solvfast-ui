@@ -1,6 +1,8 @@
 // Button motion per variant — measured, not read from CSS.  node e2e/motion-check.mjs <oursUrl> [searUrl]
 // Reports transition-duration at rest and while pressed, with and without prefers-reduced-motion.
-// Fails if any button transitions at all under reduced motion, or if the package differs from Sear.
+// Expected in the package: every variant 180 ms at rest and 120 ms pressed — the DS Button's documented motion
+// (design_system button.tsx:10) — and no motion under reduced motion. Sear's values are reported for comparison: its
+// glass variants run on the glass engine's 0.4 s / 0.26 s (pressed 0.16 s), an intended difference.
 import { chromium } from "playwright-core";
 const targets = [["package", process.argv[2]], ...(process.argv[3] ? [["sear", process.argv[3]]] : [])];
 const b = await chromium.launch(); const res = {};
@@ -26,11 +28,8 @@ for (const [label, r] of Object.entries(res)) {
   console.log(`\n${label}`); for (const [k, v] of Object.entries(r)) console.log(`  ${k.padEnd(24)} rest: ${v.rest}\n  ${"".padEnd(24)} pressed: ${v.pressed}`);
   const rm = r["package/reduce"]; if (![rm.rest, rm.pressed].every((x) => /^(1e-05s|0s)(, (1e-05s|0s))* \[/.test(x))) { ok = false; console.log("  ✖ transitions under reduced motion"); }
   const pkg = r["package/no-preference"], sear = r["sear/no-preference"];
-  if (label.includes("ai-outline")) {
-    // The documented 180 ms hover / 120 ms press (DS D5 fix) — the one variant whose own transition they govern.
-    if (!pkg.rest.startsWith("0.18s") || !pkg.pressed.startsWith("0.12s")) { ok = false; console.log("  ✖ expected 180 ms rest / 120 ms pressed"); }
-    else console.log("  ✔ 180/120 ms (Sear: 180 ms pressed — its 120 ms class emitted no CSS)");
-  } else if (sear && JSON.stringify(sear) !== JSON.stringify(pkg)) { ok = false; console.log("  ✖ differs from Sear"); }
-  else if (sear) console.log("  ✔ identical to Sear (glass engine timing)");
+  const only = (v, d) => v.split(" [")[0].split(", ").every((x) => x === d);
+  if (!only(pkg.rest, "0.18s") || !only(pkg.pressed, "0.12s")) { ok = false; console.log("  ✖ expected 180 ms at rest / 120 ms pressed"); }
+  else console.log(`  ✔ 180/120 ms${sear ? ` (Sear: ${sear.rest.split(" [")[0]} / ${sear.pressed.split(" [")[0]})` : ""}`);
 }
-console.log(ok ? "\n✔ no motion under reduced motion; glass timings identical to Sear; ai-outline 180/120 ms" : "\n✖ motion check failed"); process.exit(ok ? 0 : 1);
+console.log(ok ? "\n✔ every button variant 180/120 ms; no motion under reduced motion" : "\n✖ motion check failed"); process.exit(ok ? 0 : 1);

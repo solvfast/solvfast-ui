@@ -1,0 +1,6 @@
+== transition audit: HEAD 01d8d00 build vs this change (node e2e/transition-audit.mjs; --diff … sf-button)
+   pages: primitives, shell, list (features), list confirm dialog — each with and without prefers-reduced-motion
+  67 × no-preference: 0.4s, 0.4s, 0.26s, 0.26s → 0.18s
+changed: 67   outside "sf-button": 0   elements not found: 0
+  pager button: 0.15s, 0.15s background-color, color sf-button group relative inline-flex select-none items-cente
+  pager button: 0.15s, 0.15s background-color, color sf-button group relative inline-flex select-none items-cente

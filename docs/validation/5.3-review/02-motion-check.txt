@@ -1,0 +1,71 @@
+
+default
+  package/no-preference    rest: 0.18s [background-color, box-shadow, translate, scale]
+                           pressed: 0.12s [background-color, box-shadow, translate, scale]
+  package/reduce           rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  sear/no-preference       rest: 0.4s, 0.4s, 0.26s, 0.26s [background-color, box-shadow, translate, scale]
+                           pressed: 0.16s [background-color, box-shadow, translate, scale]
+  sear/reduce              rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  ✔ 180/120 ms (Sear: 0.4s, 0.4s, 0.26s, 0.26s / 0.16s)
+
+secondary
+  package/no-preference    rest: 0.18s [background-color, box-shadow, translate, scale]
+                           pressed: 0.12s [background-color, box-shadow, translate, scale]
+  package/reduce           rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  sear/no-preference       rest: 0.4s, 0.4s, 0.26s, 0.26s [background-color, box-shadow, translate, scale]
+                           pressed: 0.16s [background-color, box-shadow, translate, scale]
+  sear/reduce              rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  ✔ 180/120 ms (Sear: 0.4s, 0.4s, 0.26s, 0.26s / 0.16s)
+
+outline
+  package/no-preference    rest: 0.18s [background-color, box-shadow, translate, scale]
+                           pressed: 0.12s [background-color, box-shadow, translate, scale]
+  package/reduce           rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  sear/no-preference       rest: 0.4s, 0.4s, 0.26s, 0.26s [background-color, box-shadow, translate, scale]
+                           pressed: 0.16s [background-color, box-shadow, translate, scale]
+  sear/reduce              rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  ✔ 180/120 ms (Sear: 0.4s, 0.4s, 0.26s, 0.26s / 0.16s)
+
+ghost
+  package/no-preference    rest: 0.18s [background-color, box-shadow, translate, scale]
+                           pressed: 0.12s [background-color, box-shadow, translate, scale]
+  package/reduce           rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  sear/no-preference       rest: 0.4s, 0.4s, 0.26s, 0.26s [background-color, box-shadow, translate, scale]
+                           pressed: 0.16s [background-color, box-shadow, translate, scale]
+  sear/reduce              rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  ✔ 180/120 ms (Sear: 0.4s, 0.4s, 0.26s, 0.26s / 0.16s)
+
+destructive
+  package/no-preference    rest: 0.18s [background-color, box-shadow, translate, scale]
+                           pressed: 0.12s [background-color, box-shadow, translate, scale]
+  package/reduce           rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  sear/no-preference       rest: 0.4s, 0.4s, 0.26s, 0.26s [background-color, box-shadow, translate, scale]
+                           pressed: 0.16s [background-color, box-shadow, translate, scale]
+  sear/reduce              rest: 1e-05s [background-color, box-shadow, translate, scale]
+                           pressed: 1e-05s [background-color, box-shadow, translate, scale]
+  ✔ 180/120 ms (Sear: 0.4s, 0.4s, 0.26s, 0.26s / 0.16s)
+
+ai-outline
+  package/no-preference    rest: 0.18s, 0.18s [box-shadow, transform]
+                           pressed: 0.12s [box-shadow, transform]
+  package/reduce           rest: 1e-05s [box-shadow, transform]
+                           pressed: 1e-05s [box-shadow, transform]
+  sear/no-preference       rest: 0.18s, 0.18s [box-shadow, transform]
+                           pressed: 0.18s, 0.18s [box-shadow, transform]
+  sear/reduce              rest: 1e-05s [box-shadow, transform]
+                           pressed: 1e-05s [box-shadow, transform]
+  ✔ 180/120 ms (Sear: 0.18s, 0.18s / 0.18s, 0.18s)
+
+✔ every button variant 180/120 ms; no motion under reduced motion
+
+== negative control: the same check pointed at Sear's harness (glass engine timings)
+  ✖ expected 180 ms at rest / 120 ms pressed (every glass variant) → ✖ motion check failed

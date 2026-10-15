@@ -6,6 +6,13 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+### Changed — after the 5.3 review
+- Buttons: the glass variants (default, secondary, outline, ghost, destructive) now use the DS Button's documented
+  motion — 180 ms hover, 120 ms press (design_system `button.tsx`, v0.3.0) — instead of the glass engine's 0.4 s /
+  0.16 s, which they had in Sear. Nothing else changes: an audit of every element's transition on the primitives,
+  shell and list pages differs only on buttons; no motion under `prefers-reduced-motion`; the list pager keeps
+  Sear's 150 ms.
+
 ### Added — increment 5.3 (List View)
 - `ListView` — Sear's data grid (toolbar, glass table, pill pager) with PMO's list features as props: selection and
   bulk actions, group-by, sort menu, quick filters of any type with a field picker, row actions with confirm,

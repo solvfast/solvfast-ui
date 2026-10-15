@@ -11,9 +11,11 @@ import { cn } from "../lib/cn"
  * Package subset: only the variants and sizes Sear uses (VENDORED.md).
  * Motion: hover 180ms (lift 1px + ~5% brightness + elevation), pressed 120ms (scale 0.98, no shadow),
  * focus 2px offset ring. All colors via semantic tokens; light/dark aware. RTL-safe (logical gap).
+ * Package: `sf-button` marks every button built from these variants so the glass variants keep 180/120 ms over the
+ * glass engine's own timings (styles/src/sf-fixes.css).
  */
 const buttonVariants = cva(
-  "group relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-semibold transition-all duration-180 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none disabled:!translate-y-0 active:duration-120 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "sf-button group relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap font-semibold transition-all duration-180 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none disabled:!translate-y-0 active:duration-120 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {

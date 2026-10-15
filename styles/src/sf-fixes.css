@@ -1,0 +1,9 @@
+/* Package fixes to the DS glass engine. Appended to glass.css by scripts/extract-css.mjs, after the engine. */
+
+/* Button motion — the DS Button's documented values (design_system components/ui/button.tsx:10, v0.3.0):
+ * hover 180 ms, pressed 120 ms. On glass variants the engine's `.sf-glass` transition (colours 0.4 s, movement
+ * 0.26 s, pressed 0.16 s) comes later and overrides the Button's own duration classes, in Sear as in the DS; these
+ * two rules win on specificity instead. Duration only: the engine's transition properties and easings stay.
+ * Reduced motion: the engine's `transition-duration: 0.01ms !important` (prefers-reduced-motion) still wins. */
+.sf-button.sf-glass { transition-duration: 180ms; }
+.sf-button.sf-glass:active { transition-duration: 120ms; }
