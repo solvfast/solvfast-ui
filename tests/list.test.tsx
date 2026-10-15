@@ -364,6 +364,19 @@ describe("F15 advanced filter", () => {
     expect(btn(/^Filter/).textContent!.trim()).toBe("Filter");
   });
 
+  it("every control in a condition row has an accessible name, in both languages (fix: comboboxes don't take their name from their text)", () => {
+    for (const lang of ["en", "ar"] as const) {
+      render(<Wrap lang={lang}><FilterBuilder fields={FIELDS} activeCount={0} onChange={() => {}} query={{ conjunction: "and", conditions: (["title", "status", "points", "due", "done"] as const).map((f, i) => ({ id: `c${i}`, field: f, operator: i === 1 ? "equals" : OPERATORS_BY_TYPE[FIELDS.find((x) => x.name === f)!.type][0], value: "" })) }} /></Wrap>);
+      fireEvent.click(screen.getByRole("button", { name: lang === "en" ? "Filter" : "تصفية" }));
+      const dialog = within(screen.getByRole("dialog"));
+      const controls = (["combobox", "textbox", "spinbutton"] as const).flatMap((r) => dialog.queryAllByRole(r));
+      expect(controls.length).toBeGreaterThanOrEqual(15);
+      const unnamed = controls.filter((c) => !c.getAttribute("aria-label")?.trim() && !c.getAttribute("aria-labelledby"));
+      expect(unnamed.map((c) => c.outerHTML.slice(0, 60))).toEqual([]);
+      cleanup();
+    }
+  });
+
   it("the field picker is searchable and resets the operator and value for the new type", () => {
     render(<StatefulBuilder initial={{ conjunction: "and", conditions: [{ id: "c1", field: "title", operator: "not_like", value: "x" }] }} />);
     fireEvent.click(btn("Filter 1")); // name includes the count badge

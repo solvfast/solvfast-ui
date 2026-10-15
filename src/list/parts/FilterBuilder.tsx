@@ -4,7 +4,9 @@
  * a searchable field picker (styled like Sear's select trigger), a real date picker for date values (Sear's glass
  * DateField instead of the native `type=date`), and link autocomplete through the app's `loadOptions` (debounced).
  * Fixes: value inputs are proper components (PMO declared them inside render, so they remounted on every keystroke);
- * the "Add filter" action uses the theme primary directly (Sear recoloured `button.text-info` globally to get this).
+ * the "Add filter" action uses the theme primary directly (Sear recoloured `button.text-info` globally to get this);
+ * every control in a condition row has an accessible name (field, condition, value — comboboxes don't take their
+ * name from their text, so Sear's and PMO's were announced unnamed).
  */
 import * as React from "react";
 import { Check, ChevronDown, ChevronsUpDown, Filter, Plus, X } from "lucide-react";
@@ -68,7 +70,7 @@ export function FilterBuilder({ fields, query, onChange, activeCount, loadOption
           <span className="text-sm font-medium">{t("filters")}</span>
           {query.conditions.length > 1 && (
             <Select value={query.conjunction} onValueChange={(v) => setConj(v as "and" | "or")}>
-              <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-7 w-24 text-xs" aria-label={t("conjunction")}><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="and">{t("matchAll")}</SelectItem>
                 <SelectItem value="or">{t("matchAny")}</SelectItem>
@@ -86,7 +88,7 @@ export function FilterBuilder({ fields, query, onChange, activeCount, loadOption
               <div key={c.id} className="flex items-center gap-1.5">
                 <FieldPicker fields={fields} value={c.field} onChange={(v) => patch(c.id, { field: v })} />
                 <Select value={c.operator} onValueChange={(v) => patch(c.id, { operator: v as Operator })}>
-                  <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-28" aria-label={t("operator")}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {OPERATORS_BY_TYPE[ftype].map((op) => <SelectItem key={op} value={op}>{t(OPERATOR_LABEL[op])}</SelectItem>)}
                   </SelectContent>
@@ -132,6 +134,7 @@ function FieldPicker({ fields, value, onChange }: { fields: FilterField[]; value
           type="button"
           role="combobox"
           aria-expanded={open}
+          aria-label={t("field")}
           className="sf-field-fill flex h-8 w-1/3 items-center justify-between whitespace-nowrap rounded-md px-3 py-2 text-sm outline-none focus:outline-none [&>span]:line-clamp-1"
         >
           <span className={cn(!label && "text-muted-foreground")}>{label ?? t("field")}</span>
@@ -167,7 +170,7 @@ export function FilterValueInput({ field, operator, value, onChange, loadOptions
   if (field.type === "boolean") {
     return (
       <Select value={value || "true"} onValueChange={onChange}>
-        <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-8 w-full" aria-label={t("value")}><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="true">{t("yes")}</SelectItem>
           <SelectItem value="false">{t("no")}</SelectItem>
@@ -178,7 +181,7 @@ export function FilterValueInput({ field, operator, value, onChange, loadOptions
   if (field.type === "select" && !multi) {
     return (
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-8 w-full"><SelectValue placeholder={t("selectValue")} /></SelectTrigger>
+        <SelectTrigger className="h-8 w-full" aria-label={t("value")}><SelectValue placeholder={t("selectValue")} /></SelectTrigger>
         <SelectContent>
           {(field.options || []).map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
@@ -186,9 +189,9 @@ export function FilterValueInput({ field, operator, value, onChange, loadOptions
     );
   }
   if (field.type === "link" && !multi && loadOptions) return <LinkValue field={field} value={value} onChange={onChange} loadOptions={loadOptions} />;
-  if (field.type === "date") return <DateField value={value} onChange={onChange} className="[&>button]:h-8" />;
-  if (field.type === "number") return <Input type="number" dir="ltr" className="h-8" value={value} onChange={(e) => onChange(e.target.value)} />;
-  return <Input className="h-8" placeholder={multi ? t("commaSeparated") : t("value")} value={value} onChange={(e) => onChange(e.target.value)} />;
+  if (field.type === "date") return <DateField value={value} onChange={onChange} className="[&>button]:h-8" aria-label={t("value")} />;
+  if (field.type === "number") return <Input type="number" dir="ltr" className="h-8" aria-label={t("value")} value={value} onChange={(e) => onChange(e.target.value)} />;
+  return <Input className="h-8" aria-label={t("value")} placeholder={multi ? t("commaSeparated") : t("value")} value={value} onChange={(e) => onChange(e.target.value)} />;
 }
 
 /** Link autocomplete (Sear LinkValue); options come from the app, requests debounced 300 ms (neither source had one). */
@@ -206,7 +209,7 @@ function LinkValue({ field, value, onChange, loadOptions }: { field: FilterField
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="h-8 w-full justify-between font-normal">
+        <Button variant="outline" role="combobox" aria-label={t("value")} className="h-8 w-full justify-between font-normal">
           <span className={cn("truncate", !value && "text-muted-foreground")}>{opts.find((o) => o.value === value)?.label ?? (value || t("selectValue"))}</span>
           <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
         </Button>
