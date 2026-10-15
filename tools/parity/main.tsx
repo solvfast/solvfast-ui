@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Layers } from "lucide-react";
 import "@/index.css"; // Sear's real Tailwind entry (imports sear-studio.css)
 import "@ds/styles/glass/glass.css"; // loaded after it, exactly like Sear's main.tsx
@@ -10,6 +11,7 @@ import { SEAR_STUDIO_BASE } from "@sear/lib/searStudioBase";
 import searStudioLogo from "@/assets/applogos/apps/sear.png";
 import { Primitives } from "../../playground/src/showcase/Primitives";
 import { ShellPage } from "../../playground/src/showcase/ShellPage";
+import FieldLibraryListPage from "@sear/pages/FieldLibrary/FieldLibraryListPage";
 
 const params = new URLSearchParams(location.search);
 const view = params.get("view") ?? "primitives";
@@ -45,4 +47,17 @@ function SearShell() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<ThemeProvider>{view === "shell" ? <SearShell /> : <PrimitivesPage />}</ThemeProvider>);
+/** Sear's REAL Field Library list page (its store, the DS DataGrid, Sear's useDataGrid engine). */
+function SearFieldLibrary() {
+  return (
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[`${SEAR_STUDIO_BASE}/field_library`]}>
+        <div className="sear-studio min-h-screen"><FieldLibraryListPage /></div>
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(
+  <ThemeProvider>{view === "shell" ? <SearShell /> : view === "list" ? <SearFieldLibrary /> : <PrimitivesPage />}</ThemeProvider>,
+);

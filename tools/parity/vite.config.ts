@@ -25,6 +25,10 @@ const pinned: Record<string, string> = {
   "src/sear_studio/components/NotificationCenter.tsx": "NotificationCenter.tsx",
   "src/sear_studio/pages/Notifications/notificationCenterStore.ts": "notificationCenterStore.ts",
   "src/shared/injection/binaDropdown.js": "binaDropdown.js",
+  "src/hooks/useDataGrid.ts": "data-grid/useDataGrid.ts", "src/lib/data-grid/filter-engine.ts": "data-grid/filter-engine.ts",
+  "src/lib/data-grid/frappe-meta.ts": "data-grid/frappe-meta.ts", "src/lib/data-grid/storage.ts": "data-grid/storage.ts",
+  "src/lib/data-grid/cell-render.tsx": "data-grid/cell-render.tsx",
+  "src/sear_studio/pages/FieldLibrary/FieldLibraryListPage.tsx": "data-grid/FieldLibraryListPage.tsx",
 };
 const sha = (f: string) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
 for (const [live, copy] of Object.entries(pinned)) {
@@ -45,6 +49,10 @@ const content = [
   path.join(SEAR_FE, "src/sear_studio_app/StudioShell.tsx"),
   path.join(SEAR_FE, "src/sear_studio/components/NotificationCenter.tsx"),
   path.join(SEAR_FE, "src/sear_studio/components/daleel/**/*.tsx"),
+  // the list (increment 5.3)
+  path.join(DS_FE, "src/components/data-grid/**/*.tsx"),
+  path.join(SEAR_FE, "src/lib/data-grid/**/*.tsx"),
+  path.join(SEAR_FE, "src/sear_studio/pages/FieldLibrary/FieldLibraryListPage.tsx"),
 ];
 
 export default defineConfig({
@@ -60,7 +68,7 @@ export default defineConfig({
       { find: /^@\//, replacement: path.join(SEAR_FE, "src") + "/" },
     ],
     // One copy of every shared runtime (Sear does the same through its own dedupe list).
-    dedupe: ["react", "react-dom", "react/jsx-runtime", "lucide-react", "class-variance-authority", "clsx", "tailwind-merge",
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "@tanstack/react-query", "lucide-react", "class-variance-authority", "clsx", "tailwind-merge",
       "cmdk", "react-day-picker", "date-fns", "@radix-ui/react-slot", "@radix-ui/react-select", "@radix-ui/react-popover",
       "@radix-ui/react-dropdown-menu", "@radix-ui/react-dialog", "@radix-ui/react-alert-dialog", "@radix-ui/react-tooltip",
       "@radix-ui/react-tabs", "@radix-ui/react-switch", "@radix-ui/react-checkbox", "@radix-ui/react-label",

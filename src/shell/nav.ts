@@ -1,11 +1,7 @@
 /** Navigation model shared by the Sidebar, Navbar title and MobileNav. Pure TS; routing is the consumer's. */
 import type { ComponentType } from "react";
-import type { Language } from "../theme/messages";
-
-/** A string, or one string per language. */
-export type Localized = string | { en: string; ar: string };
-export const loc = (l: Localized | undefined, language: Language): string =>
-  l == null ? "" : typeof l === "string" ? l : l[language] ?? l.en;
+import type { Localized } from "../lib/localized";
+export { loc, type Localized } from "../lib/localized";
 
 export interface NavItem {
   /** Stable id (React key). */

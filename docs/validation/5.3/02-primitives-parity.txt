@@ -1,0 +1,8 @@
+== primitives vs Sear (run 1)
+identical: 51   imperceptible(<=2/255): 0   different: 1   only-in-A: 0   only-in-B: 0
+  DIFF dark-ar__desktop__page.png max delta 26/255 in box (792, 77, 1238, 612)
+== reruns 2 and 3 (same build)
+identical: 51   imperceptible(<=2/255): 1   different: 0   only-in-A: 0   only-in-B: 0
+  NEAR dark-en__desktop__sheet.png max delta 1/255 in box (117, 77, 414, 79)
+identical: 51   imperceptible(<=2/255): 1   different: 0   only-in-A: 0   only-in-B: 0
+  NEAR dark-en__desktop__select.png max delta 1/255 in box (117, 77, 414, 79)

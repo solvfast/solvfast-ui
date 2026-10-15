@@ -49,9 +49,36 @@ revisions** and adapted here. Pristine copies of every source file are kept in `
 Playground only (not published): `playground/src/demo/sear-demo.ts` restates Sear's `NAV_ITEMS`, `WORKSPACE_SECTIONS`
 and notification seed as package props; `playground/src/demo/sear-assets/` are copies of the Sear images they use.
 
+## List View (increment 5.3)
+
+Sear renders the DS DataGrid (`design_system` v0.3.0 `components/data-grid/*`) with its own engine (`hooks/useDataGrid.ts`,
+`lib/data-grid/*`); PMO has its own list components. The package keeps Sear's markup and classes and merges PMO's
+features in; feature-by-feature coverage and the fixes are in docs/FEATURES.md.
+
+| Package file | From | Changes |
+|---|---|---|
+| `src/list/model/filters.ts` | Sear `lib/data-grid/filter-engine.ts` = PMO `lib/filter-engine.ts` (semantically identical) + PMO `lib/quick-filters.ts` | one copy; operator labels are message keys; condition ids unique per page load (**bug fix**, PMO restarted per mount) |
+| `src/list/model/sort.ts` | Sear `hooks/useDataGrid.ts` (`compareValues`) + PMO `lib/list-view.ts` (`sortRows`, `sortValue`) | natural string order (PMO); **bug fixes**: empty values last in both directions; only real dates compare as dates |
+| `src/list/model/columns.ts` | PMO `lib/list-view.ts` (`ColumnDef`), `lib/meta-columns.tsx` (merge) | localized labels; type / fieldtype for default cells and filters |
+| `src/list/model/group.ts` | PMO `components/lists/GroupedListTable.tsx`, `GroupByControl.tsx` | pure function |
+| `src/list/model/storage.ts` | Sear `lib/data-grid/storage.ts`; PMO `lib/list-view.ts` prefs | adapter interfaces (sync or async); localStorage default namespaced `sf:list:[user:]<view>:` |
+| `src/list/useListState.ts` | Sear `useDataGrid` (client "mock" mode, paging) + PMO `components/lists/useListView.ts` | headless; server mode via `onStateChange`; rules C1 / C3; **bug fixes**: debounced filters, pruned selection |
+| `src/list/parts/ListTable.tsx` | DS `DataGrid.tsx` table + Sear `lib/data-grid/cell-render.tsx` + PMO `ListTable.tsx`, `GroupedListTable.tsx` | Sear's classes; PMO selection, keyboard rows, `rowClassName`, groups; **bug fixes**: no sort button on non-sortable columns, `aria-sort`, error state, group select-all |
+| `src/list/parts/FilterBuilder.tsx` | DS `AdvancedFilter.tsx`, `FilterValueInput.tsx` + PMO `AdvancedFilter.tsx`, `FieldCombobox.tsx`, `ui/date-picker.tsx` | Sear's layout; PMO searchable field picker drawn as Sear's select; `DateField` instead of a native date input; link options via `loadOptions` (300 ms debounce); **bug fix**: value inputs no longer remount |
+| `src/list/parts/Toolbar.tsx` | DS `SavedFilters.tsx`, `ColumnCustomizer.tsx`, `QuickFilters.tsx` + PMO `ColumnCustomizer.tsx`, `QuickFilters.tsx`, `SortControl.tsx`, `GroupByControl.tsx` | Sear's popovers; PMO drag reorder, locked columns, column search, any-type quick filters with a field picker, sort and group-by menus |
+| `src/list/parts/ListFooter.tsx` | DS `DataGrid.tsx` pager + Sear `sear-studio.css:382-420` (pill); PMO `components/tasks/BulkActionBar.tsx` | pager pill rules in `styles/src/sf-overrides.css` (`.sf-datagrid`); generic bulk actions |
+| `src/list/ListView.tsx` | DS `DataGrid.tsx` layout as Sear's `FieldLibraryListPage.tsx` uses it | everything app-specific is a prop; row actions with Sear's delete-button look and an optional confirm; **bug fix**: row actions are not a manageable / filterable / sortable column |
+
+Playground only (not published): `playground/src/showcase/FieldLibraryDemo.tsx` rebuilds Sear's Field Library page on
+`ListView`; `playground/src/demo/field-library.ts` restates its 9 presets (name, Arabic name, description, field count,
+author, age in days).
+
 ## Not carried over (Sear-specific or dead)
 `sear-studio.css`: the `Agency` font face (file doesn't exist), `.glass-morphism`, `.glass-card`, `.gradient-border-*`,
 `.senaiy-*`, `.transition-smooth`, form-builder container queries, chat-sheet rule, `.sear-glass-dialog` opt-in,
-`button.text-info` (the package's own filter action will use `text-primary` directly).
+`button.text-info` (the package's filter action uses `text-primary` directly).
+List: Sear's mock-meta `actions` field (a real fixed column instead), `inferFields` (columns are declared), the
+`grid:cols:` / `grid:saved:` storage keys (new namespace; no migration), PMO's `PMO Saved Filter` DocType API and
+`sonner` toasts (an app adapter and the `onFilterSaved` / `onSavedFiltersError` callbacks replace them).
 Shell: `HEADER_HELP` and `FeatureHelp` (daleel), `FULLSCREEN_PATTERNS`, the `bina_*` theme fallback
 (`usePortableTheme`), the `shared/` adapters, the BINA DOM-injection helpers.

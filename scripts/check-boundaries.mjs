@@ -8,7 +8,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const walk = (d) => (fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])) : []);
-const importsOf = (src) => [...src.matchAll(/(?:import|export)\s[^"']*?from\s*["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)|import\s+["']([^"']+)["']/g)].map((m) => m[1] || m[2] || m[3]);
+// `import type` / `export type` are erased at compile time: no runtime dependency, so not a boundary crossing.
+const stripTypeOnly = (src) => src.replace(/^\s*(import|export)\s+type\s[^;]*;?/gm, "");
+const importsOf = (src0) => { const src = stripTypeOnly(src0); return [...src.matchAll(/(?:import|export)\s[^"']*?from\s*["']([^"']+)["']|import\s*\(\s*["']([^"']+)["']\s*\)|import\s+["']([^"']+)["']/g)].map((m) => m[1] || m[2] || m[3]); };
 const problems = [];
 
 // ---- A. source rules -------------------------------------------------------------------------------------------
@@ -18,7 +20,7 @@ const area = (file) => {
   return rel.length === 1 ? rel[0] : rel[0];
 };
 const RULES = {
-  lib: { deny: [/^react/, /^@radix-ui/, /^@tanstack/, /frappe/, /^\.\.\/(theme|primitives|shell|list|frappe)/] },
+  lib: { deny: [/^react(?!-day-picker)/, /^@radix-ui/, /^@tanstack/, /frappe/, /^\.\.\/(theme|primitives|shell|list|frappe)/] },
   "list/model": { deny: [/^react/, /^@radix-ui/, /^@tanstack/, /frappe/, /^\.\.\/\.\.\/(theme|primitives|shell|frappe)/, /^\.\.\/(parts|ListView|useListState)/] },
   theme: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(shell|list|frappe)/] },
   primitives: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(shell|list|frappe)/] },

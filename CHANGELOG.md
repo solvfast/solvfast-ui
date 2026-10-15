@@ -6,6 +6,26 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+### Added — increment 5.3 (List View)
+- `ListView` — Sear's data grid (toolbar, glass table, pill pager) with PMO's list features as props: selection and
+  bulk actions, group-by, sort menu, quick filters of any type with a field picker, row actions with confirm,
+  conditional row styles, keyboard rows, loading / empty / error states. Client and server data modes.
+- `useListState` (headless) and the parts: `ListTable`, `GroupedListTable`, `DefaultCell`, `FilterBuilder`,
+  `FilterValueInput`, `SavedFilters`, `ColumnManager`, `QuickFilters`, `SortMenu`, `GroupByMenu`, `ListPagination`,
+  `BulkActionBar`; the filter model (`applyFilterQuery`, 12 operators), `compareValues` / `sortRows`, `groupRows`,
+  `mergeColumns`, storage adapters (`createLocalStorageAdapter`, `ListPrefsStorage`, `SavedFiltersStorage`).
+- List strings in Arabic and English. Coverage per feature: docs/FEATURES.md.
+
+### Fixed — list (relative to Sear and PMO; details in docs/FEATURES.md)
+- Row actions are a fixed last column — no longer offered in the column manager, the filter fields or sorting.
+- Non-sortable columns have no sort button; sorted headers carry `aria-sort`; rows open with Enter.
+- Load errors are shown with Retry (Sear's grid showed nothing).
+- Sorting: empty values last in both directions; text such as "Room 101" no longer sorts as a date; natural order.
+- Server mode: search and text filters wait for a typing pause (one request, not one per keystroke).
+- Selection is pruned when search or filters change; a group's select-all reflects that group.
+- Filter value inputs keep focus while typing; filter condition ids never collide.
+- Saved-filter storage failures reach the app (`onSavedFiltersError`) instead of being swallowed.
+
 ### Added — increment 5.2 (app shell)
 - `AppShell`, `Sidebar`, `Navbar`, `MobileNav`, `AppSwitcher`, `NotificationPanel` — Sear's StudioShell with its
   navigation, routing, switcher sections, notifications, help and search supplied by the app; `NavItem` model with

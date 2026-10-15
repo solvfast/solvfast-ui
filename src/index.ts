@@ -1,5 +1,5 @@
 /**
- * @solvfast/ui — core entry. Explicit, intentional exports only (architecture §3).
+ * @solvfast/ui — core entry. Explicit, intentional exports only.
  * This entry must never import the Frappe layer or @tanstack/* (enforced by scripts/check-boundaries.mjs).
  */
 
@@ -75,3 +75,26 @@ export { defaultIsActive, pathMatches, deepestActive, loc } from "./shell/nav";
 export type { NavItem, Localized, IsActive } from "./shell/nav";
 export { relativeTime, timeGroup } from "./lib/relative-time";
 export type { TimeGroup } from "./lib/relative-time";
+
+// List View (Sear's DataGrid look + PMO's list features — increment 5.3)
+export { ListView } from "./list/ListView";
+export type { ListViewProps, ListViewControls, RowAction } from "./list/ListView";
+export { useListState } from "./list/useListState";
+export type { UseListStateOptions, ListQueryState, ListState } from "./list/useListState";
+export { ListTable, GroupedListTable, DefaultCell } from "./list/parts/ListTable";
+export type { ListTableProps } from "./list/parts/ListTable";
+export { FilterBuilder, FilterValueInput } from "./list/parts/FilterBuilder";
+export type { FilterBuilderProps, LoadOptions } from "./list/parts/FilterBuilder";
+export { SavedFilters, ColumnManager, QuickFilters, SortMenu, GroupByMenu } from "./list/parts/Toolbar";
+export { ListPagination, BulkActionBar } from "./list/parts/ListFooter";
+export type { BulkAction } from "./list/parts/ListFooter";
+export { applyFilterQuery, activeConditionCount, newCondition, OPERATORS_BY_TYPE, EMPTY_QUERY, getQuickValue, setQuickValue } from "./list/model/filters";
+export type { FilterField, FilterQuery, FilterCondition, Operator, FieldType } from "./list/model/filters";
+export { mergeColumns, filterFieldsFromColumns } from "./list/model/columns";
+export type { ColumnDef } from "./list/model/columns";
+export { compareValues, sortRows } from "./list/model/sort";
+export type { SortState } from "./list/model/sort";
+export { groupRows } from "./list/model/group";
+export type { GroupByOption, RowGroup } from "./list/model/group";
+export { createLocalStorageAdapter } from "./list/model/storage";
+export type { ListPrefs, ListPrefsStorage, SavedFilter, SavedFiltersStorage } from "./list/model/storage";

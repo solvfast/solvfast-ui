@@ -80,6 +80,40 @@
 .sf-popper [cmdk-input-wrapper] {
   padding-top: 3px;
 }
+.sf-datagrid > div:last-child > div:last-child {
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--glass-bevel-md), var(--glass-lift-2);
+}
+.sf-datagrid > div:last-child > div:last-child > button {
+  height: 1.75rem;
+  width: 1.75rem;
+  border: none !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 150ms, color 150ms;
+}
+.sf-datagrid > div:last-child > div:last-child > button:not(:disabled):hover {
+  background: hsl(var(--foreground) / 0.05) !important;
+  color: hsl(var(--foreground));
+}
+.sf-datagrid > div:last-child > div:last-child > button:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.sf-datagrid > div:last-child > div:last-child > span {
+  padding-inline: 0.25rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+}
 @layer base {
   .sf-theme {
     --background: 240 20% 98%;

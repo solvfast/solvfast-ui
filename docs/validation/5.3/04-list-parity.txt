@@ -1,0 +1,14 @@
+== list vs Sear's FieldLibraryListPage (final build)
+no page errors
+identical: 36   imperceptible(<=2/255): 0   different: 8   only-in-A: 0   only-in-B: 0
+  DIFF dark-ar__column-shown.png max delta 199/255 in box (32, 86, 1408, 697)
+  DIFF dark-ar__columns-open.png max delta 218/255 in box (200, 122, 486, 289)
+  DIFF dark-en__column-shown.png max delta 194/255 in box (32, 88, 1408, 697)
+  DIFF dark-en__columns-open.png max delta 221/255 in box (945, 122, 1231, 289)
+  DIFF light-ar__column-shown.png max delta 185/255 in box (32, 86, 1408, 697)
+  DIFF light-ar__columns-open.png max delta 223/255 in box (202, 122, 484, 287)
+  DIFF light-en__column-shown.png max delta 185/255 in box (32, 88, 1408, 697)
+  DIFF light-en__columns-open.png max delta 223/255 in box (947, 122, 1229, 287)
+
+== negative control: an earlier run (before the later sort fixes, which don't affect these states) with row actions made a manageable column (Sear's behaviour) — reverted
+identical: 44   imperceptible(<=2/255): 0   different: 0   only-in-A: 0   only-in-B: 0

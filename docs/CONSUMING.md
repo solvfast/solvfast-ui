@@ -1,7 +1,7 @@
 # Using @solvfast/ui
 
-Status: **0.0.0, increment 5.2** — theme, primitives, styles and the app shell. The List View and the Frappe layer
-arrive in later increments. Requirements: React 18.3, a bundler that understands package `exports` (Vite, etc.).
+Status: **0.0.0, increment 5.3** — theme, primitives, styles, the app shell and the List View. The Frappe layer
+arrives in increment 5.4. Requirements: React 18.3, a bundler that understands package `exports` (Vite, etc.).
 
 ## Install
 Published by the owner to GitHub Packages (`@solvfast` scope). Until then, install a tarball built with `npm pack`.
@@ -92,7 +92,57 @@ const location = useLocation(); const navigate = useNavigate();      // e.g. rea
 - `NotificationItem`: `{ id, body, at (epoch ms), read, iconSrc?, source? }`; the panel groups by Today / Yesterday /
   Earlier and shows relative times. The app owns the data: mark items read in `onItemClick` / `onMarkAllRead`.
 
-## 4. Fonts
+## 4. List View
+`ListView` is Sear's data grid (search, saved filters, advanced filter, column manager, glass table, pill pager) with
+PMO's list features available as props. Defaults look and behave like Sear; the extra controls appear only when used.
+```tsx
+import { ListView, type ColumnDef } from "@solvfast/ui";
+const columns: ColumnDef<Task>[] = [
+  { key: "subject", label: { en: "Subject", ar: "الموضوع" }, type: "text" },
+  { key: "status", label: { en: "Status", ar: "الحالة" }, type: "select", fieldtype: "Select", options },
+  { key: "due", label: { en: "Due", ar: "الاستحقاق" }, type: "date", fieldtype: "Date" },
+  { key: "owner", label: { en: "Owner", ar: "المسؤول" }, type: "link", hidden: true },   // offered in the column manager
+];
+<ListView
+  rows={tasks} columns={columns} rowKey={(t) => t.name}
+  viewKey="Task"                                   // persists columns, sort, group-by, quick filters, saved filters
+  onRowClick={(t) => navigate(`/tasks/${t.name}`)}
+  rowActions={[{ key: "delete", label: { en: "Delete", ar: "حذف" }, icon: Trash2, tone: "destructive",
+                 confirm: { title: { en: "Delete this task?", ar: "حذف هذه المهمة؟" } }, onSelect: remove }]}
+  toolbarActions={<Button onClick={create}>New task</Button>}
+  emptyMessage={<>No tasks yet <Button size="sm" onClick={create}>New task</Button></>}
+  // PMO features — all optional:
+  selectable bulkActions={[{ key: "close", label: "Close", run: (keys, rows) => close(keys) }]}
+  groupByOptions={[{ key: "status", label: "Status", groupOf: (t) => ({ key: t.status || "__none__", label: t.status || "—" }) }]}
+  quickFilterFields={["status", "owner"]}
+  controls={{ sortMenu: true, quickFiltersCustomizable: true }}
+  rowClassName={(t) => (t.overdue ? "bg-destructive/5" : undefined)}
+  loadOptions={(field, text) => searchLinks(field.link_doctype, text)}   // link-field filter values
+  onFilterSaved={() => toast.success("Saved")} onSavedFiltersError={() => toast.error("Couldn't save")}
+/>
+```
+- **Columns.** `type` (`text`, `select`, `number`, `date`, `boolean`, `link`) drives the default cell, the filter input
+  and the sort; `fieldtype` (Frappe names: `Currency`, `Int`, `Check`, …) refines the cell. `render` replaces the cell,
+  `sortValue` the sort key. `alwaysVisible` locks a column; `hideable: false` keeps it out of the column manager.
+- **Data modes.** `mode="client"` (default): pass every row; search, filters, sort, grouping and paging run locally and
+  nothing touches the network. `mode="server"`: pass the current page (or loaded rows) and `total`, set `loading` /
+  `error` / `onRetry`, and fetch in `onStateChange(state)` — it fires once per change, after a 300 ms typing pause.
+  The Frappe entry (`@solvfast/ui/frappe`, increment 5.4) wires this to Frappe's REST API.
+- **Grouping.** Client mode groups every row and shows no pager while grouped. Server mode groups the loaded rows; if
+  fewer than `total` are loaded, a banner says so and **Load more** calls `onLoadMore`.
+- **Row actions** are a fixed last column (never sorted, filtered, hidden or moved). With `confirm`, the package shows
+  the confirmation dialog — red confirm button when `tone: "destructive"` — and calls your `onSelect` only after the
+  user confirms; the deletion itself (API call, optimistic update, toast) is yours.
+- **Selection** is kept across pages and sorting, and pruned when the search or filters change.
+- **Storage.** Default: `localStorage` under `sf:list:<viewKey>:…`. Per-user keys or a server: pass
+  `storage={{ prefs, saved }}` (e.g. from `createLocalStorageAdapter({ userKey })`, or your own `SavedFiltersStorage`,
+  whose methods may return promises); `storage={null}` keeps everything in memory.
+- **Headless.** `useListState` is the same state without the UI, for other views (cards, kanban); the parts
+  (`ListTable`, `FilterBuilder`, `ColumnManager`, `QuickFilters`, `SortMenu`, `GroupByMenu`, `ListPagination`,
+  `BulkActionBar`) are exported for custom layouts.
+- Keep the `ListView` root's last child the pager (the default): the pager's pill style depends on it.
+
+## 5. Fonts
 Not bundled. Add to `index.html`:
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -100,12 +150,15 @@ Not bundled. Add to `index.html`:
 <link href="https://fonts.googleapis.com/css2?family=Zain:wght@400;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
 ```
 
-## Known limitations (5.1)
+## Known limitations
 - Path B: a sheet whose edge lands on a half pixel (e.g. the 75 %-wide sheet at 390 px) can rasterise with
   text/edge anti-aliasing that differs slightly from path A. Styles and layout are identical (docs/VALIDATION.md).
 - Button motion: glass buttons use the glass engine's timings (as in Sear); 180/120 ms apply to `ai-outline`.
 - Path B: glass controls can re-rasterize slightly differently from path A after a stylesheet is added at runtime
   (e.g. when a menu opens, ≤27/255 on the bell's glass). Styles are identical (docs/VALIDATION.md).
+- List View: each group is its own table (as in PMO), so column widths can differ from group to group.
+- List View: the Frappe data mode, metadata-driven columns and the standard fields (ID, Created On, Last Updated)
+  arrive with `@solvfast/ui/frappe` (increment 5.4).
 - React 19 and Tailwind 4 are untested.
 - Badge `brand` uses `bg-primary/12`, which emits no CSS in Tailwind 3 (as in Sear today, DS B7) — kept for parity
   pending a design decision.

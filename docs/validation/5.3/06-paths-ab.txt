@@ -1,0 +1,31 @@
+== path A vs path B — shell
+identical: 41   imperceptible(<=2/255): 1   different: 2   only-in-A: 0   only-in-B: 0
+  NEAR light-ar__mobile-more.png max delta 1/255 in box (88, 5, 126, 37)
+  DIFF dark-en__mobile.png max delta 25/255 in box (278, 11, 300, 26)
+  DIFF light-ar__mobile.png max delta 3/255 in box (88, 12, 113, 37)
+== path A vs path B — primitives
+identical: 48   imperceptible(<=2/255): 2   different: 2   only-in-A: 0   only-in-B: 0
+  NEAR dark-en__desktop__menu.png max delta 1/255 in box (117, 77, 414, 79)
+  NEAR dark-en__desktop__select.png max delta 1/255 in box (117, 77, 414, 79)
+  DIFF dark-en__mobile__sheet.png max delta 126/255 in box (185, 0, 390, 844)
+  DIFF light-en__mobile__sheet.png max delta 82/255 in box (185, 0, 390, 844)
+== path A vs path B — list (re-run on the final tarball)
+no page errors
+identical: 44   imperceptible(<=2/255): 0   different: 0   only-in-A: 0   only-in-B: 0
+== path A vs path B — new controls (design-review states)
+no page errors · 40 shots
+identical: 33   imperceptible(<=2/255): 1   different: 6   only-in-A: 0   only-in-B: 0
+  NEAR light-ar__selected.png max delta 2/255 in box (1401, 82, 1407, 88)
+  DIFF dark-ar__selected.png max delta 3/255 in box (1406, 92, 1408, 96)
+  DIFF dark-en__features-mobile.png max delta 3/255 in box (24, 133, 26, 137)
+  DIFF light-ar__features.png max delta 7/255 in box (33, 85, 1396, 102)
+  DIFF light-en__features-mobile.png max delta 3/255 in box (36, 134, 52, 150)
+  DIFF light-en__features.png max delta 6/255 in box (44, 85, 1407, 102)
+  DIFF light-en__selected.png max delta 3/255 in box (33, 82, 39, 88)
+-- pixels with any channel >2/255 (A vs B)
+dark-ar__selected              1 px  x 1406-1406  y 93-93
+dark-en__features-mobile       1 px  x 24-24  y 134-134
+light-ar__features             2 px  x 35-1382  y 86-88
+light-en__features-mobile      1 px  x 38-38  y 136-136
+light-en__features             4 px  x 46-1406  y 86-88
+light-en__selected             1 px  x 35-35  y 84-84

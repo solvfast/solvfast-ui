@@ -1,0 +1,6 @@
+                           pressed: 0.18s, 0.18s [box-shadow, transform]
+  sear/reduce              rest: 1e-05s [box-shadow, transform]
+                           pressed: 1e-05s [box-shadow, transform]
+  ✔ 180/120 ms (Sear: 180 ms pressed — its 120 ms class emitted no CSS)
+
+✔ no motion under reduced motion; glass timings identical to Sear; ai-outline 180/120 ms

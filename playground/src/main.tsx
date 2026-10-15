@@ -5,6 +5,7 @@ import "../../styles/glass.css"; // separate stylesheet after the Tailwind one (
 import { AppShell, ThemeProvider, useLocale } from "@ui";
 import { Primitives } from "./showcase/Primitives";
 import { ShellPage } from "./showcase/ShellPage";
+import { FieldLibraryDemo } from "./showcase/FieldLibraryDemo";
 import { BASE, BRAND, NAV_ITEMS, SWITCHER_SECTIONS, seedNotifications, workspaceLogo } from "./demo/sear-demo";
 
 const params = new URLSearchParams(location.search);
@@ -47,6 +48,6 @@ function ShellDemo() {
 createRoot(document.getElementById("root")!).render(
   // Same storage keys as Sear so the parity harness can drive both apps identically.
   <ThemeProvider storageKeys={{ theme: "app_theme", language: "app_lang" }} defaultLanguage="ar">
-    {view === "shell" ? <ShellDemo /> : <PrimitivesPage />}
+    {view === "shell" ? <ShellDemo /> : view === "list" ? <div className="sf-app min-h-screen"><FieldLibraryDemo variant={params.get("demo") ?? "sear"} /></div> : <PrimitivesPage />}
   </ThemeProvider>,
 );

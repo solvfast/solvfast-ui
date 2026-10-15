@@ -1,0 +1,15 @@
+caught (test fails)    empties first on desc (Sear)
+caught (test fails)    plain localeCompare (Sear)
+caught (test fails)    no debounce on filters
+caught (test fails)    no selection pruning (PMO)
+caught (test fails)    server keeps selection
+caught (test fails)    paging while grouped
+caught (test fails)    actions column manageable (Sear)
+caught (test fails)    Date.parse on any string (Sear)
+caught (test fails)    uppercase non-sortable label
+caught (test fails)    grouped select-all vs whole selection (PMO)
+caught (test fails)    condition id counter resets
+caught (test fails)    saved-filter errors swallowed
+caught (test fails)    no error state (Sear)
+caught (test fails)    rows not keyboard-openable (Sear)
+caught (test fails)    value input declared in render (PMO)
