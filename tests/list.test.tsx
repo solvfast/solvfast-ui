@@ -775,9 +775,11 @@ describe("toolbar, states and data mode", () => {
     expect(screen.queryByText("No tasks yet")).toBeNull();
   });
 
-  it("F29 errors are shown with a retry (Sear's grid never showed them)", () => {
+  it("F29 errors are shown with a retry (Sear's grid never showed them); no pager or total while there is nothing to show", () => {
     const onRetry = vi.fn();
     renderList({ error: true, onRetry });
+    expect(screen.queryByText(/^Total:/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Next page" })).toBeNull();
     expect(screen.getByRole("alert").textContent).toContain("Couldn't load data");
     expect(bodyRows()).toHaveLength(0);
     fireEvent.click(btn("Retry"));

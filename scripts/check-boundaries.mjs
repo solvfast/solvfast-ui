@@ -58,6 +58,25 @@ if (fs.existsSync(path.join(dist, "index.js"))) {
     if (/\/api\/(method|resource)|csrf/i.test(src)) problems.push(`dist: ${path.relative(dist, f)} references Frappe endpoints`);
   }
   console.log(`  core entry reaches ${seen.size} modules — none import @tanstack/* or the Frappe layer` + (problems.length ? " (see problems)" : ""));
+
+  // the Frappe entry: built whenever src/frappe exists; may use core and @tanstack/react-query, never the shell
+  if (fs.existsSync(path.join(root, "src/frappe/index.ts"))) {
+    const entry = path.join(dist, "frappe/index.js");
+    if (!fs.existsSync(entry)) problems.push("dist: src/frappe exists but dist/frappe/index.js was not built");
+    else {
+      const fseen = new Set(); const fq = [entry]; const npm = new Set();
+      while (fq.length) {
+        const f = fq.pop();
+        if (fseen.has(f)) continue;
+        fseen.add(f);
+        for (const spec of importsOf(fs.readFileSync(f, "utf8"))) {
+          if (spec.startsWith(".")) fq.push(path.resolve(path.dirname(f), spec)); else npm.add(spec.split("/").slice(0, spec.startsWith("@") ? 2 : 1).join("/"));
+        }
+        if (path.relative(dist, f).split(path.sep)[0] === "shell") problems.push(`dist: the Frappe entry reaches the shell (${path.relative(dist, f)})`);
+      }
+      console.log(`  frappe entry reaches ${fseen.size} modules; npm imports: ${[...npm].sort().join(", ")}`);
+    }
+  }
 } else {
   console.log("  (dist/ not built yet — source rules only)");
 }

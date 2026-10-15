@@ -11,7 +11,8 @@
  * - C1 grouping: client mode groups ALL filtered rows and turns paging off while grouped (nothing hidden on another
  *   page). Server mode groups the rows the app has loaded; ListView shows how many of `total` that is.
  * - C3 selection: keyed by `rowKey`, kept across pages; pruned when the query or search changes (client: to rows that
- *   still match; server: cleared) — PMO kept stale selections that bulk actions then acted on.
+ *   still match; server: cleared, also when `selectionScope` changes) — PMO kept stale selections that bulk actions
+ *   then acted on.
  */
 import * as React from "react";
 import { useLocale } from "../theme/ThemeProvider";
@@ -58,6 +59,9 @@ export interface UseListStateOptions<T> {
   storage?: { prefs?: ListPrefsStorage | null; saved?: SavedFiltersStorage | null } | null;
   /** Server mode: called (debounced for typing) whenever what the app must fetch changes. */
   onStateChange?: (state: ListQueryState) => void;
+  /** Server mode: anything else that scopes the result (e.g. the app's base filters, serialized). The selection is
+   *  cleared when it changes (rule C3). */
+  selectionScope?: string;
   /** Saved-filter feedback (PMO showed toasts): after a filter is saved… */
   onFilterSaved?: (filter: SavedFilter) => void;
   /** …and when the saved-filters storage fails (otherwise the failure is silent). */
@@ -150,7 +154,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
       const next = new Set([...prev].filter((k) => keysOfFiltered.has(k)));
       return next.size === prev.size ? prev : next;
     });
-  }, [appliedQuery, appliedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [appliedQuery, appliedSearch, opts.selectionScope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- server: tell the app what to fetch --------------------------------------------------------------------------------
   const onStateChange = opts.onStateChange;

@@ -1,7 +1,7 @@
 # Using @solvfast/ui
 
-Status: **0.0.0, increment 5.3** — theme, primitives, styles, the app shell and the List View. The Frappe layer
-arrives in increment 5.4. Requirements: React 18.3, a bundler that understands package `exports` (Vite, etc.).
+Status: **0.0.0, increment 5.4** — theme, primitives, styles, the app shell, the List View and the optional Frappe
+layer (`@solvfast/ui/frappe`, tested against simulated requests; docs/FRAPPE.md). Requirements: React 18.3, a bundler that understands package `exports` (Vite, etc.).
 
 ## Install
 Published by the owner to GitHub Packages (`@solvfast` scope). Until then, install a tarball built with `npm pack`.
@@ -141,7 +141,11 @@ const columns: ColumnDef<Task>[] = [
 - **Headless.** `useListState` is the same state without the UI, for other views (cards, kanban); the parts
   (`ListTable`, `FilterBuilder`, `ColumnManager`, `QuickFilters`, `SortMenu`, `GroupByMenu`, `ListPagination`,
   `BulkActionBar`) are exported for custom layouts.
-- Keep the `ListView` root's last child the pager (the default): the pager's pill style depends on it.
+- Keep the `ListView` root's last child the pager (the default): the pager's pill style depends on it. While `error`
+  is set there is no pager or total.
+- **Frappe DocTypes:** `<FrappeListView doctype="ToDo" />` from `@solvfast/ui/frappe` fills all of the above from the
+  DocType (columns, filters, quick filters, search, sort, link search, server paging, chunked grouping). Needs
+  `@tanstack/react-query` ^5 and a page served by the Frappe site. See docs/FRAPPE.md.
 
 ## 5. Fonts
 Not bundled. Add to `index.html`:
@@ -160,8 +164,8 @@ Not bundled. Add to `index.html`:
   (e.g. when a menu opens, ≤27/255 on the bell's glass). Styles are identical (docs/VALIDATION.md).
 - List View, grouped: all groups share one table and its column layout; collapsing a group can re-balance the
   widths (every group still agrees with the header).
-- List View: the Frappe data mode, metadata-driven columns and the standard fields (ID, Created On, Last Updated)
-  arrive with `@solvfast/ui/frappe` (increment 5.4).
+- Frappe layer: verified against simulated requests only; the live read-only check waits for approval
+  (docs/FRAPPE.md → Limitations, Not yet verified).
 - React 19 and Tailwind 4 are untested.
 - Badge `brand` uses `bg-primary/12`, which emits no CSS in Tailwind 3 (as in Sear today, DS B7) — kept for parity
   pending a design decision.

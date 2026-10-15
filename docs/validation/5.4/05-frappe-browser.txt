@@ -1,0 +1,21 @@
+== Frappe demo, playground (path A source)
+✔ 32 shots; link search opens straight after picking a field; C2 hint, Load more and mobile width checked
+== Frappe demo, clean consumer A (Tailwind)
+✔ 32 shots; link search opens straight after picking a field; C2 hint, Load more and mobile width checked
+== Frappe demo, clean consumer B (no Tailwind)
+✔ 32 shots; link search opens straight after picking a field; C2 hint, Load more and mobile width checked
+
+== re-run 3 (person-paced select choice)
+-- playground
+✔ 32 shots; link search opens straight after picking a field; C2 hint, Load more and mobile width checked
+-- consumer A
+✔ 32 shots; link search opens straight after picking a field; C2 hint, Load more and mobile width checked
+-- consumer B
+✔ 32 shots; link search opens straight after picking a field; C2 hint, Load more and mobile width checked
+== path A vs path B — Frappe demo
+identical: 31   imperceptible(<=2/255): 0   different: 1   only-in-A: 0   only-in-B: 0
+  DIFF light-en__link-search.png max delta 10/255 in box (684, 88, 917, 188)
+>2/255: 11148 px
+>5/255: 3385 px
+
+(earlier runs of the A/B comparison differed on the 'Match any + search' shots: a focus race in the script, fixed — see VALIDATION.md 5.4)

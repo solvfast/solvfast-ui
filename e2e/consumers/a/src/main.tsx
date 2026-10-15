@@ -6,6 +6,7 @@ import { AppShell, ThemeProvider, useLocale } from "@solvfast/ui";
 import { Primitives } from "./showcase/Primitives";
 import { ShellPage } from "./showcase/ShellPage";
 import { FieldLibraryDemo } from "./showcase/FieldLibraryDemo";
+import { FrappeDemo } from "./showcase/FrappeDemo";
 import { BASE, BRAND, NAV_ITEMS, SWITCHER_SECTIONS, seedNotifications, workspaceLogo } from "./demo/sear-demo";
 
 const params = new URLSearchParams(location.search);
@@ -30,5 +31,6 @@ function ShellDemo() {
 }
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider storageKeys={{ theme: "app_theme", language: "app_lang" }} defaultLanguage="ar">{params.get("view") === "shell" ? <ShellDemo /> : params.get("view") === "list"
-    ? <div className="sf-app min-h-screen"><FieldLibraryDemo variant={params.get("demo") ?? "sear"} /></div> : <Page />}</ThemeProvider>,
+    ? <div className="sf-app min-h-screen"><FieldLibraryDemo variant={params.get("demo") ?? "sear"} /></div>
+    : params.get("view") === "frappe" ? <div className="sf-app min-h-screen"><FrappeDemo variant={params.get("demo") ?? "default"} /></div> : <Page />}</ThemeProvider>,
 );

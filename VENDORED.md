@@ -9,6 +9,7 @@ revisions** and adapted here. Pristine copies of every source file are kept in `
 | SOLV FAST Design System (`apps/design_system`) | tag `v0.3.0` = `92fc1cd` | `upstream/ds-v0.3.0/` (via `git show v0.3.0:…`) |
 | Sear (`apps/sear_product`) | `7abc895-dirty` (HEAD `7abc895` + 231 uncommitted entries, snapshot 2026-10-14) | `upstream/sear-7abc895-dirty/` |
 | Solvfast PMO (`apps/solvfast_pmo`, not a git repo) | file hash | `upstream/pmo/` |
+| Frappe (`apps/frappe`, read-only reference for 5.4) | v15.110.0, `ab7e5ae` | `upstream/frappe-15.110-ab7e5ae/` (ToDo DocType definition) |
 
 ## Rules applied to every vendored file
 1. `@/…` imports → relative imports. Sear-only aliases (`@sear/…`) → package modules.
@@ -72,6 +73,19 @@ features in; feature-by-feature coverage and the fixes are in docs/FEATURES.md.
 Playground only (not published): `playground/src/showcase/FieldLibraryDemo.tsx` rebuilds Sear's Field Library page on
 `ListView`; `playground/src/demo/field-library.ts` restates its 9 presets (name, Arabic name, description, field count,
 author, age in days).
+
+## Frappe layer (increment 5.4)
+
+| Package file | From | Changes |
+|---|---|---|
+| `src/frappe/client.ts` | Sear `services/frappe-data.ts` + `lib/api.ts` (`frappeCall`: POST `/api/method`, `X-Frappe-CSRF-Token` from `window.csrf_token`) | configurable client and transport; `FrappeError` from `_server_messages` / exception / status; **bug fixes**: count via `frappe.desk.reportview.get_count` (Sear's `frappe.client.get_count` dropped `or_filters`), link search via `frappe.desk.search.search_link` (Sear: name-only `get_list`) |
+| `src/frappe/meta.ts` | Sear `lib/data-grid/frappe-meta.ts` (`buildGridMeta`) | same fieldtype map and defaults; adds search fields and default order from the DocType; **bug fixes**: standard-field labels localized, Dynamic Link → text |
+| `src/frappe/query.ts` | Sear `lib/data-grid/filter-to-frappe.ts` + PMO `api/_utils.py` (`_coerce`, `_translate_condition`, unknown-field skip) | browser-side, one copy; **bug fixes**: unknown fields dropped, whole-day Datetime; rule C2; F4 field / F6 order mapping |
+| `src/frappe/useFrappeList.ts`, `FrappeListView.tsx`, `FrappeProvider.tsx` | Sear `hooks/useDataGrid.ts` (live path, never run in Sear) | server-mode `ListView` props; React Query (Sear's choice too); chunked grouping (rule C1); no request from the placeholder list shown while the meta loads |
+
+Playground / tests only (not published): `playground/src/demo/mock-frappe.ts` — a simulated Frappe site with the ToDo
+DocType's definition copied from `apps/frappe/frappe/desk/doctype/todo/todo.json` (Frappe 15.110, read locally) and
+made-up rows; `playground/src/showcase/FrappeDemo.tsx`.
 
 ## Not carried over (Sear-specific or dead)
 `sear-studio.css`: the `Agency` font face (file doesn't exist), `.glass-morphism`, `.glass-card`, `.gradient-border-*`,

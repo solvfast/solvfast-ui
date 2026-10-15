@@ -6,7 +6,30 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+### Added — increment 5.4 (Frappe layer, `@solvfast/ui/frappe`)
+- `FrappeListView` (ListView over a DocType), `useFrappeList`, `useFrappeMeta`, `FrappeProvider`, `createFrappeClient`
+  (same-origin session cookie + CSRF; replaceable transport), `FrappeError`, `frappeRetry`, `invalidateFrappeList`,
+  and the pure helpers `buildFrappeListMeta`, `columnsFromMeta`, `filterFieldsFromMeta`, `queryToFrappe`,
+  `conditionToFrappe`, `buildListRequest`, `frappeLinkSearch`. Stock methods only: `getdoctype`, `client.get_list`,
+  `reportview.get_count`, `search.search_link`. Docs: docs/FRAPPE.md.
+- Core additions used by it (usable on their own): `ListView` `searchHint`; `useListState` `selectionScope`; rich-text
+  cells (Frappe Text Editor HTML) shown as plain text; messages `fieldId`, `fieldCreated`, `fieldModified`,
+  `searchTitleOnly`.
+- Rule C2 (Frappe's single `or_filters` list): search uses it across the search fields with "Match all" filters, and
+  narrows to the title field with a visible note with "Match any" filters.
+
+### Fixed — Frappe (relative to Sear's never-run Frappe path; docs/FEATURES.md)
+- Totals honour "Match any" filters (`reportview.get_count`; Sear sent `or_filters` to `frappe.client.get_count`,
+  which drops them).
+- Requests never name fields the DocType doesn't have (an old saved filter or a render-only column made Frappe
+  reject the whole request).
+- A date on a Datetime field matches the whole day; Dynamic Link fields filter as text; ID / Created On / Last Updated
+  are localized; link filter values use Frappe's link search.
+
 ### Changed — after the 5.3 review
+- List View: every filter-row control has an accessible name (Field / Condition / Value / Match); they were unnamed
+  comboboxes, as in Sear and PMO.
+- List View: no pager or total while the list shows an error.
 - List View on phones: the toolbar's buttons wrap instead of widening the page (Sear's list page was 506 px wide at
   390 px, with its page action cut off). Desktop unchanged.
 - List View, grouped: all groups are sections of one table (a header row per group with collapse, count and the

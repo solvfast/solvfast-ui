@@ -1,0 +1,8 @@
+== primitives vs Sear
+identical: 51   imperceptible(<=2/255): 1   different: 0   only-in-A: 0   only-in-B: 0
+  NEAR dark-en__desktop__menu.png max delta 1/255 in box (117, 77, 414, 79)
+== shell vs Sear
+no page errors
+identical: 30   imperceptible(<=2/255): 0   different: 14   only-in-A: 0   only-in-B: 0
+== motion
+✔ every button variant 180/120 ms; no motion under reduced motion

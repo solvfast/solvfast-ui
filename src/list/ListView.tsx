@@ -59,6 +59,8 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   controls?: ListViewControls;
   /** Link-field options for filters. */
   loadOptions?: LoadOptions;
+  /** A note under the toolbar about how search works right now (the Frappe entry uses it for rule C2). */
+  searchHint?: React.ReactNode;
   /** Server mode + grouped: fetch the next chunk (the banner's "Load more"). */
   onLoadMore?: () => void;
   className?: string;
@@ -106,7 +108,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, className,
+    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -148,6 +150,8 @@ export function ListView<T>(props: ListViewProps<T>) {
         </div>
       </div>
 
+      {searchHint && s.search.trim() && <p className="text-xs text-muted-foreground" role="status">{searchHint}</p>}
+
       {partial && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground" role="status">
           <span>{t("partialGroups").replace("{loaded}", String(s.rows.length)).replace("{total}", String(s.total))}</span>
@@ -162,8 +166,9 @@ export function ListView<T>(props: ListViewProps<T>) {
       ) : null}
 
       {/* The pager must be the last child (pill styles, styles/src/sf-overrides.css); while grouped there is no paging (rule
-          C1), so an empty element keeps those selectors from matching anything else. */}
-      {s.grouped ? <div hidden /> : <ListPagination total={s.total} page={s.page} hasPrev={s.hasPrev} hasNext={s.hasNext} onPage={s.setPage} />}
+          C1), and with an error there is nothing to page or count, so an empty element keeps those selectors from
+          matching anything else. */}
+      {s.grouped || error ? <div hidden /> : <ListPagination total={s.total} page={s.page} hasPrev={s.hasPrev} hasNext={s.hasNext} onPage={s.setPage} />}
     </div>
   );
 }

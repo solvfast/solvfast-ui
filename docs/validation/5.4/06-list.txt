@@ -1,0 +1,10 @@
+== list vs Sear's Field Library page after 5.4's core changes
+== list vs Sear after 5.4's core changes
+no page errors
+identical: 32   imperceptible(<=2/255): 0   different: 12   only-in-A: 0   only-in-B: 0
+
+== list on phones
+✔ http://localhost:4801/&demo=features 390px ar: page 390px, table scrolls in its card
+exit=0
+== grouped columns
+✔ every group shares the header's column layout

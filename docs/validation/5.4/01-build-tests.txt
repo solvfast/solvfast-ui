@@ -1,0 +1,123 @@
+== npm run typecheck
+pass
+== npm test (verbose)
+ ✓ tests/theme.test.tsx > ThemeProvider — document scope > applies sf-theme, dark, data-theme, lang and dir to <html>
+ ✓ tests/theme.test.tsx > ThemeProvider — document scope > toggles and persists to every configured key; reads keys in order
+ ✓ tests/theme.test.tsx > ThemeProvider — document scope > restores <html> on unmount (leaves the page as it found it)
+ ✓ tests/theme.test.tsx > ThemeProvider — document scope > controlled props win and callbacks fire
+ ✓ tests/theme.test.tsx > ThemeProvider — document scope > merges message overrides per language
+ ✓ tests/theme.test.tsx > outside a provider > hooks fall back to <html> instead of throwing (fixes Sear's Navbar crash)
+ ✓ tests/theme.test.tsx > ThemeProvider — element scope > scopes classes to a wrapper and portals popups inside it
+ ✓ tests/frappe.test.tsx > F31 transport: session cookie + CSRF, stock /api/method > POSTs JSON to /api/method/<method> with the session cookie and the page's CSRF token
+ ✓ tests/frappe.test.tsx > F31 transport: session cookie + CSRF, stock /api/method > a token option (string or function) wins; no token → no header; baseUrl prefixes
+ ✓ tests/frappe.test.tsx > F31 transport: session cookie + CSRF, stock /api/method > errors become FrappeError with status, exception type and a readable message
+ ✓ tests/frappe.test.tsx > F31 transport: session cookie + CSRF, stock /api/method > retries network and server errors, never client errors (permission, CSRF, validation)
+ ✓ tests/frappe.test.tsx > F31 client: exact stock request shapes > getdoctype (meta in `docs`), get_list, reportview.get_count, search_link
+ ✓ tests/frappe.test.tsx > F31 client: exact stock request shapes > count uses reportview.get_count, which reads or_filters (fix) — negative control: Sear sent them to frappe.client.get_count
+ ✓ tests/frappe.test.tsx > F31 client: exact stock request shapes > an unknown DocType is a clear error
+ ✓ tests/frappe.test.tsx > F33 meta → columns, filters, quick filters, title, search, default order > the simulated site's ToDo is Frappe's own definition (pinned todo.json, Frappe 15.110)
+ ✓ tests/frappe.test.tsx > F33 meta → columns, filters, quick filters, title, search, default order > matches Sear's buildGridMeta for every regular field
+ ✓ tests/frappe.test.tsx > F33 meta → columns, filters, quick filters, title, search, default order > layout, hidden and unsupported fields are left out; search fields and the DocType's sort are used
+ ✓ tests/frappe.test.tsx > F33 meta → columns, filters, quick filters, title, search, default order > no in_list_view field → the title field and the first few fields (Sear's fallback)
+ ✓ tests/frappe.test.tsx > F33 meta → columns, filters, quick filters, title, search, default order > standard fields are localized (fix) — negative control: Sear's are English in every language
+ ✓ tests/frappe.test.tsx > F33 meta → columns, filters, quick filters, title, search, default order > a Dynamic Link is filtered as text (fix) — negative control: Sear made it a link to the DocType “reference_type”
+ ✓ tests/frappe.test.tsx > F11 filters → Frappe > text, select and link operators equal Sear's translation
+ ✓ tests/frappe.test.tsx > F11 filters → Frappe > values are coerced to the column type (PMO); invalid numbers and half-built conditions are skipped
+ ✓ tests/frappe.test.tsx > F11 filters → Frappe > date-only values on Datetime fields cover the whole day (fix); Date fields are unchanged
+ ✓ tests/frappe.test.tsx > F11 filters → Frappe > conditions on fields the DocType doesn't have are dropped (fix) — negative control: Sear sends them and Frappe rejects the request
+ ✓ tests/frappe.test.tsx > request building > F4 fetches the visible columns' fields + name; render-only, unknown and action columns never reach the request
+ ✓ tests/frappe.test.tsx > request building > F6 sorts by the column's field; unknown or unsortable → the DocType's default order
+ ✓ tests/frappe.test.tsx > request building > F32 base filters come first and stay AND-ed
+ ✓ tests/frappe.test.tsx > request building > C2 AND filters: search uses or_filters across the search fields
+ ✓ tests/frappe.test.tsx > request building > C2 OR filters: search narrows to the title field, AND-ed, and says so
+ ✓ tests/frappe.test.tsx > request building > C2 edge cases: OR with one condition leaves or_filters free; one search field goes into filters; no narrowing note then
+ ✓ tests/frappe.test.tsx > request building > C1 grouped: chunks from row 0 and the group field is fetched; ungrouped: pages
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > loads meta once, then rows and the count with the same filters; columns, quick filters and total from the DocType
+ ✓ tests/shell.test.tsx > navigation model > active = own href or any descendant, unless excluded
+ ✓ tests/shell.test.tsx > navigation model > title = deepest active item
+ ✓ tests/shell.test.tsx > Sidebar > opens the active group down to the third level and marks the leaf current
+ ✓ tests/shell.test.tsx > Sidebar > navigates through the adapter (no router) and toggles groups
+ ✓ tests/shell.test.tsx > Sidebar > exclude keeps the parent inactive under a sibling's sub-tree
+ ✓ tests/shell.test.tsx > Sidebar > collapsed rail: groups degrade to leaves that navigate to the parent
+ ✓ tests/shell.test.tsx > AppShell > persists the rail under the configured key and derives the title
+ ✓ tests/shell.test.tsx > Navbar > renders without any provider (Sear's TopBar crashed)
+ ✓ tests/shell.test.tsx > Navbar > toggles language and theme through ThemeProvider; search is controlled and submits
+ ✓ tests/shell.test.tsx > Navbar > search={false} hides it; a node replaces it
+ ✓ tests/shell.test.tsx > NotificationPanel > badge caps at 9+, filters, marks all, opens rows and closes
+ ✓ tests/shell.test.tsx > NotificationPanel > empty states
+ ✓ tests/shell.test.tsx > MobileNav > first leaves in the bar, the rest in More; the sheet opens on the start edge
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > a quick filter reaches list and count identically; sorting and paging change only the list request
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > F12 search: one request per typing pause, across the DocType's search fields
+ ✓ tests/list.test.tsx > columns and cells > F1 a column's render is used; otherwise the type-aware default cell
+ ✓ tests/list.test.tsx > columns and cells > F2 default cell per type, in English and Arabic; numbers and dates stay left-to-right
+ ✓ tests/list.test.tsx > columns and cells > F3 curated columns win; generated ones they already cover are dropped (key, field or metaFields)
+ ✓ tests/list.test.tsx > sorting > F5 numbers numerically, dates chronologically, strings naturally
+ ✓ tests/list.test.tsx > sorting > F5 text with a number is not read as a date (fix) — negative control: Sear's `Date.parse`
+ ✓ tests/list.test.tsx > sorting > F5 empty values stay last in both directions (fix) — negative control: Sear's `compareValues * dir`
+ ✓ tests/list.test.tsx > sorting > F5 a column's sortValue overrides the comparison; non-sortable columns don't sort
+ ✓ tests/list.test.tsx > sorting > F7 header click toggles asc/desc with aria-sort; columns with sortable:false have no sort button
+ ✓ tests/list.test.tsx > sorting > F7 sort menu (opt-in) sorts and clears
+ ✓ tests/list.test.tsx > F8 view preferences > columns, sort, group-by and quick filters survive a remount (localStorage, sf:list:<viewKey>)
+ ✓ tests/list.test.tsx > F8 view preferences > storage: null keeps everything in memory
+ ✓ tests/list.test.tsx > filter model > F9 the operator table is the one Sear and PMO share
+ ✓ tests/list.test.tsx > filter model > F10 every operator of every type gives Sear's and PMO's result (AND and OR)
+ ✓ tests/list.test.tsx > filter model > F10 spot checks (the oracles could share a bug)
+ ✓ tests/list.test.tsx > F12 search > searches several fields, Arabic included; default is the first text column
+ ✓ tests/list.test.tsx > F12 search > server mode: one request per typing pause — search and text filters (fix) — negative control: no debounce
+ ✓ tests/list.test.tsx > F13 pagination > pages of 20 with the total; chevrons mirror in Arabic
+ ✓ tests/list.test.tsx > F13 pagination > changing the query returns to page 1
+ ✓ tests/list.test.tsx > F14 quick filters > each type writes a `q:<field>` condition into the same query (text → like, others → equals)
+ ✓ tests/list.test.tsx > F14 quick filters > inline controls filter the rows; the advanced filter badge counts them
+ ✓ tests/list.test.tsx > F14 quick filters > the field picker is opt-in, and the chosen fields survive a remount
+ ✓ tests/list.test.tsx > F15 advanced filter > add, edit, AND/OR, remove, clear — and the count badge
+ ✓ tests/list.test.tsx > F15 advanced filter > every control in a condition row has an accessible name, in both languages (fix: comboboxes don't take their name from their text)
+ ✓ tests/list.test.tsx > F15 advanced filter > the field picker is searchable and resets the operator and value for the new type
+ ✓ tests/list.test.tsx > F15 advanced filter > condition ids never collide across remounts (fix) — negative control: PMO's per-mount counter
+ ✓ tests/list.test.tsx > F15 advanced filter > the value input keeps its DOM node and focus while typing (fix) — negative control: a component declared in render
+ ✓ tests/list.test.tsx > F16 value inputs > date: the glass date picker round-trips YYYY-MM-DD
+ ✓ tests/list.test.tsx > F16 value inputs > link: options come from loadOptions, one request per typing pause (300 ms)
+ ✓ tests/list.test.tsx > F16 value inputs > valueless operators hide the input; `in` takes a comma-separated list
+ ✓ tests/list.test.tsx > F17 saved filters > save, apply and delete through an async adapter; onFilterSaved fires (F36)
+ ✓ tests/list.test.tsx > F17 saved filters > saving needs an active filter and a name
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > C2 in the UI: with “Match any” filters, search narrows to the title field and the list says so
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > C1 server grouping: chunks, “Showing X of Y”, '+' on counts, Load more appends; complete data shows neither
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > F29 server errors are shown with Frappe's message; Retry reloads (403 and 500)
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > an unknown DocType shows the error and does not request rows
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > F11 in the UI: a saved filter on a field that no longer exists still loads (the field is dropped)
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > F32 base filters reach list and count; changing them clears the selection (C3)
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > F16 link filters use Frappe's own link search on the field's DocType
+ ✓ tests/frappe.test.tsx > FrappeListView (F31 data mode) > curated columns come first and fieldLabels translate the DocType's labels; rich text shows as text
+ ✓ tests/frappe.test.tsx > app writes > F24: the package confirms, the app deletes; invalidateFrappeList reloads rows and count
+ ✓ tests/frappe.test.tsx > providers > uses the app's QueryClient when there is one
+ ✓ tests/list.test.tsx > F17 saved filters > an adapter failure reaches onSavedFiltersError (F36) instead of being swallowed
+ ✓ tests/list.test.tsx > F17 saved filters > the localStorage adapter keeps lists per view and per user
+ ✓ tests/list.test.tsx > F18 column manager > show/hide; reorder with the keyboard buttons and by dragging
+ ✓ tests/list.test.tsx > F18 column manager > locked columns can't be hidden; non-hideable ones aren't offered; search appears past 10 columns
+ ✓ tests/list.test.tsx > F18 column manager > row actions are not a column users can manage, filter or sort (fix: Sear's `actions` field)
+ ✓ tests/list.test.tsx > F19 group-by and rule C1 > groups with counts, rows without a value last, collapsible
+ ✓ tests/list.test.tsx > F19 group-by and rule C1 > all groups share one table: one header, every row's cells in the header's order (fix: PMO drew a table per group)
+ ✓ tests/list.test.tsx > F19 group-by and rule C1 > C3 grouped: the header's select-all covers the rows on screen (expanded groups); each group has its own
+ ✓ tests/list.test.tsx > F19 group-by and rule C1 > C1 client mode: grouping covers every row and turns paging off — negative control: ungrouped pages
+ ✓ tests/list.test.tsx > F19 group-by and rule C1 > C1 server mode: partial data is announced, counts carry '+', Load more fetches; complete data shows neither
+ ✓ tests/list.test.tsx > F20 selection (rule C3) and F21 bulk actions > survives sort and paging (negative control), is pruned to matching rows when search or filters change
+ ✓ tests/list.test.tsx > F20 selection (rule C3) and F21 bulk actions > server mode: a new query clears the selection
+ ✓ tests/list.test.tsx > F20 selection (rule C3) and F21 bulk actions > select-all acts on the visible page; in groups it reflects only that group (fix) — negative control: PMO's check
+ ✓ tests/list.test.tsx > rows > F22 rows are focusable and Enter opens them; Enter inside a cell control doesn't
+ ✓ tests/list.test.tsx > rows > F23 rowClassName styles rows
+ ✓ tests/list.test.tsx > rows > F24 row actions run, ask first when they have a confirm, and can be hidden per row
+ ✓ tests/list.test.tsx > toolbar, states and data mode > F25 toolbar slot renders; control flags hide controls
+ ✓ tests/list.test.tsx > toolbar, states and data mode > F27 loading shows skeleton rows, not the empty message
+ ✓ tests/list.test.tsx > toolbar, states and data mode > F28 two empty messages: the app's when nothing exists, the generic one when filters hide everything
+ ✓ tests/list.test.tsx > toolbar, states and data mode > F29 errors are shown with a retry (Sear's grid never showed them); no pager or total while there is nothing to show
+ ✓ tests/list.test.tsx > toolbar, states and data mode > F30 client mode never touches the network
+ ✓ tests/list.test.tsx > F35 localisation and C4 opt-in controls > every message exists in both languages and the list chrome renders in Arabic
+ ✓ tests/list.test.tsx > F35 localisation and C4 opt-in controls > C4 controls Sear never had appear only when asked for
+ ✓ tests/frappe.test.tsx > providers > FrappeListView works with no provider at all (it creates one)
+ ✓ tests/frappe.test.tsx > providers > the core entry exports nothing from the Frappe layer
+ Test Files  4 passed (4)
+      Tests  113 passed (113)
+== npm run build (incl. boundaries)
+  core entry reaches 48 modules — none import @tanstack/* or the Frappe layer
+  frappe entry reaches 39 modules; npm imports: @radix-ui/react-alert-dialog, @radix-ui/react-checkbox, @radix-ui/react-dialog, @radix-ui/react-direction, @radix-ui/react-dropdown-menu, @radix-ui/react-label, @radix-ui/react-popover, @radix-ui/react-scroll-area, @radix-ui/react-select, @radix-ui/react-slot, @tanstack/react-query, class-variance-authority, clsx, cmdk, date-fns, lucide-react, react, react-day-picker, tailwind-merge
+✔ boundaries OK
+✔ @solvfast/ui@0.0.0 built → dist/

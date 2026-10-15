@@ -1,0 +1,2 @@
+== boundary check negative control: planted 'export { AppShell } from "../shell/AppShell"' in src/frappe/index.ts
+✖ src/frappe/index.ts imports "../shell/AppShell" (not allowed in frappe)  → reverted, ✔ boundaries OK

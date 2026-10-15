@@ -1,0 +1,15 @@
+caught (test fails)    placeholder list reports state (extra name-only request)
+caught (test fails)    render-only/unknown columns requested (F4)
+caught (test fails)    unknown fields sent to Frappe (F11)  [re-run: the first pattern had regex parentheses and selected no test]
+caught (test fails)    Datetime compared with midnight
+caught (test fails)    count via frappe.client.get_count (Sear)
+caught (test fails)    Dynamic Link as link (Sear)
+caught (test fails)    standard labels English (Sear)
+caught (test fails)    C2: OR filters overwritten by search
+caught (test fails)    C2 hint not shown
+caught (test fails)    base filters keep the selection (C3)
+caught (test fails)    rich text shown as HTML
+caught (test fails)    4xx errors retried
+caught (test fails)    CSRF header sent empty
+caught (test fails)    error message not parsed
+caught (test fails)    grouped lists not chunked (C1)

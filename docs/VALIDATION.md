@@ -138,3 +138,35 @@ specificity over the engine, duration only) restores the documented values on el
 |---|---|---|
 | Page fits the screen | `node e2e/list-mobile.mjs <url>` | package: 8/8 (360 and 390 px × en/ar × default and every-option list), page width = viewport, table scrolls in its card. Sear's page (negative control): 506 px (en) / 496 px (ar) wide at 360–390 px |
 | List vs Sear | `node e2e/list-parity.mjs` | **32 identical of 44**; the 12 others are the two intentional differences: the 8 Actions shots and the 4 mobile shots (toolbar wraps). All 40 desktop shots are unchanged by this fix. Evidence: `docs/validation/5.3-review/mobile-toolbar/` |
+
+## 5.4 — Frappe layer (2026-10-15)
+
+Everything below ran against **simulated requests**: a recording transport, a stubbed `fetch`, and a simulated Frappe
+site (`playground/src/demo/mock-frappe.ts`) whose ToDo definition is tested to equal Frappe's own
+(`upstream/frappe-15.110-ab7e5ae/todo.json`) and which, like Frappe, rejects unknown fields (417 DataError). No
+network, no live site, no session.
+
+| Check | Command | Result |
+|---|---|---|
+| Type check, unit tests, build + boundaries | `npm run typecheck`, `npm test`, `npm run build` | pass — 113/113 (7 theme + 13 shell + 54 list + 39 Frappe); core 48 modules with no Frappe / `@tanstack`; Frappe entry 39 modules, never the shell (`01-build-tests.txt`) |
+| Exact request shapes | `tests/frappe.test.tsx` | `getdoctype`; `client.get_list` (fields, filters, or_filters, order_by, limit); `reportview.get_count` with the same filters and or_filters as the rows; `search.search_link`; POST + `same-origin` + `X-Frappe-CSRF-Token`; no header without a token |
+| Each fix's test fails without the fix | restore the old / broken behaviour, run its test (`02-mutation.txt`) | 15/15 caught |
+| Against Sear's code as oracle | the pinned Sear `buildGridMeta` / `queryToFrappe` | equal on every regular field and operator; differ exactly where fixed (standard labels, Dynamic Link, unknown fields, whole-day Datetime), each shown |
+| Boundary check catches a violation | planted shell import in `src/frappe` | caught, reverted (`03-boundaries.txt`) |
+| Clean installs incl. `@solvfast/ui/frappe` | `e2e/consumers/run.sh` (consumers now depend on `@tanstack/react-query` 5.101.4 and render the Frappe demo) | path A and B: strict `tsc` against the packed types, build, one React, one React Query (`04-consumers.txt`) |
+| Frappe demo in a browser | `node e2e/frappe-review.mjs <url> <out>` on the playground and both consumers | 32/32 shots each (8 states × light/dark × en/ar); link search opens straight after picking a field; C2 note, Load more and phone width checked |
+| Path A vs path B — Frappe demo | `e2e/compare.py` | 31 identical + 1 (≤10/255 in the blurred backdrop of the open link-search popover, the documented path-B glass effect) (`05-frappe-browser.txt`) |
+| List vs Sear after the core changes | `node e2e/list-parity.mjs` | 32/44, the same 12 intended differences; phones and grouped columns pass (`06-list.txt`) |
+| Primitives, shell, motion (regression) | `e2e/parity.mjs`, `e2e/shell-parity.mjs`, `e2e/motion-check.mjs` | primitives 51 identical + 1 at 1/255; shell 30/44, the 14 others the 4 shell fixes (5.2); every button 180/120 ms, none under reduced motion (`07-regression.txt`) |
+
+**Found while testing.**
+- The placeholder list shown while the DocType loads reported its (empty) state, so the first row request asked for
+  `name` only, before the real one. Fixed; a test asserts one row request.
+- Jsdom only: clicking the link value straight after choosing a field didn't open it; in a real browser it does
+  (checked in all three builds), so the unit test waits a tick.
+- Script timing, not product: in the "Match any + search" state the A/B screenshots first differed on the search box's
+  focus ring. Two causes in the script: typing before Radix had handed focus back after closing the popover (a 0 ms
+  timer), and pressing Escape within 100–160 ms of choosing "Match any", when Radix's Select returns focus to its own
+  trigger. With a person's pause (300 ms) focus stays in the search box 8/8 times in both builds. The script now waits.
+
+**Not yet verified:** a read-only check on a live site (docs/FRAPPE.md), waiting for approval.

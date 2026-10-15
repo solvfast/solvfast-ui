@@ -34,6 +34,11 @@ const fmtNumber = (v: unknown, lang: string, currency = false) => {
   return n.toLocaleString(lang === "ar" ? "ar-EG" : "en-US", currency ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : {});
 };
 
+/** Rich-text field values (Frappe "Text Editor" stores HTML) as plain text. An inert parsed document: nothing runs. */
+const htmlToText = (html: string) =>
+  (typeof DOMParser === "undefined" ? html.replace(/<[^>]*>/g, " ") : new DOMParser().parseFromString(html, "text/html").body.textContent ?? "")
+    .replace(/\s+/g, " ").trim();
+
 /** Type-aware default cell — Sear's `Cell` (lib/data-grid/cell-render.tsx) by Frappe fieldtype, falling back to the
  *  column `type` (PMO MetaCell). Numbers and dates are `dir="ltr"` so Arabic pages keep digits readable. */
 export function DefaultCell<T>({ value, col }: { value: unknown; col: ColumnDef<T> }) {
@@ -52,6 +57,7 @@ export function DefaultCell<T>({ value, col }: { value: unknown; col: ColumnDef<
       return <span dir="ltr" className="tabular-nums">{fmtNumber(value, language)}{ft === "Percent" ? "%" : ""}</span>;
     case "Select": return <Badge variant="secondary" className="font-normal">{String(value)}</Badge>;
     case "Link": case "Dynamic Link": return <span className="font-medium text-foreground">{String(value)}</span>;
+    case "Text Editor": case "Markdown Editor": case "HTML Editor": return <span className="line-clamp-2">{htmlToText(String(value))}</span>;
     default: return <span className="truncate">{String(value)}</span>;
   }
 }
