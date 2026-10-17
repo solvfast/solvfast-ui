@@ -29,7 +29,7 @@ export default function AppShellDemo() {
       collapsedStorageKey={null}
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-6 py-2 text-xs text-muted-foreground md:px-8">
-        <a href="#/app-shell" target="_top" className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline">
+        <a href="#app-shell" target="_top" className="inline-flex items-center gap-1.5 font-medium text-primary hover:underline">
           <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" />{isRTL ? "العودة إلى المكوّنات" : "Back to the components"}
         </a>
         <span dir="ltr" className="font-mono">currentPath: {path}</span>

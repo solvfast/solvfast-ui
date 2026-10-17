@@ -1,6 +1,6 @@
 // The component showcase: an isolated Vite app (no dependencies of its own). It imports the package from source through
 // the same aliases as the playground and builds to showcase/dist with relative paths and hash routes, so the output
-// can be opened from any static host.
+// can be opened from any static host. Port 4850 is strict: if it is taken, the server says so instead of moving.
 import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -17,6 +17,6 @@ export default defineConfig({
   ] },
   css: { postcss: { plugins: [tailwindcss({ config: path.resolve(__dirname, "tailwind.config.ts") }), autoprefixer()] } },
   build: { outDir: path.resolve(__dirname, "dist"), emptyOutDir: true, chunkSizeWarningLimit: 1500 },
-  server: { host: "127.0.0.1", port: 4850 },
-  preview: { host: "127.0.0.1", port: 4850 },
+  server: { host: "127.0.0.1", port: 4850, strictPort: true },
+  preview: { host: "127.0.0.1", port: 4850, strictPort: true },
 });
