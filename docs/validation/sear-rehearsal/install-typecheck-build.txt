@@ -1,0 +1,27 @@
+== yarn add file:solvfast-ui-0.1.0-rc.1.tgz --offline
+success Saved 1 new dependency.
+info Direct dependencies
+└─ @solvfast/ui@0.1.0-rc.1
+info All dependencies
+└─ @solvfast/ui@0.1.0-rc.1
+Done in 3.69s.
+exit 0
+
+== tsc --noEmit (Sear's tsconfig)
+before: 329 errors · after: 329 errors · set identical: yes · errors in integration files: 0
+
+== vite build — Tailwind warnings
+-- baseline
+warn - The class `active:duration-[120ms]` is ambiguous and matches multiple utilities.
+warn - The class `duration-[180ms]` is ambiguous and matches multiple utilities.
+warn - The class `duration-[600ms]` is ambiguous and matches multiple utilities.
+-- integrated with the host's own tailwindcss-animate still listed
+warn - The class `active:duration-[120ms]` is ambiguous and matches multiple utilities.
+warn - The class `data-[state=closed]:slide-out-to-top-[48%]` is ambiguous and matches multiple utilities.
+warn - The class `data-[state=open]:slide-in-from-top-[48%]` is ambiguous and matches multiple utilities.
+warn - The class `duration-[180ms]` is ambiguous and matches multiple utilities.
+warn - The class `duration-[600ms]` is ambiguous and matches multiple utilities.
+-- final recipe (host's duplicate plugin removed)
+warn - The class `active:duration-[120ms]` is ambiguous and matches multiple utilities.
+warn - The class `duration-[180ms]` is ambiguous and matches multiple utilities.
+warn - The class `duration-[600ms]` is ambiguous and matches multiple utilities.

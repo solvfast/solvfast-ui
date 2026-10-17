@@ -1,0 +1,18 @@
+nested node_modules inside @solvfast/ui: 0
+react: 1 copy
+react-dom: 1 copy
+@tanstack/react-query: 1 copy
+@tanstack/query-core: 1 copy
+lucide-react: 1 copy
+@radix-ui/react-popover: 1 copy
+@radix-ui/react-direction: 1 copy
+@radix-ui/react-select: 1 copy
+@radix-ui/react-dialog: 1 copy
+cmdk: 1 copy
+react-day-picker: 1 copy
+tailwind-merge: 1 copy
+class-variance-authority: 1 copy
+
+built bundle — files containing each library's unique marker:
+build-before  [__SECRET_INTERNALS_DO_: 1] [No QueryClient set, us: 1] [react.portal: 2] 
+build-final   [__SECRET_INTERNALS_DO_: 1] [No QueryClient set, us: 1] [react.portal: 2] 

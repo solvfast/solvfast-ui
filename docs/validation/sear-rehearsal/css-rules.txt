@@ -1,0 +1,6 @@
+integrated (duplicate plugin): Sear rules lost 4 · rules added 86
+   lost: |.data-\[state\=closed\]\:slide-out-to-top-\[48\%\][data-state=closed]{--tw-exit-translate-y: -48%}
+   lost: |.data-\[state\=open\]\:slide-in-from-top-\[48\%\][data-state=open]{--tw-enter-translate-y: -48%}
+   lost: |.data-\[state\=open\]\:slide-in-from-top-full[data-state=open]{--tw-enter-translate-y: -100%}
+   lost: |.data-\[state\=open\]\:slide-in-from-top[data-state=open]{--tw-enter-translate-y: -100%}
+integrated, duplicate removed: Sear rules lost 0 · rules added 85

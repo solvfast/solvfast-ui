@@ -1,0 +1,201 @@
+diff -ruN a/CHANGELOG.md b/CHANGELOG.md
+--- a/CHANGELOG.md	2026-10-17 20:21:53.556395010 +0000
++++ b/CHANGELOG.md	2026-10-17 20:21:53.588395181 +0000
+@@ -6,7 +6,12 @@
+ 
+ ## [Unreleased]
+ 
+-_Nothing yet._
++### Changed
++- Licence metadata no longer states a licence while the decision is pending: LICENSE says the licence is not decided
++  and names Solvfast as the intended copyright holder; `package.json` `license` is `SEE LICENSE IN LICENSE` (was
++  `MIT` in 0.1.0-rc.1, whose LICENSE held the MIT text with a pending holder). README and docs say the same.
++- `THIRD-PARTY-NOTICES.md`: the MIT notice of shadcn/ui, from which the primitives derive (via the Design System).
++  It ships in the tarball.
+ 
+ ## [0.1.0-rc.1] — 2026-10-17 — release candidate (not published)
+ 
+diff -ruN a/docs/CONSUMING.md b/docs/CONSUMING.md
+--- a/docs/CONSUMING.md	2026-10-17 20:21:53.552394989 +0000
++++ b/docs/CONSUMING.md	2026-10-17 20:21:53.588395181 +0000
+@@ -173,4 +173,4 @@
+ - React 19, Tailwind 4, Frappe other than 15, and browsers other than Chromium are untested.
+ - Intended differences from Sear: the fixed Actions column, the wrapping toolbar on phones, 180/120 ms buttons, and
+   the shell fixes (docs/VALIDATION.md).
+-- Not published; the LICENSE copyright holder is pending confirmation.
++- Not published; the licence is not decided yet (intended copyright holder: Solvfast).
+diff -ruN a/docs/LIMITATIONS.md b/docs/LIMITATIONS.md
+--- a/docs/LIMITATIONS.md	2026-10-17 20:21:53.548394967 +0000
++++ b/docs/LIMITATIONS.md	2026-10-17 20:21:53.588395181 +0000
+@@ -59,8 +59,8 @@
+ 
+ ## Packaging and release
+ 
+-- Not published. The copyright holder in LICENSE is **pending confirmation**; `npm publish` is blocked until it is set
+-  (and until HEAD is tagged and the tree is clean — `scripts/prepublish-check.mjs`).
++- Not published. The licence is **not decided** (intended copyright holder: Solvfast); `npm publish` is blocked until
++  it is (and until HEAD is tagged and the tree is clean — `scripts/prepublish-check.mjs`).
+ - Dependencies are pinned to the exact versions tested; consumers on other versions of the same libraries (e.g.
+   `lucide-react`, Radix) get a second copy.
+ - Installing from GitHub Packages needs the consumer's own GitHub token with `read:packages` (docs/CONSUMING.md).
+diff -ruN a/docs/RELEASING.md b/docs/RELEASING.md
+--- a/docs/RELEASING.md	2026-10-17 20:21:53.544394946 +0000
++++ b/docs/RELEASING.md	2026-10-17 20:21:53.588395181 +0000
+@@ -2,7 +2,7 @@
+ 
+ The owner publishes. Nothing in this repository pushes, tags or publishes on its own. `npm publish` runs
+ `prepublishOnly` (`scripts/prepublish-check.mjs`, then a full build and the tests), which refuses unless the working
+-tree is clean, `HEAD` is tagged `v<version>`, and LICENSE names the copyright holder.
++tree is clean, `HEAD` is tagged `v<version>`, and LICENSE states a decided licence.
+ 
+ ## Checklist — 0.1.0-rc.1 (2026-10-17)
+ 
+@@ -19,7 +19,7 @@
+ | 9 | Docs: README, CONSUMING, FRAPPE, FEATURES, LIMITATIONS, CHANGELOG, VENDORED, VALIDATION | ✅ |
+ | 10 | Frappe layer against simulated requests | ✅ passed |
+ | 11 | Frappe layer against a real site | ⏸ **deferred, not done** — at first integration into a real project (docs/FRAPPE.md) |
+-| 12 | LICENSE copyright holder | ⛔ **pending the owner's confirmation** — blocks publishing |
++| 12 | Licence | ⛔ **not decided** (intended copyright holder: Solvfast) — blocks publishing. Third-party notices (shadcn/ui, MIT) are in THIRD-PARTY-NOTICES.md whatever is chosen |
+ | 13 | GitHub repository `solvfast/solvfast-ui` created and this repo pushed (by the owner) | ⛔ owner |
+ | 14 | Version and tag: `0.1.0-rc.1` now; the owner tags (`git tag v<version>`) on a clean tree | ⛔ owner's approval |
+ | 15 | Dependency ranges: exact pins (the tested set) or `^` ranges (fewer duplicate copies in apps) | ❓ owner's decision |
+@@ -27,7 +27,8 @@
+ 
+ ## Owner's steps (when ready)
+ 
+-1. Put the legal copyright holder in LICENSE (one line), commit.
++1. Decide the licence; put its text and the copyright holder in LICENSE and its identifier in `package.json` `license`
++   (keep THIRD-PARTY-NOTICES.md), commit.
+ 2. Decide items 15 and the version (`0.1.0-rc.1`, or `0.1.0`); update `package.json` and CHANGELOG if it changes.
+ 3. `git tag v<version>` on the clean commit; push the repository and the tag.
+ 4. With your own token (`write:packages`, never committed): `npm publish` (add `--tag next` for a release
+diff -ruN a/LICENSE b/LICENSE
+--- a/LICENSE	2026-10-17 20:21:53.528394861 +0000
++++ b/LICENSE	2026-10-17 20:21:53.558395021 +0000
+@@ -1,21 +1,8 @@
+-MIT License
++@solvfast/ui — licence not decided
+ 
+-Copyright (c) 2026 [copyright holder pending confirmation]
++The licence under which this package may be used has not been decided yet.
+ 
+-Permission is hereby granted, free of charge, to any person obtaining a copy
+-of this software and associated documentation files (the "Software"), to deal
+-in the Software without restriction, including without limitation the rights
+-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+-copies of the Software, and to permit persons to whom the Software is
+-furnished to do so, subject to the following conditions:
++Intended copyright holder: Solvfast.
+ 
+-The above copyright notice and this permission notice shall be included in all
+-copies or substantial portions of the Software.
+-
+-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+-SOFTWARE.
++Parts of this package are derived from shadcn/ui and are used under that project's
++MIT License; its notice is reproduced in THIRD-PARTY-NOTICES.md.
+diff -ruN a/package.json b/package.json
+--- a/package.json	2026-10-17 20:21:53.532394882 +0000
++++ b/package.json	2026-10-17 20:21:53.587395175 +0000
+@@ -2,7 +2,7 @@
+   "name": "@solvfast/ui",
+   "version": "0.1.0-rc.1",
+   "description": "SOLV FAST product UI kit — Sear's design: primitives, app shell (Navbar, Sidebar) and List View, with an optional Frappe layer.",
+-  "license": "MIT",
++  "license": "SEE LICENSE IN LICENSE",
+   "repository": {
+     "type": "git",
+     "url": "git+https://github.com/solvfast/solvfast-ui.git"
+@@ -20,7 +20,8 @@
+     "docs/CONSUMING.md",
+     "docs/FRAPPE.md",
+     "docs/FEATURES.md",
+-    "docs/LIMITATIONS.md"
++    "docs/LIMITATIONS.md",
++    "THIRD-PARTY-NOTICES.md"
+   ],
+   "exports": {
+     ".": {
+diff -ruN a/README.md b/README.md
+--- a/README.md	2026-10-17 20:21:53.536394903 +0000
++++ b/README.md	2026-10-17 20:21:53.587395175 +0000
+@@ -69,5 +69,6 @@
+ 
+ ## Licence
+ 
+-MIT ([LICENSE](LICENSE)). The copyright holder is pending the owner's confirmation; publishing is blocked until it is
+-set.
++Not decided yet. Intended copyright holder: Solvfast. See [LICENSE](LICENSE) and
++[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) (shadcn/ui-derived code, used under its MIT License). Publishing is
++blocked until the licence is decided.
+diff -ruN a/scripts/prepublish-check.mjs b/scripts/prepublish-check.mjs
+--- a/scripts/prepublish-check.mjs	2026-10-17 20:21:53.540394925 +0000
++++ b/scripts/prepublish-check.mjs	2026-10-17 20:21:53.587395175 +0000
+@@ -1,7 +1,7 @@
+ // Runs before `npm publish` (prepublishOnly) and refuses to publish unless:
+ // - the working tree is clean (what is published is exactly a commit);
+ // - HEAD carries the tag v<version> (tags are made only with the owner's approval);
+-// - LICENSE names the copyright holder (no "pending confirmation" placeholder).
++// - LICENSE states a decided licence (not the "licence not decided" placeholder).
+ // It never publishes anything itself.
+ import fs from "node:fs";
+ import path from "node:path";
+@@ -15,9 +15,9 @@
+ if (git("status", "--porcelain")) problems.push("the working tree has uncommitted changes");
+ const tags = git("tag", "--points-at", "HEAD").split("\n").filter(Boolean);
+ if (!tags.includes(`v${pkg.version}`)) problems.push(`HEAD is not tagged v${pkg.version} (tags on HEAD: ${tags.join(", ") || "none"})`);
+-if (/pending confirmation/i.test(fs.readFileSync(path.join(root, "LICENSE"), "utf8"))) problems.push("LICENSE: the copyright holder is still pending confirmation");
++if (/not (been )?decided|pending confirmation/i.test(fs.readFileSync(path.join(root, "LICENSE"), "utf8"))) problems.push("LICENSE: the licence has not been decided");
+ if (problems.length) {
+   console.error(`✖ not publishing @solvfast/ui@${pkg.version}:\n${problems.map((p) => `  - ${p}`).join("\n")}`);
+   process.exit(1);
+ }
+-console.log(`✔ ready to publish @solvfast/ui@${pkg.version} (clean tree, tag v${pkg.version}, licence holder set)`);
++console.log(`✔ ready to publish @solvfast/ui@${pkg.version} (clean tree, tag v${pkg.version}, licence decided)`);
+diff -ruN a/THIRD-PARTY-NOTICES.md b/THIRD-PARTY-NOTICES.md
+--- a/THIRD-PARTY-NOTICES.md	1970-01-01 00:00:00.000000000 +0000
++++ b/THIRD-PARTY-NOTICES.md	2026-10-17 20:21:53.559395026 +0000
+@@ -0,0 +1,38 @@
++# Third-party notices
++
++## shadcn/ui
++
++The primitives in `src/primitives/` (shipped in `dist/primitives/`) come from the SOLV FAST Design System, which
++built them from shadcn/ui ("new-york" style) components and restyled them (see VENDORED.md).
++
++```
++MIT License
++
++Copyright (c) 2023 shadcn
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
++```
++
++## Tailwind CSS
++
++`dist/styles/full.css` contains Tailwind CSS's preflight, which keeps its own notice in the file
++(`tailwindcss v3.4.19 | MIT License | https://tailwindcss.com`).
++
++Runtime dependencies (Radix UI, lucide-react, cmdk, react-day-picker, date-fns, …) are installed from npm with their
++own licences and are not copied into this package.

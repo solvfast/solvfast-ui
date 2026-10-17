@@ -1,0 +1,19 @@
+✔ T1 ThemeProvider is active on the document (sf-theme) and matches Sear's theme and language — {"cls":"sf-theme","lang":"en","dir":"ltr","theme":"light"}
+✔ T2 Sear's theme toggle → html.dark and the list's surface change together — {"before":"rgb(21, 21, 30) | rgba(236, 236, 243, 0.4)","after":"rgb(255, 255, 255) | rgba(26, 26, 35, 0.4)","html":"dark sf-theme"}
+✔ T3 Sear's language toggle → the list's own strings and direction switch to Arabic — {"cls":"dark sf-theme","lang":"ar","dir":"rtl","theme":"dark"}
+✔ T4 after reload, both keep Sear's persisted choice; the package stores nothing of its own — {"html":{"cls":"dark sf-theme","lang":"ar","dir":"rtl","theme":"dark"},"stored":{"app_theme":"dark","app_lang":"ar","sfKeys":[]}}
+✔ T5 no page errors — []
+✔ L1 ListView shows Sear's Field Library store — {"rows":9,"total":"Total: 9"}
+✔ L2 search filters — {"before":9,"after":2}
+✔ L3 filter popover opens as a glass popover in the theme scope (portal) — {"bf":"blur(6px) saturate(1.5)","inTheme":true}
+✔ L4 column manager opens
+✔ L5 delete asks first (red confirm)
+✔ L6 confirmed delete removes the row through Sear's store — {"before":9,"after":8}
+✔ L7 row click navigates with Sear's router (field preset editor) — "/sear-product/workspace/build/sear_studio/field_library/fp_visa_wizard/edit"
+✔ L8 no page errors — []
+✔ F1 FrappeListView uses Sear's own React Query client (no second client) — "shared"
+✔ F2 rows and total load from the simulated ToDo site — "Total: 45"
+✔ F3 search goes through the Frappe request path — "Total: 11"
+✔ F4 no page errors — []
+✔ M1 phone: the list page fits 390 px inside Sear's shell — 390
+✔ all 18 checks passed

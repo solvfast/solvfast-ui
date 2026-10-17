@@ -1,0 +1,2 @@
+focused Sear elements compared: 16 identical, 0 different
+sample: button.Open menu outline=solid 2px rgb(37, 208, 254) off=2px ring=rgb(249, 249, 251) 0px 0px 0px 2px, rgb( trans=0.4s

@@ -1,0 +1,181 @@
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -37,6 +37,7 @@
+     "@radix-ui/react-toggle": "^1.1.12",
+     "@radix-ui/react-toggle-group": "^1.1.13",
+     "@radix-ui/react-tooltip": "^1.2.10",
++    "@solvfast/ui": "file:/tmp/claude-1000/-home-frappe-lovable-bench/4c457587-396a-439e-ac89-f312d4c12c14/scratchpad/sear-rehearsal/solvfast-ui-0.1.0-rc.1.tgz",
+     "@tanstack/react-query": "^5.59.0",
+     "class-variance-authority": "^0.7.0",
+     "clsx": "^2.1.1",
+--- a/frontend/tailwind.config.ts
++++ b/frontend/tailwind.config.ts
+@@ -1,6 +1,8 @@
+ import type { Config } from "tailwindcss";
++import sfPreset from "@solvfast/ui/tailwind-preset";
+ 
+ export default {
++  presets: [sfPreset],
+   darkMode: ["class"],
+   content: [
+     "./index.html",
+@@ -8,6 +10,7 @@
+     // Design System components are imported via the @ds alias; without this glob their
+     // classes are never generated and they render unstyled (no build error).
+     "../../design_system/frontend/src/**/*.{ts,tsx}",
++    "./node_modules/@solvfast/ui/dist/**/*.js",
+   ],
+   theme: {
+   	container: {
+@@ -147,5 +150,6 @@
+   		}
+   	}
+   },
+-  plugins: [require("tailwindcss-animate")],
++  // tailwindcss-animate comes with the @solvfast/ui preset; listing it here too registers it twice
++  plugins: [],
+ } satisfies Config;
+--- a/frontend/src/index.css
++++ b/frontend/src/index.css
+@@ -2,9 +2,10 @@
+ 
+ /* Tokens + base layer mirror apps/design_system/frontend/src/index.css (the Design System is the
+    source of truth). Sear-only styles live in sear-studio.css; the .glass engine is imported in main.tsx. */
+-@tailwind base;
+-@tailwind components;
+-@tailwind utilities;
++@import "tailwindcss/base.css";
++@import "tailwindcss/components.css";
++@import "tailwindcss/utilities.css";
++@import "@solvfast/ui/theme.css";
+ 
+ /* SOLV FAST design tokens — vivid brand primaries on a quiet violet-tinted Ink neutral base. Solid surfaces
+    (soft low-contrast shadows, crisp edges) — NOT frosted glass. Flame Orange = the single primary action. */
+--- a/frontend/src/main.tsx
++++ b/frontend/src/main.tsx
+@@ -15,12 +15,15 @@
+ import "./index.css";
+ // Design System glass engine (tokens.css + engine.css via @import) — imported, not copied.
+ import "@ds/styles/glass/glass.css";
++import "@solvfast/ui/glass.css";
++import { SfuiThemeBridge } from "@/sfui-rehearsal/SfuiThemeBridge";
+ 
+ 
+ createRoot(document.getElementById("root")!).render(
+   <React.StrictMode>
+     <QueryClientProvider client={queryClient}>
+       <AppProvider>
++        <SfuiThemeBridge>
+         <AuthProvider>
+           <SearThemeProvider>
+             <SearLanguageProvider>
+@@ -33,6 +36,7 @@
+           </SearThemeProvider>
+           <Toaster />
+         </AuthProvider>
++        </SfuiThemeBridge>
+       </AppProvider>
+     </QueryClientProvider>
+   </React.StrictMode>
+--- a/frontend/src/sear_studio_app/SearStudioRoutes.tsx
++++ b/frontend/src/sear_studio_app/SearStudioRoutes.tsx
+@@ -6,6 +6,8 @@
+ // Ported studio module pages — code-split so each page's JS (incl. the heavy
+ // reactflow builders) only downloads when its route is visited.
+ const SearStudioOverviewPage = lazy(() => import('./SearStudioOverviewPage'));
++const SfuiListRehearsal = lazy(() => import('@/sfui-rehearsal/ListRehearsalPage'));
++const SfuiFrappeRehearsal = lazy(() => import('@/sfui-rehearsal/FrappeRehearsalPage'));
+ const LifecyclesListPage = lazy(() => import('@sear/pages/CRM/lifecycles/LifecyclesListPage'));
+ const LifecycleDesignerPage = lazy(() => import('@sear/pages/CRM/lifecycles/LifecycleDesignerPage'));
+ const SLAPage = lazy(() => import('@sear/pages/SLA/SLAPage'));
+@@ -48,6 +50,8 @@
+ 
+         {/* 0. Overview — first nav item + default landing route (§4.11). */}
+         <Route path="overview" element={<SearStudioOverviewPage />} />
++        <Route path="sfui/list" element={<SfuiListRehearsal />} />
++        <Route path="sfui/frappe" element={<SfuiFrappeRehearsal />} />
+ 
+ 
+         {/* 1. Life Cycles */}
+--- /dev/null
++++ b/frontend/src/sfui-rehearsal/SfuiThemeBridge.tsx
+@@ -0,0 +1,10 @@
++// @solvfast/ui's ThemeProvider, driven by Sear's own AppContext (the single owner of theme and language in Sear):
++// controlled props, no storage of its own, so the two can never disagree.
++import type { ReactNode } from "react";
++import { ThemeProvider } from "@solvfast/ui";
++import { useApp } from "@/contexts/AppContext";
++
++export function SfuiThemeBridge({ children }: { children: ReactNode }) {
++  const { theme, language } = useApp();
++  return <ThemeProvider theme={theme} language={language} storageKeys={null}>{children}</ThemeProvider>;
++}
+--- /dev/null
++++ b/frontend/src/sfui-rehearsal/ListRehearsalPage.tsx
+@@ -0,0 +1,43 @@
++// Rehearsal: Sear's Field Library data (its own store) through @solvfast/ui's ListView, inside Sear's studio shell.
++import { useMemo, useSyncExternalStore } from "react";
++import { useNavigate } from "react-router-dom";
++import { Plus, Trash2 } from "lucide-react";
++import { Button, ListView, type ColumnDef } from "@solvfast/ui";
++import { useApp } from "@/contexts/AppContext";
++import { fieldLibraryStore } from "@sear/pages/FieldLibrary/fieldLibraryStore";
++import { SEAR_STUDIO_BASE } from "@sear/lib/searStudioBase";
++
++type Row = { name: string; preset_name: string; description: string; fields_count: number; created_by: string; modified_at: Date };
++
++export default function ListRehearsalPage() {
++  const { language } = useApp();
++  const isRTL = language === "ar";
++  const navigate = useNavigate();
++  const presets = useSyncExternalStore(fieldLibraryStore.subscribe, fieldLibraryStore.list);
++  const rows = useMemo<Row[]>(() => presets.map((p) => ({
++    name: p.id, preset_name: isRTL ? p.nameAr || p.name : p.name, description: p.description ?? "",
++    fields_count: p.fields.length, created_by: p.createdBy, modified_at: p.modifiedAt,
++  })), [presets, isRTL]);
++  const fmt = (d: Date) => new Intl.DateTimeFormat(isRTL ? "ar-EG" : "en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(d);
++  const columns: ColumnDef<Row>[] = [
++    { key: "preset_name", label: { en: "Name", ar: "الاسم" }, type: "text", render: (r) => (
++      <div className="min-w-0"><p className="font-medium text-sm truncate">{r.preset_name}</p>{r.description && <p className="text-[11px] text-muted-foreground truncate">{r.description}</p>}</div>
++    ) },
++    { key: "fields_count", label: { en: "Fields", ar: "الحقول" }, type: "number", fieldtype: "Int" },
++    { key: "created_by", label: { en: "Created By", ar: "أنشئت بواسطة" }, type: "text", hidden: true },
++    { key: "modified_at", label: { en: "Last Modified", ar: "آخر تعديل" }, type: "date", sortValue: (r) => r.modified_at.getTime(), render: (r) => <span className="text-xs text-muted-foreground">{fmt(r.modified_at)}</span> },
++  ];
++  return (
++    <div className="px-6 md:px-8 py-6">
++      <ListView<Row>
++        rows={rows} columns={columns} rowKey={(r) => r.name} viewKey="sfui-rehearsal-field-library"
++        onRowClick={(r) => navigate(`${SEAR_STUDIO_BASE}/field_library/${r.name}/edit`)}
++        rowActions={[{ key: "delete", label: { en: "Delete", ar: "حذف" }, icon: Trash2, tone: "destructive", onSelect: (r) => fieldLibraryStore.remove(r.name),
++          confirm: { title: { en: "Delete this preset?", ar: "حذف هذه المجموعة؟" }, confirmLabel: { en: "Delete", ar: "حذف" } } }]}
++        selectable groupByOptions={[{ key: "created_by", label: isRTL ? "أنشئت بواسطة" : "Created By", groupOf: (r) => ({ key: r.created_by, label: r.created_by }) }]}
++        controls={{ sortMenu: true }}
++        toolbarActions={<Button className="gap-2 shrink-0" onClick={() => navigate(`${SEAR_STUDIO_BASE}/field_library/new`)}><Plus className="h-4 w-4" />{isRTL ? "إنشاء مجموعة حقول" : "Create Field Preset"}</Button>}
++      />
++    </div>
++  );
++}
+--- /dev/null
++++ b/frontend/src/sfui-rehearsal/FrappeRehearsalPage.tsx
+@@ -0,0 +1,20 @@
++// Rehearsal: FrappeListView inside Sear, on Sear's own React Query client, against a SIMULATED Frappe site (no network,
++// no live environment). Real-site validation is deferred.
++import { useState } from "react";
++import { useQueryClient } from "@tanstack/react-query";
++import { queryClient } from "@/lib/queryClient";
++import { FrappeListView, createFrappeClient } from "@solvfast/ui/frappe";
++import { createMockFrappe } from "./mock-frappe";
++
++export default function FrappeRehearsalPage() {
++  const [client] = useState(() => createFrappeClient({ transport: createMockFrappe({ latencyMs: 80 }).transport }));
++  const inUse = useQueryClient(); // probe: is FrappeListView on Sear's own React Query client?
++  return (
++    <div className="px-6 md:px-8 py-6">
++      <span hidden data-testid="sfui-qc">{inUse === queryClient ? "shared" : "separate"}</span>
++      <FrappeListView doctype="ToDo" client={client} storage={null} groupByFields={["status", "priority"]}
++        columns={[{ key: "description", label: { en: "Task", ar: "المهمة" }, type: "text", fieldtype: "Text Editor" }]}
++        fieldLabels={{ status: { en: "Status", ar: "الحالة" }, priority: { en: "Priority", ar: "الأولوية" }, date: { en: "Due Date", ar: "تاريخ الاستحقاق" }, reference_type: { en: "Reference Type", ar: "نوع المرجع" } }} />
++    </div>
++  );
++}
