@@ -1,0 +1,362 @@
+import * as React from "react";
+import { Bell, Check, Download, Plus, Search, Settings, Sparkles, Trash2 } from "lucide-react";
+import {
+  Avatar, AvatarFallback, AvatarImage, Badge, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
+  Checkbox, Input, Label, ScrollArea, Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator,
+  SelectTrigger, SelectValue, Separator, Skeleton, Switch, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, Tooltip,
+  TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@ui";
+import avatarImg from "../../../playground/src/demo/sear-assets/customer-icon.png";
+import { Cell, Example, Props, Section } from "../doc/Doc";
+import { l, useTr } from "../i18n";
+
+const VARIANTS = ["default", "secondary", "outline", "ghost", "destructive", "ai-outline", "text"] as const;
+
+export function Buttons() {
+  const tr = useTr();
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <div className="space-y-12">
+      <Section title={l("Variants", "الأنواع")} description={l("Primary for the main action; secondary, outline and ghost for the rest; destructive for removals; ai-outline only for AI actions; text for inline actions.", "الأساسي للإجراء الرئيسي؛ الثانوي والمحدّد والشفاف للباقي؛ الهدّام للحذف؛ ai-outline لإجراءات الذكاء الاصطناعي فقط؛ النصي للإجراءات داخل النص.")}>
+        <Example center code={`<Button>Save</Button>
+<Button variant="secondary">Draft</Button>
+<Button variant="outline">Cancel</Button>
+<Button variant="ghost">More</Button>
+<Button variant="destructive">Delete</Button>
+<Button variant="ai-outline"><Sparkles /> Generate</Button>
+<Button variant="text">Learn more</Button>`}>
+          {VARIANTS.map((v) => (
+            <Cell key={v} label={v}>
+              <Button variant={v}>{v === "ai-outline" && <Sparkles className="h-4 w-4" />}{tr({
+                default: l("Save", "حفظ"), secondary: l("Draft", "مسودّة"), outline: l("Cancel", "إلغاء"), ghost: l("More", "المزيد"),
+                destructive: l("Delete", "حذف"), "ai-outline": l("Generate", "توليد"), text: l("Learn more", "اعرف المزيد"),
+              }[v])}</Button>
+            </Cell>
+          ))}
+        </Example>
+      </Section>
+      <Section title={l("Sizes", "الأحجام")}>
+        <Example center code={`<Button size="xs">Extra small</Button>
+<Button size="sm">Small</Button>
+<Button>Default</Button>
+<Button size="icon" aria-label="Add"><Plus /></Button>
+<Button size="icon-sm" aria-label="Settings"><Settings /></Button>`}>
+          <Cell label="xs"><Button size="xs">{tr(l("Extra small", "صغير جداً"))}</Button></Cell>
+          <Cell label="sm"><Button size="sm">{tr(l("Small", "صغير"))}</Button></Cell>
+          <Cell label="default"><Button>{tr(l("Default", "افتراضي"))}</Button></Cell>
+          <Cell label="icon"><Button size="icon" aria-label={tr(l("Add", "إضافة"))}><Plus className="h-4 w-4" /></Button></Cell>
+          <Cell label="icon-sm"><Button size="icon-sm" variant="outline" aria-label={tr(l("Settings", "الإعدادات"))}><Settings className="h-4 w-4" /></Button></Cell>
+        </Example>
+      </Section>
+      <Section title={l("States and icons", "الحالات والأيقونات")} description={l("loading shows a spinner and disables the button; icons sit at either end; fullWidth stretches it.", "‏loading يعرض مؤشّراً ويعطّل الزر؛ الأيقونات في أي طرف؛ fullWidth يمدّه.")}>
+        <Example center code={`<Button loading={saving} onClick={save}>Save</Button>
+<Button disabled>Disabled</Button>
+<Button variant="outline"><Download /> Export</Button>
+<Button fullWidth>Continue</Button>`}>
+          <Cell label="loading"><Button loading={busy} onClick={() => { setBusy(true); setTimeout(() => setBusy(false), 1600); }}>{tr(l("Click to save", "اضغط للحفظ"))}</Button></Cell>
+          <Cell label="disabled"><Button disabled>{tr(l("Disabled", "معطّل"))}</Button></Cell>
+          <Cell label="icon + label"><Button variant="outline" className="gap-2"><Download className="h-4 w-4" />{tr(l("Export", "تصدير"))}</Button></Cell>
+          <Cell label="destructive + icon"><Button variant="destructive" className="gap-2"><Trash2 className="h-4 w-4" />{tr(l("Delete", "حذف"))}</Button></Cell>
+          <div className="w-full max-w-sm"><Cell label="fullWidth"><Button fullWidth>{tr(l("Continue", "متابعة"))}</Button></Cell></div>
+        </Example>
+        <Props rows={[
+          ["variant", VARIANTS.map((v) => `"${v}"`).join(" | "), l("Look and emphasis.", "الشكل ودرجة الإبراز.")],
+          ["size", '"xs" | "sm" | "default" | "icon" | "icon-sm"', l("Height and padding; icon sizes are square.", "الارتفاع والهوامش؛ أحجام الأيقونة مربّعة.")],
+          ["loading", "boolean", l("Spinner, and disabled while true.", "مؤشّر، ومعطّل ما دام true.")],
+          ["fullWidth", "boolean", l("Fill the container's width.", "ملء عرض الحاوية.")],
+          ["asChild", "boolean", l("Render the styles on your own element (e.g. a link).", "تطبيق الأنماط على عنصرك الخاص (مثل رابط).")],
+        ]} />
+      </Section>
+    </div>
+  );
+}
+
+const BADGES = ["default", "secondary", "outline", "destructive", "brand", "success", "warning", "info"] as const;
+export function Badges() {
+  const tr = useTr();
+  return (
+    <div className="space-y-12">
+      <Section title={l("Variants", "الأنواع")} description={l("Badges label; they are not buttons. Pair colour with text — never colour alone.", "الشارات تسمية وليست أزراراً. اجمع اللون مع النص — لا تعتمد على اللون وحده.")}>
+        <Example center code={`<Badge>Default</Badge>
+<Badge variant="success">Active</Badge>
+<Badge variant="warning">Pending</Badge>
+<Badge variant="destructive">Overdue</Badge>`}>
+          {BADGES.map((v) => (
+            <Cell key={v} label={v}><Badge variant={v}>{tr({
+              default: l("Default", "افتراضي"), secondary: l("Draft", "مسودّة"), outline: l("Tag", "وسم"), destructive: l("Overdue", "متأخّر"),
+              brand: l("New", "جديد"), success: l("Active", "نشط"), warning: l("Pending", "قيد الانتظار"), info: l("Beta", "تجريبي"),
+            }[v])}</Badge></Cell>
+          ))}
+        </Example>
+      </Section>
+      <Section title={l("In context", "في السياق")}>
+        <Example center>
+          <span className="flex items-center gap-2 text-sm text-foreground">{tr(l("Inbox", "الوارد"))} <Badge variant="info" className="h-5 px-1.5">12</Badge></span>
+          <span className="flex items-center gap-2 text-sm text-foreground">{tr(l("Status", "الحالة"))} <Badge variant="success" className="gap-1"><Check className="h-3 w-3" />{tr(l("Approved", "معتمد"))}</Badge></span>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function Cards() {
+  const tr = useTr();
+  return (
+    <div className="space-y-12">
+      <Section title={l("Structure", "البنية")} description={l("Card is the glass container; CardHeader, CardTitle, CardDescription, CardContent and CardFooter lay out its parts.", "‏Card هي الحاوية الزجاجية؛ وتنظّم CardHeader و CardTitle و CardDescription و CardContent و CardFooter أجزاءها.")}>
+        <Example code={`<Card>
+  <CardHeader>
+    <CardTitle>Field presets</CardTitle>
+    <CardDescription>Reusable groups of form fields.</CardDescription>
+  </CardHeader>
+  <CardContent>128 fields in 9 presets</CardContent>
+  <CardFooter><Button size="sm">Open</Button></CardFooter>
+</Card>`}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader><CardTitle>{tr(l("Field presets", "مجموعات الحقول"))}</CardTitle><CardDescription>{tr(l("Reusable groups of form fields.", "مجموعات قابلة لإعادة الاستخدام من حقول النماذج."))}</CardDescription></CardHeader>
+              <CardContent className="text-sm text-muted-foreground">{tr(l("128 fields in 9 presets", "128 حقلاً في 9 مجموعات"))}</CardContent>
+              <CardFooter className="gap-2"><Button size="sm">{tr(l("Open", "فتح"))}</Button><Button size="sm" variant="ghost">{tr(l("Share", "مشاركة"))}</Button></CardFooter>
+            </Card>
+            <Card>
+              <CardHeader><CardDescription>{tr(l("Open requests", "الطلبات المفتوحة"))}</CardDescription><CardTitle className="font-brand text-4xl">42</CardTitle></CardHeader>
+              <CardContent className="text-sm text-muted-foreground">{tr(l("+6 since yesterday", "‎+6‎ منذ الأمس"))}</CardContent>
+            </Card>
+          </div>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function Fields() {
+  const tr = useTr();
+  return (
+    <div className="space-y-12">
+      <Section title={l("Input and Textarea", "حقل الإدخال ومنطقة النص")} description={l("Always pair a field with a Label (or an aria-label).", "اربط كل حقل بتسمية Label (أو aria-label).")}>
+        <Example code={`<Label htmlFor="name">Name</Label>
+<Input id="name" placeholder="Corporate booking" />
+<Label htmlFor="notes">Notes</Label>
+<Textarea id="notes" rows={3} />
+<Input disabled value="Read only" />`}>
+          <div className="grid max-w-xl gap-5">
+            <div className="grid gap-1.5"><Label htmlFor="sc-name">{tr(l("Name", "الاسم"))}</Label><Input id="sc-name" placeholder={tr(l("Corporate booking", "حجز الشركات"))} /></div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="sc-search">{tr(l("With an icon", "مع أيقونة"))}</Label>
+              <div className="relative"><Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input id="sc-search" className="ps-9" placeholder={tr(l("Search…", "بحث…"))} /></div>
+            </div>
+            <div className="grid gap-1.5"><Label htmlFor="sc-notes">{tr(l("Notes", "ملاحظات"))}</Label><Textarea id="sc-notes" rows={3} placeholder={tr(l("Add details…", "أضف التفاصيل…"))} /><p className="text-xs text-muted-foreground">{tr(l("A hint under the field.", "تلميح تحت الحقل."))}</p></div>
+            <div className="grid gap-1.5"><Label htmlFor="sc-dis">{tr(l("Disabled", "معطّل"))}</Label><Input id="sc-dis" disabled defaultValue={tr(l("Read only", "للقراءة فقط"))} /></div>
+          </div>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function Choices() {
+  const tr = useTr();
+  const [notify, setNotify] = React.useState(true);
+  const [all, setAll] = React.useState<boolean | "indeterminate">("indeterminate");
+  return (
+    <div className="space-y-12">
+      <Section title={l("Checkbox", "مربع الاختيار")} description={l("Checked, unchecked, indeterminate (some of a group) and disabled.", "محدّد وغير محدّد وجزئي (بعض المجموعة) ومعطّل.")}>
+        <Example code={`<Checkbox id="terms" checked={checked} onCheckedChange={setChecked} />
+<Label htmlFor="terms">Accept the terms</Label>
+<Checkbox checked="indeterminate" />`}>
+          <div className="flex flex-wrap gap-8">
+            <label className="flex items-center gap-2 text-sm"><Checkbox defaultChecked /> {tr(l("Checked", "محدّد"))}</label>
+            <label className="flex items-center gap-2 text-sm"><Checkbox /> {tr(l("Unchecked", "غير محدّد"))}</label>
+            <label className="flex items-center gap-2 text-sm"><Checkbox checked={all} onCheckedChange={(c) => setAll(c)} /> {tr(l("Some selected (click)", "تحديد جزئي (اضغط)"))}</label>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground"><Checkbox disabled /> {tr(l("Disabled", "معطّل"))}</label>
+          </div>
+        </Example>
+      </Section>
+      <Section title={l("Switch", "المفتاح")} description={l("For settings that apply at once.", "للإعدادات التي تُطبّق فوراً.")}>
+        <Example code={`<Switch id="notify" checked={on} onCheckedChange={setOn} />
+<Label htmlFor="notify">Email notifications</Label>`}>
+          <div className="flex flex-wrap gap-8">
+            <label className="flex items-center gap-3 text-sm"><Switch checked={notify} onCheckedChange={setNotify} /> {tr(l("Email notifications", "إشعارات البريد"))} <Badge variant={notify ? "success" : "secondary"}>{notify ? tr(l("On", "مفعّل")) : tr(l("Off", "متوقّف"))}</Badge></label>
+            <label className="flex items-center gap-3 text-sm text-muted-foreground"><Switch disabled /> {tr(l("Disabled", "معطّل"))}</label>
+          </div>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function SelectPage() {
+  const tr = useTr();
+  const [v, setV] = React.useState("medium");
+  return (
+    <div className="space-y-12">
+      <Section title={l("Single choice", "اختيار واحد")} description={l("Keyboard and screen-reader friendly; mirrors in Arabic.", "يعمل بلوحة المفاتيح وقارئ الشاشة؛ ينعكس في العربية.")}>
+        <Example code={`<Select value={priority} onValueChange={setPriority}>
+  <SelectTrigger className="w-56" aria-label="Priority"><SelectValue placeholder="Priority" /></SelectTrigger>
+  <SelectContent>
+    <SelectGroup>
+      <SelectLabel>Priority</SelectLabel>
+      <SelectItem value="high">High</SelectItem>
+      <SelectItem value="medium">Medium</SelectItem>
+      <SelectItem value="low">Low</SelectItem>
+    </SelectGroup>
+  </SelectContent>
+</Select>`}>
+          <div className="flex flex-wrap items-end gap-6">
+            <Cell label={`value: "${v}"`}>
+              <Select value={v} onValueChange={setV}>
+                <SelectTrigger className="w-56" aria-label={tr(l("Priority", "الأولوية"))}><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>{tr(l("Priority", "الأولوية"))}</SelectLabel>
+                    <SelectItem value="high">{tr(l("High", "عالية"))}</SelectItem>
+                    <SelectItem value="medium">{tr(l("Medium", "متوسّطة"))}</SelectItem>
+                    <SelectItem value="low">{tr(l("Low", "منخفضة"))}</SelectItem>
+                  </SelectGroup>
+                  <SelectSeparator />
+                  <SelectItem value="none" disabled>{tr(l("Unassigned (disabled)", "غير محدّدة (معطّل)"))}</SelectItem>
+                </SelectContent>
+              </Select>
+            </Cell>
+            <Cell label="placeholder">
+              <Select>
+                <SelectTrigger className="w-56" aria-label={tr(l("City", "المدينة"))}><SelectValue placeholder={tr(l("Choose a city", "اختر مدينة"))} /></SelectTrigger>
+                <SelectContent>{[l("Riyadh", "الرياض"), l("Jeddah", "جدة"), l("Dammam", "الدمام")].map((c) => <SelectItem key={c.en} value={c.en}>{tr(c)}</SelectItem>)}</SelectContent>
+              </Select>
+            </Cell>
+            <Cell label="disabled"><Select disabled><SelectTrigger className="w-40" aria-label="disabled"><SelectValue placeholder={tr(l("Disabled", "معطّل"))} /></SelectTrigger><SelectContent /></Select></Cell>
+          </div>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function TabsPage() {
+  const tr = useTr();
+  return (
+    <div className="space-y-12">
+      <Section title={l("Tabs", "علامات التبويب")} description={l("Use for views of the same thing — not for navigation between pages.", "للعروض المختلفة للشيء نفسه — لا للتنقّل بين الصفحات.")}>
+        <Example code={`<Tabs defaultValue="details">
+  <TabsList>
+    <TabsTrigger value="details">Details</TabsTrigger>
+    <TabsTrigger value="fields">Fields</TabsTrigger>
+    <TabsTrigger value="history">History</TabsTrigger>
+  </TabsList>
+  <TabsContent value="details">…</TabsContent>
+</Tabs>`}>
+          <Tabs defaultValue="details" className="max-w-xl">
+            <TabsList>
+              <TabsTrigger value="details">{tr(l("Details", "التفاصيل"))}</TabsTrigger>
+              <TabsTrigger value="fields">{tr(l("Fields", "الحقول"))}</TabsTrigger>
+              <TabsTrigger value="history">{tr(l("History", "السجل"))}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="details" className="pt-4 text-sm text-muted-foreground">{tr(l("Name, description and owner of the preset.", "اسم المجموعة ووصفها ومالكها."))}</TabsContent>
+            <TabsContent value="fields" className="pt-4 text-sm text-muted-foreground">{tr(l("11 fields in 3 sections.", "11 حقلاً في 3 أقسام."))}</TabsContent>
+            <TabsContent value="history" className="pt-4 text-sm text-muted-foreground">{tr(l("Edited by Sara today.", "عدّلتها سارة اليوم."))}</TabsContent>
+          </Tabs>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function AvatarPage() {
+  const tr = useTr();
+  return (
+    <div className="space-y-12">
+      <Section title={l("Image and fallback", "الصورة والبديل")} description={l("The fallback shows while the image loads or when it fails.", "يظهر البديل أثناء تحميل الصورة أو عند فشلها.")}>
+        <Example center code={`<Avatar>
+  <AvatarImage src={user.image} alt={user.name} />
+  <AvatarFallback>SA</AvatarFallback>
+</Avatar>`}>
+          <Cell label="image"><Avatar><AvatarImage src={avatarImg} alt={tr(l("Customer", "عميل"))} /><AvatarFallback>CU</AvatarFallback></Avatar></Cell>
+          <Cell label="fallback"><Avatar><AvatarImage src="/missing.png" alt="" /><AvatarFallback>{tr(l("SA", "سع"))}</AvatarFallback></Avatar></Cell>
+          <Cell label="size via className"><Avatar className="h-14 w-14"><AvatarFallback className="text-lg">KM</AvatarFallback></Avatar></Cell>
+          <Cell label="group">
+            <div className="flex -space-x-2 rtl:space-x-reverse">
+              {["SA", "KM", "OS", "LH"].map((i) => <Avatar key={i} className="border-2 border-background"><AvatarFallback>{i}</AvatarFallback></Avatar>)}
+            </div>
+          </Cell>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function SkeletonSeparator() {
+  const tr = useTr();
+  return (
+    <div className="space-y-12">
+      <Section title={l("Skeleton", "الهيكل")} description={l("Shapes that stand in for content while it loads.", "أشكال تحلّ محل المحتوى أثناء التحميل.")}>
+        <Example code={`<Skeleton className="h-10 w-10 rounded-full" />
+<Skeleton className="h-4 w-48" />`}>
+          <div className="flex items-center gap-4"><Skeleton className="h-12 w-12 rounded-full" /><div className="space-y-2"><Skeleton className="h-4 w-56" /><Skeleton className="h-4 w-40" /></div></div>
+        </Example>
+      </Section>
+      <Section title={l("Separator", "الفاصل")}>
+        <Example code={`<Separator />
+<Separator orientation="vertical" />`}>
+          <div className="max-w-md space-y-3 text-sm">
+            <p className="font-medium text-foreground">{tr(l("Field presets", "مجموعات الحقول"))}</p>
+            <Separator />
+            <div className="flex h-5 items-center gap-3 text-muted-foreground">
+              <span>{tr(l("Fields", "الحقول"))}</span><Separator orientation="vertical" /><span>{tr(l("Sections", "الأقسام"))}</span><Separator orientation="vertical" /><span>{tr(l("History", "السجل"))}</span>
+            </div>
+          </div>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function ScrollAreaPage() {
+  const tr = useTr();
+  return (
+    <div className="space-y-12">
+      <Section title={l("Scroll area", "منطقة التمرير")}>
+        <Example code={`<ScrollArea className="h-56 w-64 rounded-xl border">
+  {items.map((i) => <div key={i}>…</div>)}
+</ScrollArea>`}>
+          <ScrollArea className="h-56 w-72 rounded-xl border border-border">
+            <div className="p-3">
+              <p className="pb-2 text-sm font-medium text-foreground">{tr(l("Recent activity", "النشاط الأخير"))}</p>
+              {Array.from({ length: 24 }, (_, i) => (
+                <div key={i} className="border-b border-border py-2 text-sm text-muted-foreground last:border-0">{tr(l(`Request #${1040 + i} updated`, `تم تحديث الطلب رقم ${1040 + i}`))}</div>
+              ))}
+            </div>
+          </ScrollArea>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function TooltipPage() {
+  const tr = useTr();
+  return (
+    <div className="space-y-12">
+      <Section title={l("Tooltip", "التلميح")} description={l("Wrap the app (or the area) in one TooltipProvider. Tooltips are labels, not content — keep them short.", "غلّف التطبيق (أو المنطقة) بمزوّد TooltipProvider واحد. التلميحات تسميات لا محتوى — اجعلها قصيرة.")}>
+        <Example center code={`<TooltipProvider delayDuration={150}>
+  <Tooltip>
+    <TooltipTrigger asChild><Button size="icon-sm" aria-label="Notifications"><Bell /></Button></TooltipTrigger>
+    <TooltipContent side="bottom">Notifications</TooltipContent>
+  </Tooltip>
+</TooltipProvider>`}>
+          <TooltipProvider delayDuration={150}>
+            {(["top", "bottom", "left", "right"] as const).map((side) => (
+              <Tooltip key={side}>
+                <TooltipTrigger asChild><Button variant="outline" size="sm">{side}</Button></TooltipTrigger>
+                <TooltipContent side={side}>{tr(l("Saved 2 minutes ago", "حُفظ قبل دقيقتين"))}</TooltipContent>
+              </Tooltip>
+            ))}
+            <Tooltip>
+              <TooltipTrigger asChild><Button variant="outline" size="icon-sm" aria-label={tr(l("Notifications", "الإشعارات"))}><Bell className="h-4 w-4" /></Button></TooltipTrigger>
+              <TooltipContent>{tr(l("Notifications", "الإشعارات"))}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </Example>
+      </Section>
+    </div>
+  );
+}

@@ -54,6 +54,9 @@
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "playground": "vite --config playground/vite.config.ts",
     "playground:build": "vite build --config playground/vite.config.ts",
+    "showcase": "vite --config showcase/vite.config.ts",
+    "showcase:build": "vite build --config showcase/vite.config.ts",
+    "showcase:preview": "vite preview --config showcase/vite.config.ts",
     "check:package": "node scripts/check-package.mjs",
     "prepublishOnly": "node scripts/prepublish-check.mjs && npm run build && npm test"
   },
