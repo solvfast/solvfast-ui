@@ -44,6 +44,14 @@ import "@solvfast/ui/glass.css";
 ```
 Put package additions in `theme.extend`: a top-level `theme` key in your config replaces the preset's.
 
+**Existing apps (verified on a copy of Sear, 2026-10-17):**
+- *Already using `tailwindcss-animate`?* Remove it from your own `plugins` — the preset includes it. Registered twice,
+  Tailwind finds some utilities ambiguous and drops them (in Sear: the dialog's `slide-in-from-top-[48%]` and
+  `slide-out-to-top-[48%]`); the build warns "is ambiguous and matches multiple utilities".
+- *Stylesheet uses `@tailwind base; @tailwind components; @tailwind utilities;`?* Replace those three lines with the
+  equivalent `@import "tailwindcss/base.css";` (and `components`, `utilities`) so `@import "@solvfast/ui/theme.css";`
+  can follow them — an `@import` must come before every other rule. Tailwind produces the same CSS for both forms.
+
 ### Path B — your app does not use Tailwind
 ```ts
 import "@solvfast/ui/full.css";
@@ -70,6 +78,19 @@ import { ThemeProvider } from "@solvfast/ui";
 - Controlled use: `theme` + `onThemeChange`, `language` + `onLanguageChange`. Strings: `messages={{ ar: {...}, en: {...} }}`.
 - `scope="element"`: classes go on a wrapper `<div>` instead of `<html>`; popups render inside it.
 - Hooks (`useTheme`, `useLocale`) work outside the provider too (read-only fallback from `<html>`).
+
+### An app that already owns theme and language
+Drive `ThemeProvider` from your app's own state, so there is a single owner and nothing stored twice:
+```tsx
+function SfuiThemeBridge({ children }) {
+  const { theme, language } = useApp(); // your app's context
+  return <ThemeProvider theme={theme} language={language} storageKeys={null}>{children}</ThemeProvider>;
+}
+```
+Verified in Sear: the package follows Sear's theme and language toggles, keeps them after a reload, stores nothing of
+its own, and leaves Sear's existing pages visually unchanged — 31 of 50 screenshots pixel-identical, the other 19
+differing only within the run-to-run noise of unmodified Sear (docs/validation/sear-rehearsal/). Cost on Sear's existing pages: about +4–5 kB gzip JS (3.8–4.7 measured) and +1.7 kB gzip CSS; list pages load
+their code only when visited. `FrappeListView` uses the app's React Query client when there is one.
 
 ## 3. App shell
 `AppShell` is Sear's shell: sidebar (brand, app switcher, navigation, collapsible rail), glass top bar (title, help,
