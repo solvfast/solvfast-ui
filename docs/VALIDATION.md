@@ -212,3 +212,22 @@ installers (e.g. pnpm) couldn't have resolved it; the npm clean installs passed 
 `refetch` is now `() => Promise<void>`.
 
 **Frappe layer status (unchanged):** simulated-request tests passed; **real-site validation deferred — not done**.
+
+## After 0.1.0-rc.1 — licence metadata, docs, showcase (2026-10-17)
+
+The tree moved on from the rc.1 commit (`9dac49d`). It gained the neutral LICENSE and THIRD-PARTY-NOTICES.md, the
+docs for existing apps, and the component showcase. `src/`, `styles/` and the build scripts did not change. The only
+script change is `scripts/prepublish-check.mjs` (licence wording), which is not in the tarball. `package.json` still
+says `0.1.0-rc.1`; the next version is the owner's choice (docs/RELEASING.md, item 14). Rerun on this tree:
+
+| Check | Command | Result |
+|---|---|---|
+| Type check, unit tests | `npm run typecheck`, `npm test` | pass — 113/113 |
+| Build, boundaries, package audit | `npm run build` | pass — 182 files, 220.2 kB packed; the tarball holds `dist/`, README, LICENSE, THIRD-PARTY-NOTICES, CHANGELOG, VENDORED and the user docs, nothing from `showcase/`, `playground/` or `e2e/` |
+| Clean installs | `e2e/consumers/run.sh` | path A and path B: strict `tsc`, build, one React, one React Query |
+| Showcase | `npm run showcase:build`, then `node e2e/showcase-smoke.mjs` against `showcase:preview` | 28 pages × light/dark × en/ar with no page or console errors, the right theme and direction, no sideways scroll; the interactive examples; phone width — pass |
+
+Not rerun: the parity, motion and Frappe-demo runs. The code they measure is unchanged since rc.1.
+
+**Frappe layer status (unchanged):** simulated-request tests passed; **real-site validation deferred — not done**.
+The showcase's Frappe page runs against the same in-browser simulation.

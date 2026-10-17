@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ChevronDown, Languages, Menu, Moon, Search, Sun } from "lucide-react";
 import { Button, Card, Input, ScrollArea, Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, cn, useLocale, useTheme } from "@ui";
+import { version } from "../../../package.json";
 import { GROUPS } from "../routes";
 import { useTr } from "../i18n";
 
@@ -84,7 +85,7 @@ export function Layout({ current, children }: { current: string; children: React
               </SheetContent>
             </Sheet>
             <Brand />
-            <span className="hidden rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground sm:inline">0.1.0-rc.1</span>
+            <span className="hidden rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground sm:inline">{version}</span>
             <div className="ms-auto flex items-center gap-2">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={toggleLanguage} aria-label={tr({ en: "Switch to Arabic", ar: "التبديل إلى الإنجليزية" })}>
                 <Languages className="h-4 w-4" /> {language === "ar" ? "EN" : "ع"}

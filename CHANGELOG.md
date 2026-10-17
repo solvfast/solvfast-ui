@@ -12,6 +12,13 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
   `MIT` in 0.1.0-rc.1, whose LICENSE held the MIT text with a pending holder). README and docs say the same.
 - `THIRD-PARTY-NOTICES.md`: the MIT notice of shadcn/ui, from which the primitives derive (via the Design System).
   It ships in the tarball.
+- Docs: CONSUMING — integrating into an existing app (a host that already uses `tailwindcss-animate`, or `@tailwind`
+  directives; an app that already owns theme and language), from the Sear integration rehearsal.
+
+### Added (repository only, not in the package)
+- `showcase/`: a browsable component site with live examples of the package's real components, in light/dark and
+  Arabic/English (`npm run showcase`, `showcase:build`, `showcase:preview`; `e2e/showcase-smoke.mjs`). See
+  showcase/README.md.
 
 ## [0.1.0-rc.1] — 2026-10-17 — release candidate (not published)
 
