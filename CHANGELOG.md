@@ -6,7 +6,12 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- Licence metadata no longer states a licence while the decision is pending: LICENSE says the licence is not decided
+  and names Solvfast as the intended copyright holder; `package.json` `license` is `SEE LICENSE IN LICENSE` (was
+  `MIT` in 0.1.0-rc.1, whose LICENSE held the MIT text with a pending holder). README and docs say the same.
+- `THIRD-PARTY-NOTICES.md`: the MIT notice of shadcn/ui, from which the primitives derive (via the Design System).
+  It ships in the tarball.
 
 ## [0.1.0-rc.1] — 2026-10-17 — release candidate (not published)
 

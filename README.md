@@ -69,5 +69,6 @@ node e2e/frappe-review.mjs <playground> <out>              # FrappeListView on a
 
 ## Licence
 
-MIT ([LICENSE](LICENSE)). The copyright holder is pending the owner's confirmation; publishing is blocked until it is
-set.
+Not decided yet. Intended copyright holder: Solvfast. See [LICENSE](LICENSE) and
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) (shadcn/ui-derived code, used under its MIT License). Publishing is
+blocked until the licence is decided.
