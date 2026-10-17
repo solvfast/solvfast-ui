@@ -24,6 +24,7 @@ export const GROUPS: Group[] = [
     { id: "button", title: l("Button", "الزر"), description: l("Variants, sizes, states and icon buttons.", "الأنواع والأحجام والحالات وأزرار الأيقونات."), Component: from(components, "Buttons") },
     { id: "badge", title: l("Badge", "الشارة"), description: l("Compact status, category and count labels.", "تسميات مختصرة للحالة والفئة والعدد."), Component: from(components, "Badges") },
     { id: "card", title: l("Card", "البطاقة"), description: l("The glass container: header, content and footer.", "الحاوية الزجاجية: الرأس والمحتوى والتذييل."), Component: from(components, "Cards") },
+    { id: "stat-cards", title: l("Stat cards", "بطاقات الإحصاء"), description: l("StatCard from the Design System and IconStatCard from Sear's overview: a number at a glance.", "‏StatCard من نظام التصميم و IconStatCard من نظرة سير العامة: رقم في لمحة."), Component: from(components, "StatCards") },
     { id: "fields", title: l("Text fields", "حقول النص"), description: l("Input, Textarea and Label, with labels, hints and the disabled state.", "حقل الإدخال ومنطقة النص والتسمية، مع التسميات والتلميحات وحالة التعطيل."), Component: from(components, "Fields") },
     { id: "choices", title: l("Checkbox & Switch", "مربع الاختيار والمفتاح"), description: l("Binary choices.", "الخيارات الثنائية."), Component: from(components, "Choices") },
     { id: "select", title: l("Select", "القائمة المنسدلة"), description: l("Pick one value from a list, with groups.", "اختيار قيمة واحدة من قائمة، مع مجموعات."), Component: from(components, "SelectPage") },

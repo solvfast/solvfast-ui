@@ -231,3 +231,22 @@ Not rerun: the parity, motion and Frappe-demo runs. The code they measure is unc
 
 **Frappe layer status (unchanged):** simulated-request tests passed; **real-site validation deferred — not done**.
 The showcase's Frappe page runs against the same in-browser simulation.
+
+## Number cards — `StatCard`, `IconStatCard` (2026-10-17, after the rerun above)
+
+Additive: two components in `src/cards/`, and `.sf-glass--lg` now ships in the styles. The checks were rerun after this addition (build, audit, tests, clean installs, showcase smoke); see the commit.
+
+Compared with their sources rendered in Sear's CSS (`tools/parity ?view=cards`):
+- the Design System's stat-card markup, copied verbatim from StyleGuide section `data`;
+- Sear's real `DefinitionsGrid`, imported read-only. Its three files are pinned by hash; the guard passed.
+
+`node e2e/cards-parity.mjs` covers light/dark × en/ar × desktop/phone, plus hover on desktop, in 20 element shots:
+- **Run 1:** 18 identical. The other 2 (dark Arabic stat cards) differ in 11 pixels each, at the anti-aliased top and
+  bottom corners of the trend pill (max 22/255).
+- **Run 2:** 17 identical, with the same kind of corner pixels in other dark shots.
+- **Sear's reference against itself, run 1 vs run 2:** the same corner pixels differ.
+- **Layout and styles:** the pill's box, colours and the card's backdrop filter are equal on both sides
+  (`getBoundingClientRect`, computed style).
+
+This is Chromium's run-to-run rasterisation of the pill corners on dark glass, not a package difference. Unit tests:
+`tests/cards.test.tsx` (9).

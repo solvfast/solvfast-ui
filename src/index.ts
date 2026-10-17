@@ -58,6 +58,10 @@ export {
 export { Calendar } from "./primitives/calendar";
 export { DateField, TimeField, DateTimeField } from "./primitives/date-time-field";
 
+// Number cards: the Design System's stat card and Sear Studio's overview card
+export { StatCard, IconStatCard } from "./cards/StatCard";
+export type { StatCardProps, IconStatCardProps } from "./cards/StatCard";
+
 // App shell (Sear's StudioShell, made configurable — increment 5.2)
 export { AppShell } from "./shell/AppShell";
 export type { AppShellProps } from "./shell/AppShell";

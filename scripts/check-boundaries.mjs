@@ -24,6 +24,7 @@ const RULES = {
   "list/model": { deny: [/^react/, /^@radix-ui/, /^@tanstack/, /frappe/, /^\.\.\/\.\.\/(theme|primitives|shell|frappe)/, /^\.\.\/(parts|ListView|useListState)/] },
   theme: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(shell|list|frappe)/] },
   primitives: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(shell|list|frappe)/] },
+  cards: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(shell|list|frappe)/] },
   shell: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(list|frappe)/] },
   list: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(shell|frappe)/, /^\.\.\/\.\.\/(shell|frappe)/] },
   frappe: { deny: [/^\.\.\/shell/] },

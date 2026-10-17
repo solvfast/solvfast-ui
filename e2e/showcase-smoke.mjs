@@ -79,6 +79,12 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
   };
   const main = page.locator("main");
 
+  await check("stat cards", async () => {
+    await go(page, "stat-cards");
+    if ((await main.locator(".sf-glass--lg").count()) < 4) throw new Error("StatCards missing");
+    await main.getByRole("button", { name: new RegExp(T("Field Library", "مكتبة الحقول")) }).click();
+    await main.getByText("onClick → field_library").waitFor();
+  });
   await check("dialog", async () => {
     await go(page, "dialog");
     await main.getByRole("button", { name: T("Rename", "إعادة التسمية") }).click();

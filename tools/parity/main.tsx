@@ -12,6 +12,7 @@ import searStudioLogo from "@/assets/applogos/apps/sear.png";
 import { Primitives } from "../../playground/src/showcase/Primitives";
 import { ShellPage } from "../../playground/src/showcase/ShellPage";
 import FieldLibraryListPage from "@sear/pages/FieldLibrary/FieldLibraryListPage";
+import { SearCards } from "./cards-reference";
 
 const params = new URLSearchParams(location.search);
 const view = params.get("view") ?? "primitives";
@@ -59,5 +60,5 @@ function SearFieldLibrary() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <ThemeProvider>{view === "shell" ? <SearShell /> : view === "list" ? <SearFieldLibrary /> : <PrimitivesPage />}</ThemeProvider>,
+  <ThemeProvider>{view === "shell" ? <SearShell /> : view === "list" ? <SearFieldLibrary /> : view === "cards" ? <SearCards /> : <PrimitivesPage />}</ThemeProvider>,
 );

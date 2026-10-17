@@ -15,6 +15,12 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 - Docs: CONSUMING — integrating into an existing app (a host that already uses `tailwindcss-animate`, or `@tailwind`
   directives; an app that already owns theme and language), from the Sear integration rehearsal.
 
+### Added
+- `StatCard`: the Design System's stat card (liquid glass, label, large value, optional up/down trend pill).
+- `IconStatCard`: Sear Studio's overview card (pane, tinted icon square, name, total).
+- Both are static by default; `href` makes a link and `onClick` a button. Numbers are formatted for the language.
+  Pixel parity with the sources is recorded in docs/VALIDATION.md.
+
 ### Added (repository only, not in the package)
 - `showcase/`: a browsable component site with live examples of the package's real components, in light/dark and
   Arabic/English (`npm run showcase`, `showcase:build`, `showcase:preview`; `e2e/showcase-smoke.mjs`). See

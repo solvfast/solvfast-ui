@@ -2,11 +2,12 @@ import * as React from "react";
 import { Bell, Check, Download, Plus, Search, Settings, Sparkles, Trash2 } from "lucide-react";
 import {
   Avatar, AvatarFallback, AvatarImage, Badge, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
-  Checkbox, Input, Label, ScrollArea, Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator,
-  SelectTrigger, SelectValue, Separator, Skeleton, Switch, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, Tooltip,
+  Checkbox, IconStatCard, Input, Label, ScrollArea, Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator,
+  SelectTrigger, SelectValue, Separator, Skeleton, StatCard, Switch, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, Tooltip,
   TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@ui";
 import avatarImg from "../../../playground/src/demo/sear-assets/customer-icon.png";
+import { DS_STATS, MODULE_CARDS } from "../../../playground/src/demo/cards-demo";
 import { Cell, Example, Props, Section } from "../doc/Doc";
 import { l, useTr } from "../i18n";
 
@@ -124,6 +125,54 @@ export function Cards() {
             </Card>
           </div>
         </Example>
+      </Section>
+    </div>
+  );
+}
+
+export function StatCards() {
+  const [opened, setOpened] = React.useState("");
+  return (
+    <div className="space-y-12">
+      <Section title={l("StatCard — from the Design System", "‏StatCard — من نظام التصميم")} description={l("The Design System's stat card (section “Data display — stat cards”): liquid glass, a label, a large value and an optional trend pill — green when up, red when down.", "بطاقة الإحصاء في نظام التصميم (قسم «عرض البيانات — بطاقات إحصائية»): زجاج سائل وتسمية وقيمة كبيرة وشارة اتجاه اختيارية — خضراء للصعود وحمراء للهبوط.")}>
+        <Example code={`<StatCard label="Components" value="128" trend={{ value: "+12%", direction: "up" }} />
+<StatCard label="Tokens" value="342" trend={{ value: "+4%", direction: "up" }} />
+<StatCard label="Deprecated" value="7" trend={{ value: "-2%", direction: "down" }} />`}>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {DS_STATS.map(([label, value, delta, up]) => (
+              <StatCard key={label} label={label} value={value} trend={{ value: delta, direction: up ? "up" : "down" }} />
+            ))}
+          </div>
+        </Example>
+        <Example title={l("Localised label and number, no trend, clickable", "تسمية ورقم مترجمان، دون اتجاه، قابلة للنقر")} code={`<StatCard label={{ en: "Open tickets", ar: "التذاكر المفتوحة" }} value={1280} onClick={openTickets} />`}>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatCard label={{ en: "Open tickets", ar: "التذاكر المفتوحة" }} value={1280} onClick={() => setOpened("open-tickets")} />
+          </div>
+        </Example>
+      </Section>
+      <Section title={l("IconStatCard — from Sear's overview", "‏IconStatCard — من نظرة سير العامة")} description={l("Sear Studio's overview card: the container pane, a tinted icon square, the module name and its total. Sear colours the squares by grid position (row + column) from its brand palette; that rotation is the app's, shown here with the playground's data.", "بطاقة نظرة استوديو سير العامة: لوحة الحاوية ومربع أيقونة ملوّن واسم الوحدة وإجماليها. يلوّن سير المربعات حسب موضعها في الشبكة (الصف + العمود) من ألوان علامته؛ هذا التدوير من التطبيق، ويظهر هنا ببيانات الملعب.")}>
+        <Example code={`<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+  {modules.map((m) => (
+    <IconStatCard key={m.id} label={{ en: m.en, ar: m.ar }} value={m.total} icon={m.icon} color={m.color}
+      href={m.href} onClick={(e) => { e.preventDefault(); navigate(m.href); }} />
+  ))}
+</div>`}>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+            {MODULE_CARDS.map((c) => (
+              <IconStatCard key={c.id} label={c.label} value={c.total} icon={c.icon} color={c.color} onClick={() => setOpened(c.id)} />
+            ))}
+          </div>
+          <p className="mt-4 font-mono text-xs text-muted-foreground" dir="ltr">{opened ? `onClick → ${opened}` : ""}</p>
+        </Example>
+      </Section>
+      <Section title={l("Props", "الخصائص")}>
+        <Props rows={[
+          ["label", 'string | { en, ar }', l("The name above (StatCard) or beside the icon (IconStatCard).", "الاسم فوق القيمة (StatCard) أو بجانب الأيقونة (IconStatCard).")],
+          ["value", "number | string", l("Numbers are formatted for the language (Arabic digits in Arabic); strings are shown as given.", "تُنسَّق الأرقام حسب اللغة (أرقام عربية في العربية)؛ النصوص تُعرض كما هي.")],
+          ["trend", '{ value, direction: "up" | "down" }', l("StatCard: the pill — green up, red down.", "‏StatCard: الشارة — خضراء للصعود وحمراء للهبوط.")],
+          ["icon · color", "LucideIcon · CSS colour", l("IconStatCard: the icon (default Layers) and its colour; the square is that colour at 10%. Default violet #512195, the same in both themes, as in Sear.", "‏IconStatCard: الأيقونة (افتراضياً Layers) ولونها؛ المربع بنفس اللون بنسبة 10%. الافتراضي البنفسجي ‎#512195‎، نفسه في السمتين كما في سير.")],
+          ["href · onClick", "", l("href renders a link, onClick alone a button; otherwise a plain card. The package never navigates — with a router, handle onClick.", "‏href يجعلها رابطاً، و onClick وحده زراً؛ وإلا فهي بطاقة عادية. الحزمة لا تنتقل أبداً — مع موجّه، عالج onClick.")],
+        ]} />
       </Section>
     </div>
   );

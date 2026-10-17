@@ -68,6 +68,9 @@ f55a4cebba13b3a25c1c5b8b17988c92326ec7612956a08d19ce37e88af26b46  ./sear-7abc895
 3e5a6de666808b157ccb5af7a113af66a5cd6bc389f584ef125b081b197c1dcf  ./sear-7abc895-dirty/index.html
 e11ff4f5109db1d1c946c5e83ee206498dc8a192ab02d78df75ab2a163aedbb3  ./sear-7abc895-dirty/notificationCenterStore.ts
 ea7706876bf7958fc1ab72e86709676a434d371c4f0d0cdac859c108aad0b48b  ./sear-7abc895-dirty/NotificationCenter.tsx
+90bd5260660f0199663c437149d3b2ddcc153f5fa7d53b954b1532285654d054  ./sear-7abc895-dirty/overview/DefinitionsGrid.tsx
+9df0b09690a652eb8f2cfc5e7a4a850ce9831b6cf3321c6a115b05bcb91cd0ed  ./sear-7abc895-dirty/overview/overviewShared.tsx
+3b09defbed354c68b9e3cb0cdcb118df083de07fafd0222dd51d48919db5a0b9  ./sear-7abc895-dirty/overview/types.ts
 94ff9d499cf5b31f15684b2093ee0eb2fa0e072e033407bf87cbae310a35f1bc  ./sear-7abc895-dirty/sear-studio.css
 a25283ee7442d1ad6afac979ea683b68611dd673eec82eb4a94aa5d4a810cba3  ./sear-7abc895-dirty/SearStudioLayout.tsx
 16a81a2ecdb7dba1859c2c9c277a885bfaf58cf9741cb1b31ebd6b6872c4d078  ./sear-7abc895-dirty/StudioShell.tsx

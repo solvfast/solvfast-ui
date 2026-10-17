@@ -29,6 +29,9 @@ const pinned: Record<string, string> = {
   "src/lib/data-grid/frappe-meta.ts": "data-grid/frappe-meta.ts", "src/lib/data-grid/storage.ts": "data-grid/storage.ts",
   "src/lib/data-grid/cell-render.tsx": "data-grid/cell-render.tsx",
   "src/sear_studio/pages/FieldLibrary/FieldLibraryListPage.tsx": "data-grid/FieldLibraryListPage.tsx",
+  "src/sear_studio/components/overview/DefinitionsGrid.tsx": "overview/DefinitionsGrid.tsx",
+  "src/sear_studio/components/overview/overviewShared.tsx": "overview/overviewShared.tsx",
+  "src/sear_studio/components/overview/types.ts": "overview/types.ts",
 };
 const sha = (f: string) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
 for (const [live, copy] of Object.entries(pinned)) {
@@ -53,6 +56,8 @@ const content = [
   path.join(DS_FE, "src/components/data-grid/**/*.tsx"),
   path.join(SEAR_FE, "src/lib/data-grid/**/*.tsx"),
   path.join(SEAR_FE, "src/sear_studio/pages/FieldLibrary/FieldLibraryListPage.tsx"),
+  // the number cards
+  path.join(SEAR_FE, "src/sear_studio/components/overview/**/*.tsx"),
 ];
 
 export default defineConfig({

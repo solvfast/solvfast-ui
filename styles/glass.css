@@ -164,6 +164,8 @@
 
 .sf-glass--sm { --_bevel: var(--glass-bevel-sm); }
 
+.sf-glass--lg { --_bevel: var(--glass-bevel-lg); }
+
 .sf-glass--clear { --glass-blur: 2px;  --glass-tint: 7%;  }
 
 .sf-glass-pane {

@@ -87,6 +87,13 @@ Playground / tests only (not published): `playground/src/demo/mock-frappe.ts` �
 DocType's definition copied from `apps/frappe/frappe/desk/doctype/todo/todo.json` (Frappe 15.110, read locally) and
 made-up rows; `playground/src/showcase/FrappeDemo.tsx`.
 
+## Number cards
+
+| Package file | From | Changes |
+|---|---|---|
+| `src/cards/StatCard.tsx` `StatCard` | DS v0.3.0 (`92fc1cd`) `pages/style-guide/StyleGuide.tsx`, section `data` ("Data display — stat cards"): inline markup, not a DS component | same markup and classes (`glass glass--lg` → `sf-glass sf-glass--lg`); label, value and trend as props; the trend pill keeps the DS's `emerald-*` / `rose-*` utilities verbatim (the DS's own register lists them as off-token, D8); `href` / `onClick` render a link / button with `sf-glass--interactive` and a focus ring (the DS card is static) |
+| `src/cards/StatCard.tsx` `IconStatCard` | Sear `7abc895` (clean at that commit) `sear_studio/components/overview/DefinitionsGrid.tsx` card + `IconSquare` (`size="sm"`) and `CARD` from `overviewShared.tsx` (pinned in `upstream/sear-7abc895-dirty/overview/`) | same markup and classes (`glass-pane` → `sf-glass-pane`); tint `${color}1a` as in Sear for six-digit hex, `color-mix(… 10%)` for other colours; default colour Sear's violet `#512195`; react-router `Link` → `<a href>` / `<button>` (`href` / `onClick`); no `aria-label` on the link (Sear's hid the count from screen readers — the content names it); numbers formatted like Sear's `fmt` (ar-EG / en-US). Sear's palette rotation and its `StatCard` (defined, not rendered on any page) are not carried over |
+
 ## Not carried over (Sear-specific or dead)
 `sear-studio.css`: the `Agency` font face (file doesn't exist), `.glass-morphism`, `.glass-card`, `.gradient-border-*`,
 `.senaiy-*`, `.transition-smooth`, form-builder container queries, chat-sheet rule, `.sear-glass-dialog` opt-in,
