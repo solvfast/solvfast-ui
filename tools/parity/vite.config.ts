@@ -32,6 +32,7 @@ const pinned: Record<string, string> = {
   "src/sear_studio/components/overview/DefinitionsGrid.tsx": "overview/DefinitionsGrid.tsx",
   "src/sear_studio/components/overview/overviewShared.tsx": "overview/overviewShared.tsx",
   "src/sear_studio/components/overview/types.ts": "overview/types.ts",
+  "src/sear_studio/components/SegmentedTabs.tsx": "SegmentedTabs.tsx",
 };
 const sha = (f: string) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
 for (const [live, copy] of Object.entries(pinned)) {
@@ -58,6 +59,8 @@ const content = [
   path.join(SEAR_FE, "src/sear_studio/pages/FieldLibrary/FieldLibraryListPage.tsx"),
   // the number cards
   path.join(SEAR_FE, "src/sear_studio/components/overview/**/*.tsx"),
+  // tabs, dialogs, calendar (Sear's SegmentedTabs; its glassy dialog marker lives in sear-studio.css)
+  path.join(SEAR_FE, "src/sear_studio/components/SegmentedTabs.tsx"),
 ];
 
 export default defineConfig({

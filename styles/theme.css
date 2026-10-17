@@ -62,6 +62,26 @@
   background-color: transparent !important;
   border-radius: 1rem !important;
 }
+.sf-glass-dialog.sf-glass-dialog.sf-lg-surface {
+  background-image: none;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--glass-bevel-md), var(--glass-lift-2);
+  border: none;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sf-glass-dialog.sf-glass-dialog.sf-lg-surface {
+    background-color: color-mix(in srgb, var(--c-glass) 70%, var(--c-bg));
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sf-glass-dialog.sf-glass-dialog.sf-lg-surface {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: color-mix(in srgb, var(--c-glass) 82%, var(--c-bg));
+  }
+}
 .dark .sf-app,
 .sf-app.dark {
   background-image:

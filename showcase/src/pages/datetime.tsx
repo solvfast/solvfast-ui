@@ -17,31 +17,25 @@ export function CalendarPage() {
   const loc = { locale: isRTL ? arSA : undefined, dir: isRTL ? "rtl" : "ltr" } as const;
   return (
     <div className="space-y-12">
-      <Section title={l("Single date", "تاريخ واحد")} description={l("Pass the locale and direction for Arabic; the navigation arrows mirror.", "مرّر اللغة والاتجاه للعربية؛ أسهم التنقّل تنعكس.")}>
+      <Section title={l("Single date", "تاريخ واحد")} description={l("On its own the calendar has the date pickers' glass and rounded corners. Pass the locale and direction for Arabic; the navigation arrows mirror.", "التقويم وحده له زجاج منتقيات التاريخ وزواياها المستديرة. مرّر اللغة والاتجاه للعربية؛ أسهم التنقّل تنعكس.")}>
         <Example center code={`import { arSA } from "date-fns/locale";
 const { isRTL } = useLocale();
 <Calendar mode="single" selected={day} onSelect={setDay}
   locale={isRTL ? arSA : undefined} dir={isRTL ? "rtl" : "ltr"} />`}>
-          <div className="rounded-2xl border border-border">
-            <Calendar mode="single" selected={day} onSelect={setDay} {...loc} />
-          </div>
+          <Calendar mode="single" selected={day} onSelect={setDay} {...loc} />
           <span className="font-mono text-xs text-muted-foreground" dir="ltr">{iso(day)}</span>
         </Example>
       </Section>
       <Section title={l("Range, two months", "نطاق، شهران")}>
         <Example center code={`<Calendar mode="range" numberOfMonths={2} selected={range} onSelect={setRange} />`}>
-          <div className="rounded-2xl border border-border">
-            <Calendar mode="range" numberOfMonths={2} selected={range} onSelect={setRange} {...loc} />
-          </div>
+          <Calendar mode="range" numberOfMonths={2} selected={range} onSelect={setRange} {...loc} />
           <span className="font-mono text-xs text-muted-foreground" dir="ltr">{iso(range?.from)} → {iso(range?.to)}</span>
         </Example>
       </Section>
       <Section title={l("Month and year dropdowns", "قوائم الشهر والسنة")}>
         <Example center code={`<Calendar mode="single" captionLayout="dropdown"
   startMonth={new Date(2020, 0)} endMonth={new Date(2030, 11)} />`}>
-          <div className="rounded-2xl border border-border">
-            <Calendar mode="single" captionLayout="dropdown" startMonth={new Date(2020, 0)} endMonth={new Date(2030, 11)} selected={day} onSelect={setDay} {...loc} />
-          </div>
+          <Calendar mode="single" captionLayout="dropdown" startMonth={new Date(2020, 0)} endMonth={new Date(2030, 11)} selected={day} onSelect={setDay} {...loc} />
         </Example>
       </Section>
     </div>

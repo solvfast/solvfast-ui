@@ -25,6 +25,10 @@ export * from "@/components/ui/dialog";
 export * from "@/components/ui/alert-dialog";
 export * from "@/components/ui/sheet";
 export * from "@/components/ui/calendar";
+// What Sear renders where the DS default differs (named exports shadow the star exports above):
+// tab strips are Sear's SegmentedTabs; dialogs carry Sear's glassy `sear-glass-dialog`.
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./sear-tabs";
+export { DialogContent, AlertDialogContent } from "./sear-glass-dialogs";
 export { DateField, TimeField, DateTimeField } from "@sear/components/DateTimeField";
 export { AppProvider as ThemeProvider } from "@/contexts/AppContext";
 import { useApp } from "@/contexts/AppContext";

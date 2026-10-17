@@ -13,8 +13,9 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      // Frappe-style underline tabs: no container fill, a hairline baseline.
-      "inline-flex h-10 items-center justify-start gap-1 border-b border-border text-muted-foreground",
+      // Sear's SegmentedTabs rail (sear_studio/components/SegmentedTabs.tsx): a liquid-glass pill.
+      // Full width: className="flex w-full" here and "min-w-0 flex-1" on each trigger.
+      "sf-glass inline-flex gap-1 !rounded-full p-1",
       className
     )}
     {...props}
@@ -29,8 +30,9 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      // active = dark text + a 2px underline sitting on the baseline (Frappe look)
-      "relative -mb-px inline-flex items-center justify-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-foreground data-[state=active]:text-foreground",
+      // Sear's SegmentedTabs pill: the active tab is primary text (no fill); hover only on enabled inactive tabs.
+      // Compact: className="text-xs [&_svg]:size-3.5".
+      "inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed [&_svg]:size-4 [&_svg]:shrink-0 data-[state=active]:font-medium data-[state=active]:text-primary data-[state=inactive]:text-muted-foreground data-[state=inactive]:enabled:hover:text-foreground data-[disabled]:data-[state=inactive]:text-muted-foreground/40",
       className
     )}
     {...props}

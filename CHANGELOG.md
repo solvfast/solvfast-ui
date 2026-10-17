@@ -21,6 +21,15 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 - Both are static by default; `href` makes a link and `onClick` a button. Numbers are formatted for the language.
   Pixel parity with the sources is recorded in docs/VALIDATION.md.
 
+### Changed — Sear's look for tabs, dialogs and the calendar
+- **Tabs** look like Sear's `SegmentedTabs` (used across Sear, e.g. the Working Hours form): a liquid-glass pill rail
+  with pill tabs, the active one in the primary colour. Was the DS underline strip. Same Radix API and keyboard
+  behaviour; full-width and compact are classes (see the showcase).
+- **Dialog and AlertDialog** are glassy: Sear's `.sear-glass-dialog` treatment (the poppers' liquid glass) instead of
+  the DS aurora gradient, with fallbacks for reduced transparency and browsers without backdrop-filter.
+- **Calendar** on its own has the date pickers' glass and rounded corners instead of the DS's opaque, square
+  gradient panel. Date pickers are unchanged.
+
 ### Added (repository only, not in the package)
 - `showcase/`: a browsable component site with live examples of the package's real components, in light/dark and
   Arabic/English (`npm run showcase`, `showcase:build`, `showcase:preview`; `e2e/showcase-smoke.mjs`). See

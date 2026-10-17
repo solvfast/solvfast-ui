@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Bell, Check, Download, Plus, Search, Settings, Sparkles, Trash2 } from "lucide-react";
+import { Bell, Check, Clock, Download, Globe2, History, Layers, ListChecks, Plus, Search, Settings, Sparkles, Trash2 } from "lucide-react";
 import {
   Avatar, AvatarFallback, AvatarImage, Badge, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
   Checkbox, IconStatCard, Input, Label, ScrollArea, Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator,
@@ -285,24 +285,46 @@ export function TabsPage() {
   const tr = useTr();
   return (
     <div className="space-y-12">
-      <Section title={l("Tabs", "علامات التبويب")} description={l("Use for views of the same thing — not for navigation between pages.", "للعروض المختلفة للشيء نفسه — لا للتنقّل بين الصفحات.")}>
+      <Section title={l("Tabs", "علامات التبويب")} description={l("Sear's tab strip: a liquid-glass pill rail; the active tab is in the primary colour. Use for views of the same thing — not for navigation between pages. Arrow keys move between tabs (mirrored in Arabic), Home and End jump to the ends.", "شريط تبويب سير: سكة زجاجية على شكل حبة؛ التبويب النشط باللون الأساسي. للعروض المختلفة للشيء نفسه — لا للتنقّل بين الصفحات. الأسهم تتنقّل بين التبويبات (معكوسة في العربية)، و Home و End للطرفين.")}>
         <Example code={`<Tabs defaultValue="details">
-  <TabsList>
+  <TabsList aria-label="Preset">
     <TabsTrigger value="details">Details</TabsTrigger>
     <TabsTrigger value="fields">Fields</TabsTrigger>
-    <TabsTrigger value="history">History</TabsTrigger>
+    <TabsTrigger value="history" disabled>History</TabsTrigger>
   </TabsList>
   <TabsContent value="details">…</TabsContent>
 </Tabs>`}>
           <Tabs defaultValue="details" className="max-w-xl">
-            <TabsList>
+            <TabsList aria-label={tr(l("Preset", "المجموعة"))}>
               <TabsTrigger value="details">{tr(l("Details", "التفاصيل"))}</TabsTrigger>
               <TabsTrigger value="fields">{tr(l("Fields", "الحقول"))}</TabsTrigger>
-              <TabsTrigger value="history">{tr(l("History", "السجل"))}</TabsTrigger>
+              <TabsTrigger value="history" disabled>{tr(l("History", "السجل"))}</TabsTrigger>
             </TabsList>
             <TabsContent value="details" className="pt-4 text-sm text-muted-foreground">{tr(l("Name, description and owner of the preset.", "اسم المجموعة ووصفها ومالكها."))}</TabsContent>
             <TabsContent value="fields" className="pt-4 text-sm text-muted-foreground">{tr(l("11 fields in 3 sections.", "11 حقلاً في 3 أقسام."))}</TabsContent>
-            <TabsContent value="history" className="pt-4 text-sm text-muted-foreground">{tr(l("Edited by Sara today.", "عدّلتها سارة اليوم."))}</TabsContent>
+          </Tabs>
+        </Example>
+        <Example title={l("With icons", "مع أيقونات")} code={`<TabsList aria-label="Sections">
+  <TabsTrigger value="overview"><Layers />Overview</TabsTrigger>
+  <TabsTrigger value="fields"><ListChecks />Fields</TabsTrigger>
+</TabsList>`}>
+          <Tabs defaultValue="fields">
+            <TabsList aria-label={tr(l("Sections", "الأقسام"))}>
+              <TabsTrigger value="overview"><Layers />{tr(l("Overview", "نظرة عامة"))}</TabsTrigger>
+              <TabsTrigger value="fields"><ListChecks />{tr(l("Fields", "الحقول"))}</TabsTrigger>
+              <TabsTrigger value="history"><History />{tr(l("History", "السجل"))}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </Example>
+        <Example title={l("Full width, compact — Sear's Working Hours “Coverage” toggle", "بعرض كامل ومضغوط — مفتاح «نوع التغطية» في ساعات العمل في سير")} code={`<TabsList aria-label="Coverage" className="flex w-full max-w-md">
+  <TabsTrigger value="24_7" className="min-w-0 flex-1 text-xs [&_svg]:size-3.5"><Globe2 />24/7</TabsTrigger>
+  <TabsTrigger value="business" className="min-w-0 flex-1 text-xs [&_svg]:size-3.5"><Clock />Business Hours</TabsTrigger>
+</TabsList>`}>
+          <Tabs defaultValue="business">
+            <TabsList aria-label={tr(l("Coverage", "نوع التغطية"))} className="flex w-full max-w-md">
+              <TabsTrigger value="24_7" className="min-w-0 flex-1 text-xs [&_svg]:size-3.5"><Globe2 />24/7</TabsTrigger>
+              <TabsTrigger value="business" className="min-w-0 flex-1 text-xs [&_svg]:size-3.5"><Clock />{tr(l("Business Hours", "ساعات العمل"))}</TabsTrigger>
+            </TabsList>
           </Tabs>
         </Example>
       </Section>

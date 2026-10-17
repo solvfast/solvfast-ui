@@ -85,7 +85,7 @@ export function Layout({ current, children }: { current: string; children: React
               </SheetContent>
             </Sheet>
             <Brand />
-            <span className="hidden rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground sm:inline">{version}</span>
+            <span className="hidden rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground sm:inline" dir="ltr">{version}</span>
             <div className="ms-auto flex items-center gap-2">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={toggleLanguage} aria-label={tr({ en: "Switch to Arabic", ar: "التبديل إلى الإنجليزية" })}>
                 <Languages className="h-4 w-4" /> {language === "ar" ? "EN" : "ع"}

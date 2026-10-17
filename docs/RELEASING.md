@@ -14,7 +14,7 @@ tree is clean, `HEAD` is tagged `v<version>`, and LICENSE states a decided licen
 | 4 | Core never imports Frappe / React Query / the network; the Frappe entry never imports the shell | ✅ `check:boundaries` (source and built files) |
 | 5 | Type check (strict), unit tests | ✅ `npm run typecheck`, `npm test` |
 | 6 | Clean installs from the tarball: Tailwind app (path A) and no-Tailwind app (path B), incl. `@solvfast/ui/frappe` — strict `tsc`, build, one React, one React Query | ✅ `e2e/consumers/run.sh` |
-| 7 | Visual and behaviour regressions against Sear; path A vs path B | ✅ primitives 51+1/52, shell 30/44 and list 32/44 (the rest intended), phones, grouped columns, motion, Frappe demo 32/32; A vs B in the documented families (docs/VALIDATION.md, 5.5) |
+| 7 | Visual and behaviour regressions against Sear; path A vs path B | ✅ primitives 48+4/52 (the 4 at 1/255; reference: Sear's SegmentedTabs and glassy dialog), tab strips 36/36, number cards 18/20 (2 = run-to-run noise), shell 30/44 and list 32/44 (the rest intended), phones, grouped columns, motion, Frappe demo 32/32; A vs B in the documented families (docs/VALIDATION.md, 5.5) |
 | 8 | Tarball: only `dist/`, README, LICENSE, CHANGELOG, VENDORED, user docs; no absolute local paths; no secrets | ✅ `check:package` + review of `npm pack --dry-run` |
 | 9 | Docs: README, CONSUMING, FRAPPE, FEATURES, LIMITATIONS, CHANGELOG, VENDORED, VALIDATION | ✅ |
 | 10 | Frappe layer against simulated requests | ✅ passed |

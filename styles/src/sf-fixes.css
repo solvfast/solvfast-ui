@@ -7,3 +7,32 @@
  * Reduced motion: the engine's `transition-duration: 0.01ms !important` (prefers-reduced-motion) still wins. */
 .sf-button.sf-glass { transition-duration: 180ms; }
 .sf-button.sf-glass:active { transition-duration: 120ms; }
+
+/* Calendar on its own: the date pickers' look. In a picker the popover is the glass and the calendar is transparent
+ * and 16px-rounded (sf-overrides, from sear-studio.css:290); a Calendar placed directly on a page gets that same popover
+ * glass itself (the `.sf-popper.sf-glass-elevated.sf-glass-flush` declarations) and the 16px radius, instead of the DS's
+ * opaque, square aurora panel. Inside a popover it adds nothing: no second blur or shadow. (0,2,0) beats
+ * `.sf-aurora-bar` and the `!rounded-none` utility needs !important. */
+.sf-calendar.sf-calendar {
+  background-image: none;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--glass-bevel-md), var(--glass-lift-2);
+  border-radius: 1rem !important;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sf-calendar.sf-calendar { background-color: color-mix(in srgb, var(--c-glass) 70%, var(--c-bg)); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sf-calendar.sf-calendar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: color-mix(in srgb, var(--c-glass) 82%, var(--c-bg));
+  }
+}
+.sf-popper .sf-calendar.sf-calendar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}

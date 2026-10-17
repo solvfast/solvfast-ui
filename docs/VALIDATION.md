@@ -250,3 +250,20 @@ Compared with their sources rendered in Sear's CSS (`tools/parity ?view=cards`):
 
 This is Chromium's run-to-run rasterisation of the pill corners on dark glass, not a package difference. Unit tests:
 `tests/cards.test.tsx` (9).
+
+## Tabs, dialogs, calendar — Sear's look (2026-10-17)
+
+The parity reference follows what Sear renders. Tab strips are Sear's real `SegmentedTabs` (Radix Tabs as the content
+host, as in `DecisionTreeEditorPage`); `SegmentedTabs.tsx` is pinned by hash. Dialogs carry Sear's
+`sear-glass-dialog` (`tools/parity/sear-tabs.tsx`, `sear-glass-dialogs.tsx`).
+
+| Check | Command | Result |
+|---|---|---|
+| Primitives vs Sear | `e2e/run-parity.sh` | 48 identical + 4 at 1/255 of 52. The 4 near-misses share one 66×2 px box in the page behind an open popper (date, menu, popover, select). The `date` shot (the date picker's calendar) is otherwise identical, so pickers are unchanged |
+| Tab strips vs Sear's SegmentedTabs | `node e2e/parts-parity.mjs` | 36/36 identical: plain (with a disabled tab), with icons, and the Working Hours "Coverage" toggle (`fullWidth compact max-w-md`), × light/dark × en/ar × desktop/phone, plus hover on an inactive, the active and the disabled tab |
+| Standalone calendar surface | same script | background, backdrop-filter, box-shadow, radius and background-image equal to an open DateField popover in all 4 combinations; inside the popover the calendar stays transparent (no second blur or shadow) |
+| Unit tests | `npm test` | `tests/sear-look.test.tsx`: tab classes, arrow keys in en and ar (Arabic: left = next; disabled skipped; Home/End), dialog markers, calendar marker |
+
+AlertDialog: Sear applies its glass rule only to two Dialogs. Applying it to AlertDialog as well is the package's
+choice, for consistency; the reference for it is Sear's rule on the DS AlertDialogContent.
+

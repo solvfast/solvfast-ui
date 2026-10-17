@@ -384,3 +384,30 @@
 .sf-button.sf-glass { transition-duration: 180ms; }
 
 .sf-button.sf-glass:active { transition-duration: 120ms; }
+
+.sf-calendar.sf-calendar {
+  background-image: none;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--glass-bevel-md), var(--glass-lift-2);
+  border-radius: 1rem !important;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sf-calendar.sf-calendar { background-color: color-mix(in srgb, var(--c-glass) 70%, var(--c-bg)); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .sf-calendar.sf-calendar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: color-mix(in srgb, var(--c-glass) 82%, var(--c-bg));
+  }
+}
+
+.sf-popper .sf-calendar.sf-calendar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}

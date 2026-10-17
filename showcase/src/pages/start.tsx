@@ -25,7 +25,7 @@ export function Overview() {
             "Sear's design, packaged: theme, primitives, the app shell and the List View, with an optional Frappe layer. React 18 · Tailwind 3 (or precompiled CSS) · Radix. Every example on this site is the real component.",
             "تصميم سير في حزمة: السمة والمكوّنات الأساسية وهيكل التطبيق وعرض القائمة، مع طبقة فرابيه اختيارية. React 18 · Tailwind 3 (أو CSS مسبق الترجمة) · Radix. كل مثال في هذا الموقع هو المكوّن الحقيقي."))}</p>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="brand">{version}</Badge>
+            <Badge variant="brand" dir="ltr">{version}</Badge>
             <Badge variant="warning">{tr(l("Release candidate — not published", "إصدار مرشّح — غير منشور"))}</Badge>
             <Badge variant="info">{tr(l("Frappe: simulated-request tests passed; real-site validation deferred", "فرابيه: نجحت اختبارات الطلبات المحاكاة؛ التحقّق على موقع حقيقي مؤجّل"))}</Badge>
           </div>

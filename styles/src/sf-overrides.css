@@ -86,6 +86,32 @@
   border-radius: 1rem !important;
 }
 
+/* sear-studio.css:296-318 — glassy dialog: Sear's opt-in `.sear-glass-dialog`, which replaces the DS aurora gradient with
+   the liquid glass of the poppers. Here it is the default: Dialog and AlertDialog content carry `sf-glass-dialog`.
+   Same selector shape (marker doubled + `.sf-lg-surface`, (0,3,0)) so it beats `.sf-lg-surface.sf-aurora-bar` and the
+   phone `.sf-lg-surface.sf-lg-surface` rule, as in Sear. The two fallbacks are the popper glass's (package bug fix: Sear's
+   dialog rule has none, so without backdrop-filter its 12% glass would be unreadable). */
+.sf-glass-dialog.sf-glass-dialog.sf-lg-surface {
+  background-image: none;
+  background-color: color-mix(in srgb, var(--c-glass) var(--glass-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--saturation));
+  box-shadow: var(--glass-bevel-md), var(--glass-lift-2);
+  border: none;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sf-glass-dialog.sf-glass-dialog.sf-lg-surface {
+    background-color: color-mix(in srgb, var(--c-glass) 70%, var(--c-bg));
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .sf-glass-dialog.sf-glass-dialog.sf-lg-surface {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: color-mix(in srgb, var(--c-glass) 82%, var(--c-bg));
+  }
+}
+
 /* sear-studio.css:349-362 — dark-mode app aurora behind the shell (no drift animation, as in Sear). */
 .dark .sf-app,
 .sf-app.dark {
