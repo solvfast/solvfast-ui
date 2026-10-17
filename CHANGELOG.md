@@ -6,6 +6,12 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-10-17
+
+The first release, for GitHub Packages (`@solvfast` organisation, private; install with a token — docs/CONSUMING.md).
+It is 0.1.0-rc.1 plus the changes below. Frappe layer: simulated-request tests passed; real-site validation is
+deferred until the first real-project integration (not done).
+
 ### Changed
 - Licence metadata no longer states a licence while the decision is pending: LICENSE says the licence is not decided
   and names Solvfast as the intended copyright holder; `package.json` `license` is `SEE LICENSE IN LICENSE` (was

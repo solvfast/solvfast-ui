@@ -1,21 +1,37 @@
 # Using @solvfast/ui
 
-Status: **0.1.0-rc.1 — release candidate, not published.** Theme, primitives, styles, the app shell, the List View and
+Status: **0.1.0**, a private package on GitHub Packages. Theme, primitives, styles, the app shell, the List View and
 the optional Frappe layer (`@solvfast/ui/frappe`: simulated-request tests passed; real-site validation deferred, not
 done — docs/FRAPPE.md). Known limitations: docs/LIMITATIONS.md. Requirements: React 18.3, a bundler that understands package `exports` (Vite, etc.).
 
 ## Install
-The owner publishes to GitHub Packages (`@solvfast` scope). Until a release is published, install a tarball built with
-`npm pack` (`npm install ./solvfast-ui-0.1.0-rc.1.tgz`).
+`@solvfast/ui` is a **private** package on GitHub Packages (organisation `solvfast`), so installing it needs a token —
+the same setup as `@solvfast/design-system`.
 
-From GitHub Packages, tell npm where the `@solvfast` scope lives — in the app's `.npmrc`:
-```ini
-@solvfast:registry=https://npm.pkg.github.com
-```
-and authenticate with **your own** GitHub token (scope `read:packages`), kept out of the repository — e.g. in your user
-`~/.npmrc` as `//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}` with the token in an environment variable. Then
-`npm install @solvfast/ui`. Peer dependencies: `react` and `react-dom` 18.3; `tailwindcss` 3.4 for path A;
-`@tanstack/react-query` 5 for `@solvfast/ui/frappe`.
+1. **Token (once per developer).** On GitHub: Settings → Developer settings → Personal access tokens → **Tokens
+   (classic)** → Generate, with the **`read:packages`** scope (GitHub Packages' npm registry does not accept
+   fine-grained tokens). If the organisation uses SSO, choose *Configure SSO → Authorize* for `solvfast`. Your account
+   needs read access to the `solvfast/solvfast-ui` repository (or to the package).
+2. **Keep it in an environment variable, never in a file you commit** — e.g. in `~/.bashrc` / `~/.zshrc`, or the CI
+   secret store:
+   ```sh
+   export NODE_AUTH_TOKEN=<your token>
+   ```
+3. **`.npmrc` next to the app's `package.json`** (safe to commit — it holds no secret):
+   ```ini
+   @solvfast:registry=https://npm.pkg.github.com
+   //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+   ```
+4. **Install** (pin the version):
+   ```sh
+   npm install @solvfast/ui@0.1.0        # or: yarn add @solvfast/ui@0.1.0 · pnpm add @solvfast/ui@0.1.0
+   ```
+   Peer dependencies: `react` and `react-dom` 18.3; `tailwindcss` 3.4 for path A; `@tanstack/react-query` 5 for
+   `@solvfast/ui/frappe`. A `401`/`403` means the token is missing (`NODE_AUTH_TOKEN` not exported in that shell), lacks
+   `read:packages`, isn't SSO-authorised, or your account has no access to the package.
+
+Without the registry (e.g. to try a local build): `npm pack` in this repository, then
+`npm install <path>/solvfast-ui-0.1.0.tgz` in the app.
 
 ## 1. Choose a CSS path
 

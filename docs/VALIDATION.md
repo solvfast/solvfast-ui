@@ -267,3 +267,13 @@ host, as in `DecisionTreeEditorPage`); `SegmentedTabs.tsx` is pinned by hash. Di
 AlertDialog: Sear applies its glass rule only to two Dialogs. Applying it to AlertDialog as well is the package's
 choice, for consistency; the reference for it is Sear's rule on the DS AlertDialogContent.
 
+
+## 0.1.0 release preparation (2026-10-17)
+
+The version is `0.1.0`. The repository now has an `.npmrc` (no secret) that reads the token from `NODE_AUTH_TOKEN`,
+as the Design System's package does. Two checks were added:
+- the package audit fails on repository-only folders, an `.npmrc` or a credential in the tarball;
+- the publish guard fails on a credential in any tracked file.
+
+Both were checked with negative controls: a fake token added to a shipped doc failed the audit, and a literal
+`_authToken` value did too. Results of the essential checks are in the commit that made these changes.

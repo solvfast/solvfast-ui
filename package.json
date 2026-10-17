@@ -1,6 +1,6 @@
 {
   "name": "@solvfast/ui",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0",
   "description": "SOLV FAST product UI kit — Sear's design: primitives, app shell (Navbar, Sidebar) and List View, with an optional Frappe layer.",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {

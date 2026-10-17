@@ -2,7 +2,8 @@
 // - every `exports` target exists, and every JS entry has its types;
 // - every bare import in dist/**/*.js and *.d.ts is a declared dependency or peer dependency (or Node built-in);
 // - every declared dependency is actually used;
-// - nothing in the tarball holds an absolute local path.
+// - nothing in the tarball holds an absolute local path or a credential, and the tarball holds no repository-only
+//   folder (showcase, playground, tests, e2e, tools, reference copies) and no .npmrc.
 import fs from "node:fs";
 import path from "node:path";
 import { builtinModules } from "node:module";
@@ -40,11 +41,17 @@ for (const f of files) {
 }
 for (const d of Object.keys(pkg.dependencies ?? {})) if (!used.has(d)) problems.push(`dependency "${d}" is declared but never imported by dist/`);
 
-// 4. tarball contents: no absolute local paths
+// 4. tarball contents: no absolute local paths, no credentials, no repository-only folders
 const listing = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }))[0];
+const CREDENTIAL = /gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|npm_[A-Za-z0-9]{30,}|_authToken=(?!\$\{)[A-Za-z0-9_.-]{20,}/;
+const REPO_ONLY = /^(showcase|playground|tests|e2e|tools|upstream|scripts)\/|(^|\/)\.npmrc$/;
 for (const { path: p } of listing.files) {
+  if (REPO_ONLY.test(p)) problems.push(`${p} is repository-only and must not be in the tarball`);
   const full = path.join(root, p);
-  if (fs.existsSync(full) && /\/home\/|\/tmp\/|\/Users\//.test(fs.readFileSync(full, "utf8"))) problems.push(`${p} contains an absolute local path`);
+  if (!fs.existsSync(full)) continue;
+  const text = fs.readFileSync(full, "utf8");
+  if (/\/home\/|\/tmp\/|\/Users\//.test(text)) problems.push(`${p} contains an absolute local path`);
+  if (CREDENTIAL.test(text)) problems.push(`${p} contains what looks like a credential (token) — remove it`);
 }
 
 console.log(`  exports: ${Object.keys(pkg.exports).length} · built files scanned: ${files.length} · npm imports: ${[...used].sort().join(", ")}`);

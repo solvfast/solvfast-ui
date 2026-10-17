@@ -1,6 +1,6 @@
-# Known limitations — @solvfast/ui 0.1.0-rc.1
+# Known limitations — @solvfast/ui 0.1.0
 
-What this release candidate does **not** do, has **not** been verified, or does differently from Sear on purpose.
+What this release does **not** do, has **not** been verified, or does differently from Sear on purpose.
 Evidence for everything that *was* verified is in docs/VALIDATION.md.
 
 ## Validation status

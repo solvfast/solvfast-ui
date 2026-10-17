@@ -1,39 +1,129 @@
 # Releasing @solvfast/ui
 
-The owner publishes. Nothing in this repository pushes, tags or publishes on its own. `npm publish` runs
-`prepublishOnly` (`scripts/prepublish-check.mjs`, then a full build and the tests), which refuses unless the working
-tree is clean, `HEAD` is tagged `v<version>`, and LICENSE states a decided licence.
+The owner publishes, with their own token. Nothing in this repository pushes, tags or publishes on its own.
+`npm publish` runs `prepublishOnly` = `scripts/prepublish-check.mjs`, then a full build, then the tests. The check refuses
+unless:
+- the working tree is clean;
+- `HEAD` is tagged `v<version>`;
+- LICENSE states a decided licence;
+- no tracked file holds a credential.
 
-## Checklist — 0.1.0-rc.1 (2026-10-17)
+The package workflow is the one `@solvfast/design-system` 0.3.0 used: GitHub Packages, organisation `solvfast`,
+private, a classic token in `NODE_AUTH_TOKEN`.
 
-| # | Item | Status |
+## 0.1.0 — status
+
+| | Item | State |
 |---|---|---|
-| 1 | Build: JS (ESM, one module per source), `.d.ts`, styles, preset | ✅ `npm run build` |
-| 2 | Exports: every `exports` entry exists; JS entries have types | ✅ `npm run check:package` (part of the build) |
-| 3 | Dependencies: every import in `dist/` is declared; no unused dependency; types don't reach undeclared packages | ✅ `check:package` — it caught `@tanstack/query-core` in the Frappe types, fixed |
-| 4 | Core never imports Frappe / React Query / the network; the Frappe entry never imports the shell | ✅ `check:boundaries` (source and built files) |
-| 5 | Type check (strict), unit tests | ✅ `npm run typecheck`, `npm test` |
-| 6 | Clean installs from the tarball: Tailwind app (path A) and no-Tailwind app (path B), incl. `@solvfast/ui/frappe` — strict `tsc`, build, one React, one React Query | ✅ `e2e/consumers/run.sh` |
-| 7 | Visual and behaviour regressions against Sear; path A vs path B | ✅ primitives 48+4/52 (the 4 at 1/255; reference: Sear's SegmentedTabs and glassy dialog), tab strips 36/36, number cards 18/20 (2 = run-to-run noise), shell 30/44 and list 32/44 (the rest intended), phones, grouped columns, motion, Frappe demo 32/32; A vs B in the documented families (docs/VALIDATION.md, 5.5) |
-| 8 | Tarball: only `dist/`, README, LICENSE, CHANGELOG, VENDORED, user docs; no absolute local paths; no secrets | ✅ `check:package` + review of `npm pack --dry-run` |
-| 9 | Docs: README, CONSUMING, FRAPPE, FEATURES, LIMITATIONS, CHANGELOG, VENDORED, VALIDATION | ✅ |
-| 10 | Frappe layer against simulated requests | ✅ passed |
-| 11 | Frappe layer against a real site | ⏸ **deferred, not done** — at first integration into a real project (docs/FRAPPE.md) |
-| 12 | Licence | ⛔ **not decided** (intended copyright holder: Solvfast) — blocks publishing. The one decision: who may use the package — only Solvfast (a proprietary licence: `"license": "UNLICENSED"` and "Copyright (c) 2026 Solvfast. All rights reserved." in LICENSE) or anyone (an open-source licence such as MIT or Apache-2.0). Keep THIRD-PARTY-NOTICES.md either way. Only possible once 12a and 12b are settled: a licence can only be granted by whoever holds the rights |
-| 12a | Glass engine CSS (DS `styles/glass-ds/{tokens,engine}.css`; in `styles/glass.css`, `theme.css`, `full.css`) | ⛔ **owner to confirm who wrote it.** What the files show: headed "GLASS DS", they carry the SOLV FAST brand colours and a `senaiy` theme, but no author, source or licence; they entered the DS in a "BildFast sync" commit by the BildFast bot (2026-08-18). If it was written for Solvfast it falls under 12b; if it came from elsewhere, its source and licence are needed |
-| 12b | Rights to the code the package is built from — nearly all of it is derived from the Design System, Sear Studio and PMO (VENDORED.md) | ⛔ **owner to confirm.** What the repositories show (2026-10-17, read locally): the DS repository is `github.com/AbdulrahmanCE/design_system` and Sear's is `github.com/zmohamed-del/sear_product`, both personal accounts; PMO here is not a git repository. Their commits are by `IsmailAkram200 <Ismailakram200@gmail.com>` and `BildFast Bot <bot@solvfast.com>`. Each app's `license.txt` contains only the words "MIT License" (no copyright holder, no terms), so it grants nothing to rely on; `app_publisher = "Solvfast"` in hooks.py is scaffold metadata. **Needed:** confirmation that the people behind these accounts wrote this code for Solvfast (employment or contract), or their permission to use it in the package |
-| 13 | GitHub repository: **https://github.com/solvfast/solvfast-ui** (confirmed by the owner, 2026-10-17); `package.json` `repository` already points there, and the `@solvfast` scope matches the org, as GitHub Packages requires. Private (anonymous requests get 404). This local repository has no remote yet: the owner adds it and pushes. Pushing the repository (not the package) also ships `upstream/` — verbatim copies of DS, Sear and PMO files (same question as 12b) and Frappe's `todo.json` (MIT, © Frappe Technologies, whose notice must go with it) | ⛔ owner (push) |
-| 14 | Version and tag: `package.json` still says `0.1.0-rc.1`; HEAD is not the rc.1 tree recorded in docs/VALIDATION.md (5.5): since `9dac49d` the tarball gained the neutral LICENSE, THIRD-PARTY-NOTICES.md, doc changes, two components (`StatCard`, `IconStatCard`) and Sear's look for tabs, dialogs and the calendar. **Recommended: `0.1.0`** (0.x already says "early"; a fix is a cheap 0.1.1). The owner sets it and tags on a clean tree | ⛔ owner's decision |
-| 15 | Dependencies. **Recommended: keep them as they are** — React, React DOM, React Query and Tailwind as peer dependencies with ranges (the app provides one copy; verified), the other libraries pinned to the exact tested versions. Trade-off: an app that already has *different* versions of those libraries (PMO differs on 16) gets a second copy of them — a bigger bundle, no functional problem; moving to `^` ranges later is non-breaking | ❓ owner's decision |
-| 16 | Publish to GitHub Packages (`publishConfig.registry`), e.g. `npm publish --tag next` for a release candidate | ⛔ owner |
+| ✅ | Name and registry | `@solvfast/ui` → `https://npm.pkg.github.com` (`publishConfig`, so `npm publish` cannot reach public npm). The scope equals the GitHub owner `solvfast`, as GitHub Packages requires; `repository` = `solvfast/solvfast-ui` links the package to the repo |
+| ✅ | Version | `0.1.0` in `package.json`; CHANGELOG `[0.1.0]` |
+| ✅ | Authentication | `.npmrc` (committed, no secret) maps `@solvfast` to GitHub Packages and reads the token from `${NODE_AUTH_TOKEN}`. npm never packs `.npmrc` |
+| ✅ | Contents | `dist/`, README, LICENSE, THIRD-PARTY-NOTICES, CHANGELOG, VENDORED and the user docs. The package audit (in every `npm run build`) fails on: repository-only folders (`showcase`, `playground`, `tests`, `e2e`, `tools`, `upstream`, `scripts`); an `.npmrc`; a credential; an absolute local path |
+| ✅ | Rights and notices | Owner confirmation (2026-10-17): Solvfast owns the code derived from the Design System, Sear and PMO, glass engine included. Third-party notices (THIRD-PARTY-NOTICES.md): shadcn/ui, Tailwind CSS preflight, tailwindcss-animate (all MIT). In the repository only (not the package), Frappe's `todo.json` copy has Frappe's MIT licence beside it |
+| ⛔ | **Licence** | **Not decided — the one blocker.** See step 1 |
+| ⏸ | Frappe layer on a real site | Deferred until the first real-project integration (simulated-request tests passed) |
 
-## Owner's steps (when ready)
+## 1. Decide the licence (owner) — then one commit
 
-1. Decide the licence; put its text and the copyright holder in LICENSE and its identifier in `package.json` `license`
-   (keep THIRD-PARTY-NOTICES.md). Settle 12a and 12b.
-2. In the same commit: the version (`0.1.0-rc.2` for another candidate, or `0.1.0`) in `package.json`, and CHANGELOG's
-   `[Unreleased]` heading renamed to it; item 15 if it changes.
-3. `git tag v<version>` on the clean commit; then `git remote add origin https://github.com/solvfast/solvfast-ui.git`,
-   `git push -u origin main` and `git push origin v<version>` (with your own credentials).
-4. With your own token (`write:packages`, never committed): `npm publish` (add `--tag next` for a release
-   candidate so it doesn't become `latest`).
+Who may use the package?
+
+**A. Only Solvfast and those it authorises** (fits a private package):
+- `LICENSE`:
+  ```
+  Copyright (c) 2026 Solvfast. All rights reserved.
+
+  This software is proprietary to Solvfast. It may be used, copied or modified only by Solvfast
+  and by those Solvfast authorises.
+
+  Parts of this package come from third-party software and remain under their own licences;
+  see THIRD-PARTY-NOTICES.md.
+  ```
+- `package.json`: `"license": "UNLICENSED"`.
+
+**B. Anyone (open source)**, e.g. MIT:
+- `LICENSE`: the MIT text with `Copyright (c) 2026 Solvfast`.
+- `package.json`: `"license": "MIT"`.
+
+Either way:
+- keep THIRD-PARTY-NOTICES.md;
+- replace the "Licence" section of README.md;
+- add a CHANGELOG line under `[0.1.0]`;
+- then commit:
+```sh
+git add LICENSE package.json README.md CHANGELOG.md && git commit -m "Licence for 0.1.0"
+```
+
+## 2. Prepare and check — local, no GitHub access needed
+
+```sh
+cd /home/frappe/solvfast-ui
+npm ci                                   # dependencies, exactly as locked
+npm run typecheck && npm run build && npm test
+npm pack --dry-run                       # the file list that will be published
+npm run showcase:build                   # optional: the component showcase still builds
+git status                               # must be clean
+git tag v0.1.0                           # on the licence commit
+node scripts/prepublish-check.mjs        # must print "✔ ready to publish @solvfast/ui@0.1.0"
+```
+
+## 3. Push and publish — needs GitHub access (owner)
+
+One-time checks on github.com:
+- Your token: Settings → Developer settings → Personal access tokens → **Tokens (classic)**, with
+  **`write:packages`**, as for the Design System 0.3.0 publish. GitHub Packages' npm registry does not accept
+  fine-grained tokens. If `solvfast` uses SSO: *Configure SSO → Authorize*.
+- Organisation `solvfast` → Settings → Packages: members may publish **private** packages.
+
+```sh
+cd /home/frappe/solvfast-ui
+git remote add origin https://github.com/solvfast/solvfast-ui.git
+git push -u origin main
+git push origin v0.1.0
+export NODE_AUTH_TOKEN=<classic token with write:packages>   # in this shell only; never in a file in the repo
+npm publish                                                   # runs the guard, the build and the tests first
+```
+
+The repository's `.npmrc` takes precedence over `~/.npmrc` for `npm.pkg.github.com`, so the token must be exported in
+the shell that publishes. A version number can be published only once; fixes ship as `0.1.1`.
+
+After the first publish, on github.com → `solvfast` → Packages → `ui` → **Package settings**:
+- **Visibility: Private.** Never make it public unless the licence (step 1) is open source.
+- **Access:**
+  - keep *Inherit access from source repository* on, so anyone who can read `solvfast/solvfast-ui` can install it;
+  - add other people or teams under *Manage access*;
+  - add each repository whose GitHub Actions installs the package under *Manage Actions access*.
+
+Check the published package from a scratch folder that has the `.npmrc` from step 4 and a `read:packages` token:
+```sh
+npm view @solvfast/ui@0.1.0 version dist.tarball      # 0.1.0, a URL on npm.pkg.github.com
+```
+
+## 4. Install in another project (every developer)
+
+1. A classic token with **`read:packages`**. Your account needs read access to the package; with the defaults above,
+   read access to `solvfast/solvfast-ui` is enough. If the organisation uses SSO, authorise the token for it.
+2. In your shell profile or CI secrets, never in the project:
+   ```sh
+   export NODE_AUTH_TOKEN=<your read:packages token>
+   ```
+3. In the project, `.npmrc` next to `package.json`. Commit it: it holds no secret.
+   ```ini
+   @solvfast:registry=https://npm.pkg.github.com
+   //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+   ```
+4. Install:
+   ```sh
+   npm install @solvfast/ui@0.1.0          # or yarn add / pnpm add
+   ```
+5. Use it. Full guide: [CONSUMING.md](CONSUMING.md). With Tailwind 3:
+   - `tailwind.config.js`: `presets: [sfPreset]` (`import sfPreset from "@solvfast/ui/tailwind-preset"`), and add
+     `"./node_modules/@solvfast/ui/dist/**/*.js"` to `content`;
+   - `src/index.css`: the three `@import "tailwindcss/…"` lines, then `@import "@solvfast/ui/theme.css";`;
+   - `main.tsx`: `import "./index.css"; import "@solvfast/ui/glass.css";`;
+   - render `<ThemeProvider><div className="sf-app">…<Button>Save</Button>…</div></ThemeProvider>`, with imports from
+     `"@solvfast/ui"`.
+
+   Without Tailwind: `import "@solvfast/ui/full.css"` instead (CONSUMING.md, path B).
+
+`401`/`403` while installing: the token is not exported in that shell, lacks `read:packages`, isn't SSO-authorised,
+or your account has no access to the package.
