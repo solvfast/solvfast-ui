@@ -1,0 +1,6 @@
+-- :4801
+✔ 32 shots; link search opens straight after picking a field; C2 hint, Load more and mobile width checked
+-- :4811
+✔ 32 shots; link search opens straight after picking a field; C2 hint, Load more and mobile width checked
+-- :4812
+✔ 32 shots; link search opens straight after picking a field; C2 hint, Load more and mobile width checked

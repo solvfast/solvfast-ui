@@ -1,0 +1,19 @@
+== path A (Tailwind) vs path B (no Tailwind), clean installs of the 0.1.0-rc.1 tarball
+-- primitives
+identical: 49   imperceptible(<=2/255): 1   different: 2   only-in-A: 0   only-in-B: 0
+  NEAR dark-en__desktop__date.png max delta 1/255 in box (117, 77, 414, 79)
+  DIFF dark-en__mobile__sheet.png max delta 126/255 in box (185, 0, 390, 844)
+  DIFF light-en__mobile__sheet.png max delta 82/255 in box (185, 0, 390, 844)
+-- shell
+no page errors
+identical: 40   imperceptible(<=2/255): 2   different: 2   only-in-A: 0   only-in-B: 0
+  NEAR light-ar__mobile-more.png max delta 1/255 in box (88, 5, 126, 37)
+  NEAR light-en__mobile-more.png max delta 2/255 in box (264, 10, 302, 37)
+  DIFF light-ar__mobile.png max delta 3/255 in box (88, 12, 113, 37)
+  DIFF light-en__mobile.png max delta 5/255 in box (278, 12, 302, 37)
+-- list
+no page errors
+identical: 44   imperceptible(<=2/255): 0   different: 0   only-in-A: 0   only-in-B: 0
+-- Frappe demo
+identical: 31   imperceptible(<=2/255): 0   different: 1   only-in-A: 0   only-in-B: 0
+  DIFF dark-en__link-search.png max delta 12/255 in box (680, 85, 921, 189)

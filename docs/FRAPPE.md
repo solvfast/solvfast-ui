@@ -10,9 +10,10 @@ import { FrappeListView } from "@solvfast/ui/frappe";
 <FrappeListView doctype="ToDo" onRowClick={(r) => navigate(`/app/todo/${r.name}`)} />
 ```
 
-Status: built and tested against **simulated requests only** (a recording transport and a simulated site that uses the
-real ToDo DocType definition). It has **not** been run against a live site yet; that check is waiting for your approval
-(see "Not yet verified").
+**Validation status.** Tests against **simulated Frappe requests passed** (a recording transport and a simulated site
+that uses the real ToDo DocType definition; docs/VALIDATION.md, 5.4). **Real-site validation is deferred** until the
+package is integrated into a real project: it has **not** been done, and nothing in this package claims that the
+Frappe layer has passed against a live site.
 
 ## Requirements
 
@@ -111,8 +112,19 @@ binary fields (Section/Column/Tab Break, HTML, Table, Attach, Image, Signature, 
   (`user_settings`; the List View's own preferences are used).
 - **Datetime filters** compare in the server's time zone, as Frappe does.
 
-## Not yet verified
+## Real-site validation — deferred
 
-A read-only check on a live site (ToDo list: load, search, filter with "Match any", count, link search, permissions)
-— waiting for your approval of the site and how the test session authenticates. Planned checks include that
-`reportview.get_count` returns the filtered total with `or_filters`.
+Not done. The decision (2026-10-17) is to validate against a real Frappe site when the package is first integrated into
+a real project, not on a temporary local site. At that point, run these read-only checks with a test account that has
+read access only:
+
+- the list loads (rows, total, request fields, default order, CSRF header);
+- search (one request per typing pause; `or_filters` across the search fields);
+- "Match any" and "Match all" filters, and that the total equals the filtered count (`reportview.get_count` with
+  `or_filters`);
+- link search on a Link field (Frappe's `search_link`);
+- date filters (a Date field; a Datetime field such as Created On covering the whole day);
+- an old saved filter on a field that no longer exists (the list still loads);
+- CSRF (a POST without the token is refused) and Frappe's own permissions.
+
+`e2e/frappe-site/` holds a prepared procedure and a script for these checks (`validate.mjs`). It has never been run.

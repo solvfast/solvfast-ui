@@ -169,4 +169,46 @@ network, no live site, no session.
   timer), and pressing Escape within 100–160 ms of choosing "Match any", when Radix's Select returns focus to its own
   trigger. With a person's pause (300 ms) focus stays in the search box 8/8 times in both builds. The script now waits.
 
-**Not yet verified:** a read-only check on a live site (docs/FRAPPE.md), waiting for approval.
+**Real-site validation: deferred — not done.** See "Real-site Frappe validation" below. The simulated-request results
+above must not be read as a real-site pass.
+
+## Real-site Frappe validation — deferred (2026-10-17)
+
+**Status: not done; deferred until the package is integrated into a real project.** Simulated Frappe request tests
+passed (5.4 above). No result in this repository describes the Frappe layer as passing against a live site.
+
+What happened: on 2026-10-17 the local benches were inspected (read-only) for a safe place for a temporary test site,
+and a procedure was prepared (`e2e/frappe-site/`, never run). The owner then decided to defer real-site validation.
+Verification afterwards that the preparation changed nothing on the server: no Redis, gunicorn or harness process ran;
+no temporary folder, site, database or archived site was created; the candidate bench's configuration, file list,
+Frappe app, the crontab, nginx and supervisor configuration, and every other bench's and site's configuration matched
+the baseline hashes taken before. The only trace is three lines in that bench's command log from `bench --help`,
+`bench new-site --help` and `bench drop-site --help` (left in place: the log is a pre-existing file).
+
+Checks to run at integration time: docs/FRAPPE.md → "Real-site validation — deferred".
+
+## 5.5 — release candidate 0.1.0-rc.1 (2026-10-17)
+
+Everything below ran on the release-candidate tree. Raw outputs: `docs/validation/5.5/`. The run was interrupted
+once (the session ended during the primitives parity step) and resumed from that step on the same, unchanged tree.
+
+| Check | Command | Result |
+|---|---|---|
+| Type check, unit tests | `npm run typecheck`, `npm test` | pass — 113/113 (7 theme + 13 shell + 54 list + 39 Frappe against simulated requests) (`01-build-tests.txt`) |
+| Build, boundaries, package audit | `npm run build` (now also runs `check:package`) | pass — core reaches 48 modules (no Frappe / `@tanstack`); the Frappe entry reaches 39 (never the shell); every `exports` entry exists with types; every import in `dist/` is declared; no unused dependency; no absolute local path in the tarball; 181 files, 218.8 kB |
+| Publish guard | `node scripts/prepublish-check.mjs` | refuses, as intended: uncommitted changes, no `v0.1.0-rc.1` tag, licence holder pending (`02-prepublish-guard.txt`) |
+| Clean installs from the RC tarball | `e2e/consumers/run.sh` | path A (Tailwind) and path B (no Tailwind): strict `tsc` incl. `@solvfast/ui/frappe`, build, one React, one React Query, installed version `0.1.0-rc.1` (`03-consumers.txt`) |
+| Primitives vs Sear | `e2e/run-parity.sh` | 51 identical + 1 at 1/255 of 52 (`04-primitives.txt`) |
+| Shell vs Sear | `node e2e/shell-parity.mjs` | 30/44; the 14 others are the 4 intended shell fixes (`05-shell.txt`) |
+| List vs Sear | `node e2e/list-parity.mjs` | 32/44; the 12 others are the 2 intended differences (8 Actions column, 4 phone toolbar) (`06-list.txt`) |
+| List on phones; grouped columns | `e2e/list-mobile.mjs`, `e2e/list-groups.mjs` | 8/8 page width = viewport (`06b-list-mobile.txt`); every group shares the header's columns |
+| Button motion | `node e2e/motion-check.mjs` | every variant 180/120 ms; none under reduced motion (`07-motion.txt`) |
+| Frappe demo (simulated site) | `node e2e/frappe-review.mjs` on the playground and both clean installs | 32/32 each (`08-frappe.txt`) |
+| Path A vs path B | the parity scripts over the two clean installs | primitives 49 + 1 imperceptible + the 2 known half-pixel sheet shots; shell 40 + 2 imperceptible + 2 at ≤5/255 (bell glass); list 44/44; Frappe demo 31 + 1 at ≤12/255 (blurred backdrop of the open link popover) — all in the documented families (`09-paths-ab.txt`) |
+
+**Found and fixed during 5.5.** The package audit found `@tanstack/query-core` referenced from the published Frappe
+type declarations (`useFrappeMeta`'s `refetch` exposed React Query's own type). It isn't a dependency, so strict
+installers (e.g. pnpm) couldn't have resolved it; the npm clean installs passed only because npm hoists it. Fixed:
+`refetch` is now `() => Promise<void>`.
+
+**Frappe layer status (unchanged):** simulated-request tests passed; **real-site validation deferred — not done**.

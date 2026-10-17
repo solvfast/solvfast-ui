@@ -6,3 +6,4 @@ tools/parity/dist/
 *.tgz
 test-results/
 e2e/output/
+e2e/frappe-site/dist/

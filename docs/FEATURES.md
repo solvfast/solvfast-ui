@@ -41,7 +41,7 @@ Source: **S** Sear only · **P** PMO only · **B** both, consolidated · **A** a
 | F28 | Empty state | B | the app's `emptyMessage` (any content: icon, call to action) when nothing exists; the generic message when filters hide everything (PMO's rule) | ✅ tested + parity |
 | F29 | Error state with retry | P | `error` + `onRetry`; no pager or total while erroring; Frappe: the server's message (403, 417, 5xx, network) | ✅ tested |
 | F30 | Client data mode | B | `mode="client"` (default): no network | ✅ tested |
-| F31 | Frappe data mode (stock REST) | S | `@solvfast/ui/frappe`: `FrappeListView`, `useFrappeList`, session cookie + CSRF, four stock methods (docs/FRAPPE.md) | ✅ tested against simulated requests; live check pending your approval |
+| F31 | Frappe data mode (stock REST) | S | `@solvfast/ui/frappe`: `FrappeListView`, `useFrappeList`, session cookie + CSRF, four stock methods (docs/FRAPPE.md) | ✅ passed against simulated requests; **real-site validation deferred (not done)** |
 | F32 | Base filters | S | `baseFilters`, AND-ed into list and count; changing them clears the selection | ✅ tested (5.4) |
 | F33 | Metadata (`in_list_view`, `in_standard_filter`, `title_field`, standard fields ID / Created On / Last Updated) | S | `buildFrappeListMeta` (equal to Sear's on regular fields); standard-field labels localized; Dynamic Link filtered as text | ✅ tested (5.4) |
 | F34 | Responsive and RTL | B | horizontal scroll inside the card; toolbar buttons wrap on phones; logical properties | ✅ `e2e/list-mobile.mjs` (page fits 360/390 px, en/ar); Arabic parity shots |

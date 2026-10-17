@@ -34,6 +34,7 @@
     "src",
     "tests",
     "playground/src",
+    "e2e/frappe-site/harness",
     "tailwind-preset.ts"
   ]
 }

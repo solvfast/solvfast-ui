@@ -1,0 +1,9 @@
+✔ http://localhost:4801/ (default) 360px en: page 360px, table scrolls in its card
+✔ http://localhost:4801/ (default) 360px ar: page 360px, table scrolls in its card
+✔ http://localhost:4801/ (default) 390px en: page 390px, table scrolls in its card
+✔ http://localhost:4801/ (default) 390px ar: page 390px, table scrolls in its card
+✔ http://localhost:4801/&demo=features 360px en: page 360px, table scrolls in its card
+✔ http://localhost:4801/&demo=features 360px ar: page 360px, table scrolls in its card
+✔ http://localhost:4801/&demo=features 390px en: page 390px, table scrolls in its card
+✔ http://localhost:4801/&demo=features 390px ar: page 390px, table scrolls in its card
+exit=0

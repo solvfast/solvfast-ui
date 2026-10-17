@@ -1,0 +1,12 @@
+== consumer a
+  tsc OK
+  build OK
+  react copies: 1
+  (41 rules already in full.css left out)
+  layout.css 3.7 kB
+== consumer b
+  tsc OK
+  build OK
+  react copies: 1
+consumer a: react-query copies 1; installed @solvfast/ui 0.1.0-rc.1
+consumer b: react-query copies 1; installed @solvfast/ui 0.1.0-rc.1

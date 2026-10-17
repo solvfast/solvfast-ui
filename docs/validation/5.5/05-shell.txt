@@ -1,0 +1,2 @@
+no page errors
+identical: 30   imperceptible(<=2/255): 0   different: 14   only-in-A: 0   only-in-B: 0

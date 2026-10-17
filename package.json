@@ -1,8 +1,12 @@
 {
   "name": "@solvfast/ui",
-  "version": "0.0.0",
+  "version": "0.1.0-rc.1",
   "description": "SOLV FAST product UI kit — Sear's design: primitives, app shell (Navbar, Sidebar) and List View, with an optional Frappe layer.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/solvfast/solvfast-ui.git"
+  },
   "type": "module",
   "sideEffects": [
     "**/*.css"
@@ -10,7 +14,13 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md",
+    "VENDORED.md",
+    "docs/CONSUMING.md",
+    "docs/FRAPPE.md",
+    "docs/FEATURES.md",
+    "docs/LIMITATIONS.md"
   ],
   "exports": {
     ".": {
@@ -42,7 +52,9 @@
     "test": "vitest run",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "playground": "vite --config playground/vite.config.ts",
-    "playground:build": "vite build --config playground/vite.config.ts"
+    "playground:build": "vite build --config playground/vite.config.ts",
+    "check:package": "node scripts/check-package.mjs",
+    "prepublishOnly": "node scripts/prepublish-check.mjs && npm run build && npm test"
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.59.0",

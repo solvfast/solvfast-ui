@@ -1,0 +1,5 @@
+✖ not publishing @solvfast/ui@0.1.0-rc.1:
+  - the working tree has uncommitted changes
+  - HEAD is not tagged v0.1.0-rc.1 (tags on HEAD: none)
+  - LICENSE: the copyright holder is still pending confirmation
+exit 1

@@ -1,0 +1,1 @@
+✔ every button variant 180/120 ms; no motion under reduced motion

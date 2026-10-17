@@ -6,6 +6,32 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.1.0-rc.1] — 2026-10-17 — release candidate (not published)
+
+The first release candidate: theme and primitives (5.1), app shell (5.2), List View (5.3) and the optional Frappe
+layer (5.4), with the changes from their reviews. Not published; the owner publishes (docs/RELEASING.md).
+
+**Validation status:** core verified (unit tests, pixel parity with Sear's real components, clean installs for both CSS
+paths). Frappe layer: simulated-request tests **passed**; **real-site validation deferred** until the package is
+integrated into a real project — not done (docs/LIMITATIONS.md).
+
+### Release preparation (5.5)
+- `package.json`: version `0.1.0-rc.1`; `repository` (`solvfast/solvfast-ui`); the tarball also carries CHANGELOG,
+  VENDORED and the user docs; scripts `check:package` and `prepublishOnly` (refuses to publish without a clean tree, a
+  `v<version>` tag on HEAD and a named copyright holder).
+- Package audit in the build (`scripts/check-package.mjs`): exports exist and have types, every import in `dist/` is a
+  declared dependency, no unused dependency, no absolute local path in the tarball.
+- Docs: `docs/LIMITATIONS.md` (one list of what is not done, not verified or intentionally different),
+  `docs/RELEASING.md` (checklist), README rewritten, install-from-GitHub-Packages section in CONSUMING.
+- `e2e/frappe-site/`: a prepared real-site validation procedure — **never run**.
+
+### Fixed (5.5)
+- Frappe types: `useFrappeMeta`'s `refetch` no longer exposes `@tanstack/query-core` types in the published
+  declarations (that package isn't a dependency; strict installers couldn't resolve it). It is now
+  `() => Promise<void>`.
+
 ### Added — increment 5.4 (Frappe layer, `@solvfast/ui/frappe`)
 - `FrappeListView` (ListView over a DocType), `useFrappeList`, `useFrappeMeta`, `FrappeProvider`, `createFrappeClient`
   (same-origin session cookie + CSRF; replaceable transport), `FrappeError`, `frappeRetry`, `invalidateFrappeList`,

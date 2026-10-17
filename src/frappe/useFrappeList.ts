@@ -24,7 +24,9 @@ export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient } =
   const { t } = useLocale();
   const q = useQuery({ queryKey: ["sf-frappe", "meta", doctype], queryFn: () => client.getMeta(doctype), staleTime: 5 * 60_000 });
   const meta = React.useMemo(() => (q.data ? buildFrappeListMeta(q.data, t) : undefined), [q.data, t]);
-  return { meta, doc: q.data, loading: q.isPending, error: q.error, refetch: q.refetch };
+  // plain types only: React Query's own types live in @tanstack/query-core, which consumers may not be able to resolve
+  const refetch = React.useCallback(async (): Promise<void> => { await q.refetch(); }, [q]);
+  return { meta, doc: q.data, loading: q.isPending, error: q.error as Error | null, refetch };
 }
 
 /** After the app writes (insert, delete, update), reload a DocType's lists and counts — or every Frappe list. */

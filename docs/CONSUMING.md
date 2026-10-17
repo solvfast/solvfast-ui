@@ -1,10 +1,21 @@
 # Using @solvfast/ui
 
-Status: **0.0.0, increment 5.4** — theme, primitives, styles, the app shell, the List View and the optional Frappe
-layer (`@solvfast/ui/frappe`, tested against simulated requests; docs/FRAPPE.md). Requirements: React 18.3, a bundler that understands package `exports` (Vite, etc.).
+Status: **0.1.0-rc.1 — release candidate, not published.** Theme, primitives, styles, the app shell, the List View and
+the optional Frappe layer (`@solvfast/ui/frappe`: simulated-request tests passed; real-site validation deferred, not
+done — docs/FRAPPE.md). Known limitations: docs/LIMITATIONS.md. Requirements: React 18.3, a bundler that understands package `exports` (Vite, etc.).
 
 ## Install
-Published by the owner to GitHub Packages (`@solvfast` scope). Until then, install a tarball built with `npm pack`.
+The owner publishes to GitHub Packages (`@solvfast` scope). Until a release is published, install a tarball built with
+`npm pack` (`npm install ./solvfast-ui-0.1.0-rc.1.tgz`).
+
+From GitHub Packages, tell npm where the `@solvfast` scope lives — in the app's `.npmrc`:
+```ini
+@solvfast:registry=https://npm.pkg.github.com
+```
+and authenticate with **your own** GitHub token (scope `read:packages`), kept out of the repository — e.g. in your user
+`~/.npmrc` as `//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}` with the token in an environment variable. Then
+`npm install @solvfast/ui`. Peer dependencies: `react` and `react-dom` 18.3; `tailwindcss` 3.4 for path A;
+`@tanstack/react-query` 5 for `@solvfast/ui/frappe`.
 
 ## 1. Choose a CSS path
 
@@ -127,7 +138,7 @@ const columns: ColumnDef<Task>[] = [
 - **Data modes.** `mode="client"` (default): pass every row; search, filters, sort, grouping and paging run locally and
   nothing touches the network. `mode="server"`: pass the current page (or loaded rows) and `total`, set `loading` /
   `error` / `onRetry`, and fetch in `onStateChange(state)` — it fires once per change, after a 300 ms typing pause.
-  The Frappe entry (`@solvfast/ui/frappe`, increment 5.4) wires this to Frappe's REST API.
+  The Frappe entry (`@solvfast/ui/frappe`) wires this to Frappe's REST API.
 - **Grouping.** One table: each group is a section with its own header row (collapse, count, select-all for the
   group), so columns line up across groups. Client mode groups every row and shows no pager while grouped. Server mode groups the loaded rows; if
   fewer than `total` are loaded, a banner says so and **Load more** calls `onLoadMore`.
@@ -156,16 +167,10 @@ Not bundled. Add to `index.html`:
 ```
 
 ## Known limitations
-- Path B: a sheet whose edge lands on a half pixel (e.g. the 75 %-wide sheet at 390 px) can rasterise with
-  text/edge anti-aliasing that differs slightly from path A. Styles and layout are identical (docs/VALIDATION.md).
-- Button motion: every variant uses the DS Button's documented 180 ms (hover) / 120 ms (press), none under
-  `prefers-reduced-motion`. Sear's glass buttons run on the glass engine's 0.4 s / 0.16 s instead — an intended difference.
-- Path B: glass controls can re-rasterize slightly differently from path A after a stylesheet is added at runtime
-  (e.g. when a menu opens, ≤27/255 on the bell's glass). Styles are identical (docs/VALIDATION.md).
-- List View, grouped: all groups share one table and its column layout; collapsing a group can re-balance the
-  widths (every group still agrees with the header).
-- Frappe layer: verified against simulated requests only; the live read-only check waits for approval
-  (docs/FRAPPE.md → Limitations, Not yet verified).
-- React 19 and Tailwind 4 are untested.
-- Badge `brand` uses `bg-primary/12`, which emits no CSS in Tailwind 3 (as in Sear today, DS B7) — kept for parity
-  pending a design decision.
+The full list is in docs/LIMITATIONS.md. The ones most likely to matter:
+- The Frappe layer has passed tests against **simulated** Frappe requests only. **Real-site validation is deferred**
+  until the package is integrated into a real project; it has not been done.
+- React 19, Tailwind 4, Frappe other than 15, and browsers other than Chromium are untested.
+- Intended differences from Sear: the fixed Actions column, the wrapping toolbar on phones, 180/120 ms buttons, and
+  the shell fixes (docs/VALIDATION.md).
+- Not published; the LICENSE copyright holder is pending confirmation.
