@@ -12,6 +12,8 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
   `MIT` in 0.1.0-rc.1, whose LICENSE held the MIT text with a pending holder). README and docs say the same.
 - `THIRD-PARTY-NOTICES.md`: the MIT notice of shadcn/ui, from which the primitives derive (via the Design System).
   It ships in the tarball.
+- `THIRD-PARTY-NOTICES.md`: also the MIT notice of tailwindcss-animate, whose generated keyframes are in
+  `dist/styles/full.css`.
 - Docs: CONSUMING — integrating into an existing app (a host that already uses `tailwindcss-animate`, or `@tailwind`
   directives; an app that already owns theme and language), from the Sear integration rehearsal.
 
