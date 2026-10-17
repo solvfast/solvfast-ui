@@ -22,7 +22,7 @@ tree is clean, `HEAD` is tagged `v<version>`, and LICENSE states a decided licen
 | 12 | Licence | ⛔ **not decided** (intended copyright holder: Solvfast) — blocks publishing. Third-party notices (shadcn/ui, MIT) are in THIRD-PARTY-NOTICES.md whatever is chosen |
 | 12a | Provenance of the glass engine CSS (`styles/glass.css`, part of `theme.css` / `full.css`): the Design System calls it a "vendored Glass DS"; its files name no author, source or licence | ⛔ **owner to confirm** it is Solvfast's own work — or, if third-party, add its licence/notice to THIRD-PARTY-NOTICES.md |
 | 12b | Ownership of the code derived from the Design System, Sear and PMO (all Solvfast projects; the Design System's repository is under a personal GitHub account) | ⛔ owner to confirm it belongs to Solvfast |
-| 13 | GitHub repository: the owner reports one exists for `@solvfast/ui` (URL not yet known here); `package.json` `repository` (`solvfast/solvfast-ui`) is an assumption until confirmed; push this repo | ⛔ owner |
+| 13 | GitHub repository: **https://github.com/solvfast/solvfast-ui** (confirmed by the owner, 2026-10-17); `package.json` `repository` already points there, and the `@solvfast` scope matches the org, as GitHub Packages requires. Private (anonymous requests get 404). This local repository has no remote yet: the owner adds it and pushes | ⛔ owner (push) |
 | 14 | Version and tag: `package.json` still says `0.1.0-rc.1`, but HEAD is not the rc.1 tree recorded in docs/VALIDATION.md (5.5): since `9dac49d` the tarball gained the neutral LICENSE, THIRD-PARTY-NOTICES.md, doc changes and two components (`StatCard`, `IconStatCard`; additive). The owner picks `0.1.0-rc.2` or `0.1.0` and tags (`git tag v<version>`) on a clean tree | ⛔ owner's decision |
 | 15 | Dependency ranges: exact pins (the tested set) or `^` ranges (fewer duplicate copies in apps) | ❓ owner's decision |
 | 16 | Publish to GitHub Packages (`publishConfig.registry`), e.g. `npm publish --tag next` for a release candidate | ⛔ owner |
@@ -33,6 +33,7 @@ tree is clean, `HEAD` is tagged `v<version>`, and LICENSE states a decided licen
    (keep THIRD-PARTY-NOTICES.md). Settle 12a and 12b.
 2. In the same commit: the version (`0.1.0-rc.2` for another candidate, or `0.1.0`) in `package.json`, and CHANGELOG's
    `[Unreleased]` heading renamed to it; item 15 if it changes.
-3. `git tag v<version>` on the clean commit; push the repository and the tag.
+3. `git tag v<version>` on the clean commit; then `git remote add origin https://github.com/solvfast/solvfast-ui.git`,
+   `git push -u origin main` and `git push origin v<version>` (with your own credentials).
 4. With your own token (`write:packages`, never committed): `npm publish` (add `--tag next` for a release
    candidate so it doesn't become `latest`).
