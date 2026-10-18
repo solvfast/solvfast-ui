@@ -33,6 +33,7 @@ const pinned: Record<string, string> = {
   "src/sear_studio/components/overview/overviewShared.tsx": "overview/overviewShared.tsx",
   "src/sear_studio/components/overview/types.ts": "overview/types.ts",
   "src/sear_studio/components/SegmentedTabs.tsx": "SegmentedTabs.tsx",
+  "src/sear_studio/components/Stepper.tsx": "Stepper.tsx",
 };
 const sha = (f: string) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
 for (const [live, copy] of Object.entries(pinned)) {
@@ -61,6 +62,7 @@ const content = [
   path.join(SEAR_FE, "src/sear_studio/components/overview/**/*.tsx"),
   // tabs, dialogs, calendar (Sear's SegmentedTabs; its glassy dialog marker lives in sear-studio.css)
   path.join(SEAR_FE, "src/sear_studio/components/SegmentedTabs.tsx"),
+  path.join(SEAR_FE, "src/sear_studio/components/Stepper.tsx"),
 ];
 
 export default defineConfig({
@@ -68,6 +70,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
+      // "@ui/toast" before "@ui": a string alias would also match "@ui/toast" as a prefix
+      { find: /^@ui\/toast$/, replacement: path.join(__dirname, "sear-toast.ts") },
       { find: "@ui", replacement: path.join(__dirname, "sear-ui.ts") },
       // Sear's router (only Sear's shell uses it; the package has no router)
       { find: /^react-router-dom$/, replacement: path.join(SEAR_FE, "node_modules/react-router-dom") },

@@ -55,6 +55,10 @@ export {
   Sheet, SheetPortal, SheetOverlay, SheetTrigger, SheetClose, SheetContent, SheetHeader, SheetFooter, SheetTitle,
   SheetDescription,
 } from "./primitives/sheet";
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption } from "./primitives/table";
+export { RadioGroup, RadioGroupItem } from "./primitives/radio-group";
+export { Stepper } from "./primitives/stepper";
+export type { StepperStep, StepState } from "./primitives/stepper";
 export { Calendar } from "./primitives/calendar";
 export { DateField, TimeField, DateTimeField } from "./primitives/date-time-field";
 

@@ -6,6 +6,7 @@ import { l, useTr } from "../i18n";
 const ENTRY_POINTS: [string, { en: string; ar: string }][] = [
   ["@solvfast/ui", l("ThemeProvider, primitives, AppShell, ListView and its parts", "‏ThemeProvider والمكوّنات الأساسية و AppShell و ListView وأجزاؤه")],
   ["@solvfast/ui/frappe", l("FrappeListView and the Frappe client — needs @tanstack/react-query 5", "‏FrappeListView وعميل فرابيه — يتطلّب ‎@tanstack/react-query 5‎")],
+  ["@solvfast/ui/toast", l("Toaster and toast() — needs sonner 1.7 or 2", "‏Toaster و toast()‎ — يتطلّب sonner 1.7 أو 2")],
   ["@solvfast/ui/tailwind-preset", l("Tailwind 3 preset (apps with Tailwind)", "إعداد Tailwind 3 المسبق (للتطبيقات التي تستخدم Tailwind)")],
   ["@solvfast/ui/theme.css · glass.css · base.css", l("Styles for apps with Tailwind", "الأنماط للتطبيقات التي تستخدم Tailwind")],
   ["@solvfast/ui/full.css · full-base.css", l("Precompiled styles for apps without Tailwind", "أنماط مسبقة الترجمة للتطبيقات دون Tailwind")],

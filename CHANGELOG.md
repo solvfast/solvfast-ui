@@ -6,6 +6,18 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+### Added
+- `Table` (`TableHeader`, `TableBody`, `TableFooter`, `TableRow`, `TableHead`, `TableCell`, `TableCaption`) and
+  `RadioGroup` / `RadioGroupItem`: the Design System's primitives, as Sear renders them.
+- `Stepper` (`StepperStep`, `StepState`): the Design System's stepper pattern, identical to Sear's. Labels and notes
+  take a string or `{ en, ar }`.
+- New entry **`@solvfast/ui/toast`**: `Toaster` (the Design System's sonner host — theme- and direction-aware) and
+  `toast`.
+- New dependency `@radix-ui/react-radio-group` 1.4.7, the version Sear runs. It reuses the Radix internals already
+  installed.
+- **New optional peer dependency `sonner` (`^1.7.0 || ^2.0.0`).** It is needed only for `@solvfast/ui/toast`. The
+  app's own sonner is shared, so `toast()` from "sonner" reaches the package's `Toaster`.
+
 ## [0.1.0] — 2026-10-18
 
 The first release, for GitHub Packages (`@solvfast` organisation, private; install with a token — docs/CONSUMING.md).

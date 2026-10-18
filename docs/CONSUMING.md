@@ -195,7 +195,36 @@ const columns: ColumnDef<Task>[] = [
   DocType (columns, filters, quick filters, search, sort, link search, server paging, chunked grouping). Needs
   `@tanstack/react-query` ^5 and a page served by the Frappe site. See docs/FRAPPE.md.
 
-## 5. Fonts
+## 5. Table, RadioGroup, Stepper and toasts
+```tsx
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, RadioGroup, RadioGroupItem, Stepper } from "@solvfast/ui";
+
+<Table>…<TableRow><TableCell>INV-001</TableCell></TableRow>…</Table>   // a plain table; for searchable data use ListView
+<RadioGroup value={plan} onValueChange={setPlan} aria-label="Billing">
+  <RadioGroupItem value="monthly" id="monthly" /><Label htmlFor="monthly">Monthly</Label>
+</RadioGroup>
+<Stepper ariaLabel="Setup" onJump={setStep} steps={[
+  { label: "Account", state: "done", clickable: true },        // done · current · error · upcoming
+  { label: { en: "Channels", ar: "القنوات" }, state: "current" },
+]} />
+```
+
+**Toasts** live in a separate entry, `@solvfast/ui/toast`, on [sonner](https://sonner.emilkowal.ski). `sonner` is an
+optional peer dependency (`^1.7` or `^2`), so the app installs it and the package uses the same copy:
+```sh
+npm install sonner          # skip if the app already has sonner 1.7+ or 2.x
+```
+```tsx
+import { Toaster, toast } from "@solvfast/ui/toast";
+<ThemeProvider>{app}<Toaster /></ThemeProvider>   // once; bottom right, bottom left in Arabic; follows the theme
+toast("Preset saved", { description: "11 fields in 3 sections." });   // or toast.success / .error / …
+```
+Because the app and the package share one sonner, existing `import { toast } from "sonner"` calls keep working: an
+app that already uses sonner only swaps its own `<Toaster />` / `<Sonner />` for this one. Any sonner `Toaster` prop
+(`position`, `richColors`, …) overrides the defaults. The shadcn `useToast()` API (`use-toast`) is not provided:
+move those calls to `toast()`.
+
+## 6. Fonts
 Not bundled. Add to `index.html`:
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com" />

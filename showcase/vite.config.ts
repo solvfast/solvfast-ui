@@ -13,6 +13,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: { alias: [
     { find: /^@ui\/frappe$/, replacement: path.resolve(__dirname, "../src/frappe/index.ts") },
+    { find: /^@ui\/toast$/, replacement: path.resolve(__dirname, "../src/toast/index.ts") },
     { find: /^@ui$/, replacement: path.resolve(__dirname, "../src/index.ts") },
   ] },
   css: { postcss: { plugins: [tailwindcss({ config: path.resolve(__dirname, "tailwind.config.ts") }), autoprefixer()] } },

@@ -9,7 +9,8 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger, Input, Label, Popover, PopoverContent, PopoverTrigger, Sheet, SheetClose,
   SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger,
 } from "@ui";
-import { Example, Section } from "../doc/Doc";
+import { toast } from "@ui/toast";
+import { Example, Props, Section } from "../doc/Doc";
 import { l, useTr } from "../i18n";
 
 export function DialogPage() {
@@ -257,3 +258,33 @@ export function CommandPage() {
     </div>
   );
 }
+
+export function ToastPage() {
+  const tr = useTr();
+  return (
+    <div className="space-y-12">
+      <Section title={l("Toast", "التنبيه العابر")} description={l("Short, non-blocking confirmation of something that happened. Mount one <Toaster /> inside ThemeProvider (bottom right; bottom left in Arabic) and call toast() anywhere. Needs the sonner package (1.7 or 2) in the app.", "تأكيد قصير لا يقاطع العمل لشيء حدث. ضع ‎<Toaster />‎ واحداً داخل ThemeProvider (أسفل اليمين؛ أسفل اليسار في العربية) واستدعِ toast()‎ من أي مكان. يتطلّب حزمة sonner (1.7 أو 2) في التطبيق.")}>
+        <Example code={`// once, near the root
+import { Toaster } from "@solvfast/ui/toast";
+<ThemeProvider>… <Toaster /></ThemeProvider>
+
+// anywhere — from "@solvfast/ui/toast" or straight from "sonner": the same toasts
+import { toast } from "@solvfast/ui/toast";
+toast("Preset saved", { description: "11 fields in 3 sections." });
+toast.success("Published");
+toast.error("Couldn't connect", { action: { label: "Retry", onClick: retry } });`}>
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={() => toast(tr(l("Preset saved", "تم حفظ المجموعة")), { description: tr(l("11 fields in 3 sections.", "11 حقلاً في 3 أقسام.")) })}>{tr(l("Show a toast", "إظهار تنبيه"))}</Button>
+            <Button variant="outline" onClick={() => toast.success(tr(l("Published", "تم النشر")))}>{tr(l("Success", "نجاح"))}</Button>
+            <Button variant="outline" onClick={() => toast.error(tr(l("Couldn't connect", "تعذّر الاتصال")), { action: { label: tr(l("Retry", "إعادة")), onClick: () => {} } })}>{tr(l("Error with action", "خطأ مع إجراء"))}</Button>
+          </div>
+        </Example>
+        <Props rows={[
+          ["<Toaster />", "sonner Toaster props", l("Theme and direction follow ThemeProvider; any sonner option (position, richColors, duration, …) overrides the defaults.", "السمة والاتجاه يتبعان ThemeProvider؛ أي خيار من sonner (الموضع، الألوان، المدة، …) يتجاوز الافتراضي.")],
+          ["toast(message, options)", "sonner", l("Also toast.success / .error / .warning / .info / .promise / .dismiss.", "وكذلك toast.success / .error / .warning / .info / .promise / .dismiss.")],
+        ]} />
+      </Section>
+    </div>
+  );
+}
+

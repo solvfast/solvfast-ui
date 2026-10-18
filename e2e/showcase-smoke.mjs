@@ -128,6 +128,33 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await page.locator("#calendar-content h3").first().waitFor();
   });
 
+  await check("radio group", async () => {
+    const sec = await go(page, "radio-group");
+    await sec.getByText(T("Yearly — save 20%", "سنوي — وفّر 20%")).click();
+    await sec.getByText('value: "yearly"').waitFor();
+    if (!(await sec.getByRole("radio", { name: T("Lifetime (not available)", "مدى الحياة (غير متاح)") }).isDisabled())) throw new Error("disabled radio is enabled");
+  });
+  await check("table", async () => {
+    const sec = await go(page, "table");
+    const example = sec.locator("table").first();             // the second table is the props reference
+    if ((await example.locator("tbody tr").count()) !== 4) throw new Error("expected 4 rows");
+    await sec.locator("tfoot").getByText("1200.00").waitFor();
+  });
+  await check("toast", async () => {
+    const sec = await go(page, "toast");
+    await sec.getByRole("button", { name: T("Show a toast", "إظهار تنبيه") }).click();
+    const li = page.locator('[data-sonner-toast][data-mounted="true"]');
+    await li.first().waitFor();
+    const pos = await page.locator("[data-sonner-toaster]").first().getAttribute("data-x-position");
+    if (pos !== (ar ? "left" : "right")) throw new Error(`toast on the ${pos}`);
+  });
+  await check("stepper", async () => {
+    const sec = await go(page, "stepper");
+    const current = () => sec.locator('li[aria-current="step"]').first().innerText();
+    const before = await current();
+    await sec.getByRole("button", { name: T("Next", "التالي") }).click();
+    if ((await current()) === before) throw new Error("Next did not move the current step");
+  });
   await check("stat cards", async () => {
     const sec = await go(page, "stat-cards");
     if ((await sec.locator(".sf-glass--lg").count()) < 4) throw new Error("StatCards missing");

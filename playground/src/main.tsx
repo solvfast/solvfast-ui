@@ -9,6 +9,7 @@ import { FieldLibraryDemo } from "./showcase/FieldLibraryDemo";
 import { FrappeDemo } from "./showcase/FrappeDemo";
 import { CardsPage } from "./showcase/CardsPage";
 import { PartsPage } from "./showcase/PartsPage";
+import { ExtrasPage } from "./showcase/ExtrasPage";
 import { BASE, BRAND, NAV_ITEMS, SWITCHER_SECTIONS, seedNotifications, workspaceLogo } from "./demo/sear-demo";
 
 const params = new URLSearchParams(location.search);
@@ -56,6 +57,7 @@ createRoot(document.getElementById("root")!).render(
       : view === "frappe" ? <div className="sf-app min-h-screen"><FrappeDemo variant={params.get("demo") ?? "default"} /></div>
       : view === "cards" ? <div className="sf-app min-h-screen"><CardsPage /></div>
       : view === "parts" ? <div className="sf-app min-h-screen"><PartsPage /></div>
+      : view === "extras" ? <div className="sf-app min-h-screen"><ExtrasPage /></div>
       : <PrimitivesPage />}
   </ThemeProvider>,
 );

@@ -11,8 +11,9 @@ integrated into a real project (not done). See [docs/LIMITATIONS.md](docs/LIMITA
 
 | Import | What |
 |---|---|
-| `@solvfast/ui` | `ThemeProvider`, primitives (Button, Card, Dialog, Popover, Select, …), `AppShell` (navbar, sidebar, mobile nav, app switcher, notifications), `ListView` and its parts, `useListState` |
+| `@solvfast/ui` | `ThemeProvider`, primitives (Button, Card, Dialog, Popover, Select, Table, RadioGroup, Stepper, …), `AppShell` (navbar, sidebar, mobile nav, app switcher, notifications), `ListView` and its parts, `useListState` |
 | `@solvfast/ui/frappe` | `FrappeListView`, `useFrappeList`, `FrappeProvider`, `createFrappeClient` — needs `@tanstack/react-query` 5; the core never imports it |
+| `@solvfast/ui/toast` | `Toaster`, `toast` — needs `sonner` 1.7 or 2 (optional peer dependency); the core never imports it |
 | `@solvfast/ui/tailwind-preset` | Tailwind 3 preset (path A) |
 | `@solvfast/ui/theme.css`, `glass.css`, `base.css` | styles for apps with Tailwind (path A) |
 | `@solvfast/ui/full.css`, `full-base.css` | precompiled styles for apps without Tailwind (path B) |

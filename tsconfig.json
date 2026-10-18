@@ -24,6 +24,9 @@
       "@ui": [
         "./src/index.ts"
       ],
+      "@ui/toast": [
+        "./src/toast/index.ts"
+      ],
       "@ui/frappe": [
         "./src/frappe/index.ts"
       ]

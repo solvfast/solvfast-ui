@@ -28,7 +28,8 @@ const RULES = {
   shell: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(list|frappe)/] },
   list: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(shell|frappe)/, /^\.\.\/\.\.\/(shell|frappe)/] },
   frappe: { deny: [/^\.\.\/shell/] },
-  "index.ts": { deny: [/^@tanstack/, /^\.\/frappe/] },
+  toast: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(shell|list|frappe|cards)/] },
+  "index.ts": { deny: [/^@tanstack/, /^\.\/frappe/, /^\.\/toast/, /^sonner/] },
 };
 for (const file of walk(path.join(root, "src")).filter((f) => /\.(ts|tsx)$/.test(f))) {
   const a = area(file);
@@ -53,12 +54,34 @@ if (fs.existsSync(path.join(dist, "index.js"))) {
     const src = fs.readFileSync(f, "utf8");
     for (const spec of importsOf(src)) {
       if (spec.startsWith(".")) queue.push(path.resolve(path.dirname(f), spec));
-      else if (/^@tanstack\//.test(spec)) problems.push(`dist: ${path.relative(dist, f)} imports ${spec}`);
+      else if (/^(@tanstack\/|sonner)/.test(spec)) problems.push(`dist: ${path.relative(dist, f)} imports ${spec}`);
     }
     if (path.relative(dist, f).split(path.sep)[0] === "frappe") problems.push(`dist: core entry reaches the Frappe layer (${path.relative(dist, f)})`);
+    if (path.relative(dist, f).split(path.sep)[0] === "toast") problems.push(`dist: core entry reaches the toast entry (${path.relative(dist, f)})`);
     if (/\/api\/(method|resource)|csrf/i.test(src)) problems.push(`dist: ${path.relative(dist, f)} references Frappe endpoints`);
   }
-  console.log(`  core entry reaches ${seen.size} modules — none import @tanstack/* or the Frappe layer` + (problems.length ? " (see problems)" : ""));
+  console.log(`  core entry reaches ${seen.size} modules — none import @tanstack/*, sonner, the Frappe layer or the toast entry` + (problems.length ? " (see problems)" : ""));
+
+  // the toast entry: built whenever src/toast exists; uses the theme and sonner — never React Query, the Frappe layer, the shell or the List View
+  if (fs.existsSync(path.join(root, "src/toast/index.ts"))) {
+    const entry = path.join(dist, "toast/index.js");
+    if (!fs.existsSync(entry)) problems.push("dist: src/toast exists but dist/toast/index.js was not built");
+    else {
+      const tseen = new Set(); const tq = [entry]; const npm = new Set();
+      while (tq.length) {
+        const f = tq.pop();
+        if (tseen.has(f)) continue;
+        tseen.add(f);
+        for (const spec of importsOf(fs.readFileSync(f, "utf8"))) {
+          if (spec.startsWith(".")) tq.push(path.resolve(path.dirname(f), spec)); else npm.add(spec.split("/").slice(0, spec.startsWith("@") ? 2 : 1).join("/"));
+        }
+        const top = path.relative(dist, f).split(path.sep)[0];
+        if (["frappe", "shell", "list"].includes(top)) problems.push(`dist: the toast entry reaches ${top}/ (${path.relative(dist, f)})`);
+      }
+      if (npm.has("@tanstack/react-query")) problems.push("dist: the toast entry imports @tanstack/react-query");
+      console.log(`  toast entry reaches ${tseen.size} modules; npm imports: ${[...npm].sort().join(", ")}`);
+    }
+  }
 
   // the Frappe entry: built whenever src/frappe exists; may use core and @tanstack/react-query, never the shell
   if (fs.existsSync(path.join(root, "src/frappe/index.ts"))) {

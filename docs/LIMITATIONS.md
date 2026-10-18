@@ -57,6 +57,13 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
   Frappe's per-user list settings.
 - Datetime filters compare in the server's time zone, as Frappe does.
 
+## Toasts
+
+- Only sonner's API (`toast()`); shadcn's `useToast()` / `use-toast` is not provided.
+- In dark mode a toast is black: sonner's own dark styles outrank the card classes — the same as in the Design System
+  and Sear (parity identical).
+- sonner 1.7 and 2.x both work (clean installs of each); their default offsets differ by 8 px.
+
 ## Packaging and release
 
 - Proprietary (LICENSE): for Solvfast and those it authorises. Published only to GitHub Packages, as a private package;

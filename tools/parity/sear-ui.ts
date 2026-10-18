@@ -29,6 +29,10 @@ export * from "@/components/ui/calendar";
 // tab strips are Sear's SegmentedTabs; dialogs carry Sear's glassy `sear-glass-dialog`.
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./sear-tabs";
 export { DialogContent, AlertDialogContent } from "./sear-glass-dialogs";
+// 0.2.0: Sear's table and radio-group shims (onto the Design System) and Sear's own Stepper.
+export * from "@/components/ui/table";
+export * from "@/components/ui/radio-group";
+export { Stepper } from "@sear/components/Stepper";
 export { DateField, TimeField, DateTimeField } from "@sear/components/DateTimeField";
 export { AppProvider as ThemeProvider } from "@/contexts/AppContext";
 import { useApp } from "@/contexts/AppContext";

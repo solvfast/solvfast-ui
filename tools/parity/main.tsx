@@ -14,6 +14,7 @@ import { ShellPage } from "../../playground/src/showcase/ShellPage";
 import FieldLibraryListPage from "@sear/pages/FieldLibrary/FieldLibraryListPage";
 import { SearCards } from "./cards-reference";
 import { SearParts } from "./parts-reference";
+import { ExtrasPage } from "../../playground/src/showcase/ExtrasPage";
 
 const params = new URLSearchParams(location.search);
 const view = params.get("view") ?? "primitives";
@@ -61,5 +62,5 @@ function SearFieldLibrary() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <ThemeProvider>{view === "shell" ? <SearShell /> : view === "list" ? <SearFieldLibrary /> : view === "cards" ? <SearCards /> : view === "parts" ? <SearParts /> : <PrimitivesPage />}</ThemeProvider>,
+  <ThemeProvider>{view === "shell" ? <SearShell /> : view === "list" ? <SearFieldLibrary /> : view === "cards" ? <SearCards /> : view === "parts" ? <SearParts /> : view === "extras" ? <div className="sear-studio min-h-screen"><ExtrasPage /></div> : <PrimitivesPage />}</ThemeProvider>,
 );

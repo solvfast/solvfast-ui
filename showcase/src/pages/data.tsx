@@ -1,7 +1,8 @@
 import * as React from "react";
 import { Plus } from "lucide-react";
 import {
-  Badge, Button, FilterBuilder, ListView, activeConditionCount, applyFilterQuery, EMPTY_QUERY,
+  Badge, Button, FilterBuilder, ListView, Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader,
+  TableRow, activeConditionCount, applyFilterQuery, EMPTY_QUERY,
   type ColumnDef, type FilterField, type FilterQuery,
 } from "@ui";
 import { queryToFrappe } from "@ui/frappe";
@@ -170,3 +171,60 @@ const client = createFrappeClient();          // same-origin, CSRF from window.c
     </div>
   );
 }
+
+const INVOICES = [
+  ["INV-001", "paid", 250], ["INV-002", "pending", 150], ["INV-003", "unpaid", 350], ["INV-004", "paid", 450],
+] as const;
+
+export function TablePage() {
+  const tr = useTr();
+  const status = { paid: [l("Paid", "مدفوعة"), "success"], pending: [l("Pending", "معلّقة"), "warning"], unpaid: [l("Unpaid", "غير مدفوعة"), "destructive"] } as const;
+  const total = INVOICES.reduce((n, r) => n + r[2], 0);
+  return (
+    <div className="space-y-12">
+      <Section title={l("Table", "الجدول")} description={l("The plain table — for small, fixed data you lay out yourself. For data people search, filter, sort or page through, use the List View.", "الجدول البسيط — لبيانات قليلة وثابتة تنسّقها بنفسك. للبيانات التي يُبحث فيها أو تُصفّى أو تُرتّب أو تُقلّب صفحاتها استخدم عرض القائمة.")}>
+        <Example code={`<Table>
+  <TableCaption>Recent invoices</TableCaption>
+  <TableHeader>
+    <TableRow><TableHead>Invoice</TableHead><TableHead>Status</TableHead><TableHead className="text-end">Amount</TableHead></TableRow>
+  </TableHeader>
+  <TableBody>
+    <TableRow><TableCell className="font-medium">INV-001</TableCell><TableCell>…</TableCell><TableCell className="text-end">250.00</TableCell></TableRow>
+  </TableBody>
+  <TableFooter><TableRow><TableCell colSpan={2}>Total</TableCell><TableCell className="text-end">1,200.00</TableCell></TableRow></TableFooter>
+</Table>`}>
+          <Table>
+            <TableCaption>{tr(l("Recent invoices", "أحدث الفواتير"))}</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{tr(l("Invoice", "الفاتورة"))}</TableHead>
+                <TableHead>{tr(l("Status", "الحالة"))}</TableHead>
+                <TableHead className="text-end">{tr(l("Amount", "المبلغ"))}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {INVOICES.map(([id, st, amount]) => (
+                <TableRow key={id}>
+                  <TableCell className="font-medium" dir="ltr">{id}</TableCell>
+                  <TableCell><Badge variant={status[st][1]}>{tr(status[st][0])}</Badge></TableCell>
+                  <TableCell className="text-end tabular-nums" dir="ltr">{amount.toFixed(2)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={2}>{tr(l("Total", "الإجمالي"))}</TableCell>
+                <TableCell className="text-end tabular-nums" dir="ltr">{total.toFixed(2)}</TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </Example>
+        <Props rows={[
+          ["Table · TableHeader · TableBody · TableFooter", "", l("<table> (in a horizontal scroll wrapper), <thead>, <tbody>, <tfoot>.", "‏<table> (داخل حاوية تمرير أفقي) و <thead> و <tbody> و <tfoot>.")],
+          ["TableRow · TableHead · TableCell · TableCaption", "", l("<tr> (hover tint; data-state=\"selected\" for a selected row), <th>, <td>, <caption>.", "‏<tr> (تظليل عند المرور؛ data-state=\"selected\" للصف المحدّد) و <th> و <td> و <caption>.")],
+        ]} />
+      </Section>
+    </div>
+  );
+}
+

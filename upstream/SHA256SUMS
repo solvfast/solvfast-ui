@@ -75,5 +75,6 @@ ea7706876bf7958fc1ab72e86709676a434d371c4f0d0cdac859c108aad0b48b  ./sear-7abc895
 94ff9d499cf5b31f15684b2093ee0eb2fa0e072e033407bf87cbae310a35f1bc  ./sear-7abc895-dirty/sear-studio.css
 a25283ee7442d1ad6afac979ea683b68611dd673eec82eb4a94aa5d4a810cba3  ./sear-7abc895-dirty/SearStudioLayout.tsx
 5e22fc96ee05f35399985f0a56a4083e15c84451680c23cf7619fceef000574f  ./sear-7abc895-dirty/SegmentedTabs.tsx
+99f1272499df413ab59ff671bf01a9f484fa0f5b1d51e021fbb212a4634c457f  ./sear-7abc895-dirty/Stepper.tsx
 16a81a2ecdb7dba1859c2c9c277a885bfaf58cf9741cb1b31ebd6b6872c4d078  ./sear-7abc895-dirty/StudioShell.tsx
 a872d6729a0f34045d134fe5483a155ad08cb54ef2543526d55addf4bf04fbb3  ./sear-7abc895-dirty/tailwind.config.ts

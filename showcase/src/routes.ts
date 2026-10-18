@@ -27,6 +27,7 @@ export const GROUPS: Group[] = [
     { id: "card", title: l("Card", "البطاقة"), description: l("The glass container: header, content and footer.", "الحاوية الزجاجية: الرأس والمحتوى والتذييل."), Component: from(components, "Cards") },
     { id: "fields", title: l("Text fields", "حقول النص"), description: l("Input, Textarea and Label, with labels, hints and the disabled state.", "حقل الإدخال ومنطقة النص والتسمية، مع التسميات والتلميحات وحالة التعطيل."), Component: from(components, "Fields") },
     { id: "choices", title: l("Checkbox & Switch", "مربع الاختيار والمفتاح"), description: l("Binary choices.", "الخيارات الثنائية."), Component: from(components, "Choices") },
+    { id: "radio-group", title: l("Radio group", "مجموعة الاختيار"), description: l("One choice from a short, visible list.", "اختيار واحد من قائمة قصيرة ظاهرة."), Component: from(components, "RadioPage") },
     { id: "select", title: l("Select", "القائمة المنسدلة"), description: l("Pick one value from a list, with groups.", "اختيار قيمة واحدة من قائمة، مع مجموعات."), Component: from(components, "SelectPage") },
     { id: "tabs", title: l("Tabs", "علامات التبويب"), description: l("Switch between views of the same context.", "التنقّل بين عروض السياق نفسه."), Component: from(components, "TabsPage") },
     { id: "avatar", title: l("Avatar", "الصورة الرمزية"), description: l("A person's image with an initials fallback.", "صورة الشخص مع الأحرف الأولى بديلاً."), Component: from(components, "AvatarPage") },
@@ -37,6 +38,7 @@ export const GROUPS: Group[] = [
   ] },
   { id: "data", title: l("Data display", "عرض البيانات"), icon: Table2, pages: [
     { id: "stat-cards", title: l("Stat cards", "بطاقات الإحصاء"), description: l("StatCard from the Design System and IconStatCard from Sear's overview: a number at a glance.", "‏StatCard من نظام التصميم و IconStatCard من نظرة سير العامة: رقم في لمحة."), Component: from(components, "StatCards") },
+    { id: "table", title: l("Table", "الجدول"), description: l("A plain table for small, fixed data.", "جدول بسيط لبيانات قليلة وثابتة."), Component: from(data, "TablePage") },
     { id: "list-view", title: l("List View", "عرض القائمة"), description: l("Search, saved filters, advanced filter, column manager, sorting and paging — Sear's data grid.", "البحث والتصفيات المحفوظة والتصفية المتقدّمة وإدارة الأعمدة والفرز والتصفّح — شبكة بيانات سير."), Component: from(data, "ListViewPage") },
     { id: "list-features", title: l("List View features", "ميزات عرض القائمة"), description: l("Selection and bulk actions, group-by, sort menu, quick filters, row actions and row styles — all opt-in.", "التحديد والإجراءات الجماعية والتجميع وقائمة الفرز والتصفية السريعة وإجراءات الصفوف وتنسيقها — كلها اختيارية."), Component: from(data, "ListFeaturesPage") },
     { id: "list-states", title: l("List View states", "حالات عرض القائمة"), description: l("Loading, empty and error.", "التحميل والفراغ والخطأ."), Component: from(data, "ListStatesPage") },
@@ -45,6 +47,7 @@ export const GROUPS: Group[] = [
   ] },
   { id: "overlays", title: l("Feedback & overlays", "التغذية والطبقات"), icon: Bell, pages: [
     { id: "tooltip", title: l("Tooltip", "التلميح"), description: l("A short label for an icon or truncated control.", "تسمية قصيرة لأيقونة أو عنصر مقتطع."), Component: from(components, "TooltipPage") },
+    { id: "toast", title: l("Toast", "التنبيه العابر"), description: l("Short, non-blocking confirmations — @solvfast/ui/toast, on sonner.", "تأكيدات قصيرة لا تقاطع العمل — ‎@solvfast/ui/toast‎ على sonner."), Component: from(overlays, "ToastPage") },
     { id: "dialog", title: l("Dialog", "مربع الحوار"), description: l("A focused task on top of the page.", "مهمة مركّزة فوق الصفحة."), Component: from(overlays, "DialogPage") },
     { id: "alert-dialog", title: l("Alert dialog", "حوار التنبيه"), description: l("Confirm a consequential or destructive action.", "تأكيد إجراء مهم أو هدّام."), Component: from(overlays, "AlertDialogPage") },
     { id: "sheet", title: l("Sheet", "اللوحة الجانبية"), description: l("A panel that slides in from an edge.", "لوحة تنزلق من أحد الحواف."), Component: from(overlays, "SheetPage") },
@@ -53,6 +56,7 @@ export const GROUPS: Group[] = [
     { id: "command", title: l("Command", "لوحة الأوامر"), description: l("A searchable list of commands, inline or as a dialog.", "قائمة أوامر قابلة للبحث، مضمّنة أو كحوار."), Component: from(overlays, "CommandPage") },
   ] },
   { id: "patterns", title: l("Patterns", "الأنماط"), icon: Shapes, pages: [
+    { id: "stepper", title: l("Stepper", "خطوات المعالج"), description: l("Progress through a multi-step flow.", "التقدّم في معالج متعدّد الخطوات."), Component: from(shell, "StepperPage") },
     { id: "app-shell", title: l("App shell", "هيكل التطبيق"), description: l("Sidebar, top bar, app switcher, notifications and mobile navigation in one layout.", "الشريط الجانبي والعلوي ومبدّل التطبيقات والإشعارات والتنقّل على الجوال في تخطيط واحد."), Component: from(shell, "AppShellPage") },
     { id: "shell-parts", title: l("Shell parts", "أجزاء الهيكل"), description: l("The app switcher and the notification panel on their own.", "مبدّل التطبيقات ولوحة الإشعارات منفردين."), Component: from(shell, "ShellPartsPage") },
   ] },

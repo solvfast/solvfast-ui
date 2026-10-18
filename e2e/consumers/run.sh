@@ -10,7 +10,7 @@ for v in a b; do
   cp -r e2e/consumers/$v "$WORK/$v"
   # the playground's showcases + Sear demo config, importing from the published name instead of the playground alias
   mkdir -p "$WORK/$v/src/showcase" "$WORK/$v/src/demo"
-  for f in playground/src/showcase/*.tsx playground/src/demo/*.ts; do sed -E 's#from "@ui(/frappe)?"#from "@solvfast/ui\1"#' "$f" > "$WORK/$v/src/${f#playground/src/}"; done
+  for f in playground/src/showcase/*.tsx playground/src/demo/*.ts; do sed -E 's#from "@ui(/[a-z-]+)?"#from "@solvfast/ui\1"#' "$f" > "$WORK/$v/src/${f#playground/src/}"; done
   cp -r playground/src/demo/sear-assets "$WORK/$v/src/demo/"
   [ $v = b ] && node e2e/consumers/b-layout-css.mjs "$WORK/$v"
   (cd "$WORK/$v" && npm install --no-audit --no-fund --prefer-offline >/dev/null 2>&1 && npm install --no-audit --no-fund --prefer-offline "$TGZ" >/dev/null 2>&1)

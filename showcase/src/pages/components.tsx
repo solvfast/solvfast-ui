@@ -2,7 +2,7 @@ import * as React from "react";
 import { Bell, Check, Clock, Download, Globe2, History, Layers, ListChecks, Plus, Search, Settings, Sparkles, Trash2 } from "lucide-react";
 import {
   Avatar, AvatarFallback, AvatarImage, Badge, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
-  Checkbox, IconStatCard, Input, Label, ScrollArea, Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator,
+  Checkbox, IconStatCard, Input, Label, RadioGroup, RadioGroupItem, ScrollArea, Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator,
   SelectTrigger, SelectValue, Separator, Skeleton, StatCard, Switch, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, Tooltip,
   TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@ui";
@@ -431,3 +431,45 @@ export function TooltipPage() {
     </div>
   );
 }
+
+export function RadioPage() {
+  const tr = useTr();
+  const [plan, setPlan] = React.useState("monthly");
+  const plans = [["monthly", l("Monthly", "شهري")], ["yearly", l("Yearly — save 20%", "سنوي — وفّر 20%")], ["lifetime", l("Lifetime (not available)", "مدى الحياة (غير متاح)")]] as const;
+  return (
+    <div className="space-y-12">
+      <Section title={l("Radio group", "مجموعة الاختيار")} description={l("One choice from a short list that stays visible. Arrow keys move and select (mirrored in Arabic); a disabled option is skipped. For long lists use Select.", "اختيار واحد من قائمة قصيرة ظاهرة. الأسهم تتنقّل وتختار (معكوسة في العربية)؛ الخيار المعطّل يُتخطّى. للقوائم الطويلة استخدم القائمة المنسدلة.")}>
+        <Example code={`const [plan, setPlan] = useState("monthly");
+<RadioGroup value={plan} onValueChange={setPlan} aria-label="Billing">
+  <div className="flex items-center gap-2">
+    <RadioGroupItem value="monthly" id="monthly" />
+    <Label htmlFor="monthly">Monthly</Label>
+  </div>
+  …
+  <RadioGroupItem value="lifetime" id="lifetime" disabled />
+</RadioGroup>`}>
+          <RadioGroup value={plan} onValueChange={setPlan} aria-label={tr(l("Billing", "الفوترة"))} className="max-w-xs">
+            {plans.map(([v, label]) => (
+              <div key={v} className="flex items-center gap-2">
+                <RadioGroupItem value={v} id={`sc-plan-${v}`} disabled={v === "lifetime"} />
+                <Label htmlFor={`sc-plan-${v}`}>{tr(label)}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+          <p className="mt-4 font-mono text-xs text-muted-foreground" dir="ltr">value: "{plan}"</p>
+        </Example>
+        <Example title={l("In a row", "في صف")} code={`<RadioGroup defaultValue="email" className="flex gap-6">…</RadioGroup>`}>
+          <RadioGroup defaultValue="email" className="flex flex-wrap gap-6" aria-label={tr(l("Send by", "الإرسال عبر"))}>
+            {[["email", l("Email", "البريد")], ["sms", l("SMS", "رسالة نصية")], ["whatsapp", l("WhatsApp", "واتساب")]].map(([v, label]) => (
+              <div key={v as string} className="flex items-center gap-2">
+                <RadioGroupItem value={v as string} id={`sc-send-${v}`} />
+                <Label htmlFor={`sc-send-${v}`}>{tr(label as { en: string; ar: string })}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+

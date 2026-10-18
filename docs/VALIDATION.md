@@ -281,3 +281,15 @@ Both were checked with negative controls: a fake token added to a shipped doc fa
 Licence (2026-10-18): proprietary, `UNLICENSED`, decided by the owner. LICENSE, `package.json`, README, CONSUMING,
 LIMITATIONS and CHANGELOG were updated. The publish guard now refuses only because `v0.1.0` is not tagged (the owner's
 step).
+
+## 0.2.0 — Table, RadioGroup, Stepper, toasts (2026-10-18)
+
+| Check | Command | Result |
+|---|---|---|
+| Parity with Sear | `node e2e/extras-parity.mjs` on `?view=extras` (the same JSX; the reference uses Sear's table, radio-group and sonner shims onto the DS, and Sear's own Stepper, which is pinned) | 30 identical + 2 at 1/255 of 32. Covers table (rest, row hover), radio (rest, keyboard focus, selection), stepper (desktop and phone) and a toast, × light/dark × en/ar. The toast position is the same (bottom right; bottom left in Arabic) |
+| Boundaries | `npm run build` | the core reaches 52 modules, with no sonner and no toast entry; the toast entry reaches 4 modules (react, sonner, the theme). A negative control (a core export of sonner) fails the check |
+| Dedupe | `npm ls` | `@radix-ui/react-radio-group` adds one package; roving-focus, primitive and presence are shared |
+| Unit tests | `npm test` | `tests/extras.test.tsx` (7): table markup; radio check, disabled, arrow keys in en and ar; stepper states, aria-current, click rule, `{ en, ar }` labels; Toaster position, direction, theme and a rendered toast |
+| Clean installs | `e2e/consumers/run.sh` | A (Tailwind, sonner 2.0.7) and B (no Tailwind, sonner 1.7.4): strict `tsc`, build, one copy of React, sonner and radio-group. Served builds render a toast, a table, the radio and the stepper with no page errors, in light-en and dark-ar |
+| Showcase | `node e2e/showcase-smoke.mjs` | 33 sections, with new interactions: radio, table, toast, stepper — pass |
+
