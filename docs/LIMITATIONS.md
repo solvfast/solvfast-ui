@@ -1,4 +1,4 @@
-# Known limitations — @solvfast/ui 0.1.0
+# Known limitations — @solvfast/ui 0.2.0
 
 What this release does **not** do, has **not** been verified, or does differently from Sear on purpose.
 Evidence for everything that *was* verified is in docs/VALIDATION.md.

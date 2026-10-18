@@ -6,6 +6,11 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-10-18
+
+Additive: four components and a new entry. **Apps that import `@solvfast/ui/toast` need `sonner`** (1.7 or 2) —
+docs/CONSUMING.md §5.
+
 ### Added
 - `Table` (`TableHeader`, `TableBody`, `TableFooter`, `TableRow`, `TableHead`, `TableCell`, `TableCaption`) and
   `RadioGroup` / `RadioGroupItem`: the Design System's primitives, as Sear renders them.

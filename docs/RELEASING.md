@@ -11,12 +11,15 @@ unless:
 The package workflow is the one `@solvfast/design-system` 0.3.0 used: GitHub Packages, organisation `solvfast`,
 private, a classic token in `NODE_AUTH_TOKEN`.
 
-## 0.1.0 — status
+## 0.2.0 — status
+
+0.1.0 was published by the owner on 2026-10-18 (tag `v0.1.0`). 0.2.0 adds Table, RadioGroup, Stepper and the
+`@solvfast/ui/toast` entry (CHANGELOG).
 
 | | Item | State |
 |---|---|---|
 | ✅ | Name and registry | `@solvfast/ui` → `https://npm.pkg.github.com` (`publishConfig`, so `npm publish` cannot reach public npm). The scope equals the GitHub owner `solvfast`, as GitHub Packages requires; `repository` = `solvfast/solvfast-ui` links the package to the repo |
-| ✅ | Version | `0.1.0` in `package.json`; CHANGELOG `[0.1.0]` |
+| ✅ | Version | `0.2.0` in `package.json`; CHANGELOG `[0.2.0]` |
 | ✅ | Authentication | `.npmrc` (committed, no secret) maps `@solvfast` to GitHub Packages and reads the token from `${NODE_AUTH_TOKEN}`. npm never packs `.npmrc` |
 | ✅ | Contents | `dist/`, README, LICENSE, THIRD-PARTY-NOTICES, CHANGELOG, VENDORED and the user docs. The package audit (in every `npm run build`) fails on: repository-only folders (`showcase`, `playground`, `tests`, `e2e`, `tools`, `upstream`, `scripts`); an `.npmrc`; a credential; an absolute local path |
 | ✅ | Rights and notices | Owner confirmation (2026-10-17): Solvfast owns the code derived from the Design System, Sear and PMO, glass engine included. Third-party notices (THIRD-PARTY-NOTICES.md): shadcn/ui, Tailwind CSS preflight, tailwindcss-animate (all MIT). In the repository only (not the package), Frappe's `todo.json` copy has Frappe's MIT licence beside it |
@@ -38,8 +41,8 @@ npm run typecheck && npm run build && npm test
 npm pack --dry-run                       # the file list that will be published
 npm run showcase:build                   # optional: the component showcase still builds
 git status                               # must be clean
-git tag v0.1.0                           # on the release commit (HEAD)
-node scripts/prepublish-check.mjs        # must print "✔ ready to publish @solvfast/ui@0.1.0"
+git tag v0.2.0                           # on the release commit (HEAD)
+node scripts/prepublish-check.mjs        # must print "✔ ready to publish @solvfast/ui@0.2.0"
 ```
 
 ## 3. Push and publish — needs GitHub access (owner)
@@ -52,15 +55,14 @@ One-time checks on github.com:
 
 ```sh
 cd /home/frappe/solvfast-ui
-git remote add origin https://github.com/solvfast/solvfast-ui.git
-git push -u origin main
-git push origin v0.1.0
+git push origin main                     # the remote `origin` was added for 0.1.0
+git push origin v0.2.0
 export NODE_AUTH_TOKEN=<classic token with write:packages>   # in this shell only; never in a file in the repo
 npm publish                                                   # runs the guard, the build and the tests first
 ```
 
 The repository's `.npmrc` takes precedence over `~/.npmrc` for `npm.pkg.github.com`, so the token must be exported in
-the shell that publishes. A version number can be published only once; fixes ship as `0.1.1`.
+the shell that publishes. A version number can be published only once; fixes ship as `0.2.1`.
 
 After the first publish, on github.com → `solvfast` → Packages → `ui` → **Package settings**:
 - **Visibility: Private.** Keep it so: the licence is proprietary.
@@ -71,7 +73,7 @@ After the first publish, on github.com → `solvfast` → Packages → `ui` → 
 
 Check the published package from a scratch folder that has the `.npmrc` from step 4 and a `read:packages` token:
 ```sh
-npm view @solvfast/ui@0.1.0 version dist.tarball      # 0.1.0, a URL on npm.pkg.github.com
+npm view @solvfast/ui@0.2.0 version dist.tarball      # 0.2.0, a URL on npm.pkg.github.com
 ```
 
 ## 4. Install in another project (every developer)
@@ -89,7 +91,8 @@ npm view @solvfast/ui@0.1.0 version dist.tarball      # 0.1.0, a URL on npm.pkg.
    ```
 4. Install:
    ```sh
-   npm install @solvfast/ui@0.1.0          # or yarn add / pnpm add
+   npm install @solvfast/ui@0.2.0          # or yarn add / pnpm add
+   npm install sonner                      # only if you use @solvfast/ui/toast and the app has no sonner yet
    ```
 5. Use it. Full guide: [CONSUMING.md](CONSUMING.md). With Tailwind 3:
    - `tailwind.config.js`: `presets: [sfPreset]` (`import sfPreset from "@solvfast/ui/tailwind-preset"`), and add
