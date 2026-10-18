@@ -69,6 +69,6 @@ node e2e/frappe-review.mjs <playground> <out>              # FrappeListView on a
 
 ## Licence
 
-Not decided yet. Intended copyright holder: Solvfast. See [LICENSE](LICENSE) and
-[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) (shadcn/ui-derived code, used under its MIT License). Publishing is
-blocked until the licence is decided.
+Proprietary — Copyright (c) 2026 Solvfast. All rights reserved. Only Solvfast and those it authorises may use, copy
+or modify this package ([LICENSE](LICENSE); `"license": "UNLICENSED"`). Third-party parts keep their own licences:
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

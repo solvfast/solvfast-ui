@@ -20,38 +20,14 @@ private, a classic token in `NODE_AUTH_TOKEN`.
 | ✅ | Authentication | `.npmrc` (committed, no secret) maps `@solvfast` to GitHub Packages and reads the token from `${NODE_AUTH_TOKEN}`. npm never packs `.npmrc` |
 | ✅ | Contents | `dist/`, README, LICENSE, THIRD-PARTY-NOTICES, CHANGELOG, VENDORED and the user docs. The package audit (in every `npm run build`) fails on: repository-only folders (`showcase`, `playground`, `tests`, `e2e`, `tools`, `upstream`, `scripts`); an `.npmrc`; a credential; an absolute local path |
 | ✅ | Rights and notices | Owner confirmation (2026-10-17): Solvfast owns the code derived from the Design System, Sear and PMO, glass engine included. Third-party notices (THIRD-PARTY-NOTICES.md): shadcn/ui, Tailwind CSS preflight, tailwindcss-animate (all MIT). In the repository only (not the package), Frappe's `todo.json` copy has Frappe's MIT licence beside it |
-| ⛔ | **Licence** | **Not decided — the one blocker.** See step 1 |
+| ✅ | Licence | **Proprietary**: Copyright (c) 2026 Solvfast, all rights reserved (LICENSE); `"license": "UNLICENSED"`. Decided by the owner on 2026-10-18 |
 | ⏸ | Frappe layer on a real site | Deferred until the first real-project integration (simulated-request tests passed) |
 
-## 1. Decide the licence (owner) — then one commit
+## 1. Licence — done
 
-Who may use the package?
-
-**A. Only Solvfast and those it authorises** (fits a private package):
-- `LICENSE`:
-  ```
-  Copyright (c) 2026 Solvfast. All rights reserved.
-
-  This software is proprietary to Solvfast. It may be used, copied or modified only by Solvfast
-  and by those Solvfast authorises.
-
-  Parts of this package come from third-party software and remain under their own licences;
-  see THIRD-PARTY-NOTICES.md.
-  ```
-- `package.json`: `"license": "UNLICENSED"`.
-
-**B. Anyone (open source)**, e.g. MIT:
-- `LICENSE`: the MIT text with `Copyright (c) 2026 Solvfast`.
-- `package.json`: `"license": "MIT"`.
-
-Either way:
-- keep THIRD-PARTY-NOTICES.md;
-- replace the "Licence" section of README.md;
-- add a CHANGELOG line under `[0.1.0]`;
-- then commit:
-```sh
-git add LICENSE package.json README.md CHANGELOG.md && git commit -m "Licence for 0.1.0"
-```
+Proprietary (`UNLICENSED`): only Solvfast and those it authorises may use the package. Third-party parts keep their own
+licences (THIRD-PARTY-NOTICES.md). A private package can still be installed by authorised developers with a token
+(step 4).
 
 ## 2. Prepare and check — local, no GitHub access needed
 
@@ -62,7 +38,7 @@ npm run typecheck && npm run build && npm test
 npm pack --dry-run                       # the file list that will be published
 npm run showcase:build                   # optional: the component showcase still builds
 git status                               # must be clean
-git tag v0.1.0                           # on the licence commit
+git tag v0.1.0                           # on the release commit (HEAD)
 node scripts/prepublish-check.mjs        # must print "✔ ready to publish @solvfast/ui@0.1.0"
 ```
 
@@ -87,7 +63,7 @@ The repository's `.npmrc` takes precedence over `~/.npmrc` for `npm.pkg.github.c
 the shell that publishes. A version number can be published only once; fixes ship as `0.1.1`.
 
 After the first publish, on github.com → `solvfast` → Packages → `ui` → **Package settings**:
-- **Visibility: Private.** Never make it public unless the licence (step 1) is open source.
+- **Visibility: Private.** Keep it so: the licence is proprietary.
 - **Access:**
   - keep *Inherit access from source repository* on, so anyone who can read `solvfast/solvfast-ui` can install it;
   - add other people or teams under *Manage access*;

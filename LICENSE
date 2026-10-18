@@ -1,8 +1,7 @@
-@solvfast/ui — licence not decided
+Copyright (c) 2026 Solvfast. All rights reserved.
 
-The licence under which this package may be used has not been decided yet.
+This software is proprietary to Solvfast. It may be used, copied or modified only by Solvfast
+and by those Solvfast authorises.
 
-Intended copyright holder: Solvfast.
-
-Parts of this package are derived from shadcn/ui and are used under that project's
-MIT License; its notice is reproduced in THIRD-PARTY-NOTICES.md.
+Parts of this package come from third-party software and remain under their own licences;
+see THIRD-PARTY-NOTICES.md.

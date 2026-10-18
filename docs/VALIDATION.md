@@ -277,3 +277,7 @@ as the Design System's package does. Two checks were added:
 
 Both were checked with negative controls: a fake token added to a shipped doc failed the audit, and a literal
 `_authToken` value did too. Results of the essential checks are in the commit that made these changes.
+
+Licence (2026-10-18): proprietary, `UNLICENSED`, decided by the owner. LICENSE, `package.json`, README, CONSUMING,
+LIMITATIONS and CHANGELOG were updated. The publish guard now refuses only because `v0.1.0` is not tagged (the owner's
+step).

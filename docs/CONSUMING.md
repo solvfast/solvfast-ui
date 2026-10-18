@@ -210,4 +210,4 @@ The full list is in docs/LIMITATIONS.md. The ones most likely to matter:
 - React 19, Tailwind 4, Frappe other than 15, and browsers other than Chromium are untested.
 - Intended differences from Sear: the fixed Actions column, the wrapping toolbar on phones, 180/120 ms buttons, and
   the shell fixes (docs/VALIDATION.md).
-- Not published; the licence is not decided yet (intended copyright holder: Solvfast).
+- Proprietary (LICENSE): use is limited to Solvfast and those it authorises.

@@ -59,8 +59,8 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
 
 ## Packaging and release
 
-- Not published. The licence is **not decided** (intended copyright holder: Solvfast); `npm publish` is blocked until
-  it is (and until HEAD is tagged and the tree is clean — `scripts/prepublish-check.mjs`).
+- Proprietary (LICENSE): for Solvfast and those it authorises. Published only to GitHub Packages, as a private package;
+  `npm publish` is blocked until HEAD is tagged and the tree is clean (`scripts/prepublish-check.mjs`).
 - Dependencies are pinned to the exact versions tested; consumers on other versions of the same libraries (e.g.
   `lucide-react`, Radix) get a second copy.
 - Installing from GitHub Packages needs the consumer's own GitHub token with `read:packages` (docs/CONSUMING.md).
