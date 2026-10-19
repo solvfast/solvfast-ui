@@ -11,7 +11,7 @@
  * - Fields / order_by only ever name real fields: column keys are mapped through `field`, unknown ones dropped.
  */
 import { fieldOf, type ColumnDef } from "../list/model/columns";
-import { VALUELESS_OPERATORS, type FilterCondition, type FilterQuery, type Operator } from "../list/model/filters";
+import { TIMESPANS, VALUELESS_OPERATORS, splitRange, type FilterCondition, type FilterQuery, type FiscalYear, type Operator } from "../list/model/filters";
 import type { SortState } from "../list/model/sort";
 
 /** `[fieldname, operator, value]` (or `[doctype, fieldname, operator, value]`, passed through). */
@@ -29,8 +29,22 @@ function coerce(value: string, fieldtype?: string): unknown {
   return value;
 }
 
-export function conditionToFrappe(c: FilterCondition, fieldtype?: string): FrappeFilter | null {
+export function conditionToFrappe(c: FilterCondition, fieldtype?: string, opts: { fiscalYears?: FiscalYear[] } = {}): FrappeFilter | null {
   if (c.operator === "is_set") return [c.field, "is", "set"];
+  if (c.operator === "between") {
+    const [from, to] = splitRange(c.value);
+    if (from && to) return [c.field, "between", [from, to]]; // Frappe: on a Datetime the end day runs to 23:59:59
+    if (from) return conditionToFrappe({ ...c, operator: "gte", value: from }, fieldtype);
+    if (to) return conditionToFrappe({ ...c, operator: "lte", value: to }, fieldtype);
+    return null;
+  }
+  // Frappe resolves the timespan on the server, on the day the request runs (frappe.utils.get_timespan_date_range).
+  if (c.operator === "timespan") return (TIMESPANS as readonly string[]).includes(c.value) ? [c.field, "timespan", c.value] : null;
+  if (c.operator === "fiscal_year") {
+    // As ERPNext's "fiscal year" filter does: a Between over the year's dates (no dependency on ERPNext's hook).
+    const fy = opts.fiscalYears?.find((f) => f.name === c.value);
+    return fy ? [c.field, "between", [fy.from, fy.to]] : null;
+  }
   if (c.operator === "is_not_set") return [c.field, "is", "not set"];
   if (c.operator === "in" || c.operator === "not_in") {
     const items = c.value.split(",").map((s) => s.trim()).filter(Boolean).map((v) => coerce(v, fieldtype)).filter((v) => v !== undefined);
@@ -55,12 +69,12 @@ export function conditionToFrappe(c: FilterCondition, fieldtype?: string): Frapp
 export interface TranslatedQuery { filters: FrappeFilter[]; or_filters: FrappeFilter[]; /** Fields dropped as unknown. */ dropped: string[]; }
 
 /** A FilterQuery as Frappe filters: AND → `filters`; OR with 2+ conditions → `or_filters`. */
-export function queryToFrappe(query: FilterQuery | undefined, known: Set<string>, fieldtypes: Map<string, string>): TranslatedQuery {
+export function queryToFrappe(query: FilterQuery | undefined, known: Set<string>, fieldtypes: Map<string, string>, opts: { fiscalYears?: FiscalYear[] } = {}): TranslatedQuery {
   const out: FrappeFilter[] = []; const dropped: string[] = [];
   for (const c of query?.conditions ?? []) {
     if (!c.field) continue;
     if (!known.has(c.field)) { dropped.push(c.field); continue; }
-    const f = conditionToFrappe(c, fieldtypes.get(c.field));
+    const f = conditionToFrappe(c, fieldtypes.get(c.field), opts);
     if (f) out.push(f);
   }
   if (query?.conjunction === "or" && out.length > 1) return { filters: [], or_filters: out, dropped };
@@ -76,6 +90,8 @@ export interface ListRequestInput {
   searchFields?: string[];
   /** Grouped (rule C1): rows load in chunks of this size. Default 200. */
   chunkSize?: number;
+  /** For "Fiscal Year" conditions. */
+  fiscalYears?: FiscalYear[];
 }
 
 export interface ListRequest {
@@ -92,7 +108,7 @@ export interface ListRequest {
   dropped: string[];
 }
 
-export function buildListRequest({ meta, columns, state, baseFilters = [], searchFields, chunkSize = 200 }: ListRequestInput): ListRequest {
+export function buildListRequest({ meta, columns, state, baseFilters = [], searchFields, chunkSize = 200, fiscalYears }: ListRequestInput): ListRequest {
   const cols = columns as ColumnDef<unknown>[];
   const byKey = new Map(cols.map((c) => [c.key, c]));
   const real = (f: string | undefined) => (f && meta.known.has(f) ? f : undefined);
@@ -114,7 +130,7 @@ export function buildListRequest({ meta, columns, state, baseFilters = [], searc
   const order_by = sortField ? `${sortField} ${state.sort.dir}` : meta.defaultOrderBy;
 
   // F11 + F32
-  const q = queryToFrappe(state.query, meta.known, meta.fieldtypes);
+  const q = queryToFrappe(state.query, meta.known, meta.fieldtypes, { fiscalYears });
   const filters: FrappeFilter[] = [...baseFilters, ...q.filters];
   let or_filters = q.or_filters;
 

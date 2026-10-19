@@ -5,10 +5,10 @@
  * chunks with "Load more" (rule C1), and explains narrowed search (rule C2).
  */
 import * as React from "react";
-import { keepPreviousData, useInfiniteQuery, useQuery, type QueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { fieldOf, mergeColumns, type ColumnDef } from "../list/model/columns";
 import type { GroupByOption } from "../list/model/group";
-import type { FilterField } from "../list/model/filters";
+import type { FilterField, FiscalYear } from "../list/model/filters";
 import type { LoadOptions } from "../list/parts/FilterBuilder";
 import type { ListQueryState } from "../list/useListState";
 import { loc, type Localized } from "../lib/localized";
@@ -61,6 +61,9 @@ export interface FrappeListOptions<T> {
    *  label also names its field in filters and search. */
   fieldLabels?: Record<string, Localized>;
   client?: FrappeClient;
+  /** "Fiscal Year" in the date filters. Default: the site's Fiscal Year records when it has them (ERPNext), read as the
+   *  logged-in user; `false` = never offer it. */
+  fiscalYears?: FiscalYear[] | false;
 }
 
 type Row = Record<string, unknown>;
@@ -91,9 +94,29 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     if (metaRef.current) setState((prev) => (sameJson(prev, next) ? prev : next));
   }, []);
 
+  // Fiscal years (ERPNext's "Fiscal Year" DocType; none when the site lacks it or the user can't read it). Loaded only
+  // when needed — the filter opens, or the query already has a Fiscal Year condition — and once per session.
+  const qc = useQueryClient();
+  const fyQuery = React.useMemo(() => ({
+    queryKey: ["sf-frappe", "fiscal-years"],
+    queryFn: () => client
+      .getList<{ name: string; year_start_date: string; year_end_date: string }>("Fiscal Year", { fields: ["name", "year_start_date", "year_end_date"], order_by: "year_start_date desc", limit_page_length: 50 })
+      .then((rows) => rows.map((r) => ({ name: r.name, from: String(r.year_start_date).slice(0, 10), to: String(r.year_end_date).slice(0, 10) })))
+      .catch(() => [] as FiscalYear[]),
+    staleTime: 60 * 60_000,
+    retry: false,
+  }), [client]);
+  const auto = o.fiscalYears === undefined;
+  const needFy = !!state?.query.conditions.some((c) => c.operator === "fiscal_year");
+  const fy = useQuery({ ...fyQuery, enabled: auto && needFy });
+  const fiscalYears = o.fiscalYears === false ? undefined : (o.fiscalYears ?? fy.data);
+  const loadFiscalYears = React.useMemo(() => (auto ? () => qc.fetchQuery(fyQuery) : undefined), [auto, qc, fyQuery]);
+  // a Fiscal Year condition waits for the years' dates (else it would be dropped and the list shown unfiltered)
+  const waitFy = auto && needFy && fiscalYears === undefined;
+
   const req = React.useMemo(
-    () => (meta && state ? buildListRequest({ meta, columns: columns as never, state, baseFilters: o.baseFilters, searchFields: o.searchFields, chunkSize: o.chunkSize }) : null),
-    [meta, state, columns, o.baseFilters, o.searchFields, o.chunkSize],
+    () => (meta && state && !waitFy ? buildListRequest({ meta, columns: columns as never, state, baseFilters: o.baseFilters, searchFields: o.searchFields, chunkSize: o.chunkSize, fiscalYears }) : null),
+    [meta, state, waitFy, columns, o.baseFilters, o.searchFields, o.chunkSize, fiscalYears],
   );
 
   const list = useInfiniteQuery({
@@ -154,6 +177,8 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
       quickFilterFields: meta?.quickFilterFields,
       groupByOptions,
       loadOptions,
+      fiscalYears,
+      loadFiscalYears,
       rowKey: (row: T) => String((row as Row).name),
       selectionScope: JSON.stringify(o.baseFilters ?? []),
       pageSize: o.pageSize,

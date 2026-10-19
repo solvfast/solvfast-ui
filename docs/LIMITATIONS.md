@@ -91,3 +91,12 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
 - Dependencies are pinned to the exact versions tested; consumers on other versions of the same libraries (e.g.
   `lucide-react`, Radix) get a second copy.
 - Installing from GitHub Packages needs the consumer's own GitHub token with `read:packages` (docs/CONSUMING.md).
+
+## Date filters (Frappe's operators, 0.3.0)
+
+- Fiscal Year needs the site's "Fiscal Year" DocType (ERPNext) and read access to it. Without it the option isn't offered.
+- Frappe also offers In / Not In on Date fields. The package doesn't: their date-list input isn't built.
+- Client-mode Timespans use Sunday as the first day of the week (Frappe's default). A site that changed
+  System Settings → First Day of the Week gets that day on the server (FrappeListView) but Sunday in client mode.
+- Labels outside dates keep the package's wording ("Contains", "Not equals", "Is set" shown as Is → Set / Not Set);
+  only the date operators use Frappe's labels.

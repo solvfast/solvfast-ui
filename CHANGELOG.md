@@ -61,6 +61,21 @@ Apps that don't use the new parts see no change: the existing parity suites were
   - Locked columns stay listed at the top. Keys the menu doesn't manage (locked, or not loaded yet) keep their place.
   - New messages: `editColumns`, `addColumn`, `moveColumn`, `moveColumnHint`, `removeColumn`, `columnMoved`,
     `lockedColumn`.
+- **Date filters work like Frappe's, at the owner's request** (frappe/public/js/frappe/ui/filters/filter.js):
+  - Datetime fields (e.g. Created On) offer Is, After, Before, On or After, On or Before, Between, Timespan and Fiscal
+    Year. Date fields also offer Equals / Not equals.
+  - "Is" takes Set / Not Set. Between takes From / To (either may be empty). Timespan offers Frappe's 24 periods.
+    Fiscal Year offers the site's fiscal years.
+  - New operators `between`, `timespan` and `fiscal_year`, with values `"YYYY-MM-DD,YYYY-MM-DD"`, a TIMESPANS key and a
+    FiscalYear name.
+  - New helpers `operatorsFor`, `defaultOperator`, `operatorLabelKey`, `timespanRange`, `splitRange` / `joinRange`.
+  - New props `fiscalYears` / `loadFiscalYears` on `ListView` and `FilterBuilder`. A new date condition starts on
+    Between.
+  - Client-side date filtering compares calendar days, as the Frappe layer already did: After 15 Oct excludes all of
+    15 Oct. Timespans match Frappe's server dates, tested against Frappe 15.110's own output for 7 dates × 24 periods.
+  - The Frappe entry sends `between`, Frappe's native `timespan`, and Fiscal Year as a `between` over the year. It reads
+    the site's Fiscal Year records (ERPNext) only when the filter opens or a query needs them, once per session; none
+    means the option isn't offered. `fiscalYears={false}` turns it off.
 
 ### Dependencies
 - New: `@radix-ui/react-accordion` 1.2.20, `-aspect-ratio` 1.1.15, `-collapsible` 1.1.20, `-context-menu` 2.3.7,

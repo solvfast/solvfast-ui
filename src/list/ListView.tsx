@@ -18,6 +18,7 @@ import { BulkActionBar, ListPagination, type BulkAction } from "./parts/ListFoot
 import { GroupedListTable, ListTable } from "./parts/ListTable";
 import { ColumnManager, GroupByMenu, QuickFilters, SavedFilters, SortMenu } from "./parts/Toolbar";
 import { useListState, type UseListStateOptions } from "./useListState";
+import type { FiscalYear } from "./model/filters";
 
 export interface RowAction<T> {
   key: string;
@@ -59,6 +60,8 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   controls?: ListViewControls;
   /** Link-field options for filters. */
   loadOptions?: LoadOptions;
+  /** Loads fiscal years for the date filters' "Fiscal Year" when the filter first opens (or pass `fiscalYears`). */
+  loadFiscalYears?: () => Promise<FiscalYear[]>;
   /** A note under the toolbar about how search works right now (the Frappe entry uses it for rule C2). */
   searchHint?: React.ReactNode;
   /** Server mode + grouped: fetch the next chunk (the banner's "Load more"). */
@@ -142,7 +145,7 @@ export function ListView<T>(props: ListViewProps<T>) {
             list page was 506 px wide at 390 px). One line wherever they fit, as in Sear. */}
         <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
           {c.savedFilters && s.canSave && <SavedFilters saved={s.saved} activeCount={s.activeCount} onApply={s.applySaved} onSave={s.saveCurrent} onDelete={s.removeSaved} />}
-          {c.filter && <FilterBuilder fields={s.filterFields} query={s.query} onChange={s.setQuery} activeCount={s.activeCount} loadOptions={loadOptions} />}
+          {c.filter && <FilterBuilder fields={s.filterFields} query={s.query} onChange={s.setQuery} activeCount={s.activeCount} loadOptions={loadOptions} fiscalYears={props.fiscalYears} loadFiscalYears={props.loadFiscalYears} />}
           {s.groupByOptions.length > 0 && <GroupByMenu options={s.groupByOptions} value={s.groupBy} onChange={s.setGroupBy} />}
           {c.sortMenu && <SortMenu columns={s.visibleColumns} sort={s.sort} onChange={s.setSort} />}
           {c.columns && <ColumnManager columns={s.columns} visibleKeys={s.visibleKeys} onChange={s.setVisibleKeys} />}

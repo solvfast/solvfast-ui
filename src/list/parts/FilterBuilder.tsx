@@ -19,7 +19,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../primitives/popove
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { cn } from "../../lib/cn";
 import { useLocale } from "../../theme/ThemeProvider";
-import { OPERATORS_BY_TYPE, OPERATOR_LABEL, VALUELESS_OPERATORS, newCondition, type FilterField, type FilterQuery, type Operator } from "../model/filters";
+import {
+  TIMESPANS, TIMESPAN_LABEL, VALUELESS_OPERATORS, defaultOperator, joinRange, newCondition, operatorLabelKey, operatorsFor,
+  splitRange, type FilterField, type FilterQuery, type FiscalYear, type Operator,
+} from "../model/filters";
 
 /** Async options for link fields: `(field, text) => [{ value, label }]`. */
 export type LoadOptions = (field: FilterField, text: string) => Promise<{ value: string; label: string }[]>;
@@ -30,15 +33,29 @@ export interface FilterBuilderProps {
   onChange: (q: FilterQuery) => void;
   activeCount: number;
   loadOptions?: LoadOptions;
+  /** Offers "Fiscal Year" on date fields (Frappe/ERPNext fiscal years). */
+  fiscalYears?: FiscalYear[];
+  /** Or load them when the filter first opens (the Frappe entry does this). */
+  loadFiscalYears?: () => Promise<FiscalYear[]>;
 }
 
-export function FilterBuilder({ fields, query, onChange, activeCount, loadOptions }: FilterBuilderProps) {
+/** What kind of value an operator takes; switching kinds clears the value (a date can't become a timespan). */
+const valueKind = (op: Operator) =>
+  VALUELESS_OPERATORS.includes(op) ? "none" : op === "between" || op === "timespan" || op === "fiscal_year" ? op : op === "in" || op === "not_in" ? "list" : "one";
+
+export function FilterBuilder({ fields, query, onChange, activeCount, loadOptions, fiscalYears: given, loadFiscalYears }: FilterBuilderProps) {
   const { t } = useLocale();
+  const [loaded, setLoaded] = React.useState<FiscalYear[]>();
+  const fiscalYears = given ?? loaded;
+  const onOpenChange = (open: boolean) => {
+    if (open && !given && !loaded && loadFiscalYears) loadFiscalYears().then(setLoaded, () => setLoaded([]));
+  };
   const byName = new Map(fields.map((f) => [f.name, f]));
+  const opsFor = (f?: FilterField) => operatorsFor(f, { fiscalYears: !!fiscalYears?.length });
   const setConj = (conjunction: "and" | "or") => onChange({ ...query, conjunction });
   const add = () => {
     const f = fields[0];
-    onChange({ ...query, conditions: [...query.conditions, newCondition(f?.name, f ? OPERATORS_BY_TYPE[f.type][0] : "like")] });
+    onChange({ ...query, conditions: [...query.conditions, newCondition(f?.name, defaultOperator(f))] });
   };
   const remove = (id: string) => onChange({ ...query, conditions: query.conditions.filter((c) => c.id !== id) });
   const patch = (id: string, p: Partial<{ field: string; operator: Operator; value: string }>) =>
@@ -48,17 +65,18 @@ export function FilterBuilder({ fields, query, onChange, activeCount, loadOption
         if (c.id !== id) return c;
         const next = { ...c, ...p };
         if (p.field) {
-          const ftype = byName.get(p.field)?.type ?? "text";
-          if (!OPERATORS_BY_TYPE[ftype].includes(next.operator)) next.operator = OPERATORS_BY_TYPE[ftype][0];
+          const f = byName.get(p.field);
+          const shown = next.operator === "is_not_set" ? "is_set" : next.operator;
+          if (!opsFor(f).includes(shown) || f?.type !== byName.get(c.field)?.type) next.operator = defaultOperator(f);
           next.value = "";
         }
-        if (p.operator && VALUELESS_OPERATORS.includes(p.operator)) next.value = "";
+        if (p.operator && valueKind(p.operator) !== valueKind(c.operator)) next.value = "";
         return next;
       }),
     });
 
   return (
-    <Popover>
+    <Popover onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5">
           <Filter className="h-4 w-4" /> {t("filter")}
@@ -82,20 +100,32 @@ export function FilterBuilder({ fields, query, onChange, activeCount, loadOption
         <div className="space-y-2">
           {query.conditions.map((c) => {
             const field = byName.get(c.field);
-            const ftype = field?.type ?? "text";
-            const valueless = VALUELESS_OPERATORS.includes(c.operator);
+            const isOp = c.operator === "is_set" || c.operator === "is_not_set";
+            const ops = opsFor(field);
+            // A saved condition whose operator this field no longer offers (e.g. Equals on a Datetime) still shows.
+            const shownOp = isOp ? "is_set" : c.operator;
+            const listed = ops.includes(shownOp) ? ops : [...ops, shownOp];
             return (
               <div key={c.id} className="flex items-center gap-1.5">
                 <FieldPicker fields={fields} value={c.field} onChange={(v) => patch(c.id, { field: v })} />
-                <Select value={c.operator} onValueChange={(v) => patch(c.id, { operator: v as Operator })}>
+                <Select value={shownOp} onValueChange={(v) => patch(c.id, { operator: v as Operator })}>
                   <SelectTrigger className="h-8 w-28" aria-label={t("operator")}><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {OPERATORS_BY_TYPE[ftype].map((op) => <SelectItem key={op} value={op}>{t(OPERATOR_LABEL[op])}</SelectItem>)}
+                    {listed.map((op) => <SelectItem key={op} value={op}>{t(operatorLabelKey(op, field))}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <div className="min-w-0 flex-1">
-                  {!valueless && field && (
-                    <FilterValueInput field={field} operator={c.operator} value={c.value} onChange={(v) => patch(c.id, { value: v })} loadOptions={loadOptions} />
+                  {isOp ? (
+                    // Frappe's "Is": Set / Not Set
+                    <Select value={c.operator} onValueChange={(v) => patch(c.id, { operator: v as Operator })}>
+                      <SelectTrigger className="h-8 w-full" aria-label={t("value")}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="is_set">{t("valueSet")}</SelectItem>
+                        <SelectItem value="is_not_set">{t("valueNotSet")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : field && (
+                    <FilterValueInput field={field} operator={c.operator} value={c.value} onChange={(v) => patch(c.id, { value: v })} loadOptions={loadOptions} fiscalYears={fiscalYears} />
                   )}
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground" onClick={() => remove(c.id)} aria-label={t("remove")}>
@@ -162,11 +192,40 @@ function FieldPicker({ fields, value, onChange }: { fields: FilterField[]; value
 }
 
 /** The value input for a condition, by field type and operator (Sear FilterValueInput + PMO DatePicker / LinkField). */
-export function FilterValueInput({ field, operator, value, onChange, loadOptions }: {
-  field: FilterField; operator: Operator; value: string; onChange: (v: string) => void; loadOptions?: LoadOptions;
+export function FilterValueInput({ field, operator, value, onChange, loadOptions, fiscalYears }: {
+  field: FilterField; operator: Operator; value: string; onChange: (v: string) => void; loadOptions?: LoadOptions; fiscalYears?: FiscalYear[];
 }) {
   const { t } = useLocale();
   const multi = operator === "in" || operator === "not_in";
+  if (operator === "between") {
+    const [from, to] = splitRange(value);
+    return (
+      <div className="flex min-w-0 gap-1">
+        <DateField value={from} onChange={(v) => onChange(joinRange(v, to))} placeholder={t("rangeFrom")} aria-label={t("rangeFrom")} className="min-w-0 flex-1 [&>button]:h-8" />
+        <DateField value={to} onChange={(v) => onChange(joinRange(from, v))} placeholder={t("rangeTo")} aria-label={t("rangeTo")} className="min-w-0 flex-1 [&>button]:h-8" />
+      </div>
+    );
+  }
+  if (operator === "timespan") {
+    return (
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-8 w-full" aria-label={t("value")}><SelectValue placeholder={t("selectValue")} /></SelectTrigger>
+        <SelectContent>
+          {TIMESPANS.map((ts) => <SelectItem key={ts} value={ts}>{t(TIMESPAN_LABEL[ts])}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    );
+  }
+  if (operator === "fiscal_year") {
+    return (
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-8 w-full" aria-label={t("value")}><SelectValue placeholder={t("selectValue")} /></SelectTrigger>
+        <SelectContent>
+          {(fiscalYears ?? []).map((fy) => <SelectItem key={fy.name} value={fy.name}>{fy.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    );
+  }
   if (field.type === "boolean") {
     return (
       <Select value={value || "true"} onValueChange={onChange}>

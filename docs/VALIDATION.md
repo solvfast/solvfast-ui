@@ -333,3 +333,13 @@ Not run for 0.3.0: list, cards, parts, motion and Frappe-demo parity — the cod
 | Unit tests | `npm test` (tests/list.test.tsx F18) | 187/187. New: × removes; Add column lists only the hidden fields and filters them (and says "No results"); it is disabled when nothing is left; locked columns can't be moved or removed; non-hideable ones aren't offered; keys the menu doesn't manage keep their positions; ↑/↓ on the grip moves the column, keeps focus and announces the position; pointer drag moves up and down. Negative control: before jsdom got a PointerEvent the drag test failed (the coordinates were missing) |
 | List vs Sear | `node e2e/list-parity.mjs` (the `column-shown` step adds the field through Add column) | 32 identical of 44, as before. The 12 others: the 8 column-manager shots (already different because of the Actions column, now also by design) and the 4 phone toolbar shots. No other screen changed |
 | Build | `npm run build` | boundaries and package audit pass |
+
+## 0.3.0 — date filters like Frappe's
+
+| Check | How | Result |
+|---|---|---|
+| Operators and labels | tests/list.test.tsx "Frappe date operators" | Datetime: exactly Is, After, Before, On or After, On or Before, Between, Timespan, Fiscal Year (Frappe's list); Date adds Equals / Not equals; Fiscal Year only with fiscal years; Arabic labels from Frappe's ar.po (three corrected: "Is", "Set", "Last Quarter") |
+| Timespans | fixture `tests/fixtures/frappe-timespans.json`, produced by running `frappe.utils.data.get_timespan_date_range` (Frappe 15.110) with "today" fixed to 7 dates (month ends, a leap day, year ends) | 168/168 identical |
+| Client filtering | same file | calendar-day After / On or Before; Between with open ends; Timespan; Fiscal Year |
+| Frappe layer | tests/frappe.test.tsx | between / timespan / fiscal-year translation; no Fiscal Year request on page load; opening the filter loads it once and a Fiscal Year condition filters by the year's dates |
+| Everything else | `npm test`, `npm run build`, `node e2e/list-parity.mjs` | 193/193; boundaries and audit pass; list parity 32/44 as before |

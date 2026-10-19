@@ -10,7 +10,7 @@ import { FrappeProvider } from "./FrappeProvider";
 import { useFrappeList, type FrappeListOptions } from "./useFrappeList";
 
 type Managed = "rows" | "columns" | "rowKey" | "mode" | "total" | "onStateChange" | "loading" | "error" | "onRetry" | "onLoadMore"
-  | "searchHint" | "selectionScope" | "filterFields" | "groupByOptions" | "searchFields" | "pageSize";
+  | "searchHint" | "selectionScope" | "filterFields" | "groupByOptions" | "searchFields" | "pageSize" | "fiscalYears" | "loadFiscalYears";
 
 export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>, FrappeListOptions<T> {
   /** Default: the document `name`. */
@@ -22,8 +22,8 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, rowKey, ...rest }: FrappeListViewProps<T>) {
-  const f = useFrappeList<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client });
+function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowKey, ...rest }: FrappeListViewProps<T>) {
+  const f = useFrappeList<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears });
   const { quickFilterFields, loadOptions, ...data } = f.listProps;
   return (
     <ListView<T>

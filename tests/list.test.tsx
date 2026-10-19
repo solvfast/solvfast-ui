@@ -11,7 +11,7 @@ import {
   ColumnManager, DefaultCell, FilterBuilder, FilterValueInput, ListView, ThemeProvider, applyFilterQuery, compareValues,
   createLocalStorageAdapter, filterFieldsFromColumns, getQuickValue, groupRows, mergeColumns, newCondition, OPERATORS_BY_TYPE,
   setQuickValue, sortRows, useListState,
-  type ColumnDef, type FilterField, type FilterQuery, type ListViewProps, type SavedFilter, type SavedFiltersStorage,
+  type ColumnDef, type FilterField, type FilterQuery, type ListViewProps, type Operator, type SavedFilter, type SavedFiltersStorage,
 } from "../src";
 import { defaultMessages } from "../src/theme/messages";
 // The two upstream engines (pinned copies, upstream/SHA256SUMS) serve as oracles for the consolidated one.
@@ -192,9 +192,13 @@ describe("F8 view preferences", () => {
 
 // ---- F9 · F10 filter model ---------------------------------------------------------------------------------------------------
 describe("filter model", () => {
-  it("F9 the operator table is the one Sear and PMO share", () => {
-    expect(OPERATORS_BY_TYPE).toEqual(searEngine.OPERATORS_BY_TYPE);
-    expect(OPERATORS_BY_TYPE).toEqual(pmoEngine.OPERATORS_BY_TYPE);
+  it("F9 the operator table is Sear's and PMO's, plus Frappe's date operators (0.3.0)", () => {
+    const { date, ...rest } = OPERATORS_BY_TYPE;
+    const { date: searDate, ...searRest } = searEngine.OPERATORS_BY_TYPE;
+    expect(rest).toEqual(searRest);
+    expect(OPERATORS_BY_TYPE).toMatchObject({ ...pmoEngine.OPERATORS_BY_TYPE, date });
+    expect(searDate.every((op) => date.includes(op as Operator))).toBe(true); // nothing Sear/PMO offered is gone
+    expect(date.filter((op) => !(searDate as string[]).includes(op))).toEqual(["not_equals", "between", "timespan", "fiscal_year"]);
   });
 
   it("F10 every operator of every type gives Sear's and PMO's result (AND and OR)", () => {
@@ -204,13 +208,14 @@ describe("filter model", () => {
     };
     let checked = 0;
     for (const f of FIELDS) {
-      for (const op of OPERATORS_BY_TYPE[f.type]) {
+      // the operators Sear and PMO had (Between / Timespan / Fiscal Year are new: tested below)
+      for (const op of searEngine.OPERATORS_BY_TYPE[f.type] as Operator[]) {
         for (const value of VALUES[f.name] ?? [""]) {
           for (const conjunction of ["and", "or"] as const) {
             const q: FilterQuery = { conjunction, conditions: [{ id: "a", field: f.name, operator: op, value }, { id: "b", field: "status", operator: "equals", value: "Done" }] };
             const ours = ids(applyFilterQuery(ROWS, q, FIELDS));
-            expect(ours, `${f.name} ${op} ${value} ${conjunction}`).toEqual(ids(searEngine.applyFilterQuery(ROWS, q, FIELDS)));
-            expect(ours).toEqual(ids(pmoEngine.applyFilterQuery(ROWS, q, FIELDS as pmoEngine.FilterField[])));
+            expect(ours, `${f.name} ${op} ${value} ${conjunction}`).toEqual(ids(searEngine.applyFilterQuery(ROWS, q as never, FIELDS)));
+            expect(ours).toEqual(ids(pmoEngine.applyFilterQuery(ROWS, q as never, FIELDS as pmoEngine.FilterField[])));
             checked++;
           }
         }
@@ -862,5 +867,89 @@ describe("F35 localisation and C4 opt-in controls", () => {
     renderList({ controls: { sortMenu: true, quickFiltersCustomizable: true }, groupByOptions: [BY_STATUS], selectable: true });
     for (const name of [/Sort by/, /Group by/, "Customize filters"]) expect(screen.getByRole("button", { name })).toBeTruthy();
     expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(1);
+  });
+});
+
+// ---- Frappe's date operators (0.3.0, owner request: "the operations like Frappe") ---------------------------------------------
+import FRAPPE_TIMESPANS from "./fixtures/frappe-timespans.json";
+import { TIMESPANS, operatorLabelKey, operatorsFor, timespanRange, ymd, type FiscalYear } from "../src/list/model/filters";
+
+describe("Frappe date operators", () => {
+  const created: FilterField = { name: "creation", label: "Created On", type: "date", fieldtype: "Datetime" };
+  const due: FilterField = { name: "due", label: "Due", type: "date", fieldtype: "Date" };
+  const labels = (f: FilterField, fy = false) => operatorsFor(f, { fiscalYears: fy }).map((op) => defaultMessages.en[operatorLabelKey(op, f)]);
+
+  it("Datetime offers exactly Frappe's list (no Equals / Not Equals); Date adds them; Fiscal Year only with fiscal years", () => {
+    expect(labels(created, true)).toEqual(["Is", "After", "Before", "On or After", "On or Before", "Between", "Timespan", "Fiscal Year"]);
+    expect(labels(created)).not.toContain("Fiscal Year");
+    expect(labels(due)).toEqual(["Equals", "Not equals", "Is", "After", "Before", "On or After", "On or Before", "Between", "Timespan"]);
+    expect(operatorsFor({ name: "t", label: "T", type: "text" })).toEqual(["like", "not_like", "equals", "not_equals", "is_set"]); // others: unchanged, "Is" once
+    expect(defaultMessages.ar[operatorLabelKey("gte", due)]).toBe("في أو بعد");
+  });
+
+  it("every timespan gives Frappe's own dates (fixture from frappe.utils.data.get_timespan_date_range)", () => {
+    let n = 0;
+    for (const [day, spans] of Object.entries(FRAPPE_TIMESPANS)) {
+      if (day.startsWith("_")) continue;
+      const [y, m, d] = day.split("-").map(Number);
+      for (const ts of TIMESPANS) {
+        const r = timespanRange(ts, new Date(y, m - 1, d))!;
+        expect([ymd(r[0]), ymd(r[1])], `${day} ${ts}`).toEqual((spans as Record<string, string[]>)[ts]);
+        n++;
+      }
+    }
+    expect(n).toBe(7 * 24);
+  });
+
+  it("client filtering: by calendar day; Between (either side open), Timespan, Fiscal Year", () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 9, 19, 12));
+    try {
+      const rows = [{ id: "a", creation: "2026-10-14 09:00:00" }, { id: "b", creation: "2026-10-15 23:59:00" }, { id: "c", creation: "2026-10-19 08:00:00" }, { id: "d", creation: "2025-12-30 10:00:00" }];
+      const run = (operator: Operator, value: string, fiscalYears?: FiscalYear[]) =>
+        applyFilterQuery(rows, { conjunction: "and", conditions: [{ id: "x", field: "creation", operator, value }] }, [created], { fiscalYears }).map((r) => r.id);
+      expect(run("gt", "2026-10-15")).toEqual(["c"]); // After 15 Oct: not the 15th itself, whatever the time
+      expect(run("lte", "2026-10-15")).toEqual(["a", "b", "d"]);
+      expect(run("between", "2026-10-14,2026-10-15")).toEqual(["a", "b"]);
+      expect(run("between", "2026-10-15,")).toEqual(["b", "c"]);
+      expect(run("between", ",2026-10-14")).toEqual(["a", "d"]);
+      expect(run("timespan", "today")).toEqual(["c"]);
+      expect(run("timespan", "last 7 days")).toEqual(["a", "b", "c"]);
+      expect(run("timespan", "last year")).toEqual(["d"]);
+      expect(run("fiscal_year", "2025-2026", [{ name: "2025-2026", from: "2025-04-01", to: "2026-03-31" }])).toEqual(["d"]);
+      expect(run("fiscal_year", "unknown", [])).toEqual([]);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("the filter UI: Frappe's operator list; Is → Set / Not Set; Between → From / To; Timespan list; Fiscal Year loads on open", async () => {
+    const load = vi.fn(async () => [{ name: "2026", from: "2026-01-01", to: "2026-12-31" }]);
+    const Harness = () => {
+      const [q, setQ] = React.useState<FilterQuery>({ conjunction: "and", conditions: [] });
+      return <FilterBuilder fields={[created, due]} query={q} onChange={setQ} activeCount={0} loadFiscalYears={load} />;
+    };
+    render(<Wrap><Harness /></Wrap>);
+    expect(load).not.toHaveBeenCalled(); // nothing loads until the filter is opened
+    fireEvent.click(btn("Filter"));
+    await act(async () => {});
+    expect(load).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    const operator = () => within(popover()).getByRole("combobox", { name: "Condition" });
+    expect(operator().textContent).toBe("Between"); // dates start on Between
+    expect(within(popover()).getByRole("button", { name: "From" })).toBeTruthy();
+    expect(within(popover()).getByRole("button", { name: "To" })).toBeTruthy();
+    fireEvent.click(operator());
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Is", "After", "Before", "On or After", "On or Before", "Between", "Timespan", "Fiscal Year"]);
+    fireEvent.click(screen.getByRole("option", { name: "Timespan" }));
+    fireEvent.click(within(popover()).getByRole("combobox", { name: "Value" }));
+    expect(screen.getAllByRole("option")).toHaveLength(24);
+    expect(screen.getAllByRole("option")[0].textContent).toBe("Last 7 Days");
+    fireEvent.click(screen.getByRole("option", { name: "This Month" }));
+    fireEvent.click(operator());
+    fireEvent.click(screen.getByRole("option", { name: "Is" }));
+    const value = within(popover()).getByRole("combobox", { name: "Value" });
+    expect(value.textContent).toBe("Set");
+    fireEvent.click(value);
+    fireEvent.click(screen.getByRole("option", { name: "Not Set" }));
+    expect(within(popover()).getByRole("combobox", { name: "Condition" }).textContent).toBe("Is");
+    expect(within(popover()).getByRole("combobox", { name: "Value" }).textContent).toBe("Not Set");
   });
 });

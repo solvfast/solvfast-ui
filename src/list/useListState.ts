@@ -18,7 +18,7 @@ import * as React from "react";
 import { useLocale } from "../theme/ThemeProvider";
 import { loc } from "../lib/localized";
 import { fieldOf, filterFieldsFromColumns, type ColumnDef } from "./model/columns";
-import { EMPTY_QUERY, activeConditionCount, applyFilterQuery, type FilterField, type FilterQuery } from "./model/filters";
+import { EMPTY_QUERY, activeConditionCount, applyFilterQuery, type FilterField, type FilterQuery, type FiscalYear } from "./model/filters";
 import { groupRows, type GroupByOption, type RowGroup } from "./model/group";
 import { sortRows, type SortState } from "./model/sort";
 import { createLocalStorageAdapter, type ListPrefs, type ListPrefsStorage, type SavedFilter, type SavedFiltersStorage } from "./model/storage";
@@ -43,6 +43,8 @@ export interface UseListStateOptions<T> {
   total?: number;
   /** Default: from columns that have a `type`. */
   filterFields?: FilterField[];
+  /** "Fiscal Year" in the date filters (and client-mode filtering by it). */
+  fiscalYears?: FiscalYear[];
   /** Client search fields. Default: the first text column. */
   searchFields?: string[];
   /** Debounce before search and filter edits take effect (typing). Default: 300 ms in server mode, none in client mode. */
@@ -132,11 +134,11 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   );
   const filtered = React.useMemo(() => {
     if (mode === "server") return rows;
-    let out = applyFilterQuery(rows, appliedQuery, filterFields);
+    let out = applyFilterQuery(rows, appliedQuery, filterFields, { fiscalYears: opts.fiscalYears });
     const s = appliedSearch.trim().toLowerCase();
     if (s) out = out.filter((r) => searchFields.some((f) => String((r as Record<string, unknown>)[f] ?? "").toLowerCase().includes(s)));
     return sortRows(out, sort, columns);
-  }, [mode, rows, appliedQuery, filterFields, appliedSearch, searchFields, sort, columns]);
+  }, [mode, rows, appliedQuery, filterFields, appliedSearch, searchFields, sort, columns, opts.fiscalYears]);
 
   const groupOption = groupBy !== "none" ? opts.groupByOptions?.find((o) => o.key === groupBy) : undefined;
   const grouped = !!groupOption;

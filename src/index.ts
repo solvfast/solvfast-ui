@@ -138,8 +138,11 @@ export type { FilterBuilderProps, LoadOptions } from "./list/parts/FilterBuilder
 export { SavedFilters, ColumnManager, QuickFilters, SortMenu, GroupByMenu } from "./list/parts/Toolbar";
 export { ListPagination, BulkActionBar } from "./list/parts/ListFooter";
 export type { BulkAction } from "./list/parts/ListFooter";
-export { applyFilterQuery, activeConditionCount, newCondition, OPERATORS_BY_TYPE, EMPTY_QUERY, getQuickValue, setQuickValue } from "./list/model/filters";
-export type { FilterField, FilterQuery, FilterCondition, Operator, FieldType } from "./list/model/filters";
+export {
+  applyFilterQuery, activeConditionCount, newCondition, OPERATORS_BY_TYPE, EMPTY_QUERY, getQuickValue, setQuickValue,
+  operatorsFor, defaultOperator, operatorLabelKey, TIMESPANS, timespanRange, splitRange, joinRange,
+} from "./list/model/filters";
+export type { FilterField, FilterQuery, FilterCondition, Operator, FieldType, FiscalYear, Timespan } from "./list/model/filters";
 export { mergeColumns, filterFieldsFromColumns } from "./list/model/columns";
 export type { ColumnDef } from "./list/model/columns";
 export { compareValues, sortRows } from "./list/model/sort";

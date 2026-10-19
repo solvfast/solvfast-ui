@@ -203,10 +203,10 @@ describe("F11 filters → Frappe", () => {
   it("text, select and link operators equal Sear's translation", () => {
     for (const [field, op, value] of [["status", "equals", "Open"], ["status", "not_equals", "Open"], ["status", "in", "Open, Closed"], ["status", "not_in", "Open"], ["description", "like", "visa"], ["description", "not_like", "visa"], ["allocated_to", "is_set", ""], ["allocated_to", "is_not_set", ""], ["date", "lt", "2026-10-15"]] as const) {
       const query = q("and", [field, op, value]);
-      expect(queryToFrappe(query, META.known, META.fieldtypes).filters, `${field} ${op}`).toEqual(searQueryToFrappe(query, META.filterFields).filters);
+      expect(queryToFrappe(query, META.known, META.fieldtypes).filters, `${field} ${op}`).toEqual(searQueryToFrappe(query as never, META.filterFields).filters);
     }
     const two = q("or", ["status", "equals", "Open"], ["priority", "equals", "High"]);
-    expect(queryToFrappe(two, META.known, META.fieldtypes)).toMatchObject(searQueryToFrappe(two, META.filterFields));
+    expect(queryToFrappe(two, META.known, META.fieldtypes)).toMatchObject(searQueryToFrappe(two as never, META.filterFields));
     const one = q("or", ["status", "equals", "Open"]);
     expect(queryToFrappe(one, META.known, META.fieldtypes)).toMatchObject({ filters: [["status", "=", "Open"]], or_filters: [] });
   });
@@ -227,14 +227,14 @@ describe("F11 filters → Frappe", () => {
     expect(dt("lte")).toEqual(["creation", "<=", "2026-10-15 23:59:59.999999"]);
     expect(dt("gte")).toEqual(["creation", ">=", "2026-10-15"]);
     expect(conditionToFrappe({ id: "a", field: "date", operator: "equals", value: "2026-10-15" }, "Date")).toEqual(["date", "=", "2026-10-15"]);
-    expect(searQueryToFrappe(q("and", ["creation", "equals", "2026-10-15"]), META.filterFields).filters).toEqual([["creation", "=", "2026-10-15"]]); // midnight only
+    expect(searQueryToFrappe(q("and", ["creation", "equals", "2026-10-15"]) as never, META.filterFields).filters).toEqual([["creation", "=", "2026-10-15"]]); // midnight only
   });
 
   it("conditions on fields the DocType doesn't have are dropped (fix) — negative control: Sear sends them and Frappe rejects the request", async () => {
     const stale = q("and", ["old_field", "equals", "x"], ["status", "equals", "Open"]);
     expect(queryToFrappe(stale, META.known, META.fieldtypes)).toEqual({ filters: [["status", "=", "Open"]], or_filters: [], dropped: ["old_field"] });
     const client = createFrappeClient({ transport: createMockFrappe().transport });
-    const sear = searQueryToFrappe(stale, META.filterFields);
+    const sear = searQueryToFrappe(stale as never, META.filterFields);
     const e = await client.getList("ToDo", { fields: ["name"], ...sear }).catch((x) => x);
     expect(e).toMatchObject({ status: 417, excType: "DataError", message: "Field not permitted in query: old_field" });
   });
@@ -496,5 +496,52 @@ describe("providers", () => {
   it("the core entry exports nothing from the Frappe layer", () => {
     for (const name of ["FrappeListView", "FrappeProvider", "createFrappeClient", "queryToFrappe", "toFrappeError"]) expect(name in core).toBe(false);
     expect(typeof toFrappeError).toBe("function");
+  });
+});
+
+// ---- Frappe's date operators (0.3.0) ------------------------------------------------------------------------------------------
+describe("Frappe date operators → Frappe filters", () => {
+  const c = (operator: FilterQuery["conditions"][number]["operator"], value: string) => ({ id: "a", field: "creation", operator, value });
+  const FY = [{ name: "2025-2026", from: "2025-04-01", to: "2026-03-31" }];
+
+  it("Between, Timespan and Fiscal Year become Frappe's between / timespan; open-ended Between keeps the whole-day rule", () => {
+    expect(conditionToFrappe(c("between", "2026-10-01,2026-10-15"), "Datetime")).toEqual(["creation", "between", ["2026-10-01", "2026-10-15"]]);
+    expect(conditionToFrappe(c("between", "2026-10-01,"), "Datetime")).toEqual(["creation", ">=", "2026-10-01"]);
+    expect(conditionToFrappe(c("between", ",2026-10-15"), "Datetime")).toEqual(["creation", "<=", "2026-10-15 23:59:59.999999"]);
+    expect(conditionToFrappe(c("between", ","), "Datetime")).toBeNull();
+    expect(conditionToFrappe(c("timespan", "last 30 days"), "Datetime")).toEqual(["creation", "timespan", "last 30 days"]);
+    expect(conditionToFrappe(c("timespan", "since forever"), "Datetime")).toBeNull(); // only Frappe's own timespans
+    expect(conditionToFrappe(c("fiscal_year", "2025-2026"), "Date", { fiscalYears: FY })).toEqual(["creation", "between", ["2025-04-01", "2026-03-31"]]);
+    expect(conditionToFrappe(c("fiscal_year", "2025-2026"), "Date")).toBeNull();
+  });
+
+  it("fiscal years load only when the filter opens (no request on page load), then filter by the year's dates", async () => {
+    const base = createMockFrappe();
+    const mock: MockFrappe = {
+      ...base,
+      transport: async (method, args) => {
+        if (method === "frappe.client.get_list" && args.doctype === "Fiscal Year") {
+          base.calls.push({ method, args });
+          return { message: [{ name: "2026", year_start_date: "2026-01-01", year_end_date: "2026-12-31" }] };
+        }
+        return base.transport(method, args);
+      },
+    };
+    setup({}, { mock });
+    await loaded();
+    const fyCalls = () => base.calls.filter((x) => x.method === "frappe.client.get_list" && x.args.doctype === "Fiscal Year");
+    expect(fyCalls()).toHaveLength(0);
+    fireEvent.click(btn("Filter"));
+    await waitFor(() => expect(fyCalls()).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("combobox", { name: "Field" }));
+    fireEvent.click(screen.getByRole("option", { name: "Due Date" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("combobox", { name: "Condition" }));
+    fireEvent.click(screen.getByRole("option", { name: "Fiscal Year" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("combobox", { name: "Value" }));
+    fireEvent.click(screen.getByRole("option", { name: "2026" }));
+    await pause();
+    await waitFor(() => expect(lastList(base).filters).toEqual([["date", "between", ["2026-01-01", "2026-12-31"]]]));
+    expect(fyCalls()).toHaveLength(1); // once per session
   });
 });
