@@ -293,3 +293,35 @@ step).
 | Clean installs | `e2e/consumers/run.sh` | A (Tailwind, sonner 2.0.7) and B (no Tailwind, sonner 1.7.4): strict `tsc`, build, one copy of React, sonner and radio-group. Served builds render a toast, a table, the radio and the stepper with no page errors, in light-en and dark-ar |
 | Showcase | `node e2e/showcase-smoke.mjs` | 33 sections, with new interactions: radio, table, toast, stepper — pass |
 
+
+## 0.3.0 — merged components (2026-10-19)
+
+The rest of PMO's `components/ui` (16 Design System primitives, the chart and form entries, SearchCombobox, rich text,
+PageHeader, EditableTitle), the DateField label fix and two shell options (`PageHeader` title in the top bar,
+`mobile.primary`). `package.json` still says `0.2.0`; the version is the owner's step.
+
+| Check | Command | Result |
+|---|---|---|
+| Type check, unit tests | `npm run typecheck`, `npm test` | pass — 186/186 (133 before + 53 in `tests/merged.test.tsx`: every new export renders with its roles and names, in en and ar; popups in the element scope with `sf-popper`; SearchCombobox loading, debounce, stale responses, errors, reset key; 19 sanitizer XSS cases + allowed markup + inert `htmlIsEmpty`; editor writes/emits sanitized HTML; PageHeader back button and label in en/ar; PageHeader inside/outside AppShell (only one `<h1>`, unmount restores, `title` wins, `{ en, ar }`); MobileNav `primary`; chart colours per theme, tooltip, legend; form label/description/error wiring; DateField / TimeField / DateTimeField named by `<label>` with an `id`, self-named without) |
+| Negative controls | by hand, reverted | the stale-response test fails when the request-id guard is removed; a core export of `./chart` and `./form` fails the boundary check in source (2) and in dist (4) |
+| Build, boundaries, package audit | `npm run build` | pass — core reaches 72 modules (none import `@tanstack/*`, sonner, recharts, react-hook-form, or reach the toast / chart / form entries); chart entry 3 modules (recharts), form entry 4 (react-hook-form, and the core's Label module — one copy); 12 exports; 272 files, 296.9 kB packed |
+| Existing styles unchanged | `scripts/extract-css.mjs`, diff against 0.2.0 | theme.css / glass.css / base.css / full.css / full-base.css: no existing rule changed or removed — only the banner comment and added rules (rich text, new utilities) |
+| Dedupe | `npm ls --all` | 53 Radix packages, one version each, none nested; the 11 new ones (2026-07-24 release, the existing pins' wave) add no new internal packages (42 → 53 = the 11 direct ones) |
+| Primitives vs Sear | `e2e/run-parity.sh` | run 1: 48 identical + 3 at 1/255 + 1 at 26/255 (dark-ar date: 12 pixels of 1.15 M — glass anti-aliasing); run 2: **50 identical + 2 at 1/255 of 52** |
+| 0.2.0 extras vs Sear | `node e2e/extras-parity.mjs` | run 1: 31 + 1 at 30/255 (dark-en phone stepper, 11 pixels); run 2: **32/32 identical** |
+| Shell vs Sear | `node e2e/shell-parity.mjs` | **30/44** — the 14 others are the 4 intended shell fixes, as recorded since 5.5 (the default AppShell / MobileNav rendering is unchanged) |
+| Showcase | `npm run showcase:build`, `node e2e/showcase-smoke.mjs` | **51 sections** (18 new) × light/dark × en/ar, browsing, interactions and phone width — pass. New interactions: toggles, slider keys per direction, progress anchored at the reading start, accordion, search combobox (loading state, search, pick), rich text (toolbar; an XSS sample whose payloads set `window.__sfXss` — never set), form validation, charts, hover card / context menu / menubar / navigation menu (`sf-popper`), breadcrumb, pagination, page header (back, editable title; inside the shell demo the frame has one `<h1>`, the PageHeader's title) |
+| Clean installs | `e2e/consumers/run.sh` | A (Tailwind; recharts 2.15.4, react-hook-form 7.79.0 — PMO's) and B (no Tailwind; recharts 2.15.0, react-hook-form 7.50.0 — the peer ranges' floors): strict `tsc` including the package's declarations, build, one React, one copy of every Radix package, recharts and react-hook-form. The served builds (`?view=merged`, light-en and dark-ar): popups open inside `.sf-popper` with the glass blur, chart, form, combobox, rich text (its CSS applied on both paths), page header; the existing views load — 60/60 checks, no page or console errors |
+
+**Found and fixed during the run.**
+- The clean install on react-hook-form 7.50 failed to type-check: the emitted `form.d.ts` inlined 7.79's `FormProvider`
+  props. `Form` is now typed `typeof FormProvider` (and `useFormField` explicitly), so the declarations name the app's
+  own react-hook-form. The chart declarations had the same pattern (deep `recharts/types/…` paths); a named props type
+  fixed it.
+- recharts 2's own declarations need `@types/lodash` under `skipLibCheck: false` (the consumers' setting); the two
+  consumer apps now list it (documented in CONSUMING §7 and LIMITATIONS).
+- PMO's `sanitizeHtml` was bypassable (content inside any non-allowed element was never sanitized; proven against a
+  copy of PMO's function in jsdom: `<font><img src=x onerror=…></font>` came out unchanged). The package rebuilds HTML
+  from an allowlist. **PMO's own copy is still vulnerable until PMO switches to the package.**
+
+Not run for 0.3.0: list, cards, parts, motion and Frappe-demo parity — the code they measure did not change.

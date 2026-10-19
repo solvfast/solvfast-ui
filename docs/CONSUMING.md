@@ -27,7 +27,8 @@ the same setup as `@solvfast/design-system`.
    npm install @solvfast/ui@0.2.0        # or: yarn add @solvfast/ui@0.2.0 · pnpm add @solvfast/ui@0.2.0
    ```
    Peer dependencies: `react` and `react-dom` 18.3; `tailwindcss` 3.4 for path A; `@tanstack/react-query` 5 for
-   `@solvfast/ui/frappe`. A `401`/`403` means the token is missing (`NODE_AUTH_TOKEN` not exported in that shell), lacks
+   `@solvfast/ui/frappe`; `sonner` for `@solvfast/ui/toast`, `recharts` 2 for `@solvfast/ui/chart`, `react-hook-form` 7
+   for `@solvfast/ui/form` (all optional: install only for the entries you import). A `401`/`403` means the token is missing (`NODE_AUTH_TOKEN` not exported in that shell), lacks
    `read:packages`, isn't SSO-authorised, or your account has no access to the package.
 
 Without the registry (e.g. to try a local build): `npm pack` in this repository, then
@@ -139,6 +140,23 @@ const location = useLocation(); const navigate = useNavigate();      // e.g. rea
 - The parts are exported too — `Sidebar`, `Navbar`, `MobileNav`, `AppSwitcher`, `NotificationPanel` — for custom layouts.
 - `NotificationItem`: `{ id, body, at (epoch ms), read, iconSrc?, source? }`; the panel groups by Today / Yesterday /
   Earlier and shows relative times. The app owns the data: mark items read in `onItemClick` / `onMarkAllRead`.
+- **One page title (0.3.0).** On Sear's pages the glass top bar's title *is* the page title (the page's `<h1>`); pages
+  have no heading of their own. A `PageHeader` inside `AppShell` follows that: its text title (`string` or `{ en, ar }`)
+  replaces the top bar's title while the header is mounted (the previous title comes back when it unmounts), and the
+  header renders only its back button, subtitle, `meta` and `actions` — nothing if none is set. A node title (e.g.
+  `<EditableTitle>`) stays in the page. AppShell's `title` prop still wins over everything.
+  ```tsx
+  <AppShell …>
+    <PageHeader title={{ en: "Website redesign", ar: "إعادة تصميم الموقع" }} subtitle="PRJ-0042"
+      onBack={() => navigate(-1)} actions={<Button size="sm">Share</Button>} />
+    …
+  </AppShell>
+  ```
+- **Mobile bar items (0.3.0).** By default the mobile bar shows the first top-level *leaves* and "More" holds the rest,
+  as in Sear. If your navigation is mostly groups (PMO: Home + module groups), choose the bar's items:
+  `mobile={{ primary: [home, projects, tasks, more], maxItems: 4 }}`. "More" then lists the whole navigation tree
+  (every level, indented), so everything on the desktop sidebar is reachable on a phone. A group in `primary` opens its
+  `href`, or its first child's.
 
 ## 4. List View
 `ListView` is Sear's data grid (search, saved filters, advanced filter, column manager, glass table, pill pager) with
@@ -231,6 +249,100 @@ Not bundled. Add to `index.html`:
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Zain:wght@400;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
 ```
+
+## 7. Merged components (0.3.0)
+Everything in PMO's `components/ui` is in the package now. Replace local copies with imports; the look is Sear's (the
+package's glass, tokens and popper surfaces), not the local shadcn one.
+```tsx
+import {
+  Alert, AlertTitle, AlertDescription, Progress, Toggle, ToggleGroup, ToggleGroupItem, StatusDot, Pill,
+  Accordion, AccordionItem, AccordionTrigger, AccordionContent, Collapsible, CollapsibleTrigger, CollapsibleContent,
+  Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator,
+  Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext,
+  Slider, AspectRatio, HoverCard, HoverCardTrigger, HoverCardContent, ContextMenu, ContextMenuTrigger, ContextMenuContent,
+  ContextMenuItem, Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, NavigationMenu, NavigationMenuList,
+  SearchCombobox, RichText, RichTextEditor, sanitizeHtml, htmlIsEmpty, PageHeader, EditableTitle,
+} from "@solvfast/ui";
+```
+- **Popups** (hover card, context menu, menubar, combobox) render inside the theme scope and have the package's popper
+  glass, like Popover and DropdownMenu. Arabic: pagination and breadcrumb strings are translated (override any with
+  props or `ThemeProvider messages`), chevrons point the reading way, `Progress` fills from the right.
+- **SearchCombobox** keeps PMO's props without React Query: `search(q)` runs when the popover opens and 200 ms after
+  typing stops; late answers to older searches are ignored. `queryKey` is optional — when it changes, the loaded options
+  are dropped and loaded again (there is no shared cache).
+  ```tsx
+  <Label htmlFor="customer">Customer</Label>
+  <SearchCombobox id="customer" value={value} onSelect={setValue} queryKey={`link-${doctype}`}
+    search={(q) => searchLink({ doctype, txt: q })} placeholder="Select…" searchPlaceholder="Search…" emptyText="No results" />
+  ```
+- **Rich text.** `RichTextEditor` emits sanitized HTML; `RichText` sanitizes whatever it renders. `sanitizeHtml` keeps
+  text, `p br div span b strong i em u s strike ul ol li h3 blockquote code` and `a` with an absolute `http(s):` /
+  `mailto:` link (opened in a new tab); everything else is unwrapped or removed (scripts, styles, iframes, objects,
+  SVG, every attribute). Relative links are dropped. The styles are the `.sf-rich-text` rules in theme.css / full.css.
+- **PageHeader** is router-free: pass `onBack={() => navigate(-1)}` (PMO's `backTo="/x"` → `onBack={() => navigate("/x")}`).
+  The back label defaults to the `back` message ("Back" / "رجوع"); `backLabel` overrides it. Inside `AppShell`, see §3.
+- **DateField / TimeField / DateTimeField** with an `id`: name them with `<Label htmlFor={id}>` (PMO's pattern); the
+  label is now their accessible name (it was always "Date" / "Time").
+
+**Charts** — a separate entry, `@solvfast/ui/chart`, on the app's recharts 2 (optional peer dependency `^2.15.0`):
+```sh
+npm install recharts@2      # skip if the app already has recharts 2.15+
+```
+```tsx
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@solvfast/ui/chart";
+
+const config = {
+  opened: { label: "Opened", color: "hsl(var(--primary))" },
+  closed: { label: "Closed", theme: { light: "#0ea5e9", dark: "#38bdf8" } },   // per theme
+} satisfies ChartConfig;
+
+<ChartContainer config={config} className="h-64 w-full">
+  <BarChart data={data}>
+    <CartesianGrid vertical={false} />
+    <XAxis dataKey="month" reversed={isRTL} />        {/* recharts draws left-to-right: reverse the axis in Arabic */}
+    <ChartTooltip content={<ChartTooltipContent />} />
+    <ChartLegend content={<ChartLegendContent />} />
+    <Bar dataKey="opened" fill="var(--color-opened)" radius={4} />
+  </BarChart>
+</ChartContainer>
+```
+recharts 2's own type declarations import lodash types: an app that type-checks libraries (`skipLibCheck: false`) also
+needs `@types/lodash` (Vite's templates, PMO and Sear use `skipLibCheck: true`).
+
+**Forms** — a separate entry, `@solvfast/ui/form`, on the app's react-hook-form 7 (optional peer dependency `^7.50.0`):
+```sh
+npm install react-hook-form@7      # skip if the app already has react-hook-form 7.50+
+```
+```tsx
+import { useForm } from "react-hook-form";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from "@solvfast/ui/form";
+import { Input } from "@solvfast/ui";
+
+const form = useForm({ defaultValues: { name: "" } });
+<Form {...form}>
+  <form onSubmit={form.handleSubmit(save)}>
+    <FormField control={form.control} name="name" rules={{ required: "Name is required" }} render={({ field }) => (
+      <FormItem>
+        <FormLabel>Name</FormLabel>
+        <FormControl><Input {...field} /></FormControl>
+        <FormDescription>Shown on invoices.</FormDescription>
+        <FormMessage />
+      </FormItem>
+    )} />
+  </form>
+</Form>
+```
+With a zod resolver, keep `@hookform/resolvers` and `zod` in the app as before; the package doesn't need them.
+
+### Components the package does not ship
+**drawer** (vaul), **carousel** (embla-carousel), **input-otp** and **resizable** (react-resizable-panels — v2 in Sear
+and the Design System, v4 in PMO and the starter; their APIs differ). Keep your local shadcn copies of these. With the
+package's Tailwind preset (path A), their token utilities (`bg-background`, `text-primary`, `border-input`,
+`rounded-md`, …) resolve to the package's CSS variables under `.sf-theme`, so they follow the theme and dark mode; they
+don't get the package's glass surfaces (classes of your own, such as PMO's `glass-overlay`, keep coming from your CSS).
+Their portals go to `<body>`: fine with the default document scope; with `scope="element"`, pass the container from
+`usePortalContainer()` to them yourself.
 
 ## Known limitations
 The full list is in docs/LIMITATIONS.md. The ones most likely to matter:

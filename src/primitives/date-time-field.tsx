@@ -51,6 +51,15 @@ type BaseProps = {
   id?: string;
 };
 
+/** The trigger's name. Without an `aria-label`, a field with an `id` is named by its `<label htmlFor={id}>` (an
+ *  aria-label would override it), and the selected value is its description (the visible value span); without either,
+ *  the field names itself ("Date" / "Date: 12 Oct 2026", as before). */
+function triggerA11y(id: string | undefined, ariaLabel: string | undefined, fallback: string, value: string | null) {
+  if (id && ariaLabel === undefined) return { "aria-describedby": value ? `${id}-value` : undefined };
+  const name = ariaLabel ?? fallback;
+  return { "aria-label": value ? `${name}: ${value}` : name };
+}
+
 function FieldError({ error }: { error?: string }) {
   if (!error) return null;
   return (
@@ -117,7 +126,7 @@ export function DateField({
   const [open, setOpen] = React.useState(false);
   const selected = parseDateValue(value);
   const label = selected ? formatDate(selected, isRTL) : (placeholder ?? (isRTL ? "اختر تاريخًا" : "Pick a date"));
-  const a11y = rest["aria-label"] ?? (isRTL ? "التاريخ" : "Date");
+  const a11y = triggerA11y(id, rest["aria-label"], isRTL ? "التاريخ" : "Date", selected ? formatDate(selected, isRTL) : null);
 
   return (
     <div className={className}>
@@ -125,11 +134,11 @@ export function DateField({
         <PopoverTrigger asChild>
           <button
             type="button" id={id} disabled={disabled}
-            aria-label={selected ? `${a11y}: ${formatDate(selected, isRTL)}` : a11y}
+            {...a11y}
             aria-invalid={!!error || undefined}
             className={cn(TRIGGER, error && "!border-destructive/60")}
           >
-            <span className={selected ? "truncate text-foreground" : "text-muted-foreground"}>{label}</span>
+            <span id={id ? `${id}-value` : undefined} className={selected ? "truncate text-foreground" : "text-muted-foreground"}>{label}</span>
             <CalendarIcon className={cn("size-4 shrink-0", error ? "text-destructive" : "text-muted-foreground")} aria-hidden />
           </button>
         </PopoverTrigger>
@@ -175,7 +184,7 @@ export function TimeField({
   const label = parsed
     ? formatTime(new Date(2000, 0, 1, parsed.h, parsed.m), isRTL)
     : (isRTL ? "اختر الوقت" : "Pick a time");
-  const a11y = rest["aria-label"] ?? (isRTL ? "الوقت" : "Time");
+  const a11y = triggerA11y(id, rest["aria-label"], isRTL ? "الوقت" : "Time", parsed ? label : null);
 
   const apply = () => {
     onChange(toTimeValue(pm ? (h % 12) + 12 : h % 12, m));
@@ -188,11 +197,11 @@ export function TimeField({
         <PopoverTrigger asChild>
           <button
             type="button" id={id} disabled={disabled}
-            aria-label={parsed ? `${a11y}: ${label}` : a11y}
+            {...a11y}
             aria-invalid={!!error || undefined}
             className={cn(TRIGGER, error && "!border-destructive/60")}
           >
-            <span className={parsed ? "truncate text-foreground" : "text-muted-foreground"}>{label}</span>
+            <span id={id ? `${id}-value` : undefined} className={parsed ? "truncate text-foreground" : "text-muted-foreground"}>{label}</span>
             <Clock className={cn("size-4 shrink-0", error ? "text-destructive" : "text-muted-foreground")} aria-hidden />
           </button>
         </PopoverTrigger>
@@ -260,7 +269,7 @@ export function DateTimeField({
     ? new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate(), pm ? (h % 12) + 12 : h % 12, m)
     : null;
   const label = committed ? formatDateTime(committed, isRTL) : (isRTL ? "اختر التاريخ والوقت" : "Select date and time");
-  const a11y = rest["aria-label"] ?? (isRTL ? "التاريخ والوقت" : "Date and time");
+  const a11y = triggerA11y(id, rest["aria-label"], isRTL ? "التاريخ والوقت" : "Date and time", committed ? label : null);
 
   const apply = () => { if (preview) { onChange(toDateTimeValue(preview)); setOpen(false); } };
 
@@ -270,11 +279,11 @@ export function DateTimeField({
         <PopoverTrigger asChild>
           <button
             type="button" id={id} disabled={disabled}
-            aria-label={committed ? `${a11y}: ${label}` : a11y}
+            {...a11y}
             aria-invalid={!!error || undefined}
             className={cn(TRIGGER, error && "!border-destructive/60")}
           >
-            <span className={committed ? "truncate text-foreground" : "text-muted-foreground"}>{label}</span>
+            <span id={id ? `${id}-value` : undefined} className={committed ? "truncate text-foreground" : "text-muted-foreground"}>{label}</span>
             <CalendarIcon className={cn("size-4 shrink-0", error ? "text-destructive" : "text-muted-foreground")} aria-hidden />
           </button>
         </PopoverTrigger>

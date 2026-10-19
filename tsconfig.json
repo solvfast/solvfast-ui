@@ -27,6 +27,12 @@
       "@ui/toast": [
         "./src/toast/index.ts"
       ],
+      "@ui/chart": [
+        "./src/chart/index.ts"
+      ],
+      "@ui/form": [
+        "./src/form/index.ts"
+      ],
       "@ui/frappe": [
         "./src/frappe/index.ts"
       ]

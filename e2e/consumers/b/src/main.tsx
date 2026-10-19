@@ -9,6 +9,7 @@ import { ShellPage } from "./showcase/ShellPage";
 import { FieldLibraryDemo } from "./showcase/FieldLibraryDemo";
 import { FrappeDemo } from "./showcase/FrappeDemo";
 import { ExtrasPage } from "./showcase/ExtrasPage";
+import { MergedPage } from "./showcase/MergedPage";
 import { BASE, BRAND, NAV_ITEMS, SWITCHER_SECTIONS, seedNotifications, workspaceLogo } from "./demo/sear-demo";
 
 const params = new URLSearchParams(location.search);
@@ -35,5 +36,6 @@ createRoot(document.getElementById("root")!).render(
   <ThemeProvider storageKeys={{ theme: "app_theme", language: "app_lang" }} defaultLanguage="ar">{params.get("view") === "shell" ? <ShellDemo /> : params.get("view") === "list"
     ? <div className="sf-app min-h-screen"><FieldLibraryDemo variant={params.get("demo") ?? "sear"} /></div>
     : params.get("view") === "extras" ? <div className="sf-app min-h-screen"><ExtrasPage /></div>
+    : params.get("view") === "merged" ? <div className="sf-app min-h-screen"><MergedPage /></div>
     : params.get("view") === "frappe" ? <div className="sf-app min-h-screen"><FrappeDemo variant={params.get("demo") ?? "default"} /></div> : <Page />}</ThemeProvider>,
 );

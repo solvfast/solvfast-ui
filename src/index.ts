@@ -62,6 +62,48 @@ export type { StepperStep, StepState } from "./primitives/stepper";
 export { Calendar } from "./primitives/calendar";
 export { DateField, TimeField, DateTimeField } from "./primitives/date-time-field";
 
+// Merged components (0.3.0): the rest of PMO's components/ui — DS v0.3.0 primitives and PMO's own pieces (VENDORED.md).
+// Charts and forms are separate entries: @solvfast/ui/chart (recharts) and @solvfast/ui/form (react-hook-form).
+export { Alert, AlertTitle, AlertDescription } from "./primitives/alert";
+export { Progress } from "./primitives/progress";
+export { Toggle, toggleVariants } from "./primitives/toggle";
+export { ToggleGroup, ToggleGroupItem } from "./primitives/toggle-group";
+export { StatusDot } from "./primitives/status-dot";
+export { Pill } from "./primitives/pill";
+export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "./primitives/accordion";
+export { Collapsible, CollapsibleTrigger, CollapsibleContent } from "./primitives/collapsible";
+export {
+  Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbPage, BreadcrumbSeparator, BreadcrumbEllipsis,
+} from "./primitives/breadcrumb";
+export {
+  Pagination, PaginationContent, PaginationLink, PaginationItem, PaginationPrevious, PaginationNext, PaginationEllipsis,
+} from "./primitives/pagination";
+export { Slider } from "./primitives/slider";
+export { AspectRatio } from "./primitives/aspect-ratio";
+export { HoverCard, HoverCardTrigger, HoverCardContent } from "./primitives/hover-card";
+export {
+  ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem,
+  ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuGroup, ContextMenuPortal, ContextMenuSub,
+  ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuRadioGroup,
+} from "./primitives/context-menu";
+export {
+  Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem, MenubarSeparator, MenubarLabel, MenubarCheckboxItem,
+  MenubarRadioGroup, MenubarRadioItem, MenubarPortal, MenubarSubContent, MenubarSubTrigger, MenubarGroup, MenubarSub,
+  MenubarShortcut,
+} from "./primitives/menubar";
+export {
+  navigationMenuTriggerStyle, NavigationMenu, NavigationMenuList, NavigationMenuItem, NavigationMenuContent,
+  NavigationMenuTrigger, NavigationMenuLink, NavigationMenuIndicator, NavigationMenuViewport,
+} from "./primitives/navigation-menu";
+export { SearchCombobox } from "./primitives/search-combobox";
+export type { ComboOption, SearchComboboxProps } from "./primitives/search-combobox";
+export { RichText, RichTextEditor, sanitizeHtml, htmlIsEmpty } from "./primitives/rich-text-editor";
+export type { RichTextProps, RichTextEditorProps } from "./primitives/rich-text-editor";
+export { PageHeader } from "./primitives/page-header";
+export type { PageHeaderProps } from "./primitives/page-header";
+export { EditableTitle } from "./primitives/editable-title";
+export type { EditableTitleProps } from "./primitives/editable-title";
+
 // Number cards: the Design System's stat card and Sear Studio's overview card
 export { StatCard, IconStatCard } from "./cards/StatCard";
 export type { StatCardProps, IconStatCardProps } from "./cards/StatCard";

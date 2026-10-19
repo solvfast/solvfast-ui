@@ -11,6 +11,8 @@
   "sf-glass-overlay-blur",
   "sf-lg-surface",
   "sf-popper",
+  "sf-rich-text",
+  "sf-rte-editable",
   "sf-skeleton-shimmer",
   "sf-theme"
 ]

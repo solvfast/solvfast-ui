@@ -96,6 +96,22 @@ const en = {
   prevPage: "Previous page",
   nextPage: "Next page",
   actions: "Actions",
+  // 0.3.0 — merged components (PMO's strings where PMO had them)
+  back: "Back",
+  loading: "Loading…",
+  pagination: "Pagination",
+  previous: "Previous",
+  next: "Next",
+  morePages: "More pages",
+  breadcrumb: "Breadcrumb",
+  editTitle: "Edit title",
+  textFormatting: "Text formatting",
+  bold: "Bold",
+  italic: "Italic",
+  underline: "Underline",
+  strikethrough: "Strikethrough",
+  bulletedList: "Bulleted list",
+  numberedList: "Numbered list",
 };
 
 export type Messages = typeof en;
@@ -192,6 +208,21 @@ const ar: Messages = {
   prevPage: "الصفحة السابقة",
   nextPage: "الصفحة التالية",
   actions: "إجراءات",
+  back: "رجوع",
+  loading: "جارٍ التحميل…",
+  pagination: "ترقيم الصفحات",
+  previous: "السابق",
+  next: "التالي",
+  morePages: "صفحات أخرى",
+  breadcrumb: "مسار التنقل",
+  editTitle: "تعديل العنوان",
+  textFormatting: "تنسيق النص",
+  bold: "عريض",
+  italic: "مائل",
+  underline: "تسطير",
+  strikethrough: "يتوسطه خط",
+  bulletedList: "قائمة نقطية",
+  numberedList: "قائمة مرقّمة",
 };
 
 export const defaultMessages: Record<Language, Messages> = { en, ar };

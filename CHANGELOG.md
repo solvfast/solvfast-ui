@@ -6,6 +6,72 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## [0.3.0] — Unreleased
+
+Additive: every component in PMO's `components/ui` is now in the package, in the package's look, so PMO and new
+BildFast projects can import them from `@solvfast/ui`. Two new entries with optional peer dependencies:
+**`@solvfast/ui/chart` needs `recharts` 2**, **`@solvfast/ui/form` needs `react-hook-form` 7** (docs/CONSUMING.md §7).
+Apps that don't use the new parts see no change: the existing parity suites were rerun (docs/VALIDATION.md).
+
+### Added — Design System v0.3.0 primitives (as in PMO)
+- `Alert` (`AlertTitle`, `AlertDescription`), `Progress`, `Toggle` (+ `toggleVariants`), `ToggleGroup` / `ToggleGroupItem`,
+  `StatusDot`, `Pill`, `Accordion` (`AccordionItem`, `AccordionTrigger`, `AccordionContent`), `Collapsible`
+  (`CollapsibleTrigger`, `CollapsibleContent`), `Breadcrumb` (`BreadcrumbList`, `BreadcrumbItem`, `BreadcrumbLink`,
+  `BreadcrumbPage`, `BreadcrumbSeparator`, `BreadcrumbEllipsis`), `Pagination` (`PaginationContent`, `PaginationItem`,
+  `PaginationLink`, `PaginationPrevious`, `PaginationNext`, `PaginationEllipsis`), `Slider`, `AspectRatio`, `HoverCard`
+  (`HoverCardTrigger`, `HoverCardContent`), `ContextMenu` (+ 14 parts), `Menubar` (+ 15 parts), `NavigationMenu`
+  (+ 7 parts and `navigationMenuTriggerStyle`).
+- Their popups render inside the theme scope and carry the package's popper glass, as the dropdown menu does (hover
+  card, context menu, menubar; also the navigation menu's panel, which Radix keeps inline).
+- Arabic: pagination and breadcrumb strings come from the package messages; their chevrons, and the context-menu and
+  menubar sub-menu chevrons, point the reading way; `Progress` fills from the right.
+
+### Added — from PMO
+- `SearchCombobox` (+ `ComboOption`, `SearchComboboxProps`): PMO's async combobox (Link fields, repo pickers) without
+  React Query. It loads when opened and 200 ms after typing stops, ignores late answers to older searches, and shows
+  "Loading…" instead of "empty" while a search runs. Same props; `queryKey` is optional (a reset key).
+- `RichText`, `RichTextEditor`, `sanitizeHtml`, `htmlIsEmpty`: PMO's rich-text editor and viewer, with the package's
+  field look and toolbar labels in Arabic and English. The rich-text styles ship in theme.css / full.css (`.sf-rich-text`).
+- `PageHeader` (back button, title, subtitle, details row, actions; router-free: `onBack`) and `EditableTitle`.
+- New message keys: `back`, `loading`, `pagination`, `previous`, `next`, `morePages`, `breadcrumb`, `editTitle`,
+  `textFormatting`, `bold`, `italic`, `underline`, `strikethrough`, `bulletedList`, `numberedList`.
+
+### Added — new entries (optional peer dependencies; the core never imports them)
+- **`@solvfast/ui/chart`**: `ChartContainer`, `ChartTooltip`, `ChartTooltipContent`, `ChartLegend`, `ChartLegendContent`,
+  `ChartStyle`, `ChartConfig` — the Design System's chart helpers. **New optional peer dependency `recharts`
+  `^2.15.0`.**
+- **`@solvfast/ui/form`**: `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormDescription`,
+  `FormMessage`, `useFormField` — the Design System's react-hook-form bindings. **New optional peer dependency
+  `react-hook-form` `^7.50.0`.**
+
+### Added — shell
+- `PageHeader` inside `AppShell`: a text title becomes the top bar's title (the page's one `<h1>`, as on Sear's pages)
+  while the header is mounted. The header then shows only its back button, subtitle, details and actions. AppShell's
+  `title` prop still wins; outside a shell the header has its own `<h1>`.
+- `MobileNav` `primary` (also `AppShell` `mobile.primary`): the app picks the mobile bar's items, and "More" lists the
+  whole navigation tree. Without it nothing changes (an app whose navigation is all groups got only "Home" and "More").
+
+### Dependencies
+- New: `@radix-ui/react-accordion` 1.2.20, `-aspect-ratio` 1.1.15, `-collapsible` 1.1.20, `-context-menu` 2.3.7,
+  `-hover-card` 1.1.23, `-menubar` 1.1.24, `-navigation-menu` 1.2.22, `-progress` 1.1.16, `-slider` 1.4.7, `-toggle`
+  1.1.18, `-toggle-group` 1.1.19. They are from the same Radix release as the existing pins, so they reuse the installed
+  Radix internals (one copy each; no new internal packages).
+
+### Fixed
+- `DateField`, `TimeField`, `DateTimeField`: with an `id` and no `aria-label`, the field is named by its
+  `<label htmlFor>`. Before, the name was always "Date" / "Time" / "Date and time", which overrode the label. The
+  selected value is now the field's description. Without an `id`, nothing changes.
+- Relative to PMO, `sanitizeHtml`: content inside any non-allowed element (`<font>`, `<section>`, a custom tag…) was
+  not sanitized, so `<img onerror>`, `javascript:` links and `on*` / `style` attributes got through; `htmlIsEmpty`
+  parsed the raw value into a live element (an `<img onerror>` would run); the editor wrote the raw value into the
+  page. The package rebuilds the HTML from an allowlist, parses inertly, and only writes and emits sanitized HTML.
+- Relative to the Design System: `Progress` passes `value` to Radix (it had no `aria-valuenow`); the display names of
+  `MenubarShortcut` and `BreadcrumbEllipsis`.
+
+### Not added (docs/LIMITATIONS.md)
+- drawer (vaul), carousel (embla), input-otp, resizable (react-resizable-panels): apps keep their own shadcn copies,
+  themed by the package tokens under `.sf-theme`.
+
 ## [0.2.0] — 2026-10-18
 
 Additive: four components and a new entry. **Apps that import `@solvfast/ui/toast` need `sonner`** (1.7 or 2) —

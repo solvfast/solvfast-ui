@@ -155,6 +155,128 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await sec.getByRole("button", { name: T("Next", "التالي") }).click();
     if ((await current()) === before) throw new Error("Next did not move the current step");
   });
+  // 0.3.0 — merged components
+  await check("toggle + toggle group", async () => {
+    const sec = await go(page, "toggle");
+    const bold = sec.getByRole("button", { name: T("Bold", "عريض") }).first();
+    await bold.click();
+    if ((await bold.getAttribute("aria-pressed")) !== "true") throw new Error("toggle not pressed");
+    await sec.getByRole("radio", { name: T("Center", "الوسط") }).click();
+    await sec.getByText('align: "center"').waitFor();
+  });
+  await check("slider: arrow keys follow the reading direction", async () => {
+    const sec = await go(page, "slider");
+    await sec.getByRole("slider").focus();
+    await page.keyboard.press(ar ? "ArrowLeft" : "ArrowRight");
+    await sec.getByText("value: 51").waitFor();
+  });
+  await check("progress fills from the reading start", async () => {
+    const sec = await go(page, "progress");
+    const bar = await sec.getByRole("progressbar").boundingBox();
+    const fill = await sec.getByRole("progressbar").locator("div").first().boundingBox();
+    // the indicator is the full width, translated: its visible part touches the right edge iff it moved right
+    const fromRight = fill.x > bar.x + 1;
+    if (fromRight !== ar) throw new Error(`fill anchored ${fromRight ? "right" : "left"}`);
+  });
+  await check("accordion + collapsible", async () => {
+    const sec = await go(page, "accordion");
+    await sec.getByRole("button", { name: T("Who can see this project?", "من يمكنه رؤية هذا المشروع؟") }).click();
+    await sec.getByText(T("Members of the project team and its sponsors.", "أعضاء فريق المشروع ورعاته.")).waitFor();
+    await sec.getByRole("button", { name: T("Show 3 more", "عرض 3 أخرى") }).click();
+    await sec.getByText("INV-006").waitFor();
+  });
+  await check("search combobox: loads, searches, picks", async () => {
+    const sec = await go(page, "search-combobox");
+    await sec.getByRole("combobox").click();
+    await page.getByRole("status").waitFor();                       // loading, not "empty"
+    await page.getByRole("option", { name: /solvfast\/docs/ }).waitFor();
+    await page.getByPlaceholder(T("Search repositories…", "ابحث في المستودعات…")).fill("api");
+    await page.waitForFunction(() => document.querySelectorAll('[role="option"]').length === 1);
+    await page.getByRole("option", { name: /solvfast\/api/ }).click();
+    await sec.getByText('value: "solvfast/api"').waitFor();
+    if (!(await sec.getByRole("combobox").innerText()).includes("solvfast/api")) throw new Error("trigger does not show the value");
+  });
+  await check("rich text: toolbar works, untrusted HTML runs nothing", async () => {
+    const sec = await go(page, "rich-text");
+    const xss = await page.evaluate(() => window.__sfXss);
+    if (xss !== undefined) throw new Error(`XSS payload ran (__sfXss=${xss})`);
+    const out = await sec.getByTestId("rte-xss").innerHTML();
+    if (/onerror|javascript:|<script|<img/i.test(out)) throw new Error(`unsanitized output: ${out}`);
+    const box = sec.getByRole("textbox", { name: T("Description", "الوصف") });
+    await box.click();
+    await page.keyboard.press("Control+End");
+    await sec.getByRole("button", { name: T("Bold", "عريض") }).click();
+    await page.keyboard.type("Z9");
+    await page.waitForFunction(() => /<b>Z9<\/b>|<strong>Z9<\/strong>/.test(document.querySelector('[data-testid="rte-html"]')?.textContent ?? ""));
+  });
+  await check("form: validation message, then submit", async () => {
+    const sec = await go(page, "form");
+    await sec.getByRole("button", { name: T("Save", "حفظ") }).click();
+    await sec.getByText(T("Name is required", "الاسم مطلوب")).waitFor();
+    const name = sec.getByRole("textbox", { name: T("Name", "الاسم") });
+    if ((await name.getAttribute("aria-invalid")) !== "true") throw new Error("field not marked invalid");
+    await name.fill("Rana");
+    await sec.getByRole("button", { name: T("Save", "حفظ") }).click();
+    await sec.getByText('submitted: {"name":"Rana","email":""}').waitFor();
+  });
+  await check("chart: bars and lines render", async () => {
+    const sec = await go(page, "chart");
+    await sec.locator(".recharts-surface").first().waitFor();
+    if ((await sec.locator(".recharts-bar-rectangle").count()) < 12) throw new Error("bars missing");
+    if ((await sec.locator(".recharts-line-curve").count()) < 2) throw new Error("lines missing");
+  });
+  await check("hover card", async () => {
+    const sec = await go(page, "hover-card");
+    await sec.getByText("@rana").hover();
+    const card = page.getByText(T("Project manager · 12 open tasks", "مديرة مشاريع · 12 مهمة مفتوحة"));
+    await card.waitFor();
+    if (!(await card.evaluate((el) => !!el.closest(".sf-popper")))) throw new Error("no sf-popper");
+  });
+  await check("context menu + sub-menu", async () => {
+    const sec = await go(page, "context-menu");
+    await sec.getByTestId("ctx-area").click({ button: "right" });
+    await page.getByRole("menu").waitFor();
+    await page.getByRole("menuitem", { name: T("Move to", "نقل إلى") }).hover();
+    await page.getByRole("menuitem", { name: T("Current sprint", "الدورة الحالية") }).click();
+    await sec.getByText("picked: sprint").waitFor();
+  });
+  await check("menubar", async () => {
+    const sec = await go(page, "menubar");
+    await sec.getByRole("menuitem", { name: T("File", "ملف") }).click();
+    await page.getByRole("menuitem", { name: T("Print", "طباعة") }).click();
+    await sec.getByText("picked: print").waitFor();
+  });
+  await check("breadcrumb", async () => {
+    const sec = await go(page, "breadcrumb");
+    await sec.getByRole("navigation", { name: T("Breadcrumb", "مسار التنقل") }).waitFor();
+  });
+  await check("pagination", async () => {
+    const sec = await go(page, "pagination");
+    await sec.getByRole("link", { name: T("Next page", "الصفحة التالية") }).click();
+    await sec.getByText("page: 3").waitFor();
+    if ((await sec.getByRole("link", { name: "3" }).getAttribute("aria-current")) !== "page") throw new Error("aria-current did not move");
+  });
+  await check("navigation menu", async () => {
+    const sec = await go(page, "navigation-menu");
+    await sec.getByRole("button", { name: T("Projects", "المشاريع") }).click();
+    const link = page.getByRole("link", { name: new RegExp(T("All projects", "كل المشاريع")) });
+    await link.waitFor();
+    if (!(await link.evaluate((el) => !!el.closest(".sf-popper")))) throw new Error("viewport without sf-popper");
+  });
+  await check("page header: back, editable title, title in the shell's top bar", async () => {
+    const sec = await go(page, "page-header");
+    await sec.getByRole("button", { name: T("Back", "رجوع") }).first().click();
+    await sec.getByText("onBack: back").waitFor();
+    await sec.getByRole("button", { name: T("Website redesign", "إعادة تصميم الموقع") }).first().click();
+    const box = sec.getByRole("textbox", { name: T("Edit title", "تعديل العنوان") });
+    await box.fill("Q4 launch");
+    await box.press("Enter");
+    await sec.getByText('title: "Q4 launch"').waitFor();
+    const frame = page.frameLocator("#page-header iframe");
+    await frame.getByText("PRJ-0042").waitFor({ timeout: 15_000 });
+    const h1 = await frame.locator("h1").allInnerTexts();
+    if (h1.length !== 1 || h1[0] !== T("Website redesign", "إعادة تصميم الموقع")) throw new Error(`frame h1s: ${JSON.stringify(h1)}`);
+  });
   await check("stat cards", async () => {
     const sec = await go(page, "stat-cards");
     if ((await sec.locator(".sf-glass--lg").count()) < 4) throw new Error("StatCards missing");

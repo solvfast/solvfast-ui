@@ -6,9 +6,12 @@
  * Everything app-specific is a prop: brand, navigation, routing (`currentPath` + `onNavigate`), switcher sections,
  * notifications, help, search. No router, no app data. The rail state persists under `collapsedStorageKey`
  * (Sear: "studio_sidebar_collapsed").
+ * 0.3.0: a PageHeader inside the shell publishes its title to the top bar (Sear's one-title pattern); `mobile.primary`
+ * picks the mobile bar's items. Neither changes anything when unused.
  */
 import * as React from "react";
 import { useLocale } from "../theme/ThemeProvider";
+import { ShellTitleContext, useShellTitleHost } from "../primitives/page-header";
 import { MobileNav, type MobileNavProps } from "./MobileNav";
 import { Navbar, type NavbarProps } from "./Navbar";
 import { Sidebar, type ShellBrand, type SidebarProps } from "./Sidebar";
@@ -21,7 +24,8 @@ export interface AppShellProps
   currentPath: string;
   onNavigate: (href: string, item?: NavItem) => void;
   isActive?: IsActive;
-  /** Fixed page title; default: the deepest active item's label, else the brand name. */
+  /** Fixed page title (wins over everything); default: the title of a mounted `PageHeader`, else the deepest active
+   *  item's label, else the brand name. */
   title?: Localized;
   switcher?: SidebarProps["switcher"];
   /** Replaces the sidebar's navigation list. */
@@ -32,8 +36,8 @@ export interface AppShellProps
   onCollapsedChange?: (collapsed: boolean) => void;
   /** localStorage key for the rail state (default "sf-sidebar-collapsed"; `null` disables persistence). */
   collapsedStorageKey?: string | null;
-  /** Mobile bottom-nav options. */
-  mobile?: Pick<MobileNavProps, "maxItems" | "exit">;
+  /** Mobile bottom-nav options (`primary`: the bar's items — see MobileNavProps). */
+  mobile?: Pick<MobileNavProps, "maxItems" | "exit" | "primary">;
   children: React.ReactNode;
 }
 
@@ -65,7 +69,10 @@ export function AppShell({
 
   const brandName = loc(brand.name, language);
   const active = deepestActive(items, currentPath);
-  const pageTitle = title ? loc(title, language) : active ? loc(active.label, language) : brandName;
+  const [publishedTitle, titleApi] = useShellTitleHost();
+  const pageTitle = title ? loc(title, language)
+    : publishedTitle ? loc(publishedTitle, language)
+    : active ? loc(active.label, language) : brandName;
 
   return (
     <div className="sf-app flex h-dvh w-full overflow-hidden bg-background text-foreground" dir={isRTL ? "rtl" : "ltr"}>
@@ -85,13 +92,13 @@ export function AppShell({
           />
         </div>
         <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pt-14 pb-16 md:pb-0">
-          {children}
+          <ShellTitleContext.Provider value={titleApi}>{children}</ShellTitleContext.Provider>
         </main>
       </div>
 
       <MobileNav
         items={items} currentPath={currentPath} onNavigate={onNavigate} isActive={isActive}
-        brand={{ name: brand.name, logoSrc: brand.logoSrc }} exit={mobile?.exit} maxItems={mobile?.maxItems}
+        brand={{ name: brand.name, logoSrc: brand.logoSrc }} exit={mobile?.exit} maxItems={mobile?.maxItems} primary={mobile?.primary}
       />
     </div>
   );

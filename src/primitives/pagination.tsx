@@ -1,0 +1,134 @@
+// Vendored from @solvfast/design-system v0.3.0 (92fc1cd) frontend/src/components/ui/pagination.tsx — see VENDORED.md.
+import * as React from "react"
+import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
+
+import { cn } from "../lib/cn"
+import { ButtonProps, buttonVariants } from "./button"
+import { useLocale } from "../theme/ThemeProvider"
+
+// Package: strings come from the package messages (ar/en; any can still be overridden with props) and the
+// previous / next chevrons point the reading way in Arabic.
+
+const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => {
+  const { t } = useLocale()
+  return (
+    <nav
+      role="navigation"
+      aria-label={t("pagination")}
+      className={cn("mx-auto flex w-full justify-center", className)}
+      {...props}
+    />
+  )
+}
+Pagination.displayName = "Pagination"
+
+const PaginationContent = React.forwardRef<
+  HTMLUListElement,
+  React.ComponentProps<"ul">
+>(({ className, ...props }, ref) => (
+  <ul
+    ref={ref}
+    className={cn("flex flex-row items-center gap-1", className)}
+    {...props}
+  />
+))
+PaginationContent.displayName = "PaginationContent"
+
+const PaginationItem = React.forwardRef<
+  HTMLLIElement,
+  React.ComponentProps<"li">
+>(({ className, ...props }, ref) => (
+  <li ref={ref} className={cn("", className)} {...props} />
+))
+PaginationItem.displayName = "PaginationItem"
+
+type PaginationLinkProps = {
+  isActive?: boolean
+} & Pick<ButtonProps, "size"> &
+  React.ComponentProps<"a">
+
+const PaginationLink = ({
+  className,
+  isActive,
+  size = "icon",
+  ...props
+}: PaginationLinkProps) => (
+  <a
+    aria-current={isActive ? "page" : undefined}
+    className={cn(
+      buttonVariants({
+        variant: isActive ? "outline" : "ghost",
+        size,
+      }),
+      className
+    )}
+    {...props}
+  />
+)
+PaginationLink.displayName = "PaginationLink"
+
+const PaginationPrevious = ({
+  className,
+  ...props
+}: React.ComponentProps<typeof PaginationLink>) => {
+  const { t } = useLocale()
+  return (
+    <PaginationLink
+      aria-label={t("prevPage")}
+      size="default"
+      className={cn("gap-1 ps-2.5", className)}
+      {...props}
+    >
+      <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+      <span>{t("previous")}</span>
+    </PaginationLink>
+  )
+}
+PaginationPrevious.displayName = "PaginationPrevious"
+
+const PaginationNext = ({
+  className,
+  ...props
+}: React.ComponentProps<typeof PaginationLink>) => {
+  const { t } = useLocale()
+  return (
+    <PaginationLink
+      aria-label={t("nextPage")}
+      size="default"
+      className={cn("gap-1 pe-2.5", className)}
+      {...props}
+    >
+      <span>{t("next")}</span>
+      <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+    </PaginationLink>
+  )
+}
+PaginationNext.displayName = "PaginationNext"
+
+const PaginationEllipsis = ({
+  className,
+  ...props
+}: React.ComponentProps<"span">) => {
+  const { t } = useLocale()
+  return (
+    <span
+      aria-hidden
+      className={cn("flex h-9 w-9 items-center justify-center", className)}
+      {...props}
+    >
+      <MoreHorizontal className="h-4 w-4" />
+      <span className="sr-only">{t("morePages")}</span>
+    </span>
+  )
+}
+PaginationEllipsis.displayName = "PaginationEllipsis"
+
+export {
+  Pagination,
+  PaginationContent,
+  PaginationLink,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+}

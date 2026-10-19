@@ -1,0 +1,28 @@
+/* Package-authored component CSS (plain CSS). Appended to the END of theme.css by scripts/extract-css.mjs, so it
+ * reaches path A (theme.css, after the consumer's Tailwind layers) and path B (full.css). Scoped to the theme with
+ * :where(.sf-theme), which adds no specificity: the rules weigh what they weighed in their source. */
+
+/* Rich text (RichText / RichTextEditor) — Solvfast PMO frontend/src/index.css:124-146 ("Rich-text content"),
+ * `.rich-text` → `.sf-rich-text`, `.rte-editable` → `.sf-rte-editable`. Editor surface and read-only view share them. */
+:where(.sf-theme) .sf-rich-text { line-height: 1.55; word-break: break-word; }
+:where(.sf-theme) .sf-rich-text > :first-child { margin-top: 0; }
+:where(.sf-theme) .sf-rich-text > :last-child { margin-bottom: 0; }
+:where(.sf-theme) .sf-rich-text p { margin: 0.35rem 0; }
+:where(.sf-theme) .sf-rich-text ul { list-style: disc; padding-inline-start: 1.35rem; margin: 0.35rem 0; }
+:where(.sf-theme) .sf-rich-text ol { list-style: decimal; padding-inline-start: 1.35rem; margin: 0.35rem 0; }
+:where(.sf-theme) .sf-rich-text li { margin: 0.15rem 0; }
+:where(.sf-theme) .sf-rich-text h3 { font-weight: 600; font-size: 1rem; margin: 0.5rem 0 0.25rem; }
+:where(.sf-theme) .sf-rich-text a { color: hsl(var(--primary)); text-decoration: underline; }
+:where(.sf-theme) .sf-rich-text blockquote {
+  border-inline-start: 3px solid hsl(var(--border));
+  padding-inline-start: 0.75rem; margin: 0.4rem 0; color: hsl(var(--muted-foreground));
+}
+:where(.sf-theme) .sf-rich-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: hsl(var(--muted)); padding: 0.1em 0.35em; border-radius: 0.25rem; font-size: 0.875em;
+}
+:where(.sf-theme) .sf-rte-editable:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}

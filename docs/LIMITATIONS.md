@@ -1,4 +1,4 @@
-# Known limitations — @solvfast/ui 0.2.0
+# Known limitations — @solvfast/ui 0.3.0
 
 What this release does **not** do, has **not** been verified, or does differently from Sear on purpose.
 Evidence for everything that *was* verified is in docs/VALIDATION.md.
@@ -8,6 +8,7 @@ Evidence for everything that *was* verified is in docs/VALIDATION.md.
 | Area | Status |
 |---|---|
 | Core (theme, primitives, shell, List View) | Verified: unit tests, pixel parity with Sear's real components, clean installs (Tailwind and no-Tailwind) |
+| Merged components (0.3.0) | Verified: unit tests, showcase in light/dark × en/ar, clean installs on both paths. **Pixel parity with Sear not run** for them: their look is the Design System's code with the package's tokens and popper glass. Sear uses only a few (Alert, Accordion, HoverCard, Progress, on a handful of Sear Studio screens); a reference for those could be added to `tools/parity` later |
 | Frappe layer — simulated requests | **Passed**: exact request shapes, filters, search, counts, errors, link search, grouping, against a recording transport and a simulated Frappe site (docs/VALIDATION.md, 5.4) |
 | Frappe layer — a real Frappe site | **Deferred — not done.** It will be validated when the package is first integrated into a real project. Until then nothing here claims it works against a live site. A prepared, never-run procedure is in `e2e/frappe-site/` |
 
@@ -56,6 +57,25 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
 - Not supported: child tables, virtual DocTypes, realtime updates, report-view features (SQL group-by, aggregates),
   Frappe's per-user list settings.
 - Datetime filters compare in the server's time zone, as Frappe does.
+
+## Merged components (0.3.0)
+
+- **Not shipped:** drawer (vaul), carousel (embla-carousel), input-otp, resizable (react-resizable-panels: v2 in Sear and
+  the Design System, v4 in PMO and the starter). Apps keep their local shadcn copies; with the preset (path A) their
+  token utilities follow the package theme, without the glass surfaces (docs/CONSUMING.md §7).
+- The navigation menu's panel (Radix `Viewport`) is not portaled — Radix renders it inline, positioned against the menu
+  root. It carries the popper glass but can be clipped by an ancestor with `overflow: hidden`.
+- The dropdown menu's sub-menu chevron still points right in Arabic (unchanged from 0.2.0); the new context menu and
+  menubar sub-menus mirror theirs.
+- Charts: recharts draws left-to-right; in Arabic reverse the category axis yourself (`<XAxis reversed={isRTL} />`).
+  recharts 2's own type declarations import lodash types — with `skipLibCheck: false` the app also needs
+  `@types/lodash`. recharts 2 is in maintenance upstream (v3 exists; the Design System's chart targets v2).
+- SearchCombobox: no cache between comboboxes or openings (each opening searches again); `queryKey` only resets.
+- RichTextEditor uses `contenteditable` + `document.execCommand` (deprecated but still supported by browsers), as in
+  PMO. `sanitizeHtml` keeps only absolute `http(s):` / `mailto:` links (relative links lose their `href`) and drops
+  every attribute — no images, tables, colours or alignment.
+- PageHeader's title goes to the AppShell top bar only for text titles; a node title stays in the page (then the page
+  has two `<h1>`s: the top bar's and the header's).
 
 ## Toasts
 

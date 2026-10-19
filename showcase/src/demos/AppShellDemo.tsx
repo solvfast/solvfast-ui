@@ -1,9 +1,10 @@
 /** The App shell page's live demo, full screen (#/demo/app-shell): Sear's shell configuration (the playground's
  *  demo/sear-demo.ts) through the package's AppShell. Navigation inside Sear Studio changes the page; anything that
- *  would leave the app is shown instead of followed. */
+ *  would leave the app is shown instead of followed. `#/demo/app-shell/page-header` adds a PageHeader to the page:
+ *  its title becomes the top bar's title (0.3.0). */
 import * as React from "react";
 import { ArrowLeft } from "lucide-react";
-import { AppShell, useLocale } from "@ui";
+import { AppShell, Button, PageHeader, StatusDot, useLocale } from "@ui";
 import { BASE, BRAND, NAV_ITEMS, SWITCHER_SECTIONS, seedNotifications, workspaceLogo } from "../../../playground/src/demo/sear-demo";
 import { ShellPage } from "../../../playground/src/showcase/ShellPage";
 
@@ -13,6 +14,7 @@ export default function AppShellDemo() {
   const [left, setLeft] = React.useState("");
   const [items, setItems] = React.useState(() => seedNotifications());
   const navigate = (href: string) => (href.startsWith(BASE) ? (setPath(href), setLeft("")) : setLeft(href));
+  const withHeader = location.hash.includes("page-header");
   return (
     <AppShell
       brand={BRAND}
@@ -35,6 +37,15 @@ export default function AppShellDemo() {
         <span dir="ltr" className="font-mono">currentPath: {path}</span>
         {left && <span dir="ltr" className="font-mono">onNavigate("{left}") — {isRTL ? "يغادر التطبيق؛ يقرّر التطبيق المضيف" : "leaves the app; the host app decides"}</span>}
       </div>
+      {withHeader && (
+        <PageHeader
+          title={{ en: "Website redesign", ar: "إعادة تصميم الموقع" }}
+          subtitle="PRJ-0042"
+          meta={<StatusDot tone="success" label={isRTL ? "على المسار" : "On track"} />}
+          actions={<Button size="sm" variant="outline">{isRTL ? "مشاركة" : "Share"}</Button>}
+          onBack={() => navigate(`${BASE}/overview`)}
+        />
+      )}
       <ShellPage isAr={isRTL} />
     </AppShell>
   );

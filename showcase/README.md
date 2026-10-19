@@ -36,7 +36,7 @@ node e2e/showcase-smoke.mjs                          # in another: [baseUrl] [sc
 
 The smoke test opens every section from its address in light/dark × English/Arabic. It fails on any page error, console error, wrong `dir` or theme on `<html>`, more than one section open, a section not scrolled into view, or sideways scrolling (desktop and phone width). It also checks:
 - **Browsing:** sections are collapsed by default; the section toggle, the rail collapse, the header pill and the phone menu work.
-- **Interactive examples:** dialogs, sheets, menus, the command palette, tabs, the date field, list search, selection, filters, the stat cards, the simulated Frappe list and the app shell. It needs `playwright-core`'s Chromium, as the other `e2e/` scripts do.
+- **Interactive examples:** dialogs, sheets, menus, the command palette, tabs, the date field, list search, selection, filters, the stat cards, the simulated Frappe list and the app shell; from 0.3.0 also toggles, slider and progress direction, accordion, search combobox, rich text (toolbar, and an XSS sample that must not run), form validation, charts, hover card, context menu, menubar, breadcrumb, pagination, navigation menu, and the page header (in and out of the app shell). It needs `playwright-core`'s Chromium, as the other `e2e/` scripts do.
 
 ## How it is put together
 

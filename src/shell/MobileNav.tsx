@@ -5,12 +5,14 @@
  * Changes from Sear (VENDORED.md): items and routing from props; BUG FIX — Sear passed `side={isRTL ? "right" :
  * "left"}` to a Sheet whose sides are already logical (start/end), so in Arabic the sheet opened on the LEFT edge;
  * it now opens on the start edge in both directions (left in LTR, right in RTL) and slides in from that edge.
+ * 0.3.0: `primary` — the app picks the bar's items (an app whose navigation is all groups, e.g. PMO's modules, otherwise
+ * gets only "More"); "More" then lists the whole navigation tree. Without `primary`, unchanged.
  */
 import * as React from "react";
 import { ArrowLeft, MoreHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "../primitives/sheet";
 import { useLocale } from "../theme/ThemeProvider";
-import { defaultIsActive, loc, type IsActive, type Localized, type NavItem } from "./nav";
+import { deepestActive, defaultIsActive, loc, type IsActive, type Localized, type NavItem } from "./nav";
 
 export interface MobileNavProps {
   items: NavItem[];
@@ -22,18 +24,34 @@ export interface MobileNavProps {
   exit?: { href: string; label?: Localized };
   /** Leaves shown in the bar before "More" (default 4). */
   maxItems?: number;
+  /** The bar's items, chosen by the app (still capped by `maxItems`); a group goes to its `href` or its first child's.
+   *  With `primary`, "More" lists the FULL `items` tree, so everything reachable on desktop is reachable here.
+   *  Omitted: the first top-level leaves fill the bar and "More" holds the rest (Sear's behaviour). */
+  primary?: NavItem[];
 }
 
-export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIsActive, brand, exit, maxItems = 4 }: MobileNavProps) {
+export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIsActive, brand, exit, maxItems = 4, primary: chosen }: MobileNavProps) {
   const { language, t } = useLocale();
   const [moreOpen, setMoreOpen] = React.useState(false);
   if (!items.length) return null;
-  // Leaves fill the bar; parents (items with children) always go to "More".
-  const leaves = items.filter((i) => !i.children?.length);
-  const parents = items.filter((i) => i.children?.length);
-  const primary = leaves.slice(0, maxItems);
-  const overflow = [...leaves.slice(maxItems), ...parents];
-  const overflowActive = overflow.some((i) => isActive(i, currentPath));
+  let primary: NavItem[];
+  let overflow: { item: NavItem; depth: number }[];
+  let overflowActive: boolean;
+  if (chosen) {
+    // The app's bar items; "More" holds the whole tree (each level indented).
+    primary = chosen.slice(0, maxItems);
+    overflow = [];
+    const walk = (list: NavItem[], depth: number) => list.forEach((item) => { overflow.push({ item, depth }); if (item.children?.length) walk(item.children, depth + 1); });
+    walk(items, 0);
+    overflowActive = !primary.some((i) => isActive(i, currentPath)) && items.some((i) => isActive(i, currentPath));
+  } else {
+    // Leaves fill the bar; parents (items with children) always go to "More".
+    const leaves = items.filter((i) => !i.children?.length);
+    const parents = items.filter((i) => i.children?.length);
+    primary = leaves.slice(0, maxItems);
+    overflow = [...leaves.slice(maxItems), ...parents].map((item) => ({ item, depth: 0 }));
+    overflowActive = overflow.some(({ item }) => isActive(item, currentPath));
+  }
   const go = (item: NavItem) => {
     setMoreOpen(false);
     const href = item.href ?? item.children?.find((c) => c.href)?.href;
@@ -76,11 +94,13 @@ export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIs
           </div>
           <div className="h-px bg-border mb-2" />
           <div className="flex-1 space-y-1 overflow-y-auto">
-            {overflow.map((item) => {
-              const active = isActive(item, currentPath);
+            {overflow.map(({ item, depth }) => {
+              // In the full tree (`primary` given) only the deepest matching row reads as current.
+              const active = chosen ? item.id === deepestActive(items, currentPath)?.id : isActive(item, currentPath);
               const Icon = item.icon;
               return (
                 <button key={item.id} onClick={() => go(item)} aria-current={active ? "page" : undefined}
+                  style={depth ? { paddingInlineStart: `${0.75 + depth * 1.25}rem` } : undefined}
                   className={`flex w-full items-center gap-3 rounded-md px-3 py-3 text-sm transition-colors ${active ? "bg-brand-flame/10 text-brand-flame font-medium" : "text-foreground hover:bg-muted"}`}>
                   {Icon && <Icon className="h-5 w-5 shrink-0" />}
                   <span>{loc(item.label, language)}</span>

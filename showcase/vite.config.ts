@@ -14,6 +14,8 @@ export default defineConfig({
   resolve: { alias: [
     { find: /^@ui\/frappe$/, replacement: path.resolve(__dirname, "../src/frappe/index.ts") },
     { find: /^@ui\/toast$/, replacement: path.resolve(__dirname, "../src/toast/index.ts") },
+    { find: /^@ui\/chart$/, replacement: path.resolve(__dirname, "../src/chart/index.ts") },
+    { find: /^@ui\/form$/, replacement: path.resolve(__dirname, "../src/form/index.ts") },
     { find: /^@ui$/, replacement: path.resolve(__dirname, "../src/index.ts") },
   ] },
   css: { postcss: { plugins: [tailwindcss({ config: path.resolve(__dirname, "tailwind.config.ts") }), autoprefixer()] } },

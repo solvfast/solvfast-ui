@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Frappe-CRM-clean design tokens — neutral, minimal, subtle borders, near-black primary + blue accent. */
+@layer base {
+  :root {
+    --background: 210 20% 98%;        /* #f8f9fa */
+    --foreground: 206 19% 15%;        /* #1f272e */
+    --card: 0 0% 100%;
+    --card-foreground: 206 19% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 206 19% 15%;
+    --primary: 264 66% 33%;           /* SolvPath brand purple #4A1D8C */
+    --primary-foreground: 0 0% 100%;
+    /* SolvPath brand palette — used minimally (mark + small accents) */
+    --brand-purple: 264 66% 33%;      /* #4A1D8C */
+    --brand-orange: 14 100% 57%;      /* #FF5722 */
+    --brand-cyan: 187 100% 42%;       /* #00BCD4 */
+    --secondary: 210 16% 95%;         /* #f1f3f5 */
+    --secondary-foreground: 206 19% 15%;
+    --muted: 210 16% 95%;
+    --muted-foreground: 220 9% 46%;   /* #6b7280 */
+    --accent: 210 16% 95%;            /* subtle hover bg */
+    --accent-foreground: 206 19% 15%;
+    --destructive: 0 84% 60%;         /* #ef4444 */
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 221 83% 53%;              /* #2563eb */
+    --info-foreground: 0 0% 100%;
+    --border: 210 16% 92%;            /* lighter, quieter */
+    --input: 210 16% 92%;
+    --ring: 264 45% 45%;
+    --radius: 0.875rem;
+    --shadow-glass: 0 10px 34px -12px hsl(220 25% 20% / 0.16), 0 2px 8px -4px hsl(220 25% 20% / 0.08);
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 206 19% 15%;
+    --sidebar-accent: 210 16% 95%;
+    --sidebar-border: 210 14% 90%;
+  }
+
+  .dark {
+    --background: 240 6% 10%;          /* #18181b */
+    --foreground: 0 0% 98%;
+    --card: 240 5% 14%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 5% 14%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 264 60% 62%;           /* SolvPath brand purple, lifted for dark */
+    --primary-foreground: 0 0% 100%;
+    --brand-purple: 264 60% 62%;
+    --brand-orange: 14 100% 60%;
+    --brand-cyan: 187 90% 50%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 18%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 60% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 240 6% 10%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+    --border: 240 5% 24%;
+    --input: 240 5% 24%;
+    --ring: 264 55% 68%;
+    --shadow-glass: 0 12px 40px -10px hsl(0 0% 0% / 0.55), 0 2px 10px -4px hsl(0 0% 0% / 0.4);
+    --sidebar: 240 5% 11%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4% 18%;
+    --sidebar-border: 240 5% 20%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  /* Defensive guard: nothing should make the viewport scroll sideways. Wide tables/boards opt into their
+     OWN horizontal scroll via local `overflow-x-auto` wrappers; this just stops a stray element (long token,
+     fixed-width child) from widening the whole page — works the same in LTR and RTL. */
+  html, body, #root {
+    @apply max-w-full;
+    overflow-x: hidden;
+    /* Disable double-tap-to-zoom (pinch-zoom is blocked via the viewport meta in index.html). */
+    touch-action: manipulation;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    /* Subtle gradient so frosted-glass panels have depth to blur against. */
+    background-image:
+      radial-gradient(1200px 600px at 100% -10%, hsl(var(--brand-cyan) / 0.05), transparent 60%),
+      radial-gradient(1000px 700px at -10% 110%, hsl(var(--brand-purple) / 0.06), transparent 55%);
+    background-attachment: fixed;
+  }
+  /* Zain reads a touch small; nudge Arabic up for balance with Inter. */
+  html[lang="ar"] body { font-size: 1.03rem; }
+}
+
+/* Reusable glass surfaces — use on any elevated panel (cards, menus, dialogs, sheets, header, sidebar). */
+@layer components {
+  .glass {
+    @apply border border-border/40 bg-card/55 backdrop-blur-2xl backdrop-saturate-150;
+    box-shadow: var(--shadow-glass);
+  }
+  .glass-subtle {
+    @apply border border-border/40 bg-card/45 backdrop-blur-xl backdrop-saturate-150;
+  }
+  .glass-overlay {
+    @apply bg-foreground/10 backdrop-blur-sm;
+  }
+  /* Frappe-style filled field: soft gray fill, no border, ring on focus. */
+  .field-fill {
+    @apply border border-transparent bg-muted/60 transition-colors focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring/60;
+  }
+}
+
+/* Rich-text content (editor surface + read-only render share these styles). */
+.rich-text { line-height: 1.55; word-break: break-word; }
+.rich-text > :first-child { margin-top: 0; }
+.rich-text > :last-child { margin-bottom: 0; }
+.rich-text p { margin: 0.35rem 0; }
+.rich-text ul { list-style: disc; padding-inline-start: 1.35rem; margin: 0.35rem 0; }
+.rich-text ol { list-style: decimal; padding-inline-start: 1.35rem; margin: 0.35rem 0; }
+.rich-text li { margin: 0.15rem 0; }
+.rich-text h3 { font-weight: 600; font-size: 1rem; margin: 0.5rem 0 0.25rem; }
+.rich-text a { color: hsl(var(--primary)); text-decoration: underline; }
+.rich-text blockquote {
+  border-inline-start: 3px solid hsl(var(--border));
+  padding-inline-start: 0.75rem; margin: 0.4rem 0; color: hsl(var(--muted-foreground));
+}
+.rich-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: hsl(var(--muted)); padding: 0.1em 0.35em; border-radius: 0.25rem; font-size: 0.875em;
+}
+.rte-editable:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}

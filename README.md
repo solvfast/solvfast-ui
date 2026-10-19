@@ -11,12 +11,28 @@ integrated into a real project (not done). See [docs/LIMITATIONS.md](docs/LIMITA
 
 | Import | What |
 |---|---|
-| `@solvfast/ui` | `ThemeProvider`, primitives (Button, Card, Dialog, Popover, Select, Table, RadioGroup, Stepper, …), `AppShell` (navbar, sidebar, mobile nav, app switcher, notifications), `ListView` and its parts, `useListState` |
+| `@solvfast/ui` | `ThemeProvider`, primitives (below), `PageHeader`, `AppShell` (navbar, sidebar, mobile nav, app switcher, notifications), `ListView` and its parts, `useListState` |
 | `@solvfast/ui/frappe` | `FrappeListView`, `useFrappeList`, `FrappeProvider`, `createFrappeClient` — needs `@tanstack/react-query` 5; the core never imports it |
 | `@solvfast/ui/toast` | `Toaster`, `toast` — needs `sonner` 1.7 or 2 (optional peer dependency); the core never imports it |
+| `@solvfast/ui/chart` | `ChartContainer`, `ChartTooltip(Content)`, `ChartLegend(Content)`, `ChartStyle` — needs `recharts` 2 (optional peer dependency); the core never imports it |
+| `@solvfast/ui/form` | `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormDescription`, `FormMessage`, `useFormField` — needs `react-hook-form` 7 (optional peer dependency); the core never imports it |
 | `@solvfast/ui/tailwind-preset` | Tailwind 3 preset (path A) |
 | `@solvfast/ui/theme.css`, `glass.css`, `base.css` | styles for apps with Tailwind (path A) |
 | `@solvfast/ui/full.css`, `full-base.css` | precompiled styles for apps without Tailwind (path B) |
+
+## Components
+
+Everything PMO's `components/ui` has (0.3.0), in Sear's look:
+- **Actions and inputs:** Button, Input, Textarea, Label, Checkbox, Switch, RadioGroup, Select, Toggle, ToggleGroup,
+  Slider, DateField / TimeField / DateTimeField, Calendar, SearchCombobox, RichTextEditor (+ RichText, `sanitizeHtml`),
+  Form (`@solvfast/ui/form`).
+- **Display:** Badge, Card, Avatar, Separator, Skeleton, ScrollArea, Table, Alert, Progress, StatusDot, Pill,
+  Accordion, Collapsible, AspectRatio, StatCard, IconStatCard, Stepper, Chart (`@solvfast/ui/chart`).
+- **Overlays and menus:** Dialog, AlertDialog, Sheet, Popover, Tooltip, HoverCard, DropdownMenu, ContextMenu, Menubar,
+  Command, Toaster (`@solvfast/ui/toast`).
+- **Navigation and layout:** AppShell (Sidebar, Navbar, MobileNav, AppSwitcher, NotificationPanel), PageHeader,
+  EditableTitle, Breadcrumb, Pagination, NavigationMenu, Tabs; ListView.
+- **Not shipped:** drawer, carousel, input-otp, resizable — keep your shadcn copies (docs/CONSUMING.md §7).
 
 ## Quick start (app with Tailwind 3)
 
