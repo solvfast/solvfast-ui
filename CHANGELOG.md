@@ -6,7 +6,7 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-## [0.3.0] — Unreleased
+## [0.3.0] — 2026-10-19
 
 Additive: every component in PMO's `components/ui` is now in the package, in the package's look, so PMO and new
 BildFast projects can import them from `@solvfast/ui`. Two new entries with optional peer dependencies:

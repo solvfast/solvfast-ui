@@ -1,6 +1,6 @@
 # Using @solvfast/ui
 
-Status: **0.2.0**, a private package on GitHub Packages. Theme, primitives, styles, the app shell, the List View and
+Status: **0.3.0**, a private package on GitHub Packages. Theme, primitives, styles, the app shell, the List View and
 the optional Frappe layer (`@solvfast/ui/frappe`: simulated-request tests passed; real-site validation deferred, not
 done — docs/FRAPPE.md). Known limitations: docs/LIMITATIONS.md. Requirements: React 18.3, a bundler that understands package `exports` (Vite, etc.).
 
@@ -24,7 +24,7 @@ the same setup as `@solvfast/design-system`.
    ```
 4. **Install** (pin the version):
    ```sh
-   npm install @solvfast/ui@0.2.0        # or: yarn add @solvfast/ui@0.2.0 · pnpm add @solvfast/ui@0.2.0
+   npm install @solvfast/ui@0.3.0        # or: yarn add @solvfast/ui@0.3.0 · pnpm add @solvfast/ui@0.3.0
    ```
    Peer dependencies: `react` and `react-dom` 18.3; `tailwindcss` 3.4 for path A; `@tanstack/react-query` 5 for
    `@solvfast/ui/frappe`; `sonner` for `@solvfast/ui/toast`, `recharts` 2 for `@solvfast/ui/chart`, `react-hook-form` 7
@@ -32,7 +32,7 @@ the same setup as `@solvfast/design-system`.
    `read:packages`, isn't SSO-authorised, or your account has no access to the package.
 
 Without the registry (e.g. to try a local build): `npm pack` in this repository, then
-`npm install <path>/solvfast-ui-0.2.0.tgz` in the app.
+`npm install <path>/solvfast-ui-0.3.0.tgz` in the app.
 
 ## 1. Choose a CSS path
 
