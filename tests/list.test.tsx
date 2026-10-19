@@ -531,34 +531,74 @@ describe("F17 saved filters", () => {
 describe("F18 column manager", () => {
   const headers = () => [...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim()).filter(Boolean);
 
-  it("show/hide; reorder with the keyboard buttons and by dragging", () => {
+  it("PMO's column manager: × removes, Add column lists every other field (searchable), locked columns stay", () => {
     renderList();
     fireEvent.click(btn("Columns"));
-    const row = (name: string) => within(popover()).getByText(name).closest("div")!;
-    fireEvent.click(within(row("Owner")).getByRole("checkbox"));
+    const shownNames = () => within(within(popover()).getByRole("list")).getAllByRole("listitem").map((li) => li.textContent?.trim());
+    expect(shownNames()).toEqual(["Title", "Status", "Points", "Due", "Done"]);
+    fireEvent.click(within(popover()).getByRole("button", { name: "Add column" }));
+    expect(within(popover()).getAllByRole("button").map((b) => b.textContent?.trim()).filter((x) => x === "Owner")).toEqual(["Owner"]);
+    type(within(popover()).getByRole("textbox", { name: "Add column" }), "zzz");
+    expect(within(popover()).getByText("No results")).toBeTruthy();
+    type(within(popover()).getByRole("textbox", { name: "Add column" }), "own");
+    fireEvent.click(within(popover()).getByRole("button", { name: "Owner" }));
     expect(headers()).toEqual(["Title", "Status", "Points", "Due", "Done", "Owner"]);
-    fireEvent.click(within(row("Title")).getByRole("button", { name: "Move down" }));
-    expect(headers()).toEqual(["Status", "Title", "Points", "Due", "Done", "Owner"]);
-    expect((within(row("Status")).getByRole("button", { name: "Move up" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.dragStart(row("Owner")); fireEvent.dragOver(row("Status")); fireEvent.drop(row("Status")); fireEvent.dragEnd(row("Owner"));
-    expect(headers()).toEqual(["Owner", "Status", "Title", "Points", "Due", "Done"]);
-    fireEvent.click(within(row("Points")).getByRole("checkbox"));
+    expect((within(popover()).getByRole("button", { name: "Add column" }) as HTMLButtonElement).disabled).toBe(true); // nothing left to add
+    fireEvent.click(within(popover()).getByRole("button", { name: "Remove Points" }));
     expect(headers()).not.toContain("Points");
+    expect((within(popover()).getByRole("button", { name: "Add column" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("locked columns can't be hidden; non-hideable ones aren't offered; search appears past 10 columns", () => {
+  it("reorder: grip + ↑/↓ keys (focus stays on the moved column, position announced) and pointer drag", () => {
+    // jsdom has no PointerEvent; testing-library then builds a plain Event without clientY. A MouseEvent-based one is
+    // enough for the coordinates the drag reads.
+    if (!("PointerEvent" in window)) {
+      class PointerEventPolyfill extends MouseEvent {
+        pointerId: number; pointerType: string;
+        constructor(type: string, init: PointerEventInit = {}) { super(type, init); this.pointerId = init.pointerId ?? 1; this.pointerType = init.pointerType ?? "mouse"; }
+      }
+      (window as unknown as { PointerEvent: typeof PointerEventPolyfill }).PointerEvent = PointerEventPolyfill;
+    }
+    renderList();
+    fireEvent.click(btn("Columns"));
+    const grip = (name: string) => within(popover()).getByRole("button", { name: `Move ${name}` });
+    grip("Title").focus();
+    fireEvent.keyDown(grip("Title"), { key: "ArrowDown" });
+    expect(headers()).toEqual(["Status", "Title", "Points", "Due", "Done"]);
+    expect(document.activeElement).toBe(grip("Title"));
+    expect(within(popover()).getByText("Title: position 2 of 5")).toBeTruthy();
+    fireEvent.keyDown(grip("Status"), { key: "ArrowUp" }); // already first: no change
+    expect(headers()).toEqual(["Status", "Title", "Points", "Due", "Done"]);
+    // pointer drag: rows are 30px tall from y=0; drop "Done" (row 5) into the gap above row 2
+    const rows = within(popover()).getAllByRole("listitem");
+    rows.forEach((r, i) => { r.getBoundingClientRect = () => ({ top: i * 30, height: 30, bottom: i * 30 + 30, left: 0, right: 200, width: 200, x: 0, y: i * 30, toJSON() {} }) as DOMRect; });
+    fireEvent.pointerDown(grip("Done"), { pointerId: 1, button: 0, clientY: 135 });
+    fireEvent.pointerMove(grip("Done"), { pointerId: 1, clientY: 40 });
+    fireEvent.pointerUp(grip("Done"), { pointerId: 1, clientY: 40 });
+    expect(headers()).toEqual(["Status", "Done", "Title", "Points", "Due"]);
+    // dragging down: "Status" (row 1) below "Points" (row 4 now) → after it
+    within(popover()).getAllByRole("listitem").forEach((r, i) => { r.getBoundingClientRect = () => ({ top: i * 30, height: 30, bottom: i * 30 + 30, left: 0, right: 200, width: 200, x: 0, y: i * 30, toJSON() {} }) as DOMRect; });
+    fireEvent.pointerDown(grip("Status"), { pointerId: 2, button: 0, clientY: 10 });
+    fireEvent.pointerMove(grip("Status"), { pointerId: 2, clientY: 125 });
+    fireEvent.pointerUp(grip("Status"), { pointerId: 2, clientY: 125 });
+    expect(headers()).toEqual(["Done", "Title", "Points", "Status", "Due"]);
+  });
+
+  it("locked columns are listed but can't be moved or removed; non-hideable ones aren't offered; unmanaged keys keep their place", () => {
     const many: ColumnDef<Row>[] = [{ ...COLUMNS[0], alwaysVisible: true }, { ...COLUMNS[1], hideable: false }, ...Array.from({ length: 11 }, (_, i) => ({ key: `c${i}`, label: `Extra ${i}` }))];
-    const Harness = () => { const [keys, setKeys] = React.useState(many.map((c) => c.key)); return <ColumnManager columns={many} visibleKeys={keys} onChange={setKeys} />; };
+    let last: string[] = [];
+    const Harness = () => { const [keys, setKeys] = React.useState(["title", "pending-meta", "c0", "c1"]); return <ColumnManager columns={many} visibleKeys={keys} onChange={(k) => { last = k; setKeys(k); }} />; };
     render(<Wrap><Harness /></Wrap>);
     fireEvent.click(btn("Columns"));
-    expect((within(popover()).getByText("Title").closest("div")!.querySelector("[role=checkbox]") as HTMLButtonElement).disabled).toBe(true);
+    expect(within(popover()).getByLabelText("Title (always shown)")).toBeTruthy();
+    expect(within(popover()).queryByRole("button", { name: "Move Title" })).toBeNull();
+    expect(within(popover()).queryByRole("button", { name: "Remove Title" })).toBeNull();
     expect(within(popover()).queryByText("Status")).toBeNull();
-    type(within(popover()).getByPlaceholderText("Search…"), "extra 7");
-    expect(within(popover()).getAllByRole("checkbox").length).toBe(2); // locked Title + Extra 7 (not Extra 10…)
-    cleanup();
-    renderList(); // 6 columns: no search box (negative control)
-    fireEvent.click(btn("Columns"));
-    expect(within(popover()).queryByPlaceholderText("Search…")).toBeNull();
+    fireEvent.keyDown(within(popover()).getByRole("button", { name: "Move Extra 1" }), { key: "ArrowUp" });
+    expect(last).toEqual(["title", "pending-meta", "c1", "c0"]); // locked + not-yet-loaded keys stay where they were
+    fireEvent.click(within(popover()).getByRole("button", { name: "Add column" }));
+    type(within(popover()).getByRole("textbox", { name: "Add column" }), "extra 7");
+    expect(within(popover()).getAllByRole("button").filter((b) => b.textContent?.includes("Extra")).map((b) => b.textContent?.trim())).toEqual(["Extra 7"]);
   });
 
   it("row actions are not a column users can manage, filter or sort (fix: Sear's `actions` field)", () => {
@@ -610,7 +650,7 @@ describe("F19 group-by and rule C1", () => {
     check();
     // a column move applies to every group at once
     fireEvent.click(btn("Columns"));
-    fireEvent.click(within(within(popover()).getByText("Status").closest("div")!).getByRole("button", { name: "Move up" }));
+    fireEvent.keyDown(within(popover()).getByRole("button", { name: "Move Status" }), { key: "ArrowUp" });
     header.splice(0, header.length, ...[...document.querySelectorAll("thead th")].map((h) => h.textContent!.trim()));
     expect(header).toEqual(["Points", "Status", "Title"]);
     check();

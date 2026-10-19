@@ -28,7 +28,7 @@ Source: **S** Sear only · **P** PMO only · **B** both, consolidated · **A** a
 | F15 | Advanced filter with a searchable field picker | B | Sear's layout + PMO's searchable picker (styled as Sear's select) | ✅ tested + parity |
 | F16 | Value inputs: date picker, async link | P + A | glass `DateField` (YYYY-MM-DD); `loadOptions` with 300 ms debounce; Frappe: stock `search_link` on the link's DocType | ✅ tested |
 | F17 | Saved filters | B / X | one UI over `SavedFiltersStorage` (sync or async); localStorage default, per view and per user | ✅ tested (PMO's server DocType is an app adapter) |
-| F18 | Column manager | B + A | Sear's popover + drag reorder, keyboard up/down, locked columns, search above 10 columns | ✅ tested; parity except the intended Actions difference (below) |
+| F18 | Column manager | B + A | PMO's (Frappe CRM's) picker since 0.3.0: rows dragged by a grip (mouse, touch, pen) or moved with ↑/↓ on the grip, × removes, **Add column** lists every other field (searchable), locked columns stay first | ✅ tested; differs from Sear by design (below) |
 | F19 | Group-by | P + A | `groupByOptions`, `GroupByMenu`, collapsible groups with counts, empty group last; all groups in one table, so they share the header's column order and widths (horizontal scroll when narrow) | ✅ tested (structure in unit tests; widths measured in the browser, `e2e/list-groups.mjs`) |
 | F20 | Row selection | P + A | `selectable`; rules C3 | ✅ tested |
 | F21 | Bulk action bar | A | `bulkActions` (`run(keys, rows)`) or `renderBulkActions` | ✅ tested |
@@ -58,7 +58,8 @@ Source: **S** Sear only · **P** PMO only · **B** both, consolidated · **A** a
 Row actions are a fixed last column, separate from the data columns: not sortable, filterable, hideable or
 reorderable. Sear's Field Library modelled them as an ordinary `actions` field, so 8 of the 44 list-parity
 screenshots differ (column manager open, and the column order after showing a hidden column, in light/dark × en/ar);
-the other 36 are pixel-identical. Evidence: `docs/validation/5.3/actions-column/`.
+the other 36 are pixel-identical. Evidence: `docs/validation/5.3/actions-column/`. Since 0.3.0 the column manager
+itself is PMO's design (the owner's request), which is a second reason for those same 8 screenshots to differ.
 
 On phones the toolbar's buttons wrap onto a second line instead of making the page wider than the screen (Sear's
 page was 506 px wide at 390 px, cutting off its "Create" button, and shifted in Arabic). Desktop is unchanged; the 4

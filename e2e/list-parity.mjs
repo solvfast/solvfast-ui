@@ -6,8 +6,8 @@ import { chromium } from "playwright-core";
 const [OURS, SEAR, OUT] = process.argv.slice(2);
 const COMBOS = [["light", "en"], ["dark", "en"], ["light", "ar"], ["dark", "ar"]];
 const T = {
-  en: { search: "Search…", name: "Name", fields: "Fields", filter: "Filter", columns: "Columns", saved: "Saved", add: "Add filter", createdBy: "Created By", visa: "visa" },
-  ar: { search: "بحث…", name: "الاسم", fields: "الحقول", filter: "تصفية", columns: "الأعمدة", saved: "المحفوظة", add: "إضافة عامل تصفية", createdBy: "أنشئت بواسطة", visa: "تأشيرة" },
+  en: { search: "Search…", name: "Name", fields: "Fields", filter: "Filter", columns: "Columns", saved: "Saved", add: "Add filter", addColumn: "Add column", createdBy: "Created By", visa: "visa" },
+  ar: { search: "بحث…", name: "الاسم", fields: "الحقول", filter: "تصفية", columns: "الأعمدة", saved: "المحفوظة", add: "إضافة عامل تصفية", addColumn: "إضافة عمود", createdBy: "أنشئت بواسطة", visa: "تأشيرة" },
 };
 const btn = (p, name) => p.getByRole("button", { name, exact: true });
 const STATES = [
@@ -19,7 +19,12 @@ const STATES = [
   ["filter-open", "desktop", async (p, s) => { await btn(p, s.filter).click(); }],
   ["filter-condition", "desktop", async (p, s) => { await btn(p, s.filter).click(); await p.waitForTimeout(300); await btn(p, s.add).click(); }],
   ["columns-open", "desktop", async (p, s) => { await btn(p, s.columns).click(); }],
-  ["column-shown", "desktop", async (p, s) => { await btn(p, s.columns).click(); await p.waitForTimeout(300); await p.getByText(s.createdBy, { exact: true }).click(); await p.keyboard.press("Escape"); }],
+  // 0.3.0: PMO's column manager (user request) — a hidden field is added from "Add column"; Sear's is a checkbox list.
+  ["column-shown", "desktop", async (p, s) => {
+    await btn(p, s.columns).click(); await p.waitForTimeout(300);
+    if (await btn(p, s.addColumn).count()) await btn(p, s.addColumn).click();
+    await p.getByText(s.createdBy, { exact: true }).click(); await p.keyboard.press("Escape");
+  }],
   ["saved-open", "desktop", async (p, s) => { await btn(p, s.saved).click(); }],
   ["mobile", "mobile", null],
 ];

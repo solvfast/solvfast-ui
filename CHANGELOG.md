@@ -51,6 +51,17 @@ Apps that don't use the new parts see no change: the existing parity suites were
 - `MobileNav` `primary` (also `AppShell` `mobile.primary`): the app picks the mobile bar's items, and "More" lists the
   whole navigation tree. Without it nothing changes (an app whose navigation is all groups got only "Home" and "More").
 
+### Changed
+- **`ColumnManager` is PMO's column picker (Frappe CRM's), at the owner's request.** It replaces Sear's checkbox list
+  with up/down buttons, so `ListView` and `FrappeListView` get it too:
+  - the shown columns are rows you drag by their grip (mouse, touch or pen), or move with ↑ / ↓ on the focused grip;
+    the new position is announced;
+  - × removes a column;
+  - **Add column** opens a searchable list of every other field.
+  - Locked columns stay listed at the top. Keys the menu doesn't manage (locked, or not loaded yet) keep their place.
+  - New messages: `editColumns`, `addColumn`, `moveColumn`, `moveColumnHint`, `removeColumn`, `columnMoved`,
+    `lockedColumn`.
+
 ### Dependencies
 - New: `@radix-ui/react-accordion` 1.2.20, `-aspect-ratio` 1.1.15, `-collapsible` 1.1.20, `-context-menu` 2.3.7,
   `-hover-card` 1.1.23, `-menubar` 1.1.24, `-navigation-menu` 1.2.22, `-progress` 1.1.16, `-slider` 1.4.7, `-toggle`

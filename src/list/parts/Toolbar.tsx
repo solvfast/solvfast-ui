@@ -7,7 +7,7 @@
  * - SortMenu, GroupByMenu: PMO's SortControl (with "Clear sort") and GroupByControl.
  */
 import * as React from "react";
-import { ArrowDown, ArrowDownUp, ArrowUp, Bookmark, Check, ChevronDown, ChevronUp, Columns3, Layers, Save, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowDownUp, ArrowUp, Bookmark, Check, Columns3, GripVertical, Layers, Lock, Plus, Save, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Button } from "../../primitives/button";
 import { Checkbox } from "../../primitives/checkbox";
 import { DateField } from "../../primitives/date-time-field";
@@ -63,77 +63,164 @@ export function SavedFilters({ saved, activeCount, onApply, onSave, onDelete }: 
   );
 }
 
+/**
+ * Column manager — PMO's (Frappe CRM's): the shown columns in their order — drag a row by its grip to move it (mouse,
+ * touch or pen; or focus the grip and press ↑ / ↓), × removes it — and "Add column", a searchable list of every other
+ * field. Locked columns (`alwaysVisible`) stay at the top and can't be moved or removed; `hideable: false` columns are
+ * not offered. Positions of keys this menu doesn't manage (locked, or not loaded yet) are kept as they are.
+ */
 export function ColumnManager<T>({ columns, visibleKeys, onChange }: { columns: ColumnDef<T>[]; visibleKeys: string[]; onChange: (keys: string[]) => void }) {
   const { language, t } = useLocale();
+  const [adding, setAdding] = React.useState(false);
   const [q, setQ] = React.useState("");
-  const [drag, setDrag] = React.useState<string | null>(null);
-  const manageable = columns.filter((c) => c.hideable !== false && !c.alwaysVisible);
-  const locked = columns.filter((c) => c.alwaysVisible);
-  const visibleSet = new Set(visibleKeys);
+  const [drag, setDrag] = React.useState<{ key: string; insert: number } | null>(null);
+  const [announce, setAnnounce] = React.useState("");
+  const focusAfter = React.useRef<string | null>(null);
+  const grips = React.useRef(new Map<string, HTMLButtonElement>());
+  const listRef = React.useRef<HTMLDivElement>(null);
+
   const label = (c: ColumnDef<T>) => loc(c.label, language);
-  const ordered = [
-    ...visibleKeys.map((k) => manageable.find((c) => c.key === k)).filter(Boolean) as ColumnDef<T>[],
-    ...manageable.filter((c) => !visibleSet.has(c.key)),
-  ].filter((c) => !q.trim() || label(c).toLowerCase().includes(q.trim().toLowerCase()));
-  const toggle = (key: string) => onChange(visibleSet.has(key) ? visibleKeys.filter((k) => k !== key) : [...visibleKeys, key]);
-  const move = (key: string, dir: -1 | 1) => {
-    const i = visibleKeys.indexOf(key), j = i + dir;
-    if (i < 0 || j < 0 || j >= visibleKeys.length) return;
-    const next = [...visibleKeys]; [next[i], next[j]] = [next[j], next[i]]; onChange(next);
+  const byKey = new Map(columns.map((c) => [c.key, c]));
+  const manageable = (c: ColumnDef<T> | undefined): c is ColumnDef<T> => !!c && c.hideable !== false && !c.alwaysVisible;
+  const locked = columns.filter((c) => c.alwaysVisible);
+  const shown = visibleKeys.map((k) => byKey.get(k)).filter(manageable);
+  const hidden = columns.filter((c) => manageable(c) && !visibleKeys.includes(c.key));
+  const matches = hidden.filter((c) => label(c).toLowerCase().includes(q.trim().toLowerCase()));
+
+  React.useEffect(() => {
+    if (focusAfter.current) { grips.current.get(focusAfter.current)?.focus(); focusAfter.current = null; }
+  });
+
+  /** Move a shown column to index `to` among the shown columns. */
+  const moveTo = (key: string, to: number) => {
+    const order = shown.map((c) => c.key);
+    const from = order.indexOf(key);
+    const target = Math.max(0, Math.min(order.length - 1, to));
+    if (from < 0 || from === target) return;
+    order.splice(from, 1);
+    order.splice(target, 0, key);
+    let i = 0;
+    onChange(visibleKeys.map((k) => (manageable(byKey.get(k)) ? order[i++] : k)));
+    setAnnounce(t("columnMoved").replace("{column}", label(byKey.get(key)!)).replace("{n}", String(target + 1)).replace("{total}", String(order.length)));
   };
-  const dropOn = (target: string) => {
-    if (!drag || drag === target || !visibleSet.has(target)) return;
-    const next = visibleKeys.filter((k) => k !== drag);
-    next.splice(next.indexOf(target), 0, drag);
-    onChange(next);
+  const remove = (key: string) => onChange(visibleKeys.filter((k) => k !== key));
+  const add = (key: string) => { onChange([...visibleKeys, key]); setQ(""); setAdding(false); };
+
+  // Pointer drag (mouse, touch, pen): the insertion point is the gap nearest the pointer.
+  const insertAt = (clientY: number) => {
+    const rows = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-column-row]") ?? [])];
+    const i = rows.findIndex((r) => { const b = r.getBoundingClientRect(); return clientY < b.top + b.height / 2; });
+    return i < 0 ? rows.length : i;
   };
+  const onGripDown = (e: React.PointerEvent<HTMLButtonElement>, key: string) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setDrag({ key, insert: insertAt(e.clientY) });
+  };
+  const onGripMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!drag) return;
+    const insert = insertAt(e.clientY);
+    if (insert !== drag.insert) setDrag({ ...drag, insert });
+  };
+  const onGripUp = () => {
+    if (!drag) return;
+    const from = shown.findIndex((c) => c.key === drag.key);
+    moveTo(drag.key, drag.insert > from ? drag.insert - 1 : drag.insert);
+    setDrag(null);
+  };
+  const onGripKey = (e: React.KeyboardEvent<HTMLButtonElement>, key: string, index: number) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    focusAfter.current = key;
+    moveTo(key, index + (e.key === "ArrowUp" ? -1 : 1));
+  };
+
+  const dropLine = <div aria-hidden className="mx-1 h-0.5 rounded-full bg-primary" />;
+
   return (
-    <Popover onOpenChange={(o) => { if (!o) setQ(""); }}>
+    <Popover onOpenChange={(o) => { if (!o) { setAdding(false); setQ(""); setDrag(null); } }}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5"><Columns3 className="h-4 w-4" /> {t("columns")}</Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-1.5" align="end">
-        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{t("toggleColumns")}</div>
-        {manageable.length > 10 && (
-          <div className="relative mb-1 px-1">
-            <Search className="pointer-events-none absolute start-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("listSearch")} className="h-8 ps-7 text-sm" />
-          </div>
-        )}
+        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{t("editColumns")}</div>
+        <span className="sr-only" aria-live="polite">{announce}</span>
         <ScrollArea className="max-h-72">
           <div className="space-y-0.5">
             {locked.map((c) => (
-              <div key={c.key} className="flex items-center gap-2 rounded-md px-2 py-1 opacity-70">
-                <Checkbox checked disabled id={`col-${c.key}`} />
-                <label htmlFor={`col-${c.key}`} className="flex-1 truncate text-sm">{label(c)}</label>
+              <div key={c.key} className="flex items-center gap-2 rounded-md px-1.5 py-1.5 text-sm opacity-70" aria-label={t("lockedColumn").replace("{column}", label(c))}>
+                <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="flex-1 truncate">{label(c)}</span>
               </div>
             ))}
-            {ordered.map((c) => {
-              const on = visibleSet.has(c.key);
-              const vi = visibleKeys.indexOf(c.key);
-              return (
-                <div
-                  key={c.key}
-                  draggable={on}
-                  onDragStart={() => setDrag(c.key)}
-                  onDragOver={(e) => { if (drag && on) e.preventDefault(); }}
-                  onDrop={() => dropOn(c.key)}
-                  onDragEnd={() => setDrag(null)}
-                  className={cn("flex items-center gap-2 rounded-md px-2 py-1 hover:bg-accent", on && "cursor-grab active:cursor-grabbing", drag === c.key && "opacity-40")}
-                >
-                  <Checkbox checked={on} onCheckedChange={() => toggle(c.key)} id={`col-${c.key}`} />
-                  <label htmlFor={`col-${c.key}`} className="flex-1 cursor-pointer truncate text-sm">{label(c)}</label>
-                  {on && (
-                    <div className="flex">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={vi <= 0} onClick={() => move(c.key, -1)} aria-label={t("moveUp")}><ChevronUp className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={vi >= visibleKeys.length - 1} onClick={() => move(c.key, 1)} aria-label={t("moveDown")}><ChevronDown className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <div ref={listRef} className="space-y-0.5" role="list" aria-label={t("editColumns")}>
+              {shown.map((c, i) => (
+                <React.Fragment key={c.key}>
+                  {drag?.insert === i && drag.key !== c.key && shown[i - 1]?.key !== drag.key && dropLine}
+                  <div
+                    role="listitem"
+                    data-column-row=""
+                    className={cn("group flex items-center gap-1.5 rounded-md px-1 py-1 text-sm hover:bg-accent", drag?.key === c.key && "opacity-40")}
+                  >
+                    <button
+                      type="button"
+                      ref={(el) => { if (el) grips.current.set(c.key, el); else grips.current.delete(c.key); }}
+                      aria-label={t("moveColumn").replace("{column}", label(c))}
+                      title={t("moveColumnHint")}
+                      onPointerDown={(e) => onGripDown(e, c.key)}
+                      onPointerMove={onGripMove}
+                      onPointerUp={onGripUp}
+                      onPointerCancel={() => setDrag(null)}
+                      onKeyDown={(e) => onGripKey(e, c.key, i)}
+                      className="flex h-6 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </button>
+                    <span className="flex-1 truncate">{label(c)}</span>
+                    <button
+                      type="button"
+                      aria-label={t("removeColumn").replace("{column}", label(c))}
+                      onClick={() => remove(c.key)}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground outline-none hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </React.Fragment>
+              ))}
+              {drag?.insert === shown.length && shown[shown.length - 1]?.key !== drag.key && dropLine}
+            </div>
           </div>
         </ScrollArea>
+        <div className="mt-1 border-t border-border pt-1">
+          {!adding ? (
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-1.5 text-muted-foreground" disabled={hidden.length === 0} onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" /> {t("addColumn")}
+            </Button>
+          ) : (
+            <div className="space-y-1">
+              <div className="relative px-1 pt-1">
+                <Search className="pointer-events-none absolute start-3.5 top-1/2 mt-0.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("listSearch")} aria-label={t("addColumn")} className="h-8 ps-7 text-sm" />
+              </div>
+              <ScrollArea className="max-h-48">
+                {matches.length === 0 ? (
+                  <p className="px-2 py-2 text-center text-xs text-muted-foreground">{t("noResults")}</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    {matches.map((c) => (
+                      <button key={c.key} type="button" onClick={() => add(c.key)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm outline-none hover:bg-accent focus-visible:bg-accent">
+                        <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{label(c)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

@@ -325,3 +325,11 @@ PageHeader, EditableTitle), the DateField label fix and two shell options (`Page
   from an allowlist. **PMO's own copy is still vulnerable until PMO switches to the package.**
 
 Not run for 0.3.0: list, cards, parts, motion and Frappe-demo parity — the code they measure did not change.
+
+## 0.3.0 — column manager (PMO's design)
+
+| Check | How | Result |
+|---|---|---|
+| Unit tests | `npm test` (tests/list.test.tsx F18) | 187/187. New: × removes; Add column lists only the hidden fields and filters them (and says "No results"); it is disabled when nothing is left; locked columns can't be moved or removed; non-hideable ones aren't offered; keys the menu doesn't manage keep their positions; ↑/↓ on the grip moves the column, keeps focus and announces the position; pointer drag moves up and down. Negative control: before jsdom got a PointerEvent the drag test failed (the coordinates were missing) |
+| List vs Sear | `node e2e/list-parity.mjs` (the `column-shown` step adds the field through Add column) | 32 identical of 44, as before. The 12 others: the 8 column-manager shots (already different because of the Actions column, now also by design) and the 4 phone toolbar shots. No other screen changed |
+| Build | `npm run build` | boundaries and package audit pass |
