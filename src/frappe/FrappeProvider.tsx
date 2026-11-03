@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 import { QueryClient, QueryClientContext, QueryClientProvider } from "@tanstack/react-query";
-import { createFrappeClient, FrappeError, type FrappeClient } from "./client";
+import { createFrappeClient, FrappeError, withFrappeApi, type FrappeApi, type FrappeClient } from "./client";
 
 const FrappeContext = React.createContext<FrappeClient | null>(null);
 let sameOrigin: FrappeClient | null = null;
@@ -17,6 +17,12 @@ export function useFrappeClient(): FrappeClient {
 }
 
 const NO_RETRY = new Set(["csrf", "session_expired", "too_large"]);
+/** The provider's client with the 0.4.0 DocumentApi + RecordApi (a 0.3-style custom client is upgraded over its `call`). */
+export function useFrappeApi(): FrappeApi {
+  const client = useFrappeClient();
+  return React.useMemo(() => withFrappeApi(client), [client]);
+}
+
 /** Retry network and server errors (twice), never client errors (permission, validation, CSRF, expired session,
  *  too large — whatever the HTTP status they arrived with). */
 export const frappeRetry = (failures: number, error: unknown) =>

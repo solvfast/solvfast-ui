@@ -6,10 +6,20 @@
  *                                      `or_filters` parameter, and Frappe drops undeclared arguments — Sear's count
  *                                      ignored OR filters)
  *   frappe.desk.search.search_link     link-field options (the Desk's own link search: search fields, permissions)
+ * 0.4.0 adds the methods Desk itself uses for documents and records (docs 10, 11, 14 — Frappe 15.110):
+ *   frappe.desk.form.load.getdoctype / getdoc / get_docinfo, frappe.desk.form.save.savedocs / cancel,
+ *   frappe.client.delete, frappe.rename_doc, frappe.client.validate_link, run_doc_method,
+ *   frappe.model.workflow.get_transitions / apply_workflow (the Workflow itself comes in getdoctype `__workflow_docs`),
+ *   frappe.desk.form.assign_to.add / remove, frappe.desk.form.utils.add_comment / update_comment.
+ *   Objects and lists are sent as JSON strings, as Desk does (request.js prepare; savedocs json.loads its `doc`).
  * v0.1 auth: the page is served by Frappe (same origin), the session cookie authenticates, and every POST carries
  * `X-Frappe-CSRF-Token`. Another auth scheme plugs in as a custom `transport`.
  */
-import type { FrappeErrorInfo, FrappeErrorKind, FrappeMessage } from "./contract";
+import type {
+  AssignmentInfo, CommentInfo, DocInfo, DocTypeMeta, DocumentApi, FrappeDoc, FrappeErrorInfo, FrappeErrorKind, FrappeMessage,
+  LoadedDoc, MetaBundle, RecordApi, SearchLinkOptions, SearchResult, ValidateLinkResult, WorkflowInfo, WorkflowState,
+  WorkflowTransition,
+} from "./contract";
 import type { FrappeFilter } from "./query";
 
 /** One call to a whitelisted method; resolves to Frappe's full JSON response (`{ message }`, `{ docs }`, …). */
@@ -137,7 +147,15 @@ export interface FrappeClientOptions {
   transport?: FrappeTransport;
   /** Custom fetch (default: the global one). */
   fetch?: typeof fetch;
+  /**
+   * The logged-in user, sent by `addComment` as `comment_email` / `comment_by` (Frappe takes both from the client,
+   * docs 14 §A11). Default: `window.frappe.session.user` / `user_fullname` when the page has them; otherwise empty
+   * strings are sent and the server's Comment.validate fills `comment_email` from the session (`comment_by` stays empty).
+   */
+  session?: SessionUser | (() => SessionUser | undefined);
 }
+
+export interface SessionUser { user: string; fullName?: string }
 
 export interface DocField {
   fieldname: string;
@@ -173,7 +191,19 @@ export interface FrappeClient {
   getMeta(doctype: string): Promise<DocMeta>;
   getList<T = Record<string, unknown>>(doctype: string, args: GetListArgs): Promise<T[]>;
   getCount(doctype: string, args: { filters?: FrappeFilter[]; or_filters?: FrappeFilter[] }): Promise<number>;
-  searchLink(doctype: string, txt: string, opts?: { referenceDoctype?: string; pageLength?: number }): Promise<{ value: string; label?: string; description?: string }[]>;
+  /** `frappe.desk.search.search_link`. 0.4.0: also `filters`, `query`, `searchfield`, `ignoreUserPermissions`. */
+  searchLink(doctype: string, txt: string, opts?: SearchLinkOptions): Promise<SearchResult[]>;
+}
+
+/** Listener for the messages of SUCCESSFUL responses (`_server_messages`: the "Saved" alert, validate_link's "Cannot
+ *  Fetch Values", assign_to's "Already in … ToDo list" …). Errors carry theirs in `FrappeError.messages`. */
+export type ServerMessagesListener = (messages: FrappeMessage[], method: string) => void;
+
+/** What `createFrappeClient` returns: the 0.3 client + the 0.4.0 DocumentApi and RecordApi (contract.ts). */
+export interface FrappeApi extends FrappeClient, DocumentApi, RecordApi {
+  /** Cancel; `workflow` sets the state field first, as Desk does for a workflow doctype (save.py cancel). */
+  cancelDoc(doctype: string, name: string, opts?: { workflowStateField?: string; workflowState?: string }): Promise<FrappeDoc>;
+  subscribeMessages(listener: ServerMessagesListener): () => void;
 }
 
 /** `window.csrf_token`, then `window.frappe.csrf_token`. "None" (what a page rendered without a session token prints)
@@ -206,9 +236,155 @@ function fetchTransport(opts: FrappeClientOptions): FrappeTransport {
 }
 
 const json = (v: unknown) => JSON.stringify(v);
+const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const asJson = (v: unknown) => (typeof v === "string" ? v : json(v));
 
-export function createFrappeClient(opts: FrappeClientOptions = {}): FrappeClient {
-  const call = opts.transport ?? fetchTransport(opts);
+function defaultSession(): SessionUser | undefined {
+  const s = (globalThis as unknown as { frappe?: { session?: { user?: unknown; user_fullname?: unknown } } }).frappe?.session;
+  return typeof s?.user === "string" && s.user ? { user: s.user, fullName: typeof s.user_fullname === "string" ? s.user_fullname : undefined } : undefined;
+}
+
+/** getdoctype `docs` → MetaBundle: the DocType itself, then its child-table DocTypes (load.py:89-96). A top-level
+ *  `__messages` in the response (request.js merges it into Desk's dictionary) is folded into `meta.__messages`. */
+export function toMetaBundle(doctype: string, res: FrappeResponse): MetaBundle {
+  const docs = arr<DocTypeMeta>(res.docs).filter((d) => d && typeof d.name === "string");
+  const meta = docs.find((d) => d.name === doctype);
+  if (!meta) throw new FrappeError(`No metadata for DocType "${doctype}"`, 404, "DoesNotExistError");
+  const children: Record<string, DocTypeMeta> = {};
+  for (const d of docs) if (d !== meta) children[d.name] = d;
+  const top = res.__messages && typeof res.__messages === "object" ? (res.__messages as Record<string, string>) : undefined;
+  const merged = top || meta.__messages ? { ...(top ?? {}), ...(meta.__messages ?? {}) } : undefined;
+  return { doctype, meta: merged ? { ...meta, __messages: merged } : meta, children };
+}
+
+/** docinfo with every list the contract types as required present (a key the server left out becomes []). */
+export function normalizeDocInfo(raw: unknown): DocInfo {
+  const d = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  return {
+    ...d,
+    attachments: arr(d.attachments), communications: arr(d.communications), comments: arr(d.comments), versions: arr(d.versions),
+    assignments: arr(d.assignments), assignment_logs: arr(d.assignment_logs), shared: arr(d.shared), views: arr(d.views),
+    permissions: (d.permissions && typeof d.permissions === "object" ? d.permissions : {}) as DocInfo["permissions"],
+    user_info: (d.user_info && typeof d.user_info === "object" ? d.user_info : {}) as DocInfo["user_info"],
+  };
+}
+
+/**
+ * The active Workflow of a DocType from its getdoctype meta: `__workflow_docs` = [Workflow, …its Workflow State docs]
+ * (desk/form/meta.py load_workflows; Desk reads it in model/workflow.js `setup`). States get the Workflow State's
+ * `style` (indicator colour). Null when the DocType has no active workflow.
+ */
+export function workflowFromMeta(meta: DocTypeMeta | undefined): WorkflowInfo | null {
+  const docs = arr<Record<string, unknown>>(meta?.__workflow_docs);
+  const wf = docs.find((d) => d?.doctype === "Workflow");
+  if (!wf) return null;
+  const styles = new Map(docs.filter((d) => d?.doctype === "Workflow State").map((d) => [String(d.name), d.style as string | undefined]));
+  const states = arr<WorkflowState>(wf.states).map((s) => (s.style || !styles.get(s.state) ? s : { ...s, style: styles.get(s.state) }));
+  return { ...wf, name: String(wf.name), document_type: String(wf.document_type), workflow_state_field: String(wf.workflow_state_field), states, transitions: arr<WorkflowTransition>(wf.transitions) } as WorkflowInfo;
+}
+
+function savedDoc(res: FrappeResponse, fallback: FrappeDoc, method: string): FrappeDoc {
+  const doc = arr<FrappeDoc>(res.docs)[0] ?? (res.message && typeof res.message === "object" && !Array.isArray(res.message) ? (res.message as FrappeDoc) : undefined);
+  if (doc) return doc;
+  // UNVERIFIED (not exercised on a site): Submit of a `queue_in_background` DocType returns nothing (save.py:34-36,
+  // workflow.py apply_workflow) — the submission was queued. We return the sent document flagged `__queued: 1`.
+  void method;
+  return { ...fallback, __queued: 1 };
+}
+
+/** The 0.4.0 DocumentApi + RecordApi over any transport. */
+export function createDocumentApis(call: FrappeTransport, session: FrappeClientOptions["session"] = defaultSession): DocumentApi & RecordApi & Pick<FrappeApi, "cancelDoc"> {
+  const getMetaBundle = async (doctype: string) => toMetaBundle(doctype, await call("frappe.desk.form.load.getdoctype", { doctype }));
+  return {
+    getMetaBundle,
+    async getDoc(doctype, name) {
+      const res = await call("frappe.desk.form.load.getdoc", { doctype, name });
+      const doc = arr<FrappeDoc>(res.docs)[0];
+      // A missing document is NOT an HTTP error in Frappe: getdoc answers 200 `{docs: []}` (load.py:33-38).
+      if (!doc) throw new FrappeError(`${doctype} ${name} not found`, 404, "DoesNotExistError", { kind: "not_found" });
+      return { doc, docinfo: normalizeDocInfo(res.docinfo) } satisfies LoadedDoc;
+    },
+    async getDocInfo(doctype, name) {
+      const res = await call("frappe.desk.form.load.get_docinfo", { doctype, name });
+      return normalizeDocInfo(res.docinfo);
+    },
+    async saveDoc(doc, action) {
+      return savedDoc(await call("frappe.desk.form.save.savedocs", { doc: json(doc), action }), doc, "savedocs");
+    },
+    async cancelDoc(doctype: string, name: string, opts: { workflowStateField?: string; workflowState?: string } = {}) {
+      const res = await call("frappe.desk.form.save.cancel", {
+        doctype, name, ...(opts.workflowStateField && opts.workflowState ? { workflow_state_fieldname: opts.workflowStateField, workflow_state: opts.workflowState } : {}),
+      });
+      return savedDoc(res, { doctype, name }, "cancel");
+    },
+    async deleteDoc(doctype, name) {
+      await call("frappe.client.delete", { doctype, name });
+    },
+    async renameDoc(doctype, oldName, newName, opts = {}) {
+      const res = await call("frappe.rename_doc", { doctype, old: oldName, new: newName, merge: !!opts.merge });
+      return typeof res.message === "string" ? res.message : newName;
+    },
+    async validateLink(doctype, value, fetchFields) {
+      const res = await call("frappe.client.validate_link", { doctype, docname: value, ...(fetchFields?.length ? { fields: json(fetchFields) } : {}) });
+      const { name, ...values } = (res.message && typeof res.message === "object" ? res.message : {}) as Record<string, unknown>;
+      return { name: typeof name === "string" && name ? name : null, values } satisfies ValidateLinkResult;
+    },
+    async runDocMethod(doc, method, args) {
+      const res = await call("run_doc_method", { docs: json(doc), method, ...(args !== undefined ? { args: json(args) } : {}) });
+      return { doc: arr<FrappeDoc>(res.docs)[0], message: res.message };
+    },
+
+    async getWorkflow(doctype) {
+      return workflowFromMeta((await getMetaBundle(doctype)).meta);
+    },
+    async getWorkflowTransitions(doc) {
+      const res = await call("frappe.model.workflow.get_transitions", { doc: json(doc) });
+      return arr<WorkflowTransition>(res.message);
+    },
+    async applyWorkflow(doc, action) {
+      return savedDoc(await call("frappe.model.workflow.apply_workflow", { doc: json(doc), action }), doc, "apply_workflow");
+    },
+    async addAssignment(doctype, name, users, opts = {}) {
+      const res = await call("frappe.desk.form.assign_to.add", {
+        doctype, name, assign_to: json(users),
+        ...(opts.description !== undefined ? { description: opts.description } : {}),
+        ...(opts.date ? { date: opts.date } : {}),
+        ...(opts.priority ? { priority: opts.priority } : {}),
+      });
+      // Frappe returns at most 5 open assignments (assign_to.py get, LIMIT 5); docinfo.assignments is uncapped.
+      return arr<AssignmentInfo>(res.message);
+    },
+    async removeAssignment(doctype, name, user) {
+      return arr<AssignmentInfo>((await call("frappe.desk.form.assign_to.remove", { doctype, name, assign_to: user })).message);
+    },
+    async addComment(doctype, name, content) {
+      const who = (typeof session === "function" ? session() : session) ?? undefined;
+      const res = await call("frappe.desk.form.utils.add_comment", {
+        reference_doctype: doctype, reference_name: name, content, comment_email: who?.user ?? "", comment_by: who?.fullName ?? who?.user ?? "",
+      });
+      const c = (res.message ?? {}) as Record<string, unknown>;
+      return { ...c, name: String(c.name ?? ""), content: String(c.content ?? content), owner: String(c.owner ?? who?.user ?? ""), creation: String(c.creation ?? ""), comment_type: (c.comment_type as string | undefined) ?? "Comment" } as CommentInfo;
+    },
+    async updateComment(commentName, content) {
+      await call("frappe.desk.form.utils.update_comment", { name: commentName, content });
+    },
+    async deleteComment(commentName) {
+      await call("frappe.client.delete", { doctype: "Comment", name: commentName });
+    },
+  };
+}
+
+export function createFrappeClient(opts: FrappeClientOptions = {}): FrappeApi {
+  const transport = opts.transport ?? fetchTransport(opts);
+  const listeners = new Set<ServerMessagesListener>();
+  const call: FrappeTransport = async (method, args) => {
+    const res = await transport(method, args);
+    if (listeners.size && res && res._server_messages) {
+      const messages = parseServerMessages(res._server_messages);
+      if (messages.length) for (const l of [...listeners]) l(messages, method);
+    }
+    return res;
+  };
   return {
     call,
     async getMeta(doctype) {
@@ -232,8 +408,35 @@ export function createFrappeClient(opts: FrappeClientOptions = {}): FrappeClient
     async searchLink(doctype, txt, o = {}) {
       const res = await call("frappe.desk.search.search_link", {
         doctype, txt, page_length: o.pageLength ?? 10, ...(o.referenceDoctype ? { reference_doctype: o.referenceDoctype } : {}),
+        ...(o.filters !== undefined ? { filters: asJson(o.filters) } : {}),
+        ...(o.query ? { query: o.query } : {}),
+        ...(o.searchfield ? { searchfield: o.searchfield } : {}),
+        ...(o.ignoreUserPermissions ? { ignore_user_permissions: 1 } : {}),
       });
-      return (res.message ?? []) as { value: string; label?: string; description?: string }[];
+      return arr<SearchResult>(res.message);
     },
+    ...createDocumentApis(call, opts.session ?? defaultSession),
+    subscribeMessages(listener) {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+  };
+}
+
+/**
+ * Any FrappeClient (e.g. a 0.3-style custom one) → FrappeApi. A client from `createFrappeClient` is returned as is;
+ * otherwise its own 0.3 methods are kept and the 0.4.0 methods are built over its `call`.
+ */
+export function withFrappeApi(client: FrappeClient): FrappeApi {
+  const c = client as Partial<FrappeApi>;
+  if (typeof c.getMetaBundle === "function" && typeof c.addComment === "function" && typeof c.subscribeMessages === "function") return client as FrappeApi;
+  const full = createFrappeClient({ transport: client.call });
+  return {
+    ...full,
+    call: client.call,
+    getMeta: client.getMeta.bind(client),
+    getList: client.getList.bind(client) as FrappeClient["getList"],
+    getCount: client.getCount.bind(client),
+    searchLink: client.searchLink.bind(client),
   };
 }
