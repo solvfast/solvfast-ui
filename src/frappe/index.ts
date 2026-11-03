@@ -34,3 +34,9 @@ export type { BulkKind, BulkPermissions, BulkOutcome } from "./list/bulk";
 export { FrappeBulkActions } from "./list/FrappeBulkActions";
 export type { FrappeBulkOptions } from "./list/FrappeBulkActions";
 export { useListRealtime } from "./list/realtime";
+
+// 0.4.0 — record (A4): workflow actions, assignment, timeline, status. docs/CONTRACT-0.4.md
+// `Indicator` from ./record is exported as `RecordIndicator` (the list layer's `Indicator` keeps the name). Debt: one
+// indicator module for list and record before 0.4.0 (both reproduce frappe.get_indicator).
+export * from "./record";
+export type { Indicator as RecordIndicator } from "./record/indicator";
