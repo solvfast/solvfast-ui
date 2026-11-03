@@ -1,4 +1,4 @@
-# Known limitations — @solvfast/ui 0.3.0
+# Known limitations — @solvfast/ui 0.4.0 (pre-release)
 
 What this release does **not** do, has **not** been verified, or does differently from Sear on purpose.
 Evidence for everything that *was* verified is in docs/VALIDATION.md.
@@ -11,6 +11,24 @@ Evidence for everything that *was* verified is in docs/VALIDATION.md.
 | Merged components (0.3.0) | Verified: unit tests, showcase in light/dark × en/ar, clean installs on both paths. **Pixel parity with Sear not run** for them: their look is the Design System's code with the package's tokens and popper glass. Sear uses only a few (Alert, Accordion, HoverCard, Progress, on a handful of Sear Studio screens); a reference for those could be added to `tools/parity` later |
 | Frappe layer — simulated requests | **Passed**: exact request shapes, filters, search, counts, errors, link search, grouping, against a recording transport and a simulated Frappe site (docs/VALIDATION.md, 5.4) |
 | Frappe layer — a real Frappe site | **Deferred — not done.** It will be validated when the package is first integrated into a real project. Until then nothing here claims it works against a live site. A prepared, never-run procedure is in `e2e/frappe-site/` |
+
+## Frappe layer 0.4.0 — status (added 2026-11-03)
+
+- **Nothing in the 0.4.0 Frappe layer is verified by writing to a real site.** Read paths (metadata, list rows, counts,
+  link search/validation, document load, 403/417 error envelopes) were replayed from **recorded real Frappe 15.110
+  responses** and anonymous HTTP (`tests/real/sada-real.test.tsx`). Saves, submits, workflow, assignment, comments,
+  Import and Export have run only against the in-package simulator and stub transports.
+- **Permissions (rule 9):** without `session.roles` the package grants nothing beyond what the server's `docinfo.permissions`
+  says for a saved document; a new document is read-only and `usePermissions().known` is false. The server is the
+  authority; the client only decides what to show. Restricted users were never tested on a real site.
+- **Import / Export:** the list offers Import (when `allow_import` and the right) and Export (when the right) and sends
+  Desk's own server requests (`download_template`, Data Import sequence). The package never builds a file from client
+  data. Missing: the import preview grid and column mapper, Print / Clear Assignment / Assignment Rule / Add Tags /
+  workflow bulk approval, Report-view export. See `docs/components/list.md` §6a and the parity doc in the repository
+  (`docs/release/LISTVIEW-FRAPPE-PARITY.md`): the List View is **not** fully Frappe-compatible yet.
+- **Realtime** is a skeleton (full reload on an event; a fake socket only in tests).
+- **Client Scripts** are not executed (`formEvents` instead, documented boundary); 18 of 947 installed-app `depends_on`
+  expressions are unsupported by decision.
 
 ## Environment
 

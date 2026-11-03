@@ -1,4 +1,4 @@
-# Component completion matrix — @solvfast/ui 0.4.0-dev.25 (2026-11-03)
+# Component completion matrix — @solvfast/ui 0.4.0-dev.28 (2026-11-03; first written at dev.25, rows 7, 21, 22, 23 updated after the Phase 26 merges)
 
 **Denominator (fixed before counting): 46 units** = every component, hook and service group exported from `@solvfast/ui/frappe`
 (`src/frappe/index.ts` at `017c7f9`), plus the generic list, record and field controls the contract names (`docs/CONTRACT-0.4.md` §1–2,
@@ -22,7 +22,7 @@ and anonymous HTTP through the built client, **not** an authenticated session fr
 | 4 | `readFrappeBoot` / `formatContextFromBoot` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/services/boot.ts` | foundation-boot 4 | ✓ | NOT VERIFIED (D-25 boot merged into the CRM work copy, never served) | boot shape is the package's `#sf-boot` JSON, not Desk's `frappe.boot` | needs a build window | No |
 | 5 | `useMetaBundle` / `useDoc` / `useDocInfo` (+ cache rules `applySavedDoc`…) | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/hooks/useDoc.ts`, `services/cache.ts` | foundation-hooks, parity/keys 6 (+5 todo) | ✓ | ✓ getdoc + docinfo normalised from real responses | cache keys are the package's (`sf-frappe`) | 5 cache-invalidation rules are TODO tests | No |
 | 6 | `useSaveDoc` / `useDocAction` (save, submit, cancel, delete, rename, run method, workflow, assign, comment) | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/hooks/useDocMutations.ts` | foundation-hooks, record-frappe 20 | ✓ | BLOCKED (writes) | — | never run against a site | No |
-| 7 | `usePermissions` / `buildDocPermissions` / `rolePermissions` / `fieldDisplayStatus` | Frappe | **PARTIALLY IMPLEMENTED** | `./frappe` | `src/frappe/hooks/usePermissions.ts`, `services/permissions.ts` | parity/display-status 38, foundation-hooks, sada-real | ✓ | ✓ agrees with the server's `get_doc_permissions` for the two Sada role holders — **weak** (both full-rights) | (a) without `session.roles` a new doc is **optimistic** (read/write/create granted) — violates Phase 26 rule 9; (b) no `can_import` (`allow_import` + System Manager) / `can_export` (System Manager, if_owner) helpers as `model.js:434-450`; (c) `docinfo.permissions.import` is always 0 server-side, so a doc-level `can("import")` is meaningless | permission-limited users and permlevel > 0 fields: BLOCKED / not testable on Sada | No |
+| 7 | `usePermissions` / `buildDocPermissions` / `rolePermissions` / `fieldDisplayStatus` / `canImport` / `canExport` / `readableFields` / `permissionsKnown` | Frappe | IMPLEMENTED (dev.27) | `./frappe` | `src/frappe/hooks/usePermissions.ts`, `services/permissions.ts` | parity/display-status 39, permissions-matrix 31, lead-p26 8, sada-real | ✓ | ✓ agrees with the server for the two Sada role holders — **weak** (both full-rights) | rule 9: missing information denies (Desk would use role rows it always has); Administrator keyed on the user name | restricted users, permlevel > 0, User Permissions, sharing: BLOCKED / not testable on Sada | No |
 | 8 | `formatValue` family (`formatNumber`, `formatCurrency`, `formatDate`, `formatDuration`…) | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/services/format.ts` | parity/format 29 (+4 todo) | ✓ | NOT VERIFIED (formats compared with Desk source, not a site) | Banker's rounding epsilon UNVERIFIED | 4 TODO | No |
 | 9 | `translateLabel` / `translateText` / `withTranslations` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/services/translate.ts` | parity/format | ✓ | NOT VERIFIED; `getdoctype` returns no `__messages` in 15.110 (real finding) | Arabic fixtures are a known defect (identical to EN) | needs an app/boot dictionary | No |
 | 10 | `FrappeErrorState` / `describeError` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/feedback/FrappeErrorState.tsx` | frappe-list, sada-real | ✓ | ✓ real 403 renders as permission with no Retry (fixed `6f1fc36`) | Retry only for network/server/rate-limited/unavailable | — | No |
@@ -36,9 +36,9 @@ and anonymous HTTP through the built client, **not** an authenticated session fr
 | 18 | `queryToFrappe` / `conditionToFrappe` / `buildListRequest` / `orderByWithTieBreak` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/query.ts` | parity/list, frappe | ✓ | NOT VERIFIED: the Sada capture built `form_dict` by hand (`capture-real-sada.py:44-49`), not through `buildListRequest`; the Guest `getList` was refused (403) before the query ran | nested-set operators missing | — | No |
 | 19 | List View Settings: `fetchListSettings` / `applyColumnSettings` | Frappe | IMPLEMENTED (read only) | `./frappe` | `src/frappe/list/settings.ts` | frappe-list, sada-real | ✓ | ✓ `get_list_settings` null on Sada | no settings editor | — | No |
 | 20 | Saved filters + user settings (server storage): `createFrappeSavedFilters`, `createFrappeUserSettings`, `queryToTuples` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/list/storage.ts`, `tuples.ts` | frappe-list | ✓ | BLOCKED (writes List Filter / `__UserSettings`) | OR conjunctions cannot be stored | — | No |
-| 21 | Bulk actions: `bulkMenu`, `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`, `FrappeBulkActions` | Frappe | **PARTIALLY IMPLEMENTED** | `./frappe` | `src/frappe/list/bulk.ts`, `FrappeBulkActions.tsx` | frappe-list | ✓ | BLOCKED (writes) | missing: Export, Clear Assignment, Assignment Rule, Add Tags, Print, workflow bulk actions (`list_view.js:2075-2128`); "Assign To" gated by `write` here, always offered in Desk (UNVERIFIED) | queued (20–500) outcome handling UNVERIFIED at runtime | No |
-| 22 | **Export** (list menu → Data Exporter `download_template`; report-view `export_query`) | Frappe | **MISSING** | — | — | — | — | BLOCKED on a site: `export_query` and `export_data` write an Access Log row (`reportview.py:352-400`, `data_export/exporter.py:46`); `download_template` → `Exporter.build_response` → `provide_binary_file` (`desk/utils.py:60-66`) writes nothing, but it is a read the owner has not approved | native checks `can_export` server-side (`permissions.py:607-615`: System Manager, else role `export`, else `if_owner` export with per-row owner check) | nothing implemented | No |
-| 23 | **Import** (list menu entry gated by `can_import` → Data Import tool; `download_template`, Data Import doc, `get_preview_from_template`, `form_start_import`, `get_import_status`) | Frappe | **MISSING** | — | — | — | — | BLOCKED (creating a Data Import document and importing are writes) | native gate `model.js:434-442`: `meta.allow_import` AND (System Manager OR `perm[0].import`); server re-validates in `DataImport.validate` (`data_import.py:60-75`) | nothing implemented | No |
+| 21 | Bulk actions: `bulkMenu`, `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`, `FrappeBulkActions` (+ selection-bar Export) | Frappe | **PARTIALLY IMPLEMENTED** | `./frappe` | `src/frappe/list/bulk.ts`, `FrappeBulkActions.tsx` | frappe-list, list-io, permissions-matrix | ✓ | BLOCKED (writes) | missing: Print, Clear Assignment, Assignment Rule, Add Tags, workflow bulk approval (`list_view.js:2075-2128`); Assign To gated on `read` (server rule), Desk shows it to all; Delete outcome cannot list failures (`delete_items` answers nothing) | queued (20–500) outcome UNVERIFIED at runtime | No |
+| 22 | **Export** (`FrappeExportDialog`, `downloadExportTemplate` → Data Exporter `download_template`; menu + selection bar) | Frappe | IMPLEMENTED (dev.28) | `./frappe` | `src/frappe/list/export.ts`, `FrappeExportDialog.tsx`, `client.ts` `download` | list-io 22, lead-p26 | ✓ stubs | BLOCKED (unapproved read; the file path writes nothing — `desk/utils.py:60-66`) | hidden without the `export` right where Desk shows it to all (rule D.1); filtered export uses the list's filters (no in-dialog FilterGroup); Report-view `export_query` not reproduced | never run on a site | No |
+| 23 | **Import** (gated list menu entry → Data Import; `startDataImport` sequence, `useImportStatus`, templates, errored rows, logs) | Frappe | **PARTIALLY IMPLEMENTED** (dev.28) | `./frappe` | `src/frappe/list/import.ts`, `client.ts` `uploadFile` | list-io | ✓ stubs (Desk's exact call sequence) | BLOCKED (every step is a write) | no preview grid / column mapper / log table (functions only; ~300–400 lines, owner decision); progress polled, not realtime; default route `/app/data-import/new?reference_doctype=` vs Desk's list route | never run on a site | No |
 | 24 | `FrappeForm` / `FrappeFormView` (load, save lifecycle, submit/cancel/amend, Cancel All, read-only, skeleton) | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/form/FrappeForm.tsx`, `FrappeFormView.tsx` | frappe-form 33, record-form-fixes 6, review-r1 22, review-r2 11, sada-real | ✓ | ✓ renders the real Sada Lifecycle with child rows (jsdom); save BLOCKED | no Client Scripts (D-24), no undo, viewers, Connections, print, rename, Duplicate, prev/next | Attach upload P2 | No |
 | 25 | `FrappeField` (fieldtype coverage) | Frappe | **PARTIALLY IMPLEMENTED** | `./frappe` | `src/frappe/form/FrappeField.tsx` | frappe-form, fields 30 | ✓ | ✓ (fields rendered from real metas) | fieldtypes not supported listed in `forms.md` §3 (Attach, Geolocation, Signature, …) | — | No |
 | 26 | `FrappeLinkField` / `FrappeDynamicLinkField` / `useLinkTitles` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/form/FrappeLinkField.tsx`, `linkTitles.ts` | frappe-form, sada-real (search_link, validate_link) | ✓ | ✓ search and validation on real responses | Dynamic Link with Single DocTypes (R1-F12, P3) | — | No |
@@ -65,23 +65,23 @@ and anonymous HTTP through the built client, **not** an authenticated session fr
 
 ## 2. Counts (denominator 46)
 
-Frappe-kind rows: 37 (1–35, 45, 46). Of those, 14 (simulator), 22 and 23 (MISSING) and 45 (types) are excluded from the verification
-percentages, leaving **33 verifiable Frappe units**.
+Frappe-kind rows: 37 (1–35, 45, 46). Of those, 14 (simulator) and 45 (types) are excluded from the verification percentages; 22 and 23 were MISSING at
+dev.25 and are counted from dev.28, leaving **35 verifiable Frappe units**.
 
 | Measure | Count | % |
 |---|---:|---:|
-| IMPLEMENTED (complete against its own contract) | 37 / 46 | 80 % |
-| PARTIALLY IMPLEMENTED (rows 7, 13, 21, 25, 33) | 5 / 46 | 11 % |
-| MISSING (22 Export, 23 Import) | 2 / 46 | 4 % |
+| IMPLEMENTED (complete against its own contract) | 39 / 46 | 85 % |
+| PARTIALLY IMPLEMENTED (rows 13, 21, 23, 25, 33) | 5 / 46 | 11 % |
+| MISSING | 0 / 46 | 0 % (22 and 23 were MISSING at dev.25) |
 | n/a (14 simulator, 45 types) | 2 / 46 | 4 % |
-| VERIFIED — SIMULATED | 33 / 33 verifiable Frappe units | 100 % |
-| VERIFIED — REAL FRAPPE, read path (rows 1, 2, 3, 5, 7*, 10, 15, 16, 17, 19, 24, 25, 26, 27, 34, 46) | 16 / 33 | 48 % |
+| VERIFIED — SIMULATED | 35 / 35 verifiable Frappe units | 100 % |
+| VERIFIED — REAL FRAPPE, read path (rows 1, 2, 3, 5, 7*, 10, 15, 16, 17, 19, 24, 25, 26, 27, 34, 46) | 16 / 35 | 46 % |
 | BLOCKED for real verification (every write path: 6, 13, 20, 21, 33 whole; parts of 1, 24, 32) | 5 whole + 3 partial | — |
 | PRODUCTION READY (0.4 Frappe layer) | **0** | 0 % |
 
 \* row 7's real check is weak (full-rights users only). Row 18 was moved to NOT VERIFIED (see its cell).
 
-**Honest completion figure:** 37/46 = **80 % implemented**; **48 % of verifiable Frappe units touched by real responses on the read path,
+**Honest completion figure:** 39/46 = **85 % implemented** (dev.25: 80 %); **46 % of verifiable Frappe units touched by real responses on the read path,
 0 % on writes, 0 % production ready.** The 0.3.x generic list/form rows (36, 37, 44) were already published and are the only shipped units.
 
 ## 3. What is genuinely ready to demonstrate (showcase scope)
@@ -90,7 +90,7 @@ Demonstrable now, on the simulated site, with the label "simulated; read path ve
 row "Real Frappe" says ✓: FrappeListView (15–19), FrappeForm + fields + Link + child table (24–27), FrappeErrorState (10), permissions ladder (7, with
 the roles supplied), workflow actions / timeline / assign (32–35, simulated only), generic record and list components (36–43).
 
-**Not demonstrable as package features:** Import (23) and Export (22) — they do not exist. Realtime (13) is a skeleton. Bulk actions (21)
+**Demonstrable from dev.28, simulated only:** the gated Import/Export entries and the Export dialog (22, 23); no file is produced in the showcase. Realtime (13) is a skeleton. Bulk actions (21)
 cover delete / submit / cancel / edit / assign only.
 
 **Not production ready, and why (applies to every 0.4 unit):** no write has run against a real site; no authenticated session has been
