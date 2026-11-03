@@ -2,7 +2,7 @@
 
 A browsable site of the package's components, built like the Design System site:
 - **Layout.** One long page. The overview is the hero; every other section sits collapsed under its heading (open it with its chevron or from the sidebar).
-- **Sidebar.** Groups as on the DS site: Foundations, Components, Data display, Feedback & overlays, Patterns. It has a search field, follows the section in view, and collapses to an icon rail.
+- **Sidebar.** Groups as on the DS site: Foundations, Components, Data display, Feedback & overlays, Patterns, and (0.4.0) the Frappe layer. It has a search field, follows the section in view, and collapses to an icon rail.
 - **Header.** A glass bar that turns into a floating pill when you scroll, with the language and theme switches.
 - **Phones.** A sticky bar shows the current section and opens the menu.
 - **Themes and languages.** Light and dark; English and Arabic (left-to-right and right-to-left).
@@ -36,7 +36,7 @@ node e2e/showcase-smoke.mjs                          # in another: [baseUrl] [sc
 
 The smoke test opens every section from its address in light/dark × English/Arabic. It fails on any page error, console error, wrong `dir` or theme on `<html>`, more than one section open, a section not scrolled into view, or sideways scrolling (desktop and phone width). It also checks:
 - **Browsing:** sections are collapsed by default; the section toggle, the rail collapse, the header pill and the phone menu work.
-- **Interactive examples:** dialogs, sheets, menus, the command palette, tabs, the date field, list search, selection, filters, the stat cards, the simulated Frappe list and the app shell; from 0.3.0 also toggles, slider and progress direction, accordion, search combobox, rich text (toolbar, and an XSS sample that must not run), form validation, charts, hover card, context menu, menubar, breadcrumb, pagination, navigation menu, and the page header (in and out of the app shell). It needs `playwright-core`'s Chromium, as the other `e2e/` scripts do.
+- **Interactive examples:** dialogs, sheets, menus, the command palette, tabs, the date field, list search, selection, filters, the stat cards, the simulated Frappe list and the app shell; from 0.4.0 the ten Frappe-layer sections (scenario and session pickers, the realtime button, bulk bar gating, the Missing Fields dialog, depends_on, 403 / 417, a comment, a workflow transition, an assignment, a mention, the role picker, the Export dialog and its recorded request, the RTL and themed panes); from 0.3.0 also toggles, slider and progress direction, accordion, search combobox, rich text (toolbar, and an XSS sample that must not run), form validation, charts, hover card, context menu, menubar, breadcrumb, pagination, navigation menu, and the page header (in and out of the app shell). It needs `playwright-core`'s Chromium, as the other `e2e/` scripts do.
 
 ## How it is put together
 
@@ -49,6 +49,33 @@ The smoke test opens every section from its address in light/dark × English/Ara
 | `src/pages/*.tsx` | Section bodies, one module per group; they use `Section` (a block), `Example` (live example + "Show code") and `Props` from `src/doc/Doc.tsx` |
 | `src/layout/Layout.tsx` | The frame: header bar/pill (language, theme), the sidebar and its icon rail, the phone bar and menu |
 | `src/demos/AppShellDemo.tsx` | The app shell full screen (`#/demo/app-shell`), embedded on the App shell page |
+
+## The Frappe layer group (Phase 26)
+
+Ten sections (`src/pages/frappe/`) show the 0.4.0 Frappe components on a **simulated Frappe site** that runs in the browser
+(`playground/src/demo/sim-site.ts`: `createFixtureTransport` with the real Frappe 15.110 metadata of ToDo / User / Contact from
+`tests/fixtures/real-15.110`, plus two authored demo DocTypes — Approval Memo with a workflow, Travel Request with `depends_on`,
+a Table MultiSelect, a permlevel-1 field, role rows and `allow_import`). A manager can drive every control without a developer:
+
+| Section | What works |
+|---|---|
+| `#frappe-gallery` | a card per component with its matrix status and a link |
+| `#frappe-list-view` | ToDo list: search, filters, saved filters (List Filter rows in the simulator), columns, sort, paging, selection, bulk delete / assign, the ⋯ menu, a "simulate server event" button for the realtime hook, loading / empty / 403 scenarios, two sessions |
+| `#frappe-forms` | Contact (child tables, Dynamic Link), new ToDo (mandatory, Link search), Travel Request (depends_on, Table MultiSelect), submitted memo, read-only by role, save error 417, loading, 403 |
+| `#frappe-record` | FrappeStatusIndicator + FrappeTimeline: comments with mentions, versions, assignment logs |
+| `#frappe-workflow` | FrappeWorkflowActions (stepper and compact) on the Approval Flow; generic LifecycleBar / ActionBar |
+| `#frappe-assign` | FrappeAssignTo (add / remove through the simulator); generic AssigneeGroup / AssignPicker; CommentComposer |
+| `#frappe-permissions` | a role picker over `usePermissions`, `canImport`, `canExport`, `bulkMenu`, the permlevel-1 field status, and what the UI hides (incl. the rule-9 "roles unknown" case) |
+| `#frappe-import-export` | the gated Import / Export entries, `FrappeExportDialog`, the exact `download_template` request the package posts (recorded by a stub file transport), the 403 case |
+| `#frappe-rtl` · `#frappe-themes` | the same list and form in Arabic RTL and English LTR, and in light and dark, side by side (element-scoped `ThemeProvider`s) |
+
+**Labels.** Every section carries a status strip: *SIMULATED — in-browser Frappe simulator, demo data*, and, where
+`docs/release/COMPONENT-COMPLETION-MATRIX.md` says so (rows 10, 15–19, 24–27), *read path verified against recorded real Frappe 15.110
+responses — tests/real/sada-real.test.tsx*. Nothing on these pages is evidence of real-site behaviour; no write has ever run on a site.
+The simulated file transport never builds an export from client data: it records the request and answers a 403 or a tiny text file
+that says it is a simulated response; uploads (imports) are refused. Two simulator simplifications are labelled on the pages:
+`docinfo.permissions` is always full-rights (a demo override answers restricted rights for the "read-only by role" form scenario), and
+the simulator never checks permissions on reads.
 
 The List View, Frappe and app-shell pages reuse the playground's demos (`playground/src/showcase`, `playground/src/demo`): Sear's Field Library data, Sear's shell configuration, and the simulated Frappe site. The Frappe page runs entirely in the browser against that simulation; it is not evidence of real-site validation, which is still deferred.
 

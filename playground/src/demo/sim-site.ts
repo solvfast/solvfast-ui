@@ -6,7 +6,7 @@
  * `createFixtureTransport`; nothing is evidence of Frappe behaviour. Playground / showcase only.
  */
 import { QueryClient } from "@tanstack/react-query";
-import { createFrappeClient, toFrappeError, type DocPerm, type DocTypeMeta, type FrappeDoc, type PermType, type RealtimeEvent, type RealtimePort, type WorkflowInfo } from "@ui/frappe";
+import { createFrappeClient, toFrappeError, type DocPerm, type DocTypeMeta, type DownloadedFile, type FrappeDoc, type FrappeFilesTransport, type PermType, type RealtimeEvent, type RealtimePort, type WorkflowInfo } from "@ui/frappe";
 import { createFixtureTransport, type FixtureHandler, type FixtureTransport } from "../../../src/frappe/testing";
 import todoEn from "../../../tests/fixtures/real-15.110/todo.en.json";
 import userEn from "../../../tests/fixtures/real-15.110/user.en.json";
@@ -131,7 +131,37 @@ export function createFakeRealtime(): FakeRealtime {
   };
 }
 
+/** One recorded file-transport call (what the package would POST to the site). */
+export interface FileCall { kind: "download" | "upload"; method: string; args: Record<string, unknown>; at: number; outcome: string }
+
+/**
+ * A SIMULATED file transport (`createFrappeClient({ files })`): it records every `download` / `upload` the package asks
+ * for and never contacts a server. `mode` "refuse" answers the 403 a site returns for a user without the right;
+ * "respond" resolves a tiny text file that says it is a simulated response (NOT an export of any data); "none" (the
+ * default for every section but Import & export) refuses with a labelled 417 so nothing is ever handed to the browser.
+ */
+export function simulatedFiles(mode: "none" | "refuse" | "respond", onCall?: (c: FileCall) => void): FrappeFilesTransport {
+  const record = (c: FileCall) => { onCall?.(c); return c; };
+  const refuse = (status: number, exc_type: string, message: string) => toFrappeError(status, { exc_type, _server_messages: JSON.stringify([JSON.stringify({ message, indicator: "red" })]) });
+  return {
+    async download(method, args) {
+      if (mode === "refuse") { record({ kind: "download", method, args, at: Date.now(), outcome: "403 PermissionError (simulated server refusal)" }); throw refuse(403, "PermissionError", "Not permitted to export Travel Request"); }
+      if (mode === "none") { record({ kind: "download", method, args, at: Date.now(), outcome: "417 — no file server in the showcase" }); throw refuse(417, "ValidationError", "SIMULATED showcase: the file server is not simulated in this section; see Import & export."); }
+      const text = `SIMULATED RESPONSE — NOT AN EXPORT.\nThe showcase has no server; on a site ${method} would stream the CSV/XLSX built server-side.\nRequest: ${JSON.stringify(args)}\n`;
+      const file: DownloadedFile = { blob: new Blob([text], { type: "text/plain" }), filename: "SIMULATED-not-an-export.txt", contentType: "text/plain" };
+      record({ kind: "download", method, args, at: Date.now(), outcome: `200 — simulated ${file.filename} (${text.length} bytes)` });
+      return file;
+    },
+    async upload(_file, filename, opts) {
+      record({ kind: "upload", method: "upload_file", args: { filename, ...opts }, at: Date.now(), outcome: "417 — uploads are not simulated (an import would write to the site)" });
+      throw refuse(417, "ValidationError", "SIMULATED showcase: uploads are not simulated; an import writes to the site.");
+    },
+  };
+}
+
 export interface SimSiteOptions {
+  /** The file transport (download / upload). Default: `simulatedFiles("none")`. */
+  files?: FrappeFilesTransport;
   /** Extra / overriding methods (e.g. one of `SCENARIO_HANDLERS`). */
   handlers?: Record<string, FixtureHandler>;
   /** The simulated session's roles (workflow transitions are filtered by them). */
@@ -175,7 +205,7 @@ export function createSimSite(o: SimSiteOptions = {}): SimSite {
     if (method === "frappe.desk.form.load.get_docinfo" && r.message) return { ...r, message: { ...(r.message as Record<string, unknown>), permissions: perms } };
     return r;
   }, { store: base.store }) : base;
-  const client = createFrappeClient({ transport });
+  const client = createFrappeClient({ transport, files: o.files ?? simulatedFiles("none") });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   let extra = 0;
   return {
