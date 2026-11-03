@@ -101,6 +101,16 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   // ---- columns: visibility + order -----------------------------------------------------------------------------------
   const defaultVisible = React.useMemo(() => columns.filter((c) => !c.hidden).map((c) => c.key), [columns]);
   const [visibleKeys, setVisibleKeysState] = React.useState<string[]>(() => initial.visible?.length ? initial.visible : defaultVisible);
+  // Until the user chooses columns (now, or in stored prefs), the shown columns follow the columns' own `hidden` flags
+  // when those change (e.g. a width-based default, List View Settings that arrive after the first render). Compared by
+  // key list, so rebuilding equal columns changes nothing.
+  const [chosenColumns, setChosenColumns] = React.useState(() => !!initial.visible?.length);
+  const defaultKey = defaultVisible.join("\u0000");
+  const [seenDefault, setSeenDefault] = React.useState(defaultKey);
+  if (seenDefault !== defaultKey) {
+    setSeenDefault(defaultKey);
+    if (!chosenColumns) setVisibleKeysState(defaultVisible);
+  }
   const visibleColumns = React.useMemo(() => {
     const locked = columns.filter((c) => c.alwaysVisible && !visibleKeys.includes(c.key));
     return [...locked, ...visibleKeys.map((k) => columns.find((c) => c.key === k)).filter(Boolean)] as ColumnDef<T>[];
@@ -179,7 +189,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   const setSearch = (v: string) => { setSearchState(v); setPage(0); };
   const setSort = (s: SortState) => { setSortState(s); persist({ sort: s }); };
   const toggleSort = (key: string) => setSort(sort.key === key ? { key, dir: sort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" });
-  const setVisibleKeys = (keys: string[]) => { setVisibleKeysState(keys); persist({ visible: keys }); };
+  const setVisibleKeys = (keys: string[]) => { setChosenColumns(true); setVisibleKeysState(keys); persist({ visible: keys }); };
   const setGroupBy = (key: string) => { setGroupByState(key); setPage(0); persist({ groupBy: key }); };
   const setQuickFields = (names: string[]) => { setQuickFieldsState(names); persist({ quick: names }); };
   // adapters may throw or reject; either way the error goes to `onSavedFiltersError`

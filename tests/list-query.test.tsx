@@ -8,10 +8,12 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { FilterBuilder, ThemeProvider, applyFilterQuery, operatorsFor, type FilterField, type FilterQuery } from "../src";
-import { FrappeListView, FrappeProvider, buildFrappeListMeta, createFrappeClient, queryToFrappe, type DocMeta, type FrappeTransport } from "../src/frappe";
+import { FilterBuilder, ListView, ThemeProvider, applyFilterQuery, operatorsFor, useListState, type ColumnDef, type FilterField, type FilterQuery } from "../src";
+import { FrappeListView, FrappeProvider, buildFrappeListMeta, createFrappeClient, queryToFrappe, useFrappeList, type DocMeta, type FrappeTransport } from "../src/frappe";
+import type { FrappeListOptions } from "../src/frappe/useFrappeList";
+import { capDefaultColumns, deskColumnLimit } from "../src/frappe/list/settings";
 import { NESTED_SET_LABEL, NESTED_SET_OPERATORS, operatorLabel } from "../src/list/model/filters";
 import { queryToTuples, tuplesToQuery } from "../src/frappe/list/tuples";
 import { createFrappeSavedFilters } from "../src/frappe/list/storage";
@@ -149,15 +151,145 @@ describe("nested-set operators (filter.js:32-36, 440-446 → db_query.py:794-842
   });
 });
 
-// shared helpers for the list-level sections below
-export function mountList(transport: FrappeTransport, props: Partial<React.ComponentProps<typeof FrappeListView>> = {}, doctype = "Task") {
+// ---- a stub site + the hook wired the way FrappeListView spreads it (the Lead adds the new options to FrappeListView) ----
+type Call = { method: string; args: Record<string, unknown> };
+function site(doc: DocMeta, o: { settings?: Record<string, unknown> | null; rows?: Record<string, unknown>[]; userSettings?: Record<string, unknown> } = {}) {
+  const calls: Call[] = [];
+  const transport: FrappeTransport = async (method, args) => {
+    calls.push({ method, args });
+    if (method === "frappe.desk.form.load.getdoctype") return { docs: [doc], user_settings: JSON.stringify(o.userSettings ?? {}) };
+    if (method === "frappe.desk.listview.get_list_settings") return { message: o.settings ?? null };
+    if (method === "frappe.desk.reportview.get") {
+      const fields = JSON.parse(String(args.fields)) as string[];
+      const rows = o.rows ?? [];
+      return { message: rows.length ? { keys: fields, values: rows.map((r) => fields.map((f) => r[f] ?? null)), user_info: {} } : [] };
+    }
+    if (method === "frappe.desk.reportview.get_count") return { message: (o.rows ?? []).length };
+    if (method === "frappe.client.get_list") return { message: [] };
+    throw new Error(`unexpected ${method}`);
+  };
+  const of = (method: string) => calls.filter((c) => c.method === method);
+  return { transport, calls, of, last: (method: string) => of(method)[of(method).length - 1] };
+}
+
+function HookList<T = Record<string, unknown>>(props: FrappeListOptions<T>) {
+  const f = useFrappeList<T>(props);
+  const { quickFilterFields, loadOptions, ...data } = f.listProps;
+  return <ListView<T> key={f.ready ? "ready" : "meta"} viewKey={props.doctype} storage={null} quickFilterFields={quickFilterFields} loadOptions={loadOptions} {...data} />;
+}
+function mountHook(transport: FrappeTransport, props: Partial<FrappeListOptions<Record<string, unknown>>> & { doctype: string }) {
   const client = createFrappeClient({ transport });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
-      <QueryClientProvider client={qc}><FrappeProvider client={client}><FrappeListView doctype={doctype} storage={null} {...props} /></FrappeProvider></QueryClientProvider>
+      <QueryClientProvider client={qc}><FrappeProvider client={client}><HookList {...props} /></FrappeProvider></QueryClientProvider>
     </ThemeProvider>,
   );
 }
-export const pause = (ms = 450) => act(() => new Promise((r) => setTimeout(r, ms)));
-void waitFor;
+const headers = () => [...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim());
+const setWidth = (w: number) => act(() => { Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: w }); window.dispatchEvent(new Event("resize")); });
+
+// ---------------------------------------------------------------------------------------------------------------------
+/** Eight `in_list_view` fields after the title (Desk would show all of them only from 1920 px). */
+const DEAL = {
+  name: "Deal", title_field: "title", sort_field: "modified", sort_order: "DESC",
+  fields: [
+    { fieldname: "title", label: "Title", fieldtype: "Data", in_list_view: 1 },
+    ...["a", "b", "c", "d", "e", "f", "g", "h"].map((k) => ({ fieldname: `f_${k}`, label: `F${k.toUpperCase()}`, fieldtype: "Data", in_list_view: 1 })),
+    { fieldname: "notes", label: "Notes", fieldtype: "Small Text" },
+  ],
+} as unknown as DocMeta;
+const F = ["FA", "FB", "FC", "FD", "FE", "FF", "FG", "FH"];
+
+describe("width-based column limit (list_view.js:375-457) — SIMULATED (jsdom window width)", () => {
+  const original = window.innerWidth;
+  afterEach(() => { Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: original }); });
+
+  it("deskColumnLimit: ≤1366 → 4, ≥1920 → 10, otherwise 6; no window (SSR) → 6", () => {
+    expect([1024, 1366, 1367, 1600, 1919, 1920, 2560].map(deskColumnLimit)).toEqual([4, 4, 6, 6, 6, 10, 10]);
+    expect(deskColumnLimit(undefined)).toBe(6);
+  });
+
+  it("counting: Subject + Desk's hidden Tag slot + fields; the ID column is appended after the cap and never counts", () => {
+    const cols = ["title", "a", "b", "c", "name"].map((k) => ({ key: k, label: k, hidden: k === "name" })) as ColumnDef<unknown>[];
+    const shown = (o: Partial<Parameters<typeof capDefaultColumns>[1]>) => capDefaultColumns(cols, { limit: 4, subjectKey: "title", hasIndicator: false, ...o }).filter((c) => !c.hidden).map((c) => c.key);
+    expect(shown({})).toEqual(["title", "a", "b"]); // 4 slots = title, (tag), a, b
+    expect(shown({ nameColumn: true })).toEqual(["title", "a", "b", "name"]);
+    expect(shown({ hasIndicator: true })).toEqual(["title", "a"]); // the Status slot: no indicator / status column shown → an empty slot
+    const withStatus = [cols[0], { key: "status", label: "Status" }, ...cols.slice(1)] as ColumnDef<unknown>[];
+    expect(capDefaultColumns(withStatus, { limit: 4, subjectKey: "title", hasIndicator: true }).filter((c) => !c.hidden).map((c) => c.key)).toEqual(["title", "status", "a"]);
+    // List View Settings `fields` without status_field: Desk drops Status (reorder_listview_fields) — no slot
+    expect(shown({ hasIndicator: true, settingsFields: ["a", "b"] })).toEqual(["title", "a", "b"]);
+    // activity columns (assignees / comments / likes) are not Desk columns: never counted, never hidden by the cap
+    const act2 = [...cols, { key: "_assign", label: "A" }] as ColumnDef<unknown>[];
+    expect(capDefaultColumns(act2, { limit: 3, subjectKey: "title", hasIndicator: false, uncounted: ["_assign"] }).filter((c) => !c.hidden).map((c) => c.key)).toEqual(["title", "a", "_assign"]);
+  });
+
+  for (const [width, visible] of [[1366, F.slice(0, 2)], [1600, F.slice(0, 4)], [1920, F.slice(0, 8)]] as const) {
+    it(`at ${width} px the list shows Title + ${visible.length} fields + ID, and requests only those fields`, async () => {
+      Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: width });
+      const s = site(DEAL);
+      mountHook(s.transport, { doctype: "Deal", columnLimit: true });
+      await waitFor(() => expect(headers()).toEqual(["Title", ...visible, "ID"]));
+      await waitFor(() => expect(s.last("frappe.desk.reportview.get")).toBeTruthy());
+      const fields = JSON.parse(String(s.last("frappe.desk.reportview.get").args.fields)) as string[];
+      expect(fields.filter((f) => f.startsWith("f_")).length).toBe(visible.length);
+    });
+  }
+
+  it("List View Settings total_fields wins over the width (Subject + Tag + 1 at total_fields 3, even at 1920 px)", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1920 });
+    mountHook(site(DEAL, { settings: { name: "Deal", total_fields: 3 } }).transport, { doctype: "Deal", columnLimit: true });
+    await waitFor(() => expect(headers()).toEqual(["Title", "FA", "ID"]));
+  });
+
+  it("responsive: crossing 1366 / 1920 re-caps the default columns; a user's own column choice is kept", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1920 });
+    const s = site(DEAL);
+    mountHook(s.transport, { doctype: "Deal", columnLimit: true });
+    await waitFor(() => expect(headers()).toEqual(["Title", ...F, "ID"]));
+    setWidth(1300);
+    await waitFor(() => expect(headers()).toEqual(["Title", "FA", "FB", "ID"]));
+    setWidth(1500);
+    await waitFor(() => expect(headers()).toEqual(["Title", "FA", "FB", "FC", "FD", "ID"]));
+    setWidth(1510); // same band: nothing changes
+    expect(headers()).toEqual(["Title", "FA", "FB", "FC", "FD", "ID"]);
+  });
+
+  it("the generic list follows a changed default only until the user picks columns (useListState)", () => {
+    const mk = (hidden: string[]) => ["a", "b", "c"].map((k) => ({ key: k, label: k, hidden: hidden.includes(k) })) as ColumnDef<{ id: string }>[];
+    const { result, rerender } = renderHook(({ columns }) => useListState({ rows: [], columns, rowKey: (r) => r.id, storage: null }), { initialProps: { columns: mk(["c"]) } });
+    expect(result.current.visibleKeys).toEqual(["a", "b"]);
+    rerender({ columns: mk(["b", "c"]) });
+    expect(result.current.visibleKeys).toEqual(["a"]);
+    rerender({ columns: mk(["b", "c"]) }); // equal columns rebuilt: no change
+    expect(result.current.visibleKeys).toEqual(["a"]);
+    act(() => result.current.setVisibleKeys(["c", "a"]));
+    rerender({ columns: mk([]) });
+    expect(result.current.visibleKeys).toEqual(["c", "a"]);
+  });
+
+  it("curated columns are never capped by width; without columnLimit nothing changes (opt-in); hideNameColumn drops the ID", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1024 });
+    const curated: ColumnDef<Record<string, unknown>>[] = ["title", "f_a", "f_b", "f_c", "f_d", "f_e"].map((k) => ({ key: k, label: k.toUpperCase(), type: "text" }));
+    mountHook(site(DEAL).transport, { doctype: "Deal", columnLimit: true, columns: curated });
+    await waitFor(() => expect(headers().slice(0, 6)).toEqual(["TITLE", "F_A", "F_B", "F_C", "F_D", "F_E"]));
+    cleanup();
+    mountHook(site(DEAL).transport, { doctype: "Deal" });
+    await waitFor(() => expect(headers()).toEqual(["Title", ...F]));
+    cleanup();
+    mountHook(site(DEAL).transport, { doctype: "Deal", columnLimit: true, hideNameColumn: true });
+    await waitFor(() => expect(headers()).toEqual(["Title", "FA", "FB"]));
+  });
+
+  it("a DocType with an indicator spends Desk's Status slot: the status field column takes it (the indicator column is hidden by default)", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1366 });
+    const SO = { ...DEAL, name: "Sales Order", is_submittable: 1, fields: [...(DEAL.fields as object[]).slice(0, 1), { fieldname: "status", label: "Status", fieldtype: "Select", options: "Draft\nTo Bill", in_list_view: 1 }, ...(DEAL.fields as object[]).slice(1)] } as unknown as DocMeta;
+    mountHook(site(SO).transport, { doctype: "Sales Order", columnLimit: true });
+    await waitFor(() => expect(headers()).toEqual(["Title", "Status", "FA", "ID"])); // Desk: Subject, (Tag), Status, FA + ID
+  });
+});
+
+// shared helpers for the list-level sections below
+const pause = (ms = 450) => act(() => new Promise((r) => setTimeout(r, ms)));
+void pause; void FrappeListView;

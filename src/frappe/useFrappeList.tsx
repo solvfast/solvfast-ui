@@ -25,7 +25,21 @@ import type { DocPerm, MetaBundle } from "./contract";
 import { rolePermissions } from "./services/permissions";
 import { hasIndicator, indicatorFields, type IndicatorConfig, type IndicatorWorkflow } from "./list/indicator";
 import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser } from "./list/reportview";
-import { applyColumnSettings, fetchListSettings } from "./list/settings";
+import { applyColumnSettings, capDefaultColumns, deskColumnLimit, fetchListSettings, listedFields } from "./list/settings";
+
+/**
+ * Desk's width-based column limit (`list_view.js:433-444`: 4 at ≤ 1366 px, 10 at ≥ 1920 px, else 6), following the
+ * window: it re-renders only when the width crosses one of those bounds (Desk reads `innerWidth` once per setup; the
+ * package keeps up with a resize). Without a window (SSR) and during hydration: 6.
+ */
+function useDeskColumnLimit(enabled: boolean): number {
+  const subscribe = React.useCallback((notify: () => void) => {
+    if (!enabled || typeof window === "undefined") return () => {};
+    window.addEventListener("resize", notify);
+    return () => window.removeEventListener("resize", notify);
+  }, [enabled]);
+  return React.useSyncExternalStore(subscribe, () => deskColumnLimit(typeof window === "undefined" ? undefined : window.innerWidth), () => deskColumnLimit(undefined));
+}
 
 /** `getdoctype`: the DocType first, then its child-table DocTypes; plus the user's saved `user_settings` (JSON string). */
 export async function loadDocTypeBundle(client: FrappeClient, doctype: string): Promise<{ meta: ListDocMeta; children: Record<string, DocMeta>; userSettings: Record<string, unknown> }> {
@@ -114,6 +128,16 @@ export interface FrappeListOptions<T> {
    * tables are detected from their metas (an `lft` field or `is_tree`).
    */
   treeDoctypes?: string[];
+  /**
+   * Desk's default columns (opt-in, default false = the 0.4.0-dev columns): without curated `columns`, cap them as Desk
+   * does (`list_view.js:375-457`) — List View Settings `total_fields`, else 4 slots at a window ≤ 1366 px, 6 by
+   * default, 10 at ≥ 1920 px, following the window as it is resized — counted as `capDefaultColumns` documents
+   * (Subject, Desk's hidden Tag slot, the Status slot, then fields), and append the ID column when the DocType has a
+   * `title_field` other than `name`. Curated `columns` are never capped by width.
+   */
+  columnLimit?: boolean;
+  /** With `columnLimit`: Desk's `listview_settings.hide_name_column` — no ID column after the capped ones (list_view.js:446-457). */
+  hideNameColumn?: boolean;
 }
 
 type Row = Record<string, unknown>;
@@ -147,6 +171,11 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   }, [meta, o.rowMeta, o.workflow, o.getIndicator, t]);
   const rm = o.rowMeta === false ? {} : typeof o.rowMeta === "object" ? o.rowMeta : {};
   const commentsOff = !!settings?.disable_comment_count;
+  const curated = !!o.columns?.length;
+  const widthCap = o.columnLimit === true && !curated;
+  const widthLimit = useDeskColumnLimit(widthCap && !(Number(settings?.total_fields) > 0));
+  // Desk counts a Status slot whenever the DocType has an indicator, whatever the package draws (`rowMeta`)
+  const deskIndicator = React.useMemo(() => !!meta && hasIndicator({ isSubmittable: meta.isSubmittable, workflow: o.workflow, states: meta.states, hasField: meta.hasField, getIndicator: o.getIndicator }), [meta, o.workflow, o.getIndicator]);
   const columns = React.useMemo<ColumnDef<T>[]>(() => {
     const generated = (meta?.columns ?? []).map((c) => ({ ...c, label: label(c.key, c.label) })) as unknown as ColumnDef<T>[];
     // Desk always puts the Subject (title field, else the ID) first and shows it (list_view.js:375-486). Apps that curate
@@ -181,8 +210,16 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
       if (c.render || !df || !FORMATTED.has(df.fieldtype)) return c;
       return { ...c, render: (row: T) => { const v = (row as Row)[fieldOf(c)]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <span dir="ltr" className="whitespace-nowrap tabular-nums">{formatValue(v, df, row as never, formatCtx)}</span>; } };
     });
-    return applyColumnSettings(formatted, settings, meta?.titleField ?? "name");
-  }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, userNames, commentsOff, settings, t]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!widthCap || !meta) return applyColumnSettings(formatted, settings, meta?.titleField ?? "name");
+    // Desk's default columns: List View Settings `fields` order (no cap yet), then Desk's slot count (list_view.js:375-457)
+    const ordered = applyColumnSettings(formatted, settings ? { ...settings, total_fields: undefined } : settings, meta.titleField);
+    const rawTitle = (m.doc as { title_field?: string } | undefined)?.title_field;
+    return capDefaultColumns(ordered, {
+      limit: Number(settings?.total_fields) || widthLimit, subjectKey: subjectKey ?? "name", hasIndicator: deskIndicator,
+      settingsFields: listedFields(settings), uncounted: ["_assign", "_comments", "_liked_by"],
+      nameColumn: !o.hideNameColumn && !!rawTitle && rawTitle !== "name" && meta.hasField(rawTitle),
+    });
+  }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, userNames, commentsOff, settings, t, widthCap, widthLimit, deskIndicator, o.hideNameColumn, m.doc]); // eslint-disable-line react-hooks/exhaustive-deps
   const filterFields = React.useMemo(() => (meta?.filterFields ?? []).map((f) => ({ ...f, label: label(f.name, f.label) })), [meta, label]);
 
   const [state, setState] = React.useState<ListQueryState | null>(null);
