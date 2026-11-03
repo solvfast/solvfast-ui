@@ -40,7 +40,11 @@ export interface AssignDetails { description?: string; date?: string; priority?:
 export interface MentionOption { id: string; label: string; isGroup?: boolean }
 export interface UserOption { id: string; label: string; image?: string | null; description?: string }
 
-export interface LifecycleStateItem { id: string; label: string; tone?: Tone }
+export interface LifecycleStateItem {
+  id: string; label: string; tone?: Tone;
+  /** Who moved the record INTO this state, and when (epoch ms). Shown under past states (and the current one with `showCurrentEntry`). */
+  by?: string; at?: number;
+}
 export interface LifecycleActionItem {
   id: string;
   label: string;
