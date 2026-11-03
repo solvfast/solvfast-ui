@@ -14,12 +14,12 @@ import noteEn from "./fixtures/real-15.110/note.en.json";
 import eventEn from "./fixtures/real-15.110/event.en.json";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { defaultMessages } from "../src/theme/messages";
-import { createFrappeClient } from "../src/frappe/client";
+import { createFrappeClient, toFrappeError } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle, WorkflowInfo } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
 import {
-  FrappeDynamicLinkField, FrappeField, FrappeForm, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
+  FrappeChildTable, FrappeDynamicLinkField, FrappeField, FrappeForm, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
   type FormEventsConfig, type FormServices,
 } from "../src/frappe/form";
 
@@ -237,7 +237,7 @@ describe("child tables (docs 12 §5)", () => {
     typeInto(screen.getByRole("textbox", { name: /First Name/ }), "Ann");
     fireEvent.click(btn(en.formSave));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("In Email IDs, Email ID is required in row 1.")).toBeTruthy();
+    expect(within(dialog).getByText("In Email IDs, Email ID is required in every row.")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: defaultMessages.en.close }));
     fireEvent.click(within(table).getAllByRole("cell")[2]);
     typeInto(within(table).getByRole("textbox", { name: /Email ID/ }), "ann@x.com");
@@ -433,5 +433,29 @@ describe("review R1 items: reload after a conflict, cancel pre-flight, amend, wo
     const am = amendDoc(b, src);
     expect(am).toMatchObject({ a: "x", n: "y", amended_from: "P-1", docstatus: 0 });
     expect(() => amendDoc({ ...b, meta: { name: "P", fields: [] } }, src)).toThrow(/amended_from/);
+  });
+});
+
+describe("review R1 P3 items", () => {
+  it("R1-F11: a validate_link failure is shown, not swallowed (the typed value stays)", async () => {
+    const handlers: Record<string, FixtureHandler> = {
+      "frappe.client.validate_link": () => { throw toFrappeError(403, { exc_type: "PermissionError", _server_messages: JSON.stringify([JSON.stringify({ message: "You do not have Read or Select Permissions for User", indicator: "red", raise_exception: 1 })]) }); },
+    };
+    setup(<FrappeForm doctype="ToDo" name="TD-1" />, { handlers });
+    const box = await screen.findByRole("combobox", { name: /Assigned By/ });
+    typeInto(box, "ann@x.com");
+    expect(await screen.findByText(/You do not have Read or Select Permissions for User/)).toBeTruthy();
+    expect((box as HTMLInputElement).value).toBe("ann@x.com");
+  });
+
+  it("R1-F15: a standalone table follows the permissions it is given (read-only without write)", () => {
+    const b: MetaBundle = { doctype: "P", meta: { name: "P", fields: [{ fieldname: "items", fieldtype: "Table", options: "P Item", label: "Items" }] },
+      children: { "P Item": { name: "P Item", istable: 1, editable_grid: 1, fields: [{ fieldname: "q", fieldtype: "Int", label: "Qty", in_list_view: 1 }] } } };
+    const rows: FrappeDoc[] = [{ doctype: "P Item", name: "r1", idx: 1, q: 1 }];
+    setup(<FrappeChildTable df={b.meta.fields[0]} bundle={b} parent={{ doctype: "P", name: "P-1" }} rows={rows} permissions={[{ read: true }]} label="Items" />);
+    expect(screen.queryByRole("button", { name: en.formAddRow })).toBeNull();
+    cleanup();
+    setup(<FrappeChildTable df={b.meta.fields[0]} bundle={b} parent={{ doctype: "P", name: "P-1" }} rows={rows} permissions={[{ read: true, write: true }]} label="Items" />);
+    expect(screen.getByRole("button", { name: en.formAddRow })).toBeTruthy();
   });
 });

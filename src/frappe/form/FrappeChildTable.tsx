@@ -21,7 +21,7 @@ import { Button } from "../../primitives/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../primitives/dialog";
 import { DataGrid, type DataGridColumn } from "../../fields/DataGrid";
 import { interpolate } from "../../fields/FieldShell";
-import type { DocTypeMeta, FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle } from "../contract";
+import type { DocPermissions, DocTypeMeta, FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle } from "../contract";
 import { createDocStore } from "./model/docStore";
 import { isEmptyValue, resolveFields, type EffectiveField } from "./model/depends";
 import { LAYOUT_TYPES, NO_VALUE_TYPES } from "./model/fieldtypes";
@@ -107,15 +107,19 @@ export interface FrappeChildTableProps {
   controller?: TableController;
   /** The grid's display status (Read: no editing). */
   status?: FieldDisplayStatus;
+  /** Rights per permlevel for a standalone table (Desk's no-permission branch is for dialogs only, perm.js:196-203);
+   *  a form's controller supplies cell statuses itself. */
+  permissions?: DocPermissions;
   label?: string;
   invalid?: boolean;
   className?: string;
 }
 
-export function FrappeChildTable({ df, bundle, childMeta: metaProp, parent, rows, onRowsChange, controller, status = "Write", label, invalid, className }: FrappeChildTableProps) {
+export function FrappeChildTable({ df, bundle, childMeta: metaProp, parent, rows, onRowsChange, controller, status: statusProp, permissions, label, invalid, className }: FrappeChildTableProps) {
   const { t } = useLocale();
   const s = useFormServices();
   const childMeta = metaProp ?? childMetaOf(df, bundle);
+  const status: FieldDisplayStatus = statusProp ?? (permissions ? ladderStatus(df, parent, permissions) : "Write");
   // inside a form (a controller) Desk filters columns by the read right of their permlevel; a standalone grid has no frm and shows all
   const perms = usePermissions(bundle, parent);
   const local = useLocalTableController(df, childMeta, parent, rows, onRowsChange);
@@ -127,7 +131,7 @@ export function FrappeChildTable({ df, bundle, childMeta: metaProp, parent, rows
   const editable = status === "Write" && !df.static_rows;
   const fieldsFor = (row: FrappeDoc) => ctl.fieldsFor?.(row) ?? resolveFields(childMeta.fields, row, parent, s.evaluator);
   const statusFor = (f: EffectiveField, row: FrappeDoc): FieldDisplayStatus => {
-    const base = ctl.statusFor?.(f, row) ?? controlStatus(ladderStatus(f, row), f, row, { gridStatus: status });
+    const base = ctl.statusFor?.(f, row) ?? controlStatus(ladderStatus(f, row, permissions), f, row, { gridStatus: status });
     return status === "Read" && base === "Write" && !f.allow_on_submit ? "Read" : base;
   };
   const cols = gridColumns(childMeta, controller && bundle ? (f) => perms.can("read", f.permlevel ?? 0) : undefined);
