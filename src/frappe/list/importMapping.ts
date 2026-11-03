@@ -28,11 +28,11 @@ export const IMPORT_LOG_TABLE_LIMIT = 5000;
 /** Every string of the Data Import components. `{0}`, `{1}` are filled in order (Desk's `__("…{0}…", [a])`). */
 export interface DataImportLabels {
   title: string; importType: string; insertNew: string; updateExisting: string; submitAfterImport: string; muteEmails: string;
-  downloadTemplate: string; importFile: string; fileHint: string; upload: string; uploading: string; loadingPreview: string;
+  downloadTemplate: string; importFile: string; chooseAnotherFile: string; fileHint: string; upload: string; uploading: string; loadingPreview: string;
   stepUpload: string; stepPreview: string; stepImport: string; stepResult: string; steps: string;
   preview: string; srNo: string; untitledColumn: string; skipped: string; mappedTo: string; showingFirst: string; noData: string; noPreview: string; imported: string;
   warnings: string; row: string; column: string; info: string;
-  mapColumns: string; mapHeading: string; dontImport: string; searchFields: string; noFields: string; saveMapping: string; savingMapping: string; noMappingChange: string; cancel: string;
+  mapColumns: string; mapHeading: string; dontImport: string; searchFields: string; noFields: string; saveMapping: string; savingMapping: string; cancel: string;
   startImport: string; retry: string; starting: string; alreadyQueued: string;
   inProgress: string; queued: string; importProgress: string; importingOf: string; updatingOf: string; skippingOf: string; secondsRemaining: string; minuteRemaining: string; minutesRemaining: string; countsSoFar: string;
   stoppedByWarnings: string;
@@ -48,14 +48,14 @@ export interface DataImportLabels {
 export const DATA_IMPORT_LABELS_EN: DataImportLabels = {
   title: "Data Import", importType: "Import Type", insertNew: "Insert New Records", updateExisting: "Update Existing Records",
   submitAfterImport: "Submit After Import", muteEmails: "Don't Send Emails",
-  downloadTemplate: "Download Template", importFile: "Import File", fileHint: "CSV, XLS or XLSX", upload: "Upload and Preview", uploading: "Uploading…",
+  downloadTemplate: "Download Template", importFile: "Import File", chooseAnotherFile: "Choose another file", fileHint: "CSV, XLS or XLSX", upload: "Upload and Preview", uploading: "Uploading…",
   loadingPreview: "Loading import file...",
   stepUpload: "Upload", stepPreview: "Preview", stepImport: "Import", stepResult: "Result", steps: "Import steps",
   preview: "Preview", srNo: "Sr. No", untitledColumn: "Untitled Column", skipped: "Not imported", mappedTo: "→ {0}",
   showingFirst: "Showing only first {0} rows out of {1}", noData: "No Data", noPreview: "The server returned no preview for this file.", imported: "Imported",
   warnings: "Import File Errors and Warnings", row: "Row {0}", column: "Column {0}", info: "Info",
   mapColumns: "Map Columns", mapHeading: "Map columns from {0} to fields in {1}", dontImport: "Don't Import", searchFields: "Search fields",
-  noFields: "No matching field", saveMapping: "Save Mapping", savingMapping: "Saving…", noMappingChange: "Nothing was changed.", cancel: "Cancel",
+  noFields: "No matching field", saveMapping: "Save Mapping", savingMapping: "Saving…", cancel: "Cancel",
   startImport: "Start Import", retry: "Retry", starting: "Starting…", alreadyQueued: "An import of this file is already queued on the server.",
   inProgress: "In Progress", queued: "Queued — waiting for the server to start the import…", importProgress: "Import Progress",
   importingOf: "Importing {0} of {1}", updatingOf: "Updating {0} of {1}", skippingOf: "Skipping {0} of {1}",
@@ -81,14 +81,14 @@ export const DATA_IMPORT_LABELS_EN: DataImportLabels = {
 export const DATA_IMPORT_LABELS_AR: DataImportLabels = {
   title: "استيراد البيانات", importType: "نوع الاستيراد", insertNew: "إدراج سجلات جديدة", updateExisting: "تحديث السجلات الموجودة",
   submitAfterImport: "اعتماد بعد الاستيراد", muteEmails: "عدم إرسال رسائل البريد",
-  downloadTemplate: "تنزيل القالب", importFile: "ملف الاستيراد", fileHint: "CSV أو XLS أو XLSX", upload: "رفع ومعاينة", uploading: "جارٍ الرفع…",
+  downloadTemplate: "تنزيل القالب", importFile: "ملف الاستيراد", chooseAnotherFile: "اختيار ملف آخر", fileHint: "CSV أو XLS أو XLSX", upload: "رفع ومعاينة", uploading: "جارٍ الرفع…",
   loadingPreview: "جارٍ تحميل ملف الاستيراد...",
   stepUpload: "الرفع", stepPreview: "المعاينة", stepImport: "الاستيراد", stepResult: "النتيجة", steps: "خطوات الاستيراد",
   preview: "المعاينة", srNo: "م", untitledColumn: "عمود بلا عنوان", skipped: "لن يُستورد", mappedTo: "← {0}",
   showingFirst: "عرض أول {0} صفوف فقط من {1}", noData: "لا توجد بيانات", noPreview: "لم يُرجع الخادم معاينة لهذا الملف.", imported: "مستورد",
   warnings: "أخطاء وتحذيرات ملف الاستيراد", row: "الصف {0}", column: "العمود {0}", info: "معلومة",
   mapColumns: "ربط الأعمدة", mapHeading: "ربط أعمدة {0} بحقول {1}", dontImport: "عدم الاستيراد", searchFields: "ابحث في الحقول",
-  noFields: "لا يوجد حقل مطابق", saveMapping: "حفظ الربط", savingMapping: "جارٍ الحفظ…", noMappingChange: "لم يتغير شيء.", cancel: "إلغاء",
+  noFields: "لا يوجد حقل مطابق", saveMapping: "حفظ الربط", savingMapping: "جارٍ الحفظ…", cancel: "إلغاء",
   startImport: "بدء الاستيراد", retry: "إعادة المحاولة", starting: "جارٍ البدء…", alreadyQueued: "يوجد استيراد لهذا الملف في قائمة انتظار الخادم.",
   inProgress: "قيد التنفيذ", queued: "في قائمة الانتظار — بانتظار أن يبدأ الخادم الاستيراد…", importProgress: "تقدم الاستيراد",
   importingOf: "استيراد {0} من {1}", updatingOf: "تحديث {0} من {1}", skippingOf: "تخطي {0} من {1}",

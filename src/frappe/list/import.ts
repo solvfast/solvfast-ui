@@ -163,9 +163,14 @@ export async function attachImportFile(api: Pick<FrappeApi, "saveDoc" | "uploadF
  * new `modified`: use it for every later save / start. Nothing is re-mapped on the client.
  */
 export async function remapImportColumns(api: Pick<FrappeApi, "saveDoc" | "call">, doc: DataImportDoc, changed: Record<string, string>): Promise<{ doc: DataImportDoc; preview: ImportPreview | null }> {
-  const saved = (await api.saveDoc({ ...doc, template_options: mergeColumnToFieldMap(doc.template_options, changed) }, "Save")) as DataImportDoc;
+  const saved = await saveColumnMapping(api, doc, changed);
   const preview = await getImportPreview(api, saved.name, saved.import_file ?? undefined);
   return { doc: saved, preview };
+}
+
+/** The save half of `remapImportColumns` (keep its answer even when the preview request then fails). */
+export async function saveColumnMapping(api: Pick<FrappeApi, "saveDoc">, doc: DataImportDoc, changed: Record<string, string>): Promise<DataImportDoc> {
+  return (await api.saveDoc({ ...doc, template_options: mergeColumnToFieldMap(doc.template_options, changed) }, "Save")) as DataImportDoc;
 }
 
 /** Step 4. */
@@ -239,14 +244,15 @@ export interface ImportProgress extends ImportStatus {
  *  - `since` (the document's `modified` when Start / Retry was sent) unchanged → queued: the job writes the document
  *    as soon as it runs (`before_import` `db_set("template_warnings", "")`, every status `db_set`, importer.py:73,
  *    183-184, 240; `db_set` bumps `modified`). Until then a non-Pending status and old `template_warnings` belong to the
- *    PREVIOUS run (Retry after Partial Success / Error, or after warnings stopped a run);
+ *    PREVIOUS run (Retry after Partial Success / Error, or after warnings stopped a run). Without the document (its
+ *    read failed) nothing can be concluded: running;
  *  - Pending → running, unless `template_warnings` say the job refused to import (importer.py:81-90);
  *  - Partial Success → running while the logged rows are fewer than `payload_count`: the job sets Partial Success after
  *    its FIRST successful row (importer.py:183-184) and the final status only at the end (`:220-240`);
  *  - Success / Error / Timed Out → finished.
  */
 export function importRunning(status: ImportStatus, warnings: ImportWarning[], doc?: Pick<DataImportDoc, "modified">, since?: string): boolean {
-  if (since !== undefined && doc && doc.modified === since) return true;
+  if (since !== undefined && (!doc || doc.modified === since)) return true; // a lost document read: ask again next poll
   if (status.status === "Pending") return !warnings.length;
   if (status.status === "Partial Success") return status.total > 0 && status.success + status.failed < status.total;
   return false;
@@ -268,7 +274,7 @@ export function useImportStatus(api: Pick<FrappeApi, "call" | "getDoc"> | undefi
       const [status, loaded] = await Promise.all([getImportStatus(api!, name!), api!.getDoc("Data Import", name!).catch(() => null)]);
       const doc = loaded?.doc as DataImportDoc | undefined;
       const warnings = parseTemplateWarnings(doc);
-      const queued = since !== undefined && !!doc && doc.modified === since;
+      const queued = since !== undefined && (!doc || doc.modified === since);
       return { ...status, warnings, running: importRunning(status, warnings, doc, since), ...(since !== undefined ? { queued } : {}), doc };
     },
     refetchInterval: (query) => (query.state.data && !query.state.data.running ? false : o.intervalMs ?? 2000),

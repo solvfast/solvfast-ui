@@ -6,12 +6,15 @@
  * (BLOCKED). No import is ever simulated on the client: the stubs stand for the server's answers.
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { act, cleanup, configure, renderHook, waitFor } from "@testing-library/react";
+import * as React from "react";
+import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createFrappeClient, type FrappeTransport } from "../src/frappe";
+import { ThemeProvider } from "../src";
+import { FrappeError, createFrappeClient, type FrappeTransport } from "../src/frappe";
 import type { MetaBundle } from "../src/frappe/contract";
-import type { UploadFileOptions } from "../src/frappe/client";
-import { DATA_IMPORT_METHODS, attachImportFile, createDataImport, importRunning, remapImportColumns, startDataImport, useImportStatus, type DataImportDoc, type ImportPreview } from "../src/frappe/list/import";
+import type { FrappeFilesTransport, UploadFileOptions } from "../src/frappe/client";
+import { FrappeDataImport, type ImportRealtimeSubscribe } from "../src/frappe/list/FrappeDataImport";
+import { DATA_IMPORT_METHODS, attachImportFile, createDataImport, importRunning, remapImportColumns, startDataImport, useImportStatus, type DataImportDoc, type ImportLogRow, type ImportPreview } from "../src/frappe/list/import";
 import {
   DATA_IMPORT_LABELS_EN as L, DONT_IMPORT, changedColumnMap, columnMappingValue, displayDateFormat, groupImportWarnings, importPickerOptions,
   importResultMessage, importedRowNumbers, mergeColumnToFieldMap, parseLogMessages, previewCell, previewColumns,
@@ -227,6 +230,8 @@ describe("Polling stop conditions (importRunning; importer.py:73, 81-90, 183-184
     // since = modified when Start / Retry was sent: an untouched document means the job has not run yet
     expect(importRunning(st("Error", 0, 4), [], { modified: "m1" }, "m1")).toBe(true);
     expect(importRunning(st("Error", 0, 4), [], { modified: "m2" }, "m1")).toBe(false);
+    expect(importRunning(st("Error", 0, 4), [], undefined, "m1")).toBe(true); // the document read failed: poll again
+    expect(importRunning(st("Error", 0, 4), [], undefined)).toBe(false); // no `since`: Phase 26 behaviour
   });
 
   const hook = (answers: { status: Record<string, unknown>; doc: Record<string, unknown> }[], since?: string) => {
@@ -272,5 +277,406 @@ describe("Polling stop conditions (importRunning; importer.py:73, 81-90, 183-184
     expect(history.map((h) => [(h.doc as { modified: string }).modified, h.queued, h.running])).toEqual([["m5", true, true], ["m6", false, false]]);
     expect(result.current.progress).toMatchObject({ running: false, status: "Pending" });
     expect(result.current.progress?.warnings).toHaveLength(1);
+  });
+});
+
+// =====================================================================================================================
+// FrappeDataImport — the UI. A stub "server": every answer below stands for what Frappe would send; the poll answers
+// whatever `sim.state` holds until the test changes it (so "not yet" states are observed deterministically).
+// =====================================================================================================================
+interface PollState { status: Record<string, unknown>; doc: Record<string, unknown> }
+interface SimOptions {
+  previews?: ImportPreview[];
+  logs?: ImportLogRow[];
+  failSave?: (n: number) => FrappeError | undefined;
+  failUpload?: (n: number) => FrappeError | undefined;
+  failStart?: FrappeError;
+  startAnswer?: boolean;
+}
+interface Sim {
+  seen: Seen[];
+  state: PollState | null;
+  methods(): string[];
+  count(method: string): number;
+  sent(method: string, i?: number): Record<string, unknown> | undefined;
+  transport: FrappeTransport;
+  files: FrappeFilesTransport;
+}
+function makeSim(o: SimOptions = {}): Sim {
+  const seen: Seen[] = [];
+  let saves = 0, uploads = 0, previews = 0;
+  const sim: Sim = {
+    seen,
+    state: null,
+    methods: () => seen.map((s) => s.method),
+    count: (m: string) => seen.filter((s) => s.method === m).length,
+    sent: (m: string, i = 0) => seen.filter((s) => s.method === m)[i]?.args,
+    transport: (async (method, args) => {
+      seen.push({ method, args });
+      switch (method) {
+        case DATA_IMPORT_METHODS.save: {
+          saves++;
+          const err = o.failSave?.(saves);
+          if (err) throw err;
+          return saved(args, { modified: `m${saves}`, status: (JSON.parse(String(args.doc)) as { status?: string }).status ?? "Pending" });
+        }
+        case DATA_IMPORT_METHODS.preview: { const list = o.previews ?? [PREVIEW]; return { message: list[Math.min(previews++, list.length - 1)] }; }
+        case DATA_IMPORT_METHODS.start: if (o.failStart) throw o.failStart; return { message: o.startAnswer ?? true };
+        case DATA_IMPORT_METHODS.status: return { message: sim.state?.status ?? { status: "Pending" } };
+        case "frappe.desk.form.load.getdoc": return { docs: [{ doctype: "Data Import", name: "DI-0001", reference_doctype: "Sales Order", import_file: "/private/files/orders.csv", ...sim.state?.doc }], docinfo: {} };
+        case DATA_IMPORT_METHODS.logs: return { message: o.logs ?? [] };
+        case "frappe.desk.form.load.getdoctype": return { docs: [ORDER_META, ITEM_META] };
+        default: throw new Error(`unexpected ${method}`);
+      }
+    }) as FrappeTransport,
+    files: {
+      upload: async (_file, filename, opts) => {
+        seen.push({ method: "upload_file", args: { filename, ...opts } });
+        const err = o.failUpload?.(++uploads);
+        if (err) throw err;
+        return { doctype: "File", name: `F-${uploads}`, file_url: `/private/files/${filename}` };
+      },
+      download: async (method, args) => { seen.push({ method, args }); return { blob: new Blob(["server csv"]), filename: "Sales Order.csv", contentType: "text/csv" }; },
+    } as FrappeFilesTransport,
+  };
+  return sim;
+}
+
+function mount(sim: Sim, props: Partial<React.ComponentProps<typeof FrappeDataImport>> = {}, language: "en" | "ar" = "en") {
+  const api = createFrappeClient({ transport: sim.transport, files: sim.files });
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <ThemeProvider defaultTheme="light" defaultLanguage={language} storageKeys={null}>
+      <QueryClientProvider client={qc}><FrappeDataImport api={api} doctype="Sales Order" bundle={BUNDLE} pollIntervalMs={20} {...props} /></QueryClientProvider>
+    </ThemeProvider>,
+  );
+}
+
+const chooseFile = (name = "orders.csv", content = "Title,Customer Name\nSO-A,ACME\n") =>
+  fireEvent.change(screen.getByLabelText(L.importFile), { target: { files: [new File([content], name, { type: "text/csv" })] } });
+const click = (name: string | RegExp) => fireEvent.click(screen.getByRole("button", { name }));
+async function uploadAndPreview(file?: string) {
+  chooseFile(file);
+  click(L.upload);
+  return screen.findByRole("region", { name: L.preview });
+}
+const ON_SERVER = (modified: string, status: Record<string, unknown>, doc: Record<string, unknown> = {}): PollState => ({ status, doc: { modified, status: status.status, import_type: "Insert New Records", ...doc } });
+
+describe("FrappeDataImport — upload, preview, warnings (data_import.js:250-406; import_preview.js:48-171)", () => {
+  it("Upload and Preview: savedocs → upload_file → savedocs → get_preview_from_template; the server's grid, mapped / skipped columns, max-rows notice and grouped warnings", async () => {
+    const sim = makeSim();
+    mount(sim);
+    expect(screen.getByRole("button", { name: L.upload })).toHaveProperty("disabled", true); // no file yet
+    expect(screen.getByLabelText(L.importFile).getAttribute("accept")).toBe(".csv,.xls,.xlsx"); // data_import.js:62-66
+    expect(screen.getByRole("checkbox", { name: L.submitAfterImport })).toBeTruthy(); // submittable DocType (data_import.js:227-236)
+    const grid = await uploadAndPreview();
+    expect(sim.methods()).toEqual([DATA_IMPORT_METHODS.save, "upload_file", DATA_IMPORT_METHODS.save, DATA_IMPORT_METHODS.preview]);
+    expect(sim.sent("upload_file")).toMatchObject({ filename: "orders.csv", doctype: "Data Import", docname: "DI-0001", fieldname: "import_file", isPrivate: true });
+    expect(sim.sent(DATA_IMPORT_METHODS.preview)).toEqual({ data_import: "DI-0001", import_file: "/private/files/orders.csv" });
+
+    const heads = within(grid).getAllByRole("columnheader").map((h) => h.textContent);
+    expect(heads).toEqual(["Sr. No", "Title→ Title", `Customer Name${L.skipped}`, "Item Code (Items)→ Item Code (Items)", "Delivery Date (dd-mm-yyyy)→ Delivery Date"]);
+    expect(grid.querySelector('[data-col="2"]')?.hasAttribute("data-skipped")).toBe(true);
+    const rows = within(grid).getAllByRole("row").slice(1);
+    expect(rows.map((r) => [...r.querySelectorAll("td")].map((c) => c.textContent))).toEqual([["2", "SO-A", "ACME", "ITEM-1", "03-11-2026"], ["3", "SO-B", "", "ITEM-2", ""]]);
+    expect(rows[0].hasAttribute("data-imported")).toBe(true); // import_log success for row 2 (import_preview.js:326-331)
+    expect(screen.getByText("Showing only first 10 rows out of 25")).toBeTruthy();
+    expect(screen.getByRole("button", { name: L.exportErroredRows })).toBeTruthy(); // the preview's import_log has a failure (import_preview.js:200-204)
+
+    const w = screen.getByRole("region", { name: L.warnings });
+    expect([...w.querySelectorAll("[data-row]")].map((e) => e.getAttribute("data-row"))).toEqual(["2", "3"]);
+    expect(within(w.querySelector('[data-row="3"]') as HTMLElement).getByText(/Item Code \(Sales Order Item\):/)).toBeTruthy();
+    expect(w.querySelector('[data-col="2"]')?.textContent).toMatch(/^Column 2 \(Customer Name\)Cannot match column Customer Name with any field$/);
+    expect(w.querySelector('[data-col="2"] strong')?.textContent).toBe("Customer Name"); // server HTML through the allow-list, not as text
+    expect(screen.getByRole("button", { name: L.startImport })).toBeTruthy();
+    expect(screen.queryByText(/Successfully/)).toBeNull();
+  });
+
+  it("an empty file / no rows: the SECOND save's 417 is shown as the server sent it; another file goes to the SAME Data Import (one create)", async () => {
+    const sim = makeSim({ failSave: (n) => (n === 2 ? new FrappeError("Import template should contain a Header and atleast one row.", 417, "ValidationError") : undefined) });
+    mount(sim);
+    chooseFile("empty.csv", "");
+    click(L.upload);
+    await screen.findByText("Import template should contain a Header and atleast one row.");
+    expect(document.querySelector('[data-import-error="upload"] [data-kind]')?.getAttribute("data-kind")).toBe("validation");
+    expect(sim.count(DATA_IMPORT_METHODS.preview)).toBe(0);
+    expect(screen.queryByRole("region", { name: L.preview })).toBeNull();
+    expect(screen.getByRole("combobox", { name: L.importType })).toHaveProperty("disabled", true); // the Data Import exists: its type is fixed
+    await uploadAndPreview("fixed.csv");
+    expect(sim.methods()).toEqual([DATA_IMPORT_METHODS.save, "upload_file", DATA_IMPORT_METHODS.save, "upload_file", DATA_IMPORT_METHODS.save, DATA_IMPORT_METHODS.preview]);
+    expect(seen(sim, "upload_file").map((a) => [a.filename, a.docname])).toEqual([["empty.csv", "DI-0001"], ["fixed.csv", "DI-0001"]]);
+    expect(JSON.parse(String(sim.sent(DATA_IMPORT_METHODS.save, 2)?.doc))).toMatchObject({ name: "DI-0001", modified: "m1", import_file: "/private/files/fixed.csv" });
+  });
+
+  it("an upload refusal (403 / 413 from upload_file): shown, nothing saved after it, no preview", async () => {
+    const sim = makeSim({ failUpload: () => new FrappeError("File size exceeded the maximum allowed size of 10.0 MB", 413) });
+    mount(sim);
+    chooseFile();
+    click(L.upload);
+    await waitFor(() => expect(document.querySelector('[data-import-error="upload"]')).toBeTruthy());
+    expect(document.querySelector('[data-import-error="upload"] [data-kind]')?.getAttribute("data-kind")).toBe("too_large");
+    expect(sim.methods()).toEqual([DATA_IMPORT_METHODS.save, "upload_file"]);
+  });
+
+  it("403 on the first save (Data Import `create` is System Manager-only): the server's refusal + the role hint; nothing uploaded; in a dialog it stays open", async () => {
+    const sim = makeSim({ failSave: () => new FrappeError("No permission for Data Import", 403, "PermissionError") });
+    const onOpenChange = vi.fn();
+    mount(sim, { open: true, onOpenChange, bundle: undefined }); // the meta is read with getdoctype when no bundle is given
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    await screen.findByRole("checkbox", { name: L.submitAfterImport });
+    chooseFile();
+    click(L.upload);
+    await waitFor(() => expect(document.querySelector("[data-create-refused]")).toBeTruthy());
+    expect(document.querySelector('[data-import-error="create"] [data-kind]')?.getAttribute("data-kind")).toBe("permission");
+    expect(screen.getByText("No permission for Data Import")).toBeTruthy();
+    expect(sim.methods()).toEqual(["frappe.desk.form.load.getdoctype", DATA_IMPORT_METHODS.save]);
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("Download Template (data_import.js:214-221): the exporter dialog for the import type; the file is the server's download_template answer", async () => {
+    const sim = makeSim();
+    mount(sim);
+    click(L.downloadTemplate);
+    const dialog = await screen.findByRole("dialog", { name: "Export Data" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Export" }));
+    await waitFor(() => expect(sim.count("frappe.core.doctype.data_import.data_import.download_template")).toBe(1));
+    expect(sim.sent("frappe.core.doctype.data_import.data_import.download_template")).toMatchObject({ doctype: "Sales Order", export_records: "blank_template", file_type: "CSV" });
+    expect(sim.count(DATA_IMPORT_METHODS.save)).toBe(0); // no Data Import is created for a template
+  });
+
+  it("Arabic labels by default under language 'ar' (labels prop still overrides)", async () => {
+    const sim = makeSim();
+    mount(sim, { labels: { upload: "ارفع" } }, "ar");
+    expect(screen.getByRole("heading", { name: "استيراد البيانات" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "ارفع" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "تنزيل القالب" })).toBeTruthy();
+  });
+});
+
+function seen(sim: Sim, method: string) { return sim.seen.filter((s) => s.method === method).map((s) => s.args); }
+
+describe("FrappeDataImport — column mapping (import_preview.js:239-325; data_import.js:302-309)", () => {
+  it("map a column, set one to Don't Import, map one to a CHILD-table field: savedocs template_options, then the preview AGAIN; the grid shows the server's new answer", async () => {
+    const remapped: ImportPreview = {
+      ...PREVIEW,
+      columns: [
+        PREVIEW.columns![0],
+        { ...PREVIEW.columns![1], skip_import: true, map_to_field: DONT_IMPORT },
+        { ...PREVIEW.columns![2], skip_import: false, map_to_field: "customer", df: { fieldname: "customer", label: "Customer", fieldtype: "Link", parent: "Sales Order" } },
+        { ...PREVIEW.columns![3], map_to_field: "items.qty", df: { fieldname: "qty", label: "Quantity", fieldtype: "Float", parent: "Sales Order Item" } },
+        PREVIEW.columns![4],
+      ],
+      warnings: [{ message: "Mapping column <b>Customer Name</b> to field <b>Customer</b>", type: "info" }],
+      max_rows_exceeded: false,
+    };
+    const sim = makeSim({ previews: [PREVIEW, remapped] });
+    mount(sim);
+    await uploadAndPreview();
+    click(L.mapColumns);
+    const form = await screen.findByRole("form", { name: L.mapColumns });
+    expect(within(form).getByText("Map columns from orders.csv to fields in Sales Order")).toBeTruthy();
+    // pre-set to what the SERVER matched (import_preview.js:246-255)
+    expect(within(form).getAllByRole("combobox").map((c) => c.getAttribute("data-value"))).toEqual(["title", DONT_IMPORT, "items.item_code", "delivery_date"]);
+
+    const pick = async (column: string, option: string) => {
+      fireEvent.click(within(form).getByRole("combobox", { name: column }));
+      fireEvent.click(await screen.findByRole("option", { name: option }));
+      await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+    };
+    await pick("Customer Name", "Customer customer");
+    await pick("Title", DONT_IMPORT);
+    await pick("Item Code (Items)", "Quantity (Items) items.qty");
+    expect(within(form).getByRole("combobox", { name: "Customer Name" }).textContent).toBe("Customer");
+    expect(sim.count(DATA_IMPORT_METHODS.save)).toBe(2); // nothing saved while picking
+    fireEvent.click(within(form).getByRole("button", { name: L.saveMapping }));
+
+    await waitFor(() => expect(sim.count(DATA_IMPORT_METHODS.preview)).toBe(2));
+    expect(sim.methods().slice(4)).toEqual([DATA_IMPORT_METHODS.save, DATA_IMPORT_METHODS.preview]);
+    const sent = JSON.parse(String(sim.sent(DATA_IMPORT_METHODS.save, 2)?.doc)) as Record<string, unknown>;
+    expect(sent).toMatchObject({ name: "DI-0001", modified: "m2", import_file: "/private/files/orders.csv" });
+    // FILE column indexes (preview index − 1): Title = 0, Customer Name = 1, Item Code (Items) = 2
+    expect(JSON.parse(String(sent.template_options))).toEqual({ column_to_field_map: { "0": DONT_IMPORT, "1": "customer", "2": "items.qty" } });
+    expect(sim.sent(DATA_IMPORT_METHODS.preview, 1)).toEqual({ data_import: "DI-0001", import_file: "/private/files/orders.csv" });
+
+    const grid = await screen.findByRole("region", { name: L.preview });
+    const heads = within(grid).getAllByRole("columnheader").map((h) => h.textContent);
+    expect(heads.slice(1, 4)).toEqual([`Title${L.skipped}`, "Customer Name→ Customer", "Item Code (Items)→ Quantity (Items)"]);
+    expect(screen.getByRole("region", { name: L.warnings }).textContent).toMatch(/Mapping column Customer Name to field Customer/);
+    expect(screen.queryByText(/Showing only first/)).toBeNull();
+  });
+
+  it("Save with nothing changed: no request (Desk: `if (changed.length > 0)`), back to the preview", async () => {
+    const sim = makeSim();
+    mount(sim);
+    await uploadAndPreview();
+    click(L.mapColumns);
+    const form = await screen.findByRole("form", { name: L.mapColumns });
+    fireEvent.click(within(form).getByRole("button", { name: L.saveMapping }));
+    await screen.findByRole("region", { name: L.preview });
+    expect(sim.count(DATA_IMPORT_METHODS.save)).toBe(2);
+    expect(sim.count(DATA_IMPORT_METHODS.preview)).toBe(1);
+  });
+});
+
+describe("FrappeDataImport — start, progress, result (data_import.js:6-52, 85-176, 202-212, 315-331, 412-502)", () => {
+  const LOGS: ImportLogRow[] = [
+    { success: 1, docname: "SO-0001", row_indexes: "[2]", messages: JSON.stringify("[]"), exception: null },
+    { success: 0, docname: null, row_indexes: "[3, 4]", messages: JSON.stringify([{ message: "Value missing for <b>Customer</b>", title: "Mandatory", indicator: "red", raise_exception: 1 }]), exception: "Traceback (most recent call last):\nfrappe.exceptions.MandatoryError: customer" },
+  ];
+
+  it("success ONLY after the server says Success: queued → in progress (server counts) → Success; then the log; Go to list; onFinished once", async () => {
+    const sim = makeSim({ logs: [LOGS[0]] });
+    const onFinished = vi.fn();
+    const onGoToList = vi.fn();
+    mount(sim, { onFinished, onGoToList, docHref: (dt, n) => `/app/${dt.toLowerCase().replace(/ /g, "-")}/${n}` });
+    await uploadAndPreview();
+    sim.state = ON_SERVER("m2", { status: "Pending", total_records: 4 }); // the job has not written the document yet
+    click(L.startImport);
+    await screen.findByText(L.queued);
+    expect(sim.sent(DATA_IMPORT_METHODS.start)).toEqual({ data_import: "DI-0001" });
+    await waitFor(() => expect(sim.count(DATA_IMPORT_METHODS.status)).toBeGreaterThanOrEqual(2));
+    expect(sim.sent(DATA_IMPORT_METHODS.status)).toEqual({ data_import_name: "DI-0001" });
+    expect(document.querySelector("[data-import-result]")).toBeNull();
+    expect(sim.count(DATA_IMPORT_METHODS.logs)).toBe(0);
+    expect(screen.queryByText(/Successfully/)).toBeNull();
+
+    sim.state = ON_SERVER("m3", { status: "Partial Success", success: 2, total_records: 4 }); // mid-run (importer.py:183-184)
+    await screen.findByText("2 imported, 0 failed, of 4");
+    expect(screen.getByText(L.inProgress)).toBeTruthy();
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("50");
+    expect(document.querySelector("[data-import-result]")).toBeNull();
+    expect(onFinished).not.toHaveBeenCalled();
+
+    sim.state = ON_SERVER("m4", { status: "Success", success: 4, total_records: 4 });
+    await screen.findByText("Successfully imported 4 records.");
+    await screen.findByRole("region", { name: L.importLog });
+    expect(sim.sent(DATA_IMPORT_METHODS.logs)).toEqual({ data_import: "DI-0001" });
+    const link = screen.getByRole("link", { name: "SO-0001" });
+    expect(link.getAttribute("href")).toBe("/app/sales-order/SO-0001");
+    expect(link.parentElement?.textContent).toBe("Successfully imported SO-0001");
+    expect(screen.queryByRole("button", { name: L.exportErroredRows })).toBeNull(); // Partial Success only (data_import.js:85-89)
+    expect(screen.queryByRole("button", { name: L.retry })).toBeNull(); // nothing to retry after Success (:108)
+    expect(screen.queryByRole("button", { name: L.mapColumns })).toBeNull(); // (import_preview.js:198)
+    click("Go to Sales Order List");
+    expect(onGoToList).toHaveBeenCalledTimes(1);
+    expect(onFinished).toHaveBeenCalledTimes(1);
+    expect(onFinished.mock.calls[0][0]).toMatchObject({ status: "Success", success: 4, total: 4 });
+    const n = sim.count(DATA_IMPORT_METHODS.status);
+    await act(() => new Promise((r) => setTimeout(r, 100)));
+    expect(sim.count(DATA_IMPORT_METHODS.status)).toBe(n); // polling stopped
+  });
+
+  it("Partial Success (Update): headline from the server's counts, Export Errored Rows → download_errored_template, failure messages + traceback; Retry restarts with the new marker", async () => {
+    const sim = makeSim({ logs: LOGS });
+    mount(sim, { importType: "Update Existing Records" });
+    await uploadAndPreview();
+    expect(JSON.parse(String(sim.sent(DATA_IMPORT_METHODS.save)?.doc))).toMatchObject({ import_type: "Update Existing Records" });
+    sim.state = ON_SERVER("m7", { status: "Partial Success", success: 1, failed: 1, total_records: 2 }, { import_type: "Update Existing Records" });
+    click(L.startImport);
+    await screen.findByText("Successfully updated 1 record out of 2. Click on Export Errored Rows, fix the errors and import again.");
+    const log = await screen.findByRole("region", { name: L.importLog });
+    expect(within(log).getByText("Successfully updated")).toBeTruthy();
+    const failed = log.querySelector('[data-log-success="0"]') as HTMLElement;
+    expect(failed.querySelector("td")?.textContent).toBe("3, 4");
+    expect(within(failed).getByText("Mandatory").tagName).toBe("STRONG");
+    expect(within(failed).getByText("Customer").tagName).toBe("B");
+    expect(within(failed).queryByText(/MandatoryError/)).toBeNull();
+    fireEvent.click(within(failed).getByRole("button", { name: L.showTraceback }));
+    expect(within(failed).getByText(/frappe.exceptions.MandatoryError: customer/)).toBeTruthy();
+    // Show Only Failed Logs: a display filter of the server's rows (data_import.js:468-470)
+    fireEvent.click(within(log).getByRole("checkbox", { name: L.showFailedOnly }));
+    expect(log.querySelectorAll('[data-log-success="1"]')).toHaveLength(0);
+
+    click(L.exportErroredRows);
+    await waitFor(() => expect(sim.count(DATA_IMPORT_METHODS.erroredRows)).toBe(1));
+    expect(sim.sent(DATA_IMPORT_METHODS.erroredRows)).toEqual({ data_import_name: "DI-0001" });
+
+    const starts = sim.count(DATA_IMPORT_METHODS.start);
+    click(L.retry);
+    await screen.findByText(L.queued); // m7 is still the document's modified: the old Partial Success is not taken as the new result
+    expect(sim.count(DATA_IMPORT_METHODS.start)).toBe(starts + 1);
+    expect(document.querySelector("[data-import-result]")).toBeNull();
+  });
+
+  it("Error: the log's failures are shown; Error with no log rows says so and never asks for the log", async () => {
+    const sim = makeSim({ logs: [LOGS[1]] });
+    mount(sim);
+    await uploadAndPreview();
+    sim.state = ON_SERVER("m9", { status: "Error", failed: 1, total_records: 1 });
+    click(L.startImport);
+    await screen.findByText("Successfully imported 0 records out of 1. Click on Export Errored Rows, fix the errors and import again."); // Desk's own sentence for failed > 0
+    await screen.findByRole("region", { name: L.importLog });
+    expect(screen.getByRole("button", { name: L.retry })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: L.exportErroredRows })).toBeNull();
+
+    cleanup();
+    const sim2 = makeSim();
+    mount(sim2);
+    await uploadAndPreview();
+    sim2.state = ON_SERVER("m9", { status: "Error", total_records: 0 }); // the job raised before logging (data_import.py:169-171)
+    click(L.startImport);
+    await screen.findByText(L.errorNoLog);
+    expect(sim2.count(DATA_IMPORT_METHODS.logs)).toBe(0);
+  });
+
+  it("template warnings stop the job (importer.py:81-90): back to the preview with the server's warnings; no result", async () => {
+    const sim = makeSim();
+    mount(sim);
+    await uploadAndPreview();
+    sim.state = ON_SERVER("m5", { status: "Pending", total_records: 2 }, { template_warnings: JSON.stringify([{ col: 2, message: "The following values do not exist for Customer: ACME", type: "warning" }]) });
+    click(L.startImport);
+    await screen.findByText(L.stoppedByWarnings);
+    expect(screen.getByRole("region", { name: L.warnings }).textContent).toMatch(/The following values do not exist for Customer: ACME/);
+    expect(screen.getByRole("button", { name: L.startImport })).toBeTruthy();
+    expect(document.querySelector("[data-import-result]")).toBeNull();
+    expect(sim.count(DATA_IMPORT_METHODS.logs)).toBe(0);
+  });
+
+  it("417 on start ('Scheduler is inactive'): shown, still on the preview, nothing polled", async () => {
+    const sim = makeSim({ failStart: new FrappeError("Scheduler is inactive. Cannot import data.", 417, "ValidationError") });
+    mount(sim);
+    await uploadAndPreview();
+    click(L.startImport);
+    await screen.findByText("Scheduler is inactive. Cannot import data.");
+    expect(document.querySelector('[data-import-error="start"] [data-kind]')?.getAttribute("data-kind")).toBe("validation");
+    expect(screen.getByRole("region", { name: L.preview })).toBeTruthy();
+    await act(() => new Promise((r) => setTimeout(r, 60)));
+    expect(sim.count(DATA_IMPORT_METHODS.status)).toBe(0);
+  });
+
+  it("form_start_import answers false (already queued): said so, then the same polling", async () => {
+    const sim = makeSim({ startAnswer: false });
+    mount(sim);
+    await uploadAndPreview();
+    sim.state = ON_SERVER("m2", { status: "Pending", total_records: 4 });
+    click(L.startImport);
+    await screen.findByText(L.alreadyQueued);
+    await waitFor(() => expect(sim.count(DATA_IMPORT_METHODS.status)).toBeGreaterThanOrEqual(1));
+  });
+
+  it("realtime (optional): data_import_progress of THIS import drives the progress line; data_import_refresh re-polls at once; completion still from get_import_status", async () => {
+    const handlers: Record<string, ((d: Record<string, unknown>) => void)[]> = {};
+    const subscribe: ImportRealtimeSubscribe = (event, h) => { (handlers[event] ??= []).push(h); return () => { handlers[event] = handlers[event].filter((x) => x !== h); }; };
+    const emit = (event: string, d: Record<string, unknown>) => act(async () => { for (const h of handlers[event] ?? []) h(d); });
+    const sim = makeSim();
+    mount(sim, { subscribe, pollIntervalMs: 60_000 });
+    await uploadAndPreview();
+    expect(handlers.data_import_progress ?? []).toHaveLength(0); // subscribed only while importing
+    sim.state = ON_SERVER("m2", { status: "Pending", total_records: 10 });
+    click(L.startImport);
+    await screen.findByText(L.queued);
+    await emit("data_import_progress", { data_import: "DI-0099", current: 9, total: 10, eta: 1, success: true });
+    expect(document.querySelector("[data-realtime-progress]")).toBeNull();
+    await emit("data_import_progress", { data_import: "DI-0001", current: 3, total: 10, eta: 30, success: true });
+    expect(screen.getByText("Importing 3 of 10, About 30 seconds remaining")).toBeTruthy();
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("30");
+    expect(document.querySelector("[data-import-result]")).toBeNull(); // progress is not completion
+
+    const polls = sim.count(DATA_IMPORT_METHODS.status);
+    sim.state = ON_SERVER("m3", { status: "Success", success: 10, total_records: 10 });
+    await emit("data_import_refresh", { data_import: "DI-0001" });
+    await screen.findByText("Successfully imported 10 records.");
+    expect(sim.count(DATA_IMPORT_METHODS.status)).toBe(polls + 1);
+    expect(handlers.data_import_progress).toHaveLength(0); // unsubscribed once finished
   });
 });
