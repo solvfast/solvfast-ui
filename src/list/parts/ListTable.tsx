@@ -146,7 +146,7 @@ export function ListTable<T>({
             </td>
           )}
           <td colSpan={Math.max(columns.length, 1)} className="px-4 py-2">
-            <button type="button" onClick={() => toggleGroup(g.key)} aria-expanded={open} className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <button type="button" onClick={() => toggleGroup(g.key)} aria-expanded={open} className="flex items-center gap-2 rounded-md text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4 rtl:rotate-180" />}
               <span>{g.label}</span>
               <span className="rounded-full bg-muted px-2 text-xs font-normal text-muted-foreground">{g.rows.length}{partial ? "+" : ""}</span>
@@ -176,7 +176,7 @@ export function ListTable<T>({
                   <th key={c.key} className={cn("px-4 py-2.5 font-medium", c.align === "end" ? "text-end" : "text-start")}
                     aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
                     {c.sortable === false ? <span className="normal-case">{label}</span> : (
-                      <button className="inline-flex items-center gap-1 hover:text-foreground disabled:cursor-default disabled:hover:text-muted-foreground" onClick={() => onSortToggle(c.key)}>
+                      <button type="button" className="inline-flex items-center gap-1 rounded-sm hover:text-foreground disabled:cursor-default disabled:hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => onSortToggle(c.key)}>
                         {label} {active ? (sort.dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : null}
                       </button>
                     )}

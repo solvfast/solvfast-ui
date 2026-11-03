@@ -104,7 +104,7 @@ export function FrappeMessagesProvider({ source, onAlert, children }: FrappeMess
             <div key={id} role="status" className="pointer-events-auto flex items-start gap-3 rounded-md border border-border bg-card p-3 text-sm text-card-foreground shadow-lg">
               <span aria-hidden className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", TONE_DOT[indicatorTone(message.indicator)])} />
               <ServerHtml html={message.message} className="min-w-0 flex-1 break-words" />
-              <button type="button" onClick={() => dismissAlert(id)} aria-label={t("feDismiss")} className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <button type="button" onClick={() => dismissAlert(id)} aria-label={t("feDismiss")} className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <X className="h-4 w-4" />
               </button>
             </div>

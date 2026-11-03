@@ -566,9 +566,9 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     return (
       <section key={sec.key} className="space-y-3" data-section={sec.key} aria-label={label}>
         {label && (collapsible ? (
-          <button type="button" className="flex w-full items-center gap-2 text-start text-sm font-semibold" aria-expanded={!isCollapsed} aria-controls={regionId}
+          <button type="button" className="group flex w-full items-center gap-2 rounded-md text-start text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={!isCollapsed} aria-controls={regionId}
             onClick={() => setCollapsed((c) => ({ ...c, [sec.key]: !isCollapsed }))}>
-            <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isCollapsed && (isRTL ? "rotate-90" : "-rotate-90"))} aria-hidden />
+            <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground", isCollapsed && (isRTL ? "rotate-90" : "-rotate-90"))} aria-hidden />
             {label}
           </button>
         ) : <h3 className="text-sm font-semibold">{label}</h3>)}

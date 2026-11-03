@@ -17,7 +17,7 @@ export function ListPagination({ total, totalLabel, onTotalClick, page, hasPrev,
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground">
       {totalLabel === "" ? <span /> : onTotalClick
-        ? <button type="button" className="underline decoration-dotted" title={t("listCountExact")} onClick={onTotalClick}>{t("total")}: {totalLabel ?? total}</button>
+        ? <button type="button" className="rounded-sm underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={t("listCountExact")} onClick={onTotalClick}>{t("total")}: {totalLabel ?? total}</button>
         : <span>{t("total")}: {totalLabel ?? total}</span>}
       <div className="flex items-center gap-1">
         <Button variant="outline" size="icon" className="h-8 w-8" disabled={!hasPrev} onClick={() => onPage(page - 1)} aria-label={t("prevPage")}><Prev className="h-4 w-4" /></Button>

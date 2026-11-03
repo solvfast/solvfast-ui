@@ -953,3 +953,25 @@ describe("Frappe date operators", () => {
     expect(within(popover()).getByRole("combobox", { name: "Value" }).textContent).toBe("Not Set");
   });
 });
+
+// ---- p275 polish: header / group buttons are plain buttons (never submit a host form) with the DS focus ring ----------
+describe("ListTable buttons (p275)", () => {
+  it("sort and group toggles don't submit an enclosing form and show a focus-visible ring", async () => {
+    const { ListTable, GroupedListTable } = await import("../src");
+    const cols: ColumnDef<{ id: string; t: string }>[] = [{ key: "t", label: "Title" }];
+    const rows = [{ id: "1", t: "a" }];
+    const submit = vi.fn((e: React.FormEvent) => e.preventDefault());
+    const onSort = vi.fn();
+    const { unmount } = render(<ThemeProvider><form onSubmit={submit}>
+      <ListTable columns={cols} rows={rows} rowKey={(r) => r.id} sort={{ key: null, dir: "asc" }} onSortToggle={onSort} />
+    </form></ThemeProvider>);
+    const sortBtn = screen.getByRole("button", { name: "Title" });
+    fireEvent.click(sortBtn);
+    expect(onSort).toHaveBeenCalledWith("t");
+    expect(submit).not.toHaveBeenCalled();
+    expect(sortBtn.className).toContain("focus-visible:ring-2");
+    unmount();
+    render(<ThemeProvider><GroupedListTable columns={cols} groups={[{ key: "g", label: "Group", rows }]} rowKey={(r) => r.id} sort={{ key: null, dir: "asc" }} onSortToggle={onSort} /></ThemeProvider>);
+    expect(screen.getByRole("button", { name: /Group/ }).className).toContain("focus-visible:ring-2");
+  });
+});
