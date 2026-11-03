@@ -192,7 +192,7 @@ describe("SIMULATED Administrator with and without an explicit role list (P2-4)"
       const { wrapper } = harness(noop, session);
       const { result } = renderHook(() => usePermissions(bundleOf(MEMO(1))), { wrapper });
       const menu = (hasWorkflow: boolean) => bulkMenu({ permissions: (p) => result.current.can(p), isSubmittable: true, hasWorkflow, allowEdit: false, hasEditableFields: true });
-      expect(menu(false)).toEqual(["edit", "submit", "cancel", "assign", "delete"]);
+      expect(menu(false)).toEqual(["edit", "assign", "submit", "cancel", "delete"]); // full menu, in Desk's order (list_view.js:2088-2128, Phase 27 actions merge)
       expect(menu(true)).toEqual(["assign"]); // a workflow hides Edit / Submit / Cancel / Delete for everyone (list_view.js), Administrator included
     });
 

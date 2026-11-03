@@ -15,12 +15,13 @@ import { FrappeBulkActions, type FrappeBulkOptions } from "./list/FrappeBulkActi
 import { useListRealtime } from "./list/realtime";
 import type { RealtimePort } from "./contract";
 import { createFrappeSavedFilters, createFrappeUserSettings } from "./list/storage";
-import { Download, MoreHorizontal, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, MoreHorizontal, Upload } from "lucide-react";
 import { Button } from "../primitives/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/dropdown-menu";
 import { useFrappeSettings } from "./FrappeProvider";
 import { withFrappeApi } from "./client";
-import { canImport } from "./services/permissions";
+import { canExport, canImport } from "./services/permissions";
+import { FrappeReportExportDialog } from "./list/FrappeReportExportDialog";
 import { FrappeExportDialog, type ExportDialogLabels } from "./list/FrappeExportDialog";
 
 type Managed = "rows" | "columns" | "rowKey" | "mode" | "total" | "onStateChange" | "loading" | "error" | "onRetry" | "onLoadMore"
@@ -65,7 +66,7 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    */
   menu?: boolean | { import?: boolean; export?: boolean };
   /** Labels of the Import / Export entries (default: the message catalogue) and of the Export dialog (English by default). */
-  ioLabels?: Partial<ExportDialogLabels & { importEntry: string; exportEntry: string; moreActions: string }>;
+  ioLabels?: Partial<ExportDialogLabels & { importEntry: string; exportEntry: string; moreActions: string; reportExportEntry: string }>;
 }
 
 /** Desk's Import route as a URL: the Data Import list with `reference_doctype` as a route option (`router.js:548-566`). */
@@ -76,8 +77,10 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, ...rest }: FrappeListViewProps<T>) {
-  const f = useFrappeList<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext });
+function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
+  // `columnLimit` defaults ON here: Desk always caps the generated columns by window width (list_view.js:432-444);
+  // app-curated `columns` are never capped. `columnLimit={false}` keeps every `in_list_view` column.
+  const f = useFrappeList<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, treeDoctypes, columnLimit: columnLimit ?? true, hideNameColumn, urlFilters });
   const { quickFilterFields, loadOptions, ...data } = f.listProps;
   const fallbackClient = useFrappeClient();
   const c = client ?? fallbackClient;
@@ -86,7 +89,7 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   metaRef.current = f.meta;
   // bulk gates: the user's rights on the DocType (Desk's `frm.perm`); the `permissions` prop overrides
   const perms = usePermissions(f.bundle);
-  const { t } = useLocale();
+  const { t, language } = useLocale();
   const [selectedCount, setSelectedCount] = React.useState(0);
   const [bulkBusy, setBulkBusy] = React.useState(false);
   const [bulkMessage, setBulkMessage] = React.useState("");
@@ -99,10 +102,13 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   // permission error (FrappeErrorState), with no file and no success.
   const { session } = useFrappeSettings();
   const menuOn = menu === false ? { import: false, export: false } : { import: true, export: true, ...(typeof menu === "object" ? menu : {}) };
-  const showImport = menuOn.import !== false && canImport(f.bundle?.meta, session?.roles, perms.levels[0]);
+  const showImport = menuOn.import !== false && canImport(f.bundle?.meta, session, perms.levels[0]);
   const showExport = menuOn.export !== false && !!f.bundle;
+  // Report-view export (export_query): Desk's report view offers it only with `frappe.model.can_export` (report_view.js:1646)
+  const showReportExport = menuOn.export !== false && !!f.bundle && !!f.reportExport && canExport(session, perms.levels[0]);
   const [exporting, setExporting] = React.useState<{ names?: string[] } | null>(null);
-  const L = { importEntry: t("listMenuImport"), exportEntry: t("listBulkExport"), moreActions: t("listMenuMore"), ...ioLabels };
+  const [reportExporting, setReportExporting] = React.useState(false);
+  const L = { importEntry: t("listMenuImport"), exportEntry: t("listBulkExport"), moreActions: t("listMenuMore"), reportExportEntry: t("listMenuReportExport"), ...ioLabels };
   // Desk: frappe.set_route("list", "data-import", { reference_doctype }) — the Data Import LIST (list_view.js:1703-1712)
   const doImport = onImport ?? (() => { if (typeof location !== "undefined") location.assign(dataImportListUrl(doctype)); });
   const menuNode = showImport || showExport ? (
@@ -113,6 +119,7 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
       <DropdownMenuContent align="end">
         {showImport && <DropdownMenuItem onSelect={() => doImport()}><Upload className="me-2 h-4 w-4" /> {L.importEntry}</DropdownMenuItem>}
         {showExport && <DropdownMenuItem onSelect={() => setExporting({})}><Download className="me-2 h-4 w-4" /> {L.exportEntry}</DropdownMenuItem>}
+        {showReportExport && <DropdownMenuItem onSelect={() => setReportExporting(true)}><FileSpreadsheet className="me-2 h-4 w-4" /> {L.reportExportEntry}</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
   ) : null;
@@ -168,7 +175,10 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
     {bulkMessage && <p className="mt-2 text-sm text-muted-foreground" role="status">{bulkMessage}</p>}
     {f.bundle && exporting && (
       <FrappeExportDialog api={api} bundle={f.bundle} open onOpenChange={(o) => !o && setExporting(null)} selectedNames={exporting.names}
-        filters={f.request?.filters} levels={session?.roles ? perms.levels : undefined} labels={ioLabels} />
+        filters={f.request?.filters} levels={perms.known ? perms.levels : undefined} labels={ioLabels} />
+    )}
+    {f.bundle && f.reportExport && reportExporting && (
+      <FrappeReportExportDialog api={api} doctype={doctype} open onOpenChange={(o) => !o && setReportExporting(false)} {...f.reportExport} offerTranslate={language !== "en"} />
     )}
     </>
   );
