@@ -312,3 +312,12 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
 - Source maps no longer embed the TypeScript source (`sourcemapExcludeSources`); they keep line mappings and relative
   `src/` paths. `scripts/check-package.mjs` fails the build when a shipped map carries `sourcesContent` or an absolute
   source path. Packed size 846 kB → 524 kB.
+
+## 0.4.0-dev.31 (2026-11-03, Phase 27 B — list query)
+- Nested-set filter operators (Descendants of / inclusive / Not descendants of / Ancestors of / Not ancestors of), offered
+  only for Link fields to tree DocTypes, sent to the server unchanged; en/ar labels.
+- Width-based column limit (Desk `list_view.js:375-457`), URL filters (read and write-back), report-view export
+  (`export_query` through `api.download`; on a real site it writes an Access Log row) — functions and `useFrappeList`
+  options; `FrappeListView` wiring follows in the actions merge.
+- Generic `useListState`: `initialQuery`; visible columns follow changes in the columns' default visibility until the user
+  picks columns (List View Settings arriving after the first render now apply).

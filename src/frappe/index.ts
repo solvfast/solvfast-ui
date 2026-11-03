@@ -65,3 +65,16 @@ export type { DataImportDoc, DataImportStatus, ImportPreview, ImportWarning, Sta
 export { FrappeExportDialog, EXPORT_DIALOG_LABELS_EN } from "./list/FrappeExportDialog";
 export type { ExportDialogLabels, FrappeExportDialogProps } from "./list/FrappeExportDialog";
 export { restrictMetaToReadable } from "./meta";
+
+// 0.4.0 — Phase 27 B (query27): width-based column limit, URL filters, report-view export, nested-set operators.
+export { capDefaultColumns, deskColumnLimit, listedFields } from "./list/settings";
+export type { DeskColumnCapOptions } from "./list/settings";
+export { parseUrlFilters, filtersToUrl, filtersToSearchParams, resolveUrlKey } from "./list/urlFilters";
+export type { ParsedUrlFilters, UrlFilterSource } from "./list/urlFilters";
+export { downloadReportExport, reportExportArgs, reportExportFields, EXPORT_QUERY_METHOD } from "./list/reportExport";
+export type { ReportExportOptions, ReportExportResult, ReportExportFormat, CsvQuoting } from "./list/reportExport";
+export { FrappeReportExportDialog, REPORT_EXPORT_DIALOG_LABELS_EN } from "./list/FrappeReportExportDialog";
+export type { FrappeReportExportDialogProps, ReportExportDialogLabels } from "./list/FrappeReportExportDialog";
+export { NESTED_SET_FRAPPE_OP } from "./query";
+export { treeDoctypesOf } from "./meta";
+export type { TreeDoctypes } from "./meta";

@@ -65,8 +65,8 @@ export const OPERATOR_LABEL: Record<Operator, keyof Messages> = {
   equals: "opEquals", not_equals: "opNotEquals", like: "opLike", not_like: "opNotLike", in: "opIn", not_in: "opNotIn",
   gt: "opGt", lt: "opLt", gte: "opGte", lte: "opLte", is_set: "opIsSet", is_not_set: "opIsNotSet",
   between: "opBetween", timespan: "opTimespan", fiscal_year: "opFiscalYear",
-  descendants_of: "opDescendantsOf" as keyof Messages, descendants_of_inclusive: "opDescendantsOfInclusive" as keyof Messages,
-  not_descendants_of: "opNotDescendantsOf" as keyof Messages, ancestors_of: "opAncestorsOf" as keyof Messages, not_ancestors_of: "opNotAncestorsOf" as keyof Messages,
+  descendants_of: "opDescendantsOf", descendants_of_inclusive: "opDescendantsOfInclusive",
+  not_descendants_of: "opNotDescendantsOf", ancestors_of: "opAncestorsOf", not_ancestors_of: "opNotAncestorsOf",
 };
 /** Frappe's labels (filter.js:32-36) and its Arabic catalogue (`frappe/locale/ar.po`: 2278, 7353, 7357, 17495, 17499). */
 export const NESTED_SET_LABEL: Record<NestedSetOperator, { en: string; ar: string }> = {
