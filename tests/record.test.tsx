@@ -40,9 +40,9 @@ describe("Timeline", () => {
   });
   it("expands multi-field changes, including child-table rows", () => {
     wrap(<Timeline items={items} now={NOW} />);
-    expect(screen.queryByText("Items #2")).toBeNull();
+    expect(document.body.textContent).not.toContain("Items #2");
     fireEvent.click(screen.getByRole("button", { name: /Bob changed the value/ }));
-    expect(screen.getByText(/Items #2/)).toBeTruthy();
+    expect(document.body.textContent).toContain("Items #2");
   });
   it("filters comments / changes and hides kinds", () => {
     const { container } = wrap(<Timeline items={items} showFilters hiddenKinds={["state"]} now={NOW} />);
@@ -85,6 +85,12 @@ describe("Timeline", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(edit).toHaveBeenCalled());
     expect(edit.mock.calls[0][1]).toContain('data-id="bob@x.com"');
+  });
+  it("isolates actor and change tokens with <bdi> so English names keep their direction in RTL", () => {
+    const { container } = wrap(<Timeline items={items} now={NOW} />, "ar");
+    expect(container.querySelector("li[data-kind='change']")).not.toBeNull();
+    fireEvent.click(screen.getAllByRole("button", { name: /Bob changed/ })[0]);
+    expect(container.querySelectorAll("bdi").length).toBeGreaterThanOrEqual(4);
   });
   it("renders in Arabic / RTL with Arabic chrome", () => {
     wrap(<Timeline items={[]} />, "ar");

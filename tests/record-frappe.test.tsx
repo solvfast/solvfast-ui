@@ -172,3 +172,17 @@ describe("stateEntries (stepper actor and time)", () => {
     expect(stateEntries({ doc, docinfo: info, stateField: "f", states: ["Review"], translate: (s) => (s === "Review" ? "قيد المراجعة" : s) }).get("Review")?.by).toBe("Bob Ray");
   });
 });
+
+describe("R2-V8 bidi isolation of interpolated tokens in Arabic version lines", () => {
+  const v = { owner: "bob@x", data: JSON.stringify({ changed: [["title", "Old value", "New value"]] }) };
+  const arCtx = (isolate: boolean): TimelineContext => ({ ...ctx({ t: (k) => ar[k] as string }), isolate });
+  it("wraps the actor, field label and values in first-strong isolates when isolate is set, and not otherwise", () => {
+    const plain = formatVersion(v, arCtx(false), "Bob Ray")[0].summary;
+    const iso = formatVersion(v, arCtx(true), "Bob Ray")[0].summary;
+    expect(plain).not.toMatch(/[⁨⁩]/);
+    expect(iso).toContain("⁨Bob Ray⁩");
+    expect(iso).toContain("⁨Title⁩");
+    expect(iso).toContain("⁨Old value⁩");
+    expect(iso.replace(/[⁨⁩]/g, "")).toBe(plain);
+  });
+});

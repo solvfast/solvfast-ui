@@ -12,3 +12,6 @@ export const errorText = (e: unknown): string => (e instanceof Error ? e.message
 
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const escapeHtml = (s: string): string => s.replace(/[&<>"']/g, (c) => ESC[c]);
+
+/** First-strong isolate (U+2068 ... U+2069): the token takes its own direction and cannot reorder the surrounding sentence. */
+export const isolate = (s: string): string => (s ? `\u2068${s}\u2069` : s);
