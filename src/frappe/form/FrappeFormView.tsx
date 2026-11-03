@@ -172,8 +172,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const eff = React.useMemo(() => resolveFields(meta.fields ?? [], doc, doc, evaluator, overrides[meta.name]), [meta, doc, evaluator, overrides]);
   const fieldsByName = React.useMemo(() => new Map((meta.fields ?? []).map((f) => [f.fieldname, f])), [meta]);
   const statusOf = React.useCallback((df: EffectiveField, row: FrappeDoc, parent?: FrappeDoc, gridCell = false): FieldDisplayStatus => {
-    // ladder step 3 (hidden_due_to_dependency → None), applied here too: the foundation reads the flag with `cint`,
-    // which turns Desk's boolean `true` into 0 (reported to A1)
+    // ladder step 3 (hidden_due_to_dependency → None); the foundation applies it too (its boolean handling was fixed in
+    // e266cfe) — kept so a field hidden by a dependency never shows whatever status function is supplied
     if (df.hidden_due_to_dependency) return "None";
     let st = permissions?.displayStatus
       ? permissions.displayStatus(df, row, parent, gridCell ? { gridCell: true } : undefined)

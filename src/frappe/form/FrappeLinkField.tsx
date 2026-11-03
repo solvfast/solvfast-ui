@@ -134,6 +134,8 @@ export function FrappeLinkField({
       ...(referenceDoctype ? { referenceDoctype } : {}),
       ...(merged ? { filters: merged as SearchLinkOptions["filters"] } : {}),
       ...(q.query ? { query: q.query } : {}),
+      ...(q.searchfield ? { searchfield: q.searchfield } : {}),
+      ...(q.args ? { args: q.args } : {}),
       ...(df?.ignore_user_permissions ? { ignoreUserPermissions: true } : {}),
     };
   }, [df, query, filters, formFields, referenceDoctype, target, s, onIssue]);

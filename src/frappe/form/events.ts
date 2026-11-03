@@ -75,15 +75,41 @@ export async function runEvent(handlers: FormEventHandler | FormEventHandler[] |
   return true;
 }
 
-/** Normalise a set_query value into search options (docs `12` §4.4 step 2). Returns extra args too. */
-export function resolveLinkQuery(q: LinkQuery | undefined, doc: FrappeDoc, cdt: string, cdn: string): { filters?: Record<string, unknown> | unknown[]; query?: string } {
+/** The search arguments a set_query value contributes. */
+export interface ResolvedLinkQuery {
+  filters?: Record<string, unknown> | unknown[];
+  query?: string;
+  searchfield?: string;
+  /** Extra keys of a FUNCTION's result object (e.g. `translate_values`, custom-query arguments) — R1-F13. */
+  args?: Record<string, unknown>;
+}
+
+const RESERVED = new Set(["filters", "query", "searchfield", "txt", "doctype", "reference_doctype", "page_length", "ignore_user_permissions"]);
+
+/**
+ * Normalise a set_query value into search options (docs `12` §4.4 step 2, link.js:606-657): a plain object
+ * (`{ filters }`, `{ query }` or a bare filters dict), a method path, or a function of (doc, cdt, cdn) returning a path
+ * or an object. Desk merges a function's whole result object into the request (`$.extend(args, q)`), so its extra keys
+ * travel as `args` (sent as top-level request arguments; they never replace the standard keys).
+ */
+export function resolveLinkQuery(q: LinkQuery | undefined, doc: FrappeDoc, cdt: string, cdn: string): ResolvedLinkQuery {
   if (q == null) return {};
-  const v = typeof q === "function" ? q(doc, cdt, cdn) : q;
+  const fromFunction = typeof q === "function";
+  const v = fromFunction ? q(doc, cdt, cdn) : q;
   if (v == null) return {};
   if (typeof v === "string") return { query: v };
   const o = v as Record<string, unknown>;
-  if ("filters" in o || "query" in o) {
-    return { ...(o.filters != null ? { filters: o.filters as Record<string, unknown> } : {}), ...(typeof o.query === "string" ? { query: o.query } : {}) };
+  if ("filters" in o || "query" in o || fromFunction) {
+    const out: ResolvedLinkQuery = {
+      ...(o.filters != null ? { filters: o.filters as Record<string, unknown> } : {}),
+      ...(typeof o.query === "string" ? { query: o.query } : {}),
+    };
+    if (fromFunction) {
+      if (typeof o.searchfield === "string") out.searchfield = o.searchfield;
+      const extra = Object.fromEntries(Object.entries(o).filter(([k, val]) => !RESERVED.has(k) && val !== undefined));
+      if (Object.keys(extra).length) out.args = extra;
+    }
+    return out;
   }
   return { filters: o };
 }

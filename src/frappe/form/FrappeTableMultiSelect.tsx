@@ -76,6 +76,7 @@ export function FrappeTableMultiSelect({ df, bundle, parent, rows, onRowsChange,
         const res = await s.searchLink(target, txt, {
           pageLength: s.pageLength, referenceDoctype: bundle?.doctype,
           ...(q.filters ? { filters: q.filters as Record<string, unknown> } : {}), ...(q.query ? { query: q.query } : {}),
+          ...(q.searchfield ? { searchfield: q.searchfield } : {}), ...(q.args ? { args: q.args } : {}),
           ...(df.ignore_user_permissions ? { ignoreUserPermissions: true } : {}),
         });
         for (const r of res) if (r.label) titles.remember(target, r.value, r.label);
