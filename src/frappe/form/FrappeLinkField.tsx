@@ -28,6 +28,8 @@ import type { FieldDisplayStatus, FrappeDoc, FrappeDocField, SearchLinkOptions, 
 import { evaluateDepends, type DependsIssue } from "./model/depends";
 import { resolveLinkQuery, type LinkQuery } from "./events";
 import { useFormServices } from "./services";
+import { FrappeError } from "../client";
+import { useFrappeMessages } from "../feedback/messages";
 
 const titles = new Map<string, string>();
 /** Remember a link title (Desk `frappe._link_titles`). */
@@ -113,6 +115,7 @@ export function FrappeLinkField({
 }: FrappeLinkFieldProps) {
   const { t } = useLocale();
   const s = useFormServices();
+  const messages = useFrappeMessages();
   const target = options ?? (df?.fieldtype === "Link" ? df.options : undefined) ?? "";
   const [busy, setBusy] = React.useState(false);
   const req = React.useRef(0);
@@ -156,12 +159,14 @@ export function FrappeLinkField({
       if (r.name == null) onChange(null);
       else if (r.name !== v) onChange(r.name);
       onValidated?.(r);
-    } catch {
-      // the error reaches the user through the server-message host; the typed value stays (the server re-validates)
+    } catch (e) {
+      // R1-F11: Desk shows the request error (e.g. the 403 "You do not have Read or Select Permissions" dialog,
+      // client.py:443-454); the typed value stays — the server re-validates links on save
+      if (id === req.current) messages.show(e instanceof FrappeError && e.messages.length ? e.messages : [{ message: e instanceof Error ? e.message : String(e), indicator: "red" }]);
     } finally {
       if (id === req.current) setBusy(false);
     }
-  }, [target, df, fetchFields, onChange, onValidated, s]);
+  }, [target, df, fetchFields, onChange, onValidated, s, messages]);
 
   const title = value ? titles.get(`${target}::${value}`) ?? s.formatContext.linkTitles?.[`${target}::${value}`] : undefined;
   const href = value && target ? s.linkHref(target, value) : undefined;

@@ -123,7 +123,8 @@ export function checkMandatory(bundle: MetaBundle, doc: FrappeDoc, opts: Mandato
     });
     for (const { df, rows: bad } of perField.values()) {
       const base = { table: labelOf(table), label: labelOf(df), parentfield: table.fieldname, fieldname: df.fieldname };
-      if (bad.length === rows.length && rows.length > 1) lines.push({ kind: "every", ...base });
+      // save.js:221 tests "every row" before the single-row case, so a one-row table missing the column reads "every row"
+      if (bad.length === rows.length) lines.push({ kind: "every", ...base });
       else {
         const ranges = rowRanges(bad);
         if (ranges.length > 10) lines.push({ kind: "count", ...base, count: bad.length });

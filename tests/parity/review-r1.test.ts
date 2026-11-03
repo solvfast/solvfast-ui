@@ -144,7 +144,7 @@ describe("F-01/F-11 layout and new documents", () => {
 describe("R1 gaps (native expectation, currently failing)", () => {
   // R1-F2, F-06: save.js `if (rows.length === te.total_rows)` is tested BEFORE the single-row case, so a one-row table with
   // the column missing reads "in every row". model/mandatory.ts:126 requires rows.length > 1.
-  it.fails("F-06: one row, column missing -> 'in every row' (save.js, rows.length === total_rows first)", () => {
+  it("F-06: one row, column missing -> 'in every row' (save.js, rows.length === total_rows first)", () => {
     const b = synthetic("SFUI O", [{ fieldname: "items", fieldtype: "Table", label: "Items", options: "SFUI OI" }], { "SFUI OI": [{ fieldname: "code", fieldtype: "Data", label: "Code", reqd: 1 }] });
     const r = checkMandatory(b, { doctype: "SFUI O", name: "o", items: [{ doctype: "SFUI OI", name: "r1", idx: 1 }] } as FrappeDoc);
     expect(r.lines[0]).toMatchObject({ kind: "every" });
