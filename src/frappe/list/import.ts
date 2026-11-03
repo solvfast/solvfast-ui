@@ -18,6 +18,10 @@
  *     Non-info template warnings stop the job BEFORE importing and are stored in `template_warnings` (`importer.py:81-90`).
  *  7. "Export Errored Rows" → `download_errored_template` (`data_import.js:315-322`; server `:205-209`).
  *
+ * Phase 27: the steps are also separate (`createDataImport`, `attachImportFile` — re-attach to the SAME document after
+ * a refused file), the column mapper's save (`remapImportColumns`, `data_import.js:302-309`) and a stricter
+ * `importRunning` rule for the poller (mid-run "Partial Success", Retry). The UI over them: `FrappeDataImport`.
+ *
  * Server fact worth knowing: the `Data Import` DocType itself grants `create` to System Manager only (data_import.json
  * permissions), so a user with `import` on the DocType but without that role is refused at step 1 (403) — Desk shows
  * them the Import entry anyway (`list_view.js:1703-1712`), and so does the package (`canImport`).
@@ -28,6 +32,7 @@ import type { DownloadedFile, FrappeApi } from "../client";
 import type { FrappeDoc } from "../contract";
 import { newLocalName } from "../form/model";
 import { downloadExportTemplate, type ExportFileType, type ImportType } from "./export";
+import { mergeColumnToFieldMap } from "./importMapping";
 
 export type { ImportType } from "./export";
 
@@ -59,12 +64,37 @@ export interface DataImportDoc extends FrappeDoc {
   payload_count?: number;
 }
 
-/** `get_data_for_import_preview` (importer.py:51-62; ImportFile `:480-513`): columns, first rows, warnings, recent log. */
+/**
+ * One column of the preview (`Column.as_dict`, importer.py:1061-1075; `df` reduced to these keys at `:485-497`). Column 0
+ * is `{header_title: "Sr. No", skip_import: true}` (`:483`); `child_table_df` is the parent's table DocField.
+ */
+export interface ImportPreviewColumn {
+  header_title?: string | null;
+  skip_import?: boolean | null;
+  map_to_field?: string | null;
+  index?: number;
+  column_number?: number;
+  date_format?: string | null;
+  df?: { fieldtype?: string; fieldname: string; label?: string | null; options?: string | null; parent?: string; reqd?: 0 | 1; default?: unknown; read_only?: 0 | 1 } | null;
+  is_child_table_field?: boolean | null;
+  child_table_df?: { fieldname: string; label?: string | null; options?: string | null; [k: string]: unknown } | null;
+  warnings?: ImportWarning[];
+  [k: string]: unknown;
+}
+
+/**
+ * `get_data_for_import_preview` (importer.py:51-62; ImportFile `:480-513`): columns, the first `MAX_ROWS_IN_PREVIEW` (10)
+ * rows — each `[row_number, ...cells]` — warnings, the last 10 import-log rows; `max_rows_exceeded` +
+ * `max_rows_in_preview` + `total_number_of_rows` when the file has more rows.
+ */
 export interface ImportPreview {
-  columns?: { header_title?: string; skip_import?: boolean; map_to_field?: string; [k: string]: unknown }[];
+  columns?: ImportPreviewColumn[];
   data?: unknown[][];
   warnings?: ImportWarning[];
   import_log?: { row_indexes: string; success: 0 | 1 }[];
+  max_rows_exceeded?: boolean;
+  max_rows_in_preview?: number;
+  total_number_of_rows?: number;
   [k: string]: unknown;
 }
 export interface ImportWarning { row?: number; col?: number | string; field?: { label?: string; parent?: string; fieldname?: string }; message: string; type?: string }
@@ -95,18 +125,47 @@ type Api = Pick<FrappeApi, "call" | "saveDoc" | "uploadFile">;
 
 /** Steps 1–5 above, in Desk's order. Any refusal (403 on save, invalid template on the second save …) throws the FrappeError untouched. */
 export async function startDataImport(api: Api, o: StartDataImportOptions): Promise<StartedDataImport> {
+  const saved = await createDataImport(api, o);
+  const withFile = await attachImportFile(api, saved, o.file, o.filename);
+  const preview = await getImportPreview(api, withFile.name, withFile.import_file ?? undefined);
+  const started = o.start === false ? null : await startImport(api, withFile.name);
+  return { name: withFile.name, doc: withFile, preview, started };
+}
+
+/** Step 1: save a new `Data Import` (frm.save → savedocs). A 403 here is the expected refusal for a user without `create` on Data Import. */
+export async function createDataImport(api: Pick<FrappeApi, "saveDoc">, o: Pick<StartDataImportOptions, "referenceDoctype" | "importType" | "submitAfterImport" | "muteEmails">): Promise<DataImportDoc> {
   const draft: DataImportDoc = {
     doctype: "Data Import", name: newLocalName("Data Import"), __islocal: 1, __unsaved: 1, docstatus: 0,
     reference_doctype: o.referenceDoctype, import_type: o.importType, status: "Pending",
     submit_after_import: o.submitAfterImport ? 1 : 0, mute_emails: o.muteEmails === false ? 0 : 1,
   };
-  const saved = (await api.saveDoc(draft, "Save")) as DataImportDoc;
-  const fileDoc = await api.uploadFile(o.file, o.filename, { doctype: "Data Import", docname: saved.name, fieldname: "import_file", isPrivate: true });
+  return (await api.saveDoc(draft, "Save")) as DataImportDoc;
+}
+
+/**
+ * Steps 2–3 on a SAVED Data Import: `upload_file` attached to it (private), then save it with `import_file = file_url`
+ * (the server parses the file in `validate`: "Invalid template file for import", "Import template should contain a
+ * Header and atleast one row." are errors of THIS save). Call it again on the same document with another file after a
+ * refusal — Desk's Attach control does the same on the same form; the server clears `template_options` /
+ * `template_warnings` when `import_file` changes (`data_import.py:44-52`).
+ */
+export async function attachImportFile(api: Pick<FrappeApi, "saveDoc" | "uploadFile">, doc: DataImportDoc, file: Blob, filename: string): Promise<DataImportDoc> {
+  const fileDoc = await api.uploadFile(file, filename, { doctype: "Data Import", docname: doc.name, fieldname: "import_file", isPrivate: true });
   const fileUrl = String((fileDoc as { file_url?: unknown }).file_url ?? "");
-  const withFile = (await api.saveDoc({ ...saved, import_file: fileUrl }, "Save")) as DataImportDoc;
-  const preview = await getImportPreview(api, withFile.name, fileUrl);
-  const started = o.start === false ? null : await startImport(api, withFile.name);
-  return { name: withFile.name, doc: withFile, preview, started };
+  return (await api.saveDoc({ ...doc, import_file: fileUrl }, "Save")) as DataImportDoc;
+}
+
+/**
+ * The column mapper's save (`data_import.js:302-309` `remap_column`): `template_options.column_to_field_map` gets the
+ * changed entries (`changedColumnMap` — FILE column index → field), the document is SAVED (savedocs; the server
+ * re-parses the file with the map in `validate`), then the preview is requested AGAIN from the server
+ * (`frm.save().then(() => frm.trigger("import_file"))` → `get_preview_from_template`). The returned document carries the
+ * new `modified`: use it for every later save / start. Nothing is re-mapped on the client.
+ */
+export async function remapImportColumns(api: Pick<FrappeApi, "saveDoc" | "call">, doc: DataImportDoc, changed: Record<string, string>): Promise<{ doc: DataImportDoc; preview: ImportPreview | null }> {
+  const saved = (await api.saveDoc({ ...doc, template_options: mergeColumnToFieldMap(doc.template_options, changed) }, "Save")) as DataImportDoc;
+  const preview = await getImportPreview(api, saved.name, saved.import_file ?? undefined);
+  return { doc: saved, preview };
 }
 
 /** Step 4. */
@@ -168,26 +227,49 @@ export function parseTemplateWarnings(doc: Pick<DataImportDoc, "template_warning
 export interface ImportProgress extends ImportStatus {
   /** The job stopped before importing because the template has warnings (importer.py:81-90): fix the file and retry. */
   warnings: ImportWarning[];
-  /** Pending with no warnings: the job is queued or running. */
+  /** The job is queued or running — see `importRunning`. */
   running: boolean;
+  /** `since` was given and the server has not written the document since: the job has not started yet. */
+  queued?: boolean;
   doc?: DataImportDoc;
 }
 
 /**
- * Poll a Data Import until it finishes: `get_import_status` plus the document (for `template_warnings`), every
- * `intervalMs` (default 2000) while the status is Pending and no warnings stopped it. Desk uses realtime
- * (`data_import_refresh`, `data_import_progress`); those are published site-wide / per user, not to the document's room,
- * so a `RealtimePort.subscribeDoc` would not see them — polling is the package's mechanism (documented).
+ * Is the server's job still to come or still running? From the server's answers only:
+ *  - `since` (the document's `modified` when Start / Retry was sent) unchanged → queued: the job writes the document
+ *    as soon as it runs (`before_import` `db_set("template_warnings", "")`, every status `db_set`, importer.py:73,
+ *    183-184, 240; `db_set` bumps `modified`). Until then a non-Pending status and old `template_warnings` belong to the
+ *    PREVIOUS run (Retry after Partial Success / Error, or after warnings stopped a run);
+ *  - Pending → running, unless `template_warnings` say the job refused to import (importer.py:81-90);
+ *  - Partial Success → running while the logged rows are fewer than `payload_count`: the job sets Partial Success after
+ *    its FIRST successful row (importer.py:183-184) and the final status only at the end (`:220-240`);
+ *  - Success / Error / Timed Out → finished.
  */
-export function useImportStatus(api: Pick<FrappeApi, "call" | "getDoc"> | undefined, name: string | null | undefined, o: { intervalMs?: number; enabled?: boolean } = {}) {
+export function importRunning(status: ImportStatus, warnings: ImportWarning[], doc?: Pick<DataImportDoc, "modified">, since?: string): boolean {
+  if (since !== undefined && doc && doc.modified === since) return true;
+  if (status.status === "Pending") return !warnings.length;
+  if (status.status === "Partial Success") return status.total > 0 && status.success + status.failed < status.total;
+  return false;
+}
+
+/**
+ * Poll a Data Import until it finishes: `get_import_status` plus the document (for `template_warnings` and `modified`),
+ * every `intervalMs` (default 2000) while `importRunning` says the job is queued or running. Pass `since` (the
+ * document's `modified` when Start / Retry was sent) so a Retry is not taken as finished before the job ran. Desk uses
+ * realtime (`data_import_refresh`, `data_import_progress`); those are published site-wide / per user, not to the
+ * document's room, so a `RealtimePort.subscribeDoc` would not see them — polling is the package's mechanism (documented).
+ */
+export function useImportStatus(api: Pick<FrappeApi, "call" | "getDoc"> | undefined, name: string | null | undefined, o: { intervalMs?: number; enabled?: boolean; since?: string } = {}) {
+  const since = o.since;
   const q = useQuery({
-    queryKey: ["sf-frappe", "data-import", name],
+    queryKey: ["sf-frappe", "data-import", name, since ?? null],
     enabled: !!api && !!name && o.enabled !== false,
     queryFn: async (): Promise<ImportProgress> => {
       const [status, loaded] = await Promise.all([getImportStatus(api!, name!), api!.getDoc("Data Import", name!).catch(() => null)]);
       const doc = loaded?.doc as DataImportDoc | undefined;
       const warnings = parseTemplateWarnings(doc);
-      return { ...status, warnings, running: status.status === "Pending" && !warnings.length, doc };
+      const queued = since !== undefined && !!doc && doc.modified === since;
+      return { ...status, warnings, running: importRunning(status, warnings, doc, since), ...(since !== undefined ? { queued } : {}), doc };
     },
     refetchInterval: (query) => (query.state.data && !query.state.data.running ? false : o.intervalMs ?? 2000),
     retry: false,
