@@ -3,6 +3,12 @@ import { Check, Plus, X } from "lucide-react";
 import { cn } from "../lib/cn";
 import { Avatar, AvatarFallback, AvatarImage } from "../primitives/avatar";
 import { Button } from "../primitives/button";
+import { Checkbox } from "../primitives/checkbox";
+import { DateField } from "../primitives/date-time-field";
+import { Input } from "../primitives/input";
+import { Label } from "../primitives/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../primitives/select";
+import { Textarea } from "../primitives/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "../primitives/popover";
 import { Skeleton } from "../primitives/skeleton";
 import { useLocale } from "../theme/ThemeProvider";
@@ -13,6 +19,8 @@ import { useAsyncOptions } from "./useAsyncOptions";
 export interface AssignLabels {
   assignedTo?: string; none?: string; add?: string; search?: string; toMe?: string; confirm?: string; description?: string; due?: string;
   priority?: string; low?: string; medium?: string; high?: string; remove?: string; noMatches?: string; cancel?: string;
+  /** Helper under "Complete by" / "Priority" and the "no priority chosen" option. */
+  dueHint?: string; priorityHint?: string; priorityDefault?: string; clearDate?: string;
 }
 const useAssignLabels = (l?: AssignLabels) => {
   const { t } = useLocale();
@@ -22,6 +30,8 @@ const useAssignLabels = (l?: AssignLabels) => {
     description: l?.description ?? t("recAssignDescription"), due: l?.due ?? t("recAssignDue"), priority: l?.priority ?? t("recAssignPriority"),
     low: l?.low ?? t("recPriorityLow"), medium: l?.medium ?? t("recPriorityMedium"), high: l?.high ?? t("recPriorityHigh"),
     remove: l?.remove ?? t("recRemoveAssignee"), noMatches: l?.noMatches ?? t("recMentionNoResults"), cancel: l?.cancel ?? t("recCancel"),
+    dueHint: l?.dueHint ?? t("recAssignDueHint"), priorityHint: l?.priorityHint ?? t("recAssignPriorityHint"),
+    priorityDefault: l?.priorityDefault ?? t("recAssignPriorityDefault"), clearDate: l?.clearDate ?? t("recAssignClearDate"),
   };
 };
 
@@ -52,6 +62,9 @@ export interface AssignPickerProps {
 }
 
 /** Popover to choose users (searched through a callback) and assign them. */
+/** Radix Select needs a non-empty value for "nothing chosen": that option sends no `priority` (the server's default). */
+const DEFAULT_PRIORITY = "__default";
+
 export function AssignPicker({ searchUsers, onAssign, exclude = [], me, single, withDetails, labels, trigger, disabled, disabledReason }: AssignPickerProps) {
   const L = useAssignLabels(labels);
   const [open, setOpen] = React.useState(false);
@@ -63,6 +76,7 @@ export function AssignPicker({ searchUsers, onAssign, exclude = [], me, single, 
   const [error, setError] = React.useState("");
   const { options, loading, error: searchError } = useAsyncOptions(searchUsers, q, open);
   const listId = React.useId();
+  const fieldId = React.useId();
 
   React.useEffect(() => { if (!open) { setQ(""); setPicked([]); setDetails({}); setError(""); setActive(0); } }, [open]);
   React.useEffect(() => { setActive(0); }, [options]);
@@ -93,16 +107,17 @@ export function AssignPicker({ searchUsers, onAssign, exclude = [], me, single, 
           </Button>
         )}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 space-y-2 p-2">
-        <input
+      <PopoverContent align="start" className={cn("space-y-2 p-2", withDetails ? "w-80" : "w-72")}>
+        <Input
           autoFocus role="combobox" aria-expanded aria-controls={listId} aria-activedescendant={options[active] ? `${listId}-${active}` : undefined}
           value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} placeholder={L.search} aria-label={L.search}
-          className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-8 text-xs"
         />
         {me && !single && !exclude.includes(me.id) ? (
-          <label className="flex cursor-pointer items-center gap-2 px-1 text-xs">
-            <input type="checkbox" checked={picked.some((x) => x.id === me.id)} onChange={() => toggle(me)} />{L.toMe}
-          </label>
+          <div className="flex items-center gap-2 px-1">
+            <Checkbox id={`${fieldId}-me`} checked={picked.some((x) => x.id === me.id)} onCheckedChange={() => toggle(me)} />
+            <Label htmlFor={`${fieldId}-me`} className="cursor-pointer text-xs font-normal">{L.toMe}</Label>
+          </div>
         ) : null}
         <div id={listId} role="listbox" aria-multiselectable={!single} className="max-h-44 space-y-0.5 overflow-auto">
           {loading ? <Skeleton className="h-8 w-full" /> : null}
@@ -122,17 +137,42 @@ export function AssignPicker({ searchUsers, onAssign, exclude = [], me, single, 
           })}
         </div>
         {withDetails ? (
-          <div className="space-y-2 border-t border-border pt-2 text-xs">
-            <textarea aria-label={L.description} placeholder={L.description} rows={2} value={details.description ?? ""}
-              onChange={(e) => setDetails((d) => ({ ...d, description: e.target.value }))}
-              className="w-full rounded-md border border-input bg-background p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-            <div className="flex gap-2">
-              <input type="date" aria-label={L.due} value={details.date ?? ""} onChange={(e) => setDetails((d) => ({ ...d, date: e.target.value || undefined }))}
-                className="h-8 flex-1 rounded-md border border-input bg-background px-2" />
-              <select aria-label={L.priority} value={details.priority ?? ""} onChange={(e) => setDetails((d) => ({ ...d, priority: (e.target.value || undefined) as AssignDetails["priority"] }))}
-                className="h-8 rounded-md border border-input bg-background px-1">
-                <option value="">{L.priority}</option><option value="Low">{L.low}</option><option value="Medium">{L.medium}</option><option value="High">{L.high}</option>
-              </select>
+          // Desk's Assign To dialog (form/sidebar/assign_to.js:50-90): "Complete By" (Date → the ToDo's `date`), "Priority"
+          // (Low / Medium / High → the ToDo's `priority`), "Comment" (→ `description`). Left empty, nothing is sent and the
+          // server uses today and Medium (desk/form/assign_to.py:73-90: `args.get("date", nowdate())`, `args.get("priority", "Medium")`).
+          <div className="space-y-2.5 border-t border-border pt-2.5 text-xs">
+            <div className="space-y-1">
+              <Label htmlFor={`${fieldId}-comment`} className="text-xs">{L.description}</Label>
+              <Textarea id={`${fieldId}-comment`} rows={2} value={details.description ?? ""} className="min-h-0 text-xs"
+                onChange={(e) => setDetails((d) => ({ ...d, description: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="min-w-0 space-y-1">
+                <Label htmlFor={`${fieldId}-due`} className="text-xs">{L.due}</Label>
+                <div className="flex items-center gap-1">
+                  <DateField id={`${fieldId}-due`} value={details.date ?? ""} onChange={(v) => setDetails((d) => ({ ...d, date: v || undefined }))}
+                    className="min-w-0 flex-1 [&>button]:h-8 [&>button]:text-xs" />
+                  {details.date ? (
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={L.clearDate} title={L.clearDate}
+                      onClick={() => setDetails((d) => ({ ...d, date: undefined }))}><X className="h-3.5 w-3.5" aria-hidden /></Button>
+                  ) : null}
+                </div>
+                <p id={`${fieldId}-due-hint`} className="text-[11px] leading-tight text-muted-foreground">{L.dueHint}</p>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <Label htmlFor={`${fieldId}-priority`} className="text-xs">{L.priority}</Label>
+                <Select value={details.priority ?? DEFAULT_PRIORITY}
+                  onValueChange={(v) => setDetails((d) => ({ ...d, priority: v === DEFAULT_PRIORITY ? undefined : (v as AssignDetails["priority"]) }))}>
+                  <SelectTrigger id={`${fieldId}-priority`} className="h-8 text-xs" aria-describedby={`${fieldId}-priority-hint`}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={DEFAULT_PRIORITY}>{L.priorityDefault}</SelectItem>
+                    <SelectItem value="Low">{L.low}</SelectItem>
+                    <SelectItem value="Medium">{L.medium}</SelectItem>
+                    <SelectItem value="High">{L.high}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p id={`${fieldId}-priority-hint`} className="text-[11px] leading-tight text-muted-foreground">{L.priorityHint}</p>
+              </div>
             </div>
           </div>
         ) : null}
