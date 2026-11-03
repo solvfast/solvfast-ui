@@ -730,3 +730,7 @@ it has **not** been verified against a real site, and the CRM's "frappe" mode bo
 | 9,889 | `docs/FRAPPE.md` |
 | 7,248 | `docs/LIMITATIONS.md` |
 | 5,053 | `package.json` |
+
+## Behaviour change added after this checklist was written
+
+- **List errors (since 0.4.0-dev.25):** the Frappe list renders `FrappeErrorState` per error kind. A 403 / not-found / validation error no longer offers Retry (0.3.x offered Retry on every error); network / server / rate-limited / unavailable still do.
