@@ -1,10 +1,10 @@
 import * as React from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { AssigneeGroup, type AssigneeGroupProps } from "../../record/AssigneeGroup";
 import { Skeleton } from "../../primitives/skeleton";
 import { useLocale } from "../../theme/ThemeProvider";
 import type { AssignmentInfo, DocInfo, FrappeDoc } from "../contract";
-import { invalidateDocInfo, requireClientMethod, useRecordClient, useRecordDocInfo, type RecordClient } from "./data";
+import { useDocAction } from "../hooks";
+import { useRecordApi, useRecordDocInfo } from "./data";
 
 export interface FrappeAssignToProps extends Pick<AssigneeGroupProps, "variant" | "maxVisible" | "heading" | "labels" | "className" | "single" | "withDetails"> {
   doc: FrappeDoc;
@@ -13,7 +13,6 @@ export interface FrappeAssignToProps extends Pick<AssigneeGroupProps, "variant" 
   userFullName?: string;
   /** Provide docinfo when the page already loaded it; otherwise it is fetched (`get_docinfo`). */
   docinfo?: DocInfo;
-  client?: RecordClient;
   /** Hide the add button (read-only page). Server stays the authority: any user who can READ the document may assign (assign_to.py:67). */
   canAssign?: boolean;
   /** `write` on the document. Desk shows remove only for the assignee or users with write (assign_to.js:358). */
@@ -27,11 +26,11 @@ export interface FrappeAssignToProps extends Pick<AssigneeGroupProps, "variant" 
  * ToDo-based assignment. List from `docinfo.assignments` (uncapped); after add / remove the docinfo is re-fetched — the
  * 5-row list `assign_to.add` returns is never used as the source of truth (docs 14 A2). Unsaved documents cannot be assigned.
  */
-export function FrappeAssignTo({ doc, user, userFullName, docinfo, client, canAssign = true, canWrite = false, searchUsers, onChanged, ...rest }: FrappeAssignToProps) {
+export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = true, canWrite = false, searchUsers, onChanged, ...rest }: FrappeAssignToProps) {
   const { t } = useLocale();
-  const c = useRecordClient(client);
-  const qc = useQueryClient();
-  const q = useRecordDocInfo(c, doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
+  const c = useRecordApi();
+  const actions = useDocAction();
+  const q = useRecordDocInfo(doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
   const info = q.data;
   const assignees = React.useMemo(
     () => (info?.assignments ?? []).filter((a: AssignmentInfo) => !!a.owner).map((a) => ({
@@ -50,12 +49,13 @@ export function FrappeAssignTo({ doc, user, userFullName, docinfo, client, canAs
       {...rest} assignees={assignees} searchUsers={search} loading={false}
       me={{ id: user, label: userFullName ?? user }}
       onAssign={canAssign && !unsaved ? async (users, details) => {
-        await requireClientMethod(c, "addAssignment")(doc.doctype, doc.name, users.map((u) => u.id), details);
-        invalidateDocInfo(qc, doc.doctype, doc.name); onChanged?.();
+        // useDocAction().assign invalidates docinfo + list; the <=5 row answer of assign_to.add is never used as the list
+        await actions.assign.mutateAsync({ doctype: doc.doctype, name: doc.name, users: users.map((u) => u.id), ...details });
+        onChanged?.();
       } : undefined}
       onRemove={async (a) => {
-        await requireClientMethod(c, "removeAssignment")(doc.doctype, doc.name, a.id);
-        invalidateDocInfo(qc, doc.doctype, doc.name); onChanged?.();
+        await actions.unassign.mutateAsync({ doctype: doc.doctype, name: doc.name, user: a.id });
+        onChanged?.();
       }}
       canRemove={(a) => a.id === user || canWrite}
       {...(unsaved ? { disabled: true, disabledReason: t("recSaveBeforeAssign") } : {})}

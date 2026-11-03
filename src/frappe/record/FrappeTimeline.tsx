@@ -1,11 +1,11 @@
 import * as React from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { CommentComposer } from "../../record/CommentComposer";
 import { Timeline, type TimelineProps } from "../../record/Timeline";
 import type { MentionOption, TimelineItem } from "../../record/types";
 import { useLocale } from "../../theme/ThemeProvider";
 import type { DocInfo, DocTypeMeta, FrappeDoc, MetaBundle } from "../contract";
-import { invalidateDocInfo, requireClientMethod, useRecordClient, useRecordDocInfo, useRecordMeta, type RecordClient } from "./data";
+import { useDocAction } from "../hooks";
+import { useRecordApi, useRecordDocInfo, useRecordMeta } from "./data";
 import { buildTimelineItems, type TimelineContext } from "./timeline";
 
 export interface FrappeTimelineProps extends Pick<TimelineProps, "order" | "showFilters" | "hiddenKinds" | "labels" | "composerLabels" | "className"> {
@@ -14,7 +14,6 @@ export interface FrappeTimelineProps extends Pick<TimelineProps, "order" | "show
   docinfo?: DocInfo;
   /** Needed for field labels in version lines; loaded through the client when omitted. */
   bundle?: MetaBundle;
-  client?: RecordClient;
   /** "communications" = Desk’s “Show all activity” switch off. Default "all". */
   activity?: "all" | "communications";
   /** Comment box: needs `read` on the document (add_comment checks read). Default true. */
@@ -35,13 +34,13 @@ const PAGE = 20;
 
 /** The record’s activity, built from `docinfo` (docs 14 A8) with comment add / edit / delete and “load more communications”. */
 export function FrappeTimeline({
-  doc, user, docinfo, bundle, client, activity = "all", canComment = true, isSystemManager, canDeleteComment, canSeeField, translate = (s) => s, searchMentions, error, ...rest
+  doc, user, docinfo, bundle, activity = "all", canComment = true, isSystemManager, canDeleteComment, canSeeField, translate = (s) => s, searchMentions, error, ...rest
 }: FrappeTimelineProps) {
   const { t } = useLocale();
-  const c = useRecordClient(client);
-  const qc = useQueryClient();
-  const q = useRecordDocInfo(c, doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
-  const meta = useRecordMeta(c, doc.doctype, bundle);
+  const c = useRecordApi();
+  const actions = useDocAction();
+  const q = useRecordDocInfo(doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
+  const meta = useRecordMeta(doc.doctype, bundle);
   const [extraComms, setExtraComms] = React.useState<unknown[]>([]);
   const [moreAvailable, setMoreAvailable] = React.useState<boolean | null>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
@@ -94,8 +93,7 @@ export function FrappeTimeline({
   };
 
   const addComment = async (html: string) => {
-    await requireClientMethod(c, "addComment")(doc.doctype, doc.name, html);
-    invalidateDocInfo(qc, doc.doctype, doc.name);
+    await actions.addComment.mutateAsync({ doctype: doc.doctype, name: doc.name, content: html });
   };
   const unsaved = !!doc.__islocal;
   if (unsaved) return null; // Desk hides the timeline for new documents (footer.js:65-72)
@@ -109,8 +107,8 @@ export function FrappeTimeline({
         error={error ?? (q.error ? <p role="alert" className="text-sm text-destructive">{q.error.message}</p> : moreError ? <p role="alert" className="text-sm text-destructive">{moreError}</p> : undefined)}
         hasMore={hasMore} loadingMore={loadingMore} onLoadMore={() => void loadMore()}
         searchMentions={mentionSearch}
-        onEditComment={async (item, html) => { await requireClientMethod(c, "updateComment")(item.id, html); invalidateDocInfo(qc, doc.doctype, doc.name); }}
-        onDeleteComment={async (item) => { await requireClientMethod(c, "deleteComment")(item.id); invalidateDocInfo(qc, doc.doctype, doc.name); }}
+        onEditComment={async (item, html) => { await actions.updateComment.mutateAsync({ doctype: doc.doctype, name: doc.name, commentName: item.id, content: html }); }}
+        onDeleteComment={async (item) => { await actions.deleteComment.mutateAsync({ doctype: doc.doctype, name: doc.name, commentName: item.id }); }}
       />
     </div>
   );
