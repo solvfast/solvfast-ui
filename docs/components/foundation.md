@@ -246,8 +246,8 @@ nothing about what a site accepts. Report results on it as "Simulated". Read
 
 - Not run against a real site: every behaviour above is from source reading and simulated tests.
 - Permissions without `session.roles` are approximated (§5).
-- Queued submissions (`__queued`), `Company:x:y` currency options, Version value formatting (Frappe formats values
-  with `get_formatted`; the simulator stores raw values).
+- Queued submissions (`__queued`), `Company:x:y` currency options; the simulator's Version values imitate the
+  server's `get_formatted` (formatters.py + `fmt_money`) but are not produced by it.
 - Translations need an app or boot dictionary (§7); the `ar` dictionary size per page load is not measured.
 - Workflow `allow_edit` is a client UX rule here; whether the server enforces it on a plain save is UNVERIFIED.
 - Realtime reconnect behaviour and payload details beyond the cited emitters.

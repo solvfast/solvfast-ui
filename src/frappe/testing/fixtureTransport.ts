@@ -18,6 +18,7 @@
  */
 import { toFrappeError, type FrappeResponse, type FrappeTransport } from "../client";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, FrappeDocField, WorkflowInfo } from "../contract";
+import { fieldCurrency, formatDate, formatDatetime, formatDuration, formatNumber, formatTime, numberFormatPrecision, type FormatContext } from "../services/format";
 
 type Row = Record<string, unknown>;
 type Filter = [string, string, unknown] | [string, string, string, unknown];
@@ -36,6 +37,8 @@ export interface FixtureOptions {
    * Frappe's order (links before mandatory, selects after). Still SIMULATED: no formats, lengths, permissions.
    */
   strict?: boolean;
+  /** The site's system defaults as the SERVER formats with them (Version values). Default: Frappe's defaults. */
+  formatContext?: FormatContext;
   /** `frappe.desk.listview.get_list_settings` answers by DocType (List View Settings rows). Default: null. */
   listSettings?: Record<string, Record<string, unknown> | null>;
 }
@@ -368,6 +371,27 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
   }
   const openAssignments = (doctype: string, name: string) =>
     [...store.todos.values()].filter((t) => t.reference_type === doctype && t.reference_name === name && !["Cancelled", "Closed"].includes(String(t.status))).slice(0, 5).map((t) => ({ owner: t.allocated_to, name: t.name }));
+  /**
+   * The comment ToDo.validate / on_update write on the referenced doc (desk/doctype/todo/todo.py:39-69), with full names
+   * (get_fullname): new → "Assigned": "{by} assigned {to}: {description}" or "{by} self assigned this task: {description}";
+   * status changed → "Assignment Completed": "{me} removed their assignment." (assignee = session user) or
+   * "Assignment of {to} removed by {me}".
+   */
+  function todoComment(todo: Row, previousStatus?: string) {
+    const dt = String(todo.reference_type ?? ""), dn = String(todo.reference_name ?? "");
+    if (!dt || !dn) return;
+    const full = (u: unknown) => userInfoFn(String(u ?? "")).fullname;
+    if (previousStatus === undefined) {
+      const text = todo.assigned_by === todo.allocated_to
+        ? `${full(todo.assigned_by)} self assigned this task: ${String(todo.description ?? "")}`
+        : `${full(todo.assigned_by)} assigned ${full(todo.allocated_to)}: ${String(todo.description ?? "")}`;
+      addComment(dt, dn, "Assigned", text);
+    } else if (previousStatus !== todo.status) {
+      const text = todo.allocated_to === user ? `${full(user)} removed their assignment.` : `Assignment of ${full(todo.allocated_to)} removed by ${full(user)}`;
+      addComment(dt, dn, "Assignment Completed", text);
+    }
+  }
+
   function assign(doctype: string, name: string, users: string[], a: Row) {
     get(doctype, name);
     const dup: string[] = [];
@@ -376,7 +400,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const ts = stamp();
       const todo: Row = { doctype: "ToDo", name: hash(), allocated_to: u, reference_type: doctype, reference_name: name, description: a.description || `Assignment for ${doctype} ${name}`, priority: a.priority || "Medium", status: "Open", date: a.date || ymd(now()), assigned_by: user, owner: user, creation: ts, modified: ts, modified_by: user, docstatus: 0, idx: 0 };
       store.todos.set(String(todo.name), todo);
-      addComment(doctype, name, "Assigned", `${user} assigned ${u}`);
+      todoComment(todo);
     }
     syncAssign(doctype, name);
     return dup;
@@ -482,7 +506,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     if (dropped.length) for (const tf of tableFields(meta)) stored[tf.fieldname] = ((doc[tf.fieldname] as FrappeDoc[] | undefined) ?? []).filter((r) => !dropped.includes(r)).map((r, i) => ({ ...r, idx: i + 1 }));
     if (previous && meta.track_changes) recordVersion(meta, previous, stored);
     table(meta.name).set(stored.name, stored);
-    if (meta.name === "ToDo") { syncAssign(String(previous?.reference_type ?? ""), String(previous?.reference_name ?? "")); syncAssign(String(stored.reference_type ?? ""), String(stored.reference_name ?? "")); }
+    if (meta.name === "ToDo") { todoComment(stored, previous ? String(previous.status ?? "") : undefined); syncAssign(String(previous?.reference_type ?? ""), String(previous?.reference_name ?? "")); syncAssign(String(stored.reference_type ?? ""), String(stored.reference_name ?? "")); }
     return doc; // the response echoes the posted rows, dropped ones included (send_updated_docs returns the in-memory doc)
   }
 
@@ -525,14 +549,18 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
    * A `Version` document like `save_version` / `get_diff` (core/doctype/version/version.py) for `track_changes`
    * DocTypes: data = JSON {changed: [[field, old, new]], added: [[table, row]], removed: [[table, row]],
    * row_changed: [[table, rowIndex (0-based), rowName, [[field, old, new]]]], data_import, updater_reference}; name and
-   * docstatus changes are listed in `changed`. SIMULATED: values are the raw values (Frappe formats non-empty values
-   * with get_formatted); no Version on insert (Frappe writes one only for data imports).
+   * docstatus changes are listed in `changed` (raw). Changed values are formatted like the server's get_formatted
+   * (`versionValue`, an approximation); no Version on insert (Frappe writes one only for data imports).
    */
   function recordVersion(meta: DocTypeMeta, before: FrappeDoc, after: FrappeDoc) {
     const valueFields = (m: DocTypeMeta | undefined) => (m?.fields ?? []).filter((f) => !LAYOUT.has(f.fieldtype) && !TABLES.has(f.fieldtype) && !f.is_virtual);
     const norm = (f: FrappeDocField, v: unknown) => (f.fieldtype === "Link" || f.fieldtype === "Dynamic Link" ? (v == null ? "" : String(v)) : v ?? null);
+    // version.py get_diff:179-186 — a changed value is stored through get_formatted() when truthy, except the
+    // blacklisted fieldtypes (:120), and the pair is kept only if the formatted values still differ
     const diff = (m: DocTypeMeta | undefined, o: FrappeDoc, n: FrappeDoc) =>
-      valueFields(m).filter((f) => JSON.stringify(norm(f, o[f.fieldname])) !== JSON.stringify(norm(f, n[f.fieldname]))).map((f) => [f.fieldname, o[f.fieldname] ?? null, n[f.fieldname] ?? null]);
+      valueFields(m).filter((f) => JSON.stringify(norm(f, o[f.fieldname])) !== JSON.stringify(norm(f, n[f.fieldname])))
+        .map((f) => [f.fieldname, versionValue(f, o[f.fieldname], o), versionValue(f, n[f.fieldname], n)])
+        .filter(([, a, b]) => JSON.stringify(a) !== JSON.stringify(b));
     const changed: unknown[] = diff(meta, before, after);
     const added: unknown[] = [], removed: unknown[] = [], rowChanged: unknown[] = [];
     for (const tf of tableFields(meta)) {
@@ -554,6 +582,56 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       data: JSON.stringify({ changed, added, removed, row_changed: rowChanged, data_import: null, updater_reference: null }),
     };
     table("Version").set(v.name, v);
+  }
+
+  const fmt: FormatContext = options.formatContext ?? {};
+  /** version.py:120 — values of these fieldtypes stay raw in a Version. */
+  const VERSION_RAW = new Set(["Markdown Editor", "Text Editor", "Code", "HTML Editor"]);
+  /**
+   * A value as Version stores it: `doc.get_formatted(field)` when truthy (version.py:181-183), i.e. the SERVER's
+   * format_value (frappe/utils/formatters.py), which differs from Desk's client formatters: Date / Datetime (no zone
+   * conversion) / Time in the system formats; Currency and Float via fmt_money (utils/data.py:1223, incl. its narrowing
+   * of precisions above 2); Percent as Python's `f"{flt(v, 2)}%"`; Duration as format_duration; Text / Small Text with
+   * newlines as <br>; Select translated; every other type (Data, Int, Check, Link …) unchanged. Falsy values stay raw.
+   */
+  function versionValue(df: FrappeDocField, v: unknown, doc: FrappeDoc): unknown {
+    if (v === null || v === undefined || v === "" || v === 0 || v === false || VERSION_RAW.has(df.fieldtype)) return v ?? null;
+    const server = { ...fmt, timeZone: undefined };
+    switch (df.fieldtype) {
+      case "Date": return formatDate(v, server) || v;
+      case "Datetime": return formatDatetime(v, server) || v;
+      case "Time": return formatTime(v, server) || v;
+      case "Duration": { const n = Math.trunc(Number(v)) || 0; const d = formatDuration(Math.abs(n), { hide_days: df.hide_days }, server); return n < 0 && d !== "0s" ? `-${d}` : d === "0s" ? "" : d; }
+      case "Percent": { const r = Math.round(Number(v) * 100) / 100; return `${Number.isInteger(r) ? r.toFixed(1) : String(r)}%`; }
+      case "Currency": return fmtMoney(Number(v), cintOrNull(df.precision) ?? (cintOrNull(fmt.currencyPrecision) || null), fieldCurrency(df, doc, fmt));
+      case "Float": {
+        let p = cintOrNull(df.precision) ?? (cintOrNull(fmt.floatPrecision) || 3);
+        if (!df.options) { const frac = String(v).split(".")[1]; if (frac === undefined || !Number(frac)) p = 0; }
+        return fmtMoney(Number(v), p, df.options ? fieldCurrency(df, doc, fmt) : undefined);
+      }
+      case "Text": case "Small Text": return /(<br|<div|<p)/.test(String(v)) ? v : String(v).replace(/\n/g, "<br>");
+      case "Select": return fmt.translate ? fmt.translate(String(v)) : v;
+      default: return v;
+    }
+  }
+  const cintOrNull = (v: unknown) => { if (v === null || v === undefined || v === "") return null; const n = parseInt(String(v), 10); return Number.isNaN(n) ? null : n; };
+  /** fmt_money (utils/data.py:1223-): precision default currency_precision else the number format's; above 2 it narrows
+   *  to the currency's fraction digits (or the format's) when the value has fewer than 3 decimals; symbol per currency. */
+  function fmtMoney(amount: number, precision: number | null, currency: string | undefined): string {
+    const format = fmt.numberFormat || "#,###.##";
+    const nfPrecision = numberFormatPrecision(format);
+    let p = precision ?? (cintOrNull(fmt.currencyPrecision) || null) ?? nfPrecision;
+    if (nfPrecision > 0 && p > 2) {
+      const frac = Math.round((((amount % 1) + 1) % 1) * 10 ** p) / 10 ** p;
+      const decimals = String(frac).split(".")[1] ?? String(frac);
+      if (decimals.length < 3) p = currency ? String(fmt.currencies?.[currency]?.fraction_units || 100).length - 1 : nfPrecision;
+      else if (decimals.length < p) p = decimals.length;
+    }
+    const n = formatNumber(amount, format, p, fmt.roundingMethod);
+    if (!currency || fmt.hideCurrencySymbol) return n;
+    const info = fmt.currencies?.[currency];
+    const symbol = info?.symbol || currency;
+    return info?.symbol_on_right ? `${n} ${symbol}` : `${symbol} ${n}`;
   }
 
   const userInfoFn = (u: string) => {
@@ -799,13 +877,12 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       return {};
     },
     "frappe.desk.form.assign_to.remove": (a) => {
-      for (const t of store.todos.values()) if (t.reference_type === a.doctype && t.reference_name === a.name && t.allocated_to === a.assign_to && t.status === "Open") t.status = "Cancelled";
-      addComment(String(a.doctype), String(a.name), "Assignment Completed", `${user} removed their assignment.`);
+      for (const t of store.todos.values()) if (t.reference_type === a.doctype && t.reference_name === a.name && t.allocated_to === a.assign_to && t.status === "Open") { t.status = "Cancelled"; todoComment(t, "Open"); }
       syncAssign(String(a.doctype), String(a.name));
       return { message: openAssignments(String(a.doctype), String(a.name)) };
     },
     "frappe.desk.form.assign_to.close": (a) => {
-      for (const t of store.todos.values()) if (t.reference_type === a.doctype && t.reference_name === a.name && t.allocated_to === a.assign_to && t.status === "Open") t.status = "Closed";
+      for (const t of store.todos.values()) if (t.reference_type === a.doctype && t.reference_name === a.name && t.allocated_to === a.assign_to && t.status === "Open") { t.status = "Closed"; todoComment(t, "Open"); }
       syncAssign(String(a.doctype), String(a.name));
       return { message: openAssignments(String(a.doctype), String(a.name)) };
     },
