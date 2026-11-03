@@ -91,6 +91,36 @@ describe("FrappeListView with a custom rowKey sends document names (SIMULATED)",
     expect(docnames).toHaveLength(2);
   });
 
+  it("Assign To: add_multiple gets the names", async () => {
+    const seen: Record<string, unknown>[] = [];
+    const { firstNames } = mountList({ rowKey: UI_KEY as never }, (m, a) => (m === "frappe.desk.form.assign_to.add_multiple" ? (seen.push(a), ok()) : undefined));
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    check(1, 2);
+    fireEvent.click(await screen.findByRole("button", { name: en("listBulkAssign") }));
+    fireEvent.click(await screen.findByRole("option", { name: /omar@example.com/ }));
+    fireEvent.click(screen.getByRole("button", { name: defaultMessages.en.recAssignConfirm }));
+    await waitFor(() => expect(seen).toHaveLength(1));
+    expect((JSON.parse(String(seen[0].name)) as string[]).slice().sort()).toEqual(firstNames(2).slice().sort());
+  });
+
+  it("Add Tags: add_tags gets the names", async () => {
+    const seen: Record<string, unknown>[] = [];
+    const { firstNames } = mountList({ rowKey: UI_KEY as never }, (m, a) =>
+      m === "frappe.desk.doctype.tag.tag.add_tags" ? (seen.push(a), ok())
+        : m === "frappe.desk.search.search_link" && a.doctype === "Tag" ? ok([{ value: "urgent", description: "" }]) : undefined);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    check(1, 2);
+    fireEvent.click(await screen.findByRole("button", { name: en("listBulkAddTags") }));
+    const dialog = await screen.findByRole("dialog", { name: en("listBulkAddTags") });
+    const input = within(dialog).getByRole("combobox", { name: en("listBulkTags") });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "urg" } });
+    fireEvent.click(await screen.findByRole("option", { name: /urgent/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: en("listBulkAdd") }));
+    await waitFor(() => expect(seen).toHaveLength(1));
+    expect((JSON.parse(String(seen[0].docs)) as string[]).slice().sort()).toEqual(firstNames(2).slice().sort());
+  });
+
   it("selection-bar Export: by_filter on the names", async () => {
     const seen: { method: string; args: Record<string, unknown> }[] = [];
     const files: FrappeFilesTransport = { download: async (method, args) => { seen.push({ method, args }); return { blob: new Blob(["s"]), filename: "x.csv", contentType: "text/csv" }; }, upload: async () => { throw new Error("unused"); } };
