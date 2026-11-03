@@ -10,7 +10,7 @@ import {
 import { useLocale } from "../theme/ThemeProvider";
 import { CommentComposer, type CommentComposerLabels } from "./CommentComposer";
 import { errorText } from "./format";
-import { sanitizeHtml } from "./sanitize";
+import { sanitizeCommentHtml } from "./sanitize";
 import type { MentionOption, TimelineItem, TimelineKind } from "./types";
 
 export type TimelineFilter = "all" | "comments" | "changes";
@@ -72,7 +72,7 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
   if (item.kind === "comment") {
     const body = item.bodyFormat === "text"
       ? <p className="whitespace-pre-wrap text-sm text-foreground">{item.body}</p>
-      : <div className="prose-sm break-words text-sm text-foreground [&_.mention]:rounded [&_.mention]:bg-primary/10 [&_.mention]:px-1 [&_.mention]:text-primary [&_a]:text-primary [&_a]:underline [&_blockquote]:border-s-2 [&_blockquote]:ps-2" dangerouslySetInnerHTML={{ __html: sanitizeHtml(item.body ?? "") }} />;
+      : <div className="prose-sm break-words text-sm text-foreground [&_.mention]:rounded [&_.mention]:bg-primary/10 [&_.mention]:px-1 [&_.mention]:text-primary [&_a]:text-primary [&_a]:underline [&_blockquote]:border-s-2 [&_blockquote]:ps-2" dangerouslySetInnerHTML={{ __html: sanitizeCommentHtml(item.body ?? "") }} />;
     return (
       <li id={`comment-${item.id}`} className="rounded-lg border border-border bg-card p-3" data-kind="comment">
         <div className="mb-1 flex items-center gap-1.5">

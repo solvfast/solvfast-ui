@@ -217,6 +217,8 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
 
   return {
     meta,
+    userSettings: m.userSettings,
+    settings,
     ready: !!meta,
     request: req,
     refetch: () => { if (m.error) void m.refetch(); else { void list.refetch(); void count.refetch(); } },

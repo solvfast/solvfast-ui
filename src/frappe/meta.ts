@@ -49,6 +49,8 @@ export interface FrappeListMeta {
   states: { title: string; color?: string }[];
   /** Composite filter-field name → child table field. */
   childOf: Map<string, ChildFieldRef>;
+  /** Fields a bulk Edit may set (value types, not read-only / hidden / virtual). */
+  editable: { name: string; label: string; type: FieldType; fieldtype: string; options?: { value: string; label: string }[] }[];
   /** True for DocFields (or standard columns) of this DocType. */
   hasField: (fieldname: string) => boolean;
   titleField: string;
@@ -148,6 +150,8 @@ export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => str
   return {
     doctype: meta.name, isSubmittable: !!(meta as ListDocMeta).is_submittable, isLargeTable: !!(meta as ListDocMeta).is_large_table,
     states: (meta as ListDocMeta).states ?? [], childOf: new Map(childFields.map((c) => [c.field.name, c.ref])),
+    editable: filterFields.filter((f) => !f.name.includes(".") && (meta.fields || []).some((df) => df.fieldname === f.name && !df.hidden && !(df as { read_only?: number }).read_only && !(df as { is_virtual?: number }).is_virtual && df.fieldtype !== "Read Only"))
+      .map((f) => ({ name: f.name, label: f.label, type: f.type, fieldtype: f.fieldtype ?? "Data", options: f.options })),
     hasField: (f: string) => known.has(f) && !f.includes("."), titleField, searchFields, defaultOrderBy: `${sortField} ${sortOrder}`, filterFields,
     columns: columnsFromMeta(meta, t),
     quickFilterFields: (meta.fields || []).filter((df) => df.in_standard_filter && !df.hidden && TYPE_MAP[df.fieldtype]).map((df) => df.fieldname),
