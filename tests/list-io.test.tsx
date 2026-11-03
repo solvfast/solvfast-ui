@@ -265,7 +265,7 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.getByRole("menuitem", { name: /Import/ })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: /Export/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("menuitem", { name: /Import/ }));
     expect(onImport).toHaveBeenCalledTimes(1);
   });
@@ -277,7 +277,7 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     const { unmount } = mountList(["Guest"], META(), { onImport: vi.fn(), selectable: true });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
-    expect(screen.getByRole("menuitem", { name: /Export/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: /Import/ })).toBeNull(); // Import keeps Desk's can_import gate (list_view.js:1703)
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
@@ -287,7 +287,7 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     mountList(undefined, META(), { bulk: {} });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
-    expect(screen.getByRole("menuitem", { name: /Export/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: /Import/ })).toBeNull();
   });
 
@@ -306,14 +306,14 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.queryByRole("menuitem", { name: /Import/ })).toBeNull();
-    expect(screen.getByRole("menuitem", { name: /Export/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     unmount();
     mountList(["Importer"], META(), { onImport: vi.fn() });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.getByRole("menuitem", { name: /Import/ })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: /Export/ })).toBeTruthy(); // Desk shows Export here too (list_view.js:2092)
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy(); // Desk shows Export here too (list_view.js:2092)
   });
 
   it("Import without onImport navigates to Desk's Data Import LIST filtered on the DocType (set_route('list','data-import',{reference_doctype}))", async () => {
@@ -338,7 +338,7 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.queryByRole("menuitem", { name: /Import/ })).toBeNull();
-    expect(screen.getByRole("menuitem", { name: /Export/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     fireEvent.click(screen.getAllByRole("checkbox")[2]);
@@ -393,7 +393,7 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     mountList(["Exporter"], META(), {}, undefined, files);
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
-    fireEvent.click(screen.getByRole("menuitem", { name: /Export/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Export" }));
     await waitFor(() => expect(seen).toHaveLength(1));
@@ -470,5 +470,44 @@ describe("Bulk outcomes (FrappeBulkActions)", () => {
     await act(() => new Promise((r) => setTimeout(r, 100)));
     expect(calls("frappe.desk.reportview.get").length).toBe(before);
     expect(bodyRows()).toHaveLength(20);
+  });
+});
+
+// Lead wiring, Phase 27 (SIMULATED — stub transports). Report-view export (`export_query`) and Desk's width cap in FrappeListView.
+describe("FrappeListView wiring (Phase 27 Lead): report-view export entry and the default width cap", () => {
+  it("'Export as report' is offered only with the export right (report_view.js:1646 can_export) and posts export_query through the server", async () => {
+    const { seen, files } = dl(async () => ({ blob: new Blob(["server"]), filename: "ToDo.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    mountList(["Exporter"], META(), {}, undefined, files);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    openMenu("More actions");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Export as report/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Download/ }));
+    await waitFor(() => expect(seen.map((s) => s.method)).toEqual(["frappe.desk.reportview.export_query"]));
+    expect(seen[0].args.doctype).toBe("ToDo");
+  });
+  it("a role without the export right sees Desk's list Export but not the report-view export", async () => {
+    mountList(["Importer"], META());
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    openMenu("More actions");
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: /Export as report/ })).toBeNull();
+  });
+  it("roles unknown: no report-view export (rule 9), Desk's list Export still offered (the server decides)", async () => {
+    mountList(undefined, META());
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    openMenu("More actions");
+    expect(screen.queryByRole("menuitem", { name: /Export as report/ })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
+  });
+  it("generated columns are capped by width by default (list_view.js:432-444); columnLimit={false} keeps them all", async () => {
+    const headers = () => [...document.querySelectorAll("thead th")].map((th) => th.textContent?.trim()).filter(Boolean);
+    const capped = mountList(["System Manager"], META());
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    const n = headers().length;
+    capped.unmount();
+    mountList(["System Manager"], META(), { columnLimit: false });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    expect(headers().length).toBeGreaterThan(n);
   });
 });

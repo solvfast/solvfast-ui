@@ -61,7 +61,7 @@ describe("rows through reportview.get", () => {
 
   it("row metadata columns are offered, hidden by default (0.3.x look), and not requested from get_list", async () => {
     const mock = withMeta();
-    mount(mock.transport);
+    mount(mock.transport, { columnLimit: false }); // uncapped set; Desk's width cap is tested in list-query
     await waitFor(() => expect(bodyRows()).toHaveLength(5));
     expect(calls(mock, "frappe.client.get_list")).toHaveLength(0);
     expect([...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim())).toEqual(["Description", "Status", "Priority", "Due Date", "Reference Type"]) // Desk: the subject (title field) always comes first;
@@ -578,7 +578,7 @@ describe("User links show full names; number and date cells never wrap", () => {
   });
   it("date / number cells are nowrap", async () => {
     const mock = createMockFrappe();
-    mount(mock.transport);
+    mount(mock.transport, { columnLimit: false }); // uncapped set; Desk's width cap is tested in list-query
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     const dateCell = [...document.querySelectorAll("tbody td span[dir=ltr]")][0];
     expect(dateCell?.className).toContain("whitespace-nowrap");

@@ -78,3 +78,29 @@ export type { FrappeReportExportDialogProps, ReportExportDialogLabels } from "./
 export { NESTED_SET_FRAPPE_OP } from "./query";
 export { treeDoctypesOf } from "./meta";
 export type { TreeDoctypes } from "./meta";
+
+// 0.4.0 — Phase 27 B (actions27): Desk's full Actions menu — Print, Clear Assignment, Assignment Rule, Add Tags, workflow bulk.
+export { listActionsMenu, isBulkKind, bulkClearAssignment, bulkApplyAssignmentRule, bulkAddTags } from "./list/bulk";
+export type { ListActionKind } from "./list/bulk";
+export { checkPrintable, printFormatOptions, letterheadOptions, pdfOptions, multiPdfArgs, downloadMultiPdf, downloadMultiPdfAsync, PRINT_METHODS, MAX_PRINT_LIMIT, BACKGROUND_PRINT_THRESHOLD, NO_LETTERHEAD, PRINT_PAGE_SIZES, PRINT_SETTINGS_DEFAULTS } from "./list/print";
+export type { PrintSettingsInput, PrintCheck, PrintTaskSubscriber, MultiPdfOptions } from "./list/print";
+export { commonTransitionActions, bulkWorkflowApproval, workflowDocs, WORKFLOW_BULK_METHODS, WORKFLOW_BULK_SYNC_BELOW, WORKFLOW_BULK_MAX } from "./list/workflowBulk";
+export { FrappePrintDialog } from "./list/FrappePrintDialog";
+export type { FrappePrintDialogProps } from "./list/FrappePrintDialog";
+export { dataImportListUrl } from "./FrappeListView";
+
+// 0.4.0 — Phase 27 C (import27): Data Import preview, column mapping, server-confirmed completion.
+export { FrappeDataImport } from "./list/FrappeDataImport";
+export type { FrappeDataImportProps, ImportRealtimeEvent, ImportRealtimeSubscribe } from "./list/FrappeDataImport";
+export { FrappeImportPreview, FrappeImportWarnings, useDataImportLabels } from "./list/ImportPreview";
+export type { FrappeImportPreviewProps, FrappeImportWarningsProps } from "./list/ImportPreview";
+export { FrappeColumnMapping } from "./list/ColumnMapping";
+export type { FrappeColumnMappingProps } from "./list/ColumnMapping";
+export { createDataImport, attachImportFile, saveColumnMapping, remapImportColumns, importRunning } from "./list/import";
+export type { ImportPreviewColumn } from "./list/import";
+export {
+  DATA_IMPORT_LABELS_EN, DATA_IMPORT_LABELS_AR, importPickerOptions, columnMappingValue, changedColumnMap, mergeColumnToFieldMap,
+  groupImportWarnings, previewColumns, importResultMessage, parseLogMessages, parseRowIndexes,
+  statusLabel as importStatusLabel, statusTone as importStatusTone, DONT_IMPORT, IMPORT_LOG_TABLE_LIMIT,
+} from "./list/importMapping";
+export type { DataImportLabels, ImportFieldOption, GroupedImportWarnings, PreviewColumnView } from "./list/importMapping";

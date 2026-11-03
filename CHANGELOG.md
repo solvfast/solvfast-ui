@@ -321,3 +321,18 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
   options; `FrappeListView` wiring follows in the actions merge.
 - Generic `useListState`: `initialQuery`; visible columns follow changes in the columns' default visibility until the user
   picks columns (List View Settings arriving after the first render now apply).
+
+## 0.4.0-dev.32 (2026-11-03, Phase 27 A + B + C merged)
+- **Permissions (A):** `FrappeFormView` without a `permissions` prop grants nothing (read-only, "Read only" notice);
+  Cancel All only when the cancel rights are known to be true; workflow transitions come from the server's
+  `get_transitions` (client-side filtering without roles offers none); the Administrator user without a role list behaves
+  as Frappe 15.110 (every role: `permissions.py:506-507`); `canImport` / `canExport` accept the session.
+- **List actions (B):** Desk's full Actions menu in the selection bar — Print (`download_multi_pdf`, background above 25),
+  Clear Assignment, Apply Assignment Rule, Add Tags, workflow bulk approval — plus **Export offered to everyone as Desk
+  does** (the server refuses; the dialog shows it) and **Import navigating to the Data Import list**.
+- **List query (B):** `FrappeListView` now **caps generated columns by window width by default**, as Desk
+  (`list_view.js:432-444`; app-curated `columns` are never capped; `columnLimit={false}` opts out); `urlFilters`,
+  `treeDoctypes`, `hideNameColumn` forwarded; "Export as report" (`export_query`) in the list menu when `canExport`.
+- **Import (C):** `FrappeDataImport` — upload, the server's preview and warnings, column mapping (`template_options`),
+  Start / Retry, server-confirmed result, import log, errored rows.
+- All of the above is tested against stubs / the simulator only; nothing has run on a site.
