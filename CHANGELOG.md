@@ -301,3 +301,9 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
 - Columns of permlevel fields the user cannot read are dropped (`restrictMetaToReadable`) when the roles are known.
 - Bulk Delete outcome wording: "N requested — the server reports failures in its messages" (`delete_items` answers nothing).
 - `docs/release/LISTVIEW-FRAPPE-PARITY.md`: verdict **not Frappe-compatible yet** (missing list in §5).
+
+## 0.4.0-dev.29 (2026-11-03, Phase 26 B — showcase; light-mode popups)
+- Light mode: popovers, menus, select lists, command palette, hover cards, dialogs and sheets are solid white
+  (`--popover`), no backdrop blur. Dark mode unchanged.
+- Showcase (repository only, not in the tarball): "Frappe layer" group with 10 sections on an in-browser simulated
+  site, every section labelled SIMULATED; smoke test extended (61 sections × light/dark × en/ar, 38 interactive checks).
