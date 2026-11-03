@@ -187,9 +187,12 @@ last traceback line, when the site allows tracebacks).
 | `link` | LinkValidationError, CancelledLinkError, LinkExistsError | | `network` | status 0 |
 | `validation` | any other 417, FrappeTypeError, NameError (409) | | `server` | anything else (5xx, unparseable) |
 
-- `<FrappeErrorState error onRetry loginUrl? compact? />` — one rendering for every component: title per kind, the
-  server's messages as sent (the `raise_exception` ones when present; HTML through an allow-list, never raw), a hint,
-  and Retry / Reload page (csrf) / Log in (session_expired → `/login?redirect-to=…`).
+- `<FrappeErrorState error onRetry? onReload? loginUrl? compact? />` — one rendering for every component: title per
+  kind, the server's messages as sent (the `raise_exception` ones when present; HTML through an allow-list, never raw)
+  and a hint. One action per kind, never a pointless one: Retry (`onRetry`) only for network / server / rate_limited /
+  unavailable; Reload (`onReload`, else `onRetry`) for a timestamp conflict, whose hint replaces the server sentence;
+  Reload page for csrf; Log in for session_expired (`/login?redirect-to=…`); none for permission, not_found,
+  duplicate, mandatory, link, validation, too_large.
 - `useFrappeMessages().show(messages)` — Desk's msgprint semantics (docs 14 §B3): if any message raises, only those
   show; `alert` / `toast` messages go to a 7 s alert; the others stack in one dialog titled by the last message.
   `FrappeProvider` hosts it and, by default, shows the messages of successful responses (as Desk does).
