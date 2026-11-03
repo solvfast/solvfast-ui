@@ -650,8 +650,11 @@ function downloadDemoCsv() {
 }
 
 function ImportDemo({ site, open, onOpenChange, onGoToList }: { site: SimSite; open: boolean; onOpenChange: (o: boolean) => void; onGoToList: () => void }) {
+  const tr = useTr();
   const api = React.useMemo(() => withFrappeApi(site.client), [site]);
-  return <FrappeDataImport api={api} doctype="Travel Request" open={open} onOpenChange={onOpenChange} pollIntervalMs={400} onGoToList={onGoToList} />;
+  // the dialog covers the page's strips: its own title says SIMULATED
+  const title = tr(l("Data Import — SIMULATED (the in-browser simulator plays the server; rows go into this page's memory only)", "استيراد البيانات — محاكاة (المحاكي داخل المتصفّح يؤدّي دور الخادم؛ الصفوف تذهب إلى ذاكرة هذه الصفحة فقط)"));
+  return <FrappeDataImport api={api} doctype="Travel Request" open={open} onOpenChange={onOpenChange} pollIntervalMs={400} onGoToList={onGoToList} labels={{ title }} />;
 }
 
 export function FrappeImportExportPage() {
