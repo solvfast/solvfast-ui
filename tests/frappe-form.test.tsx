@@ -375,7 +375,7 @@ describe("review R1 items: reload after a conflict, cancel pre-flight, amend, wo
     fireEvent.click(btn(en.formSave));
     const alert = await screen.findByRole("alert");
     expect(screen.getByRole("textbox", { name: /Description/ }).textContent).toContain("Mine");
-    fireEvent.click(within(alert).getByRole("button", { name: defaultMessages.en.retry }));
+    fireEvent.click(within(alert).getByRole("button", { name: defaultMessages.en.feReload })); // R2 V5 (A1): the timestamp action is "Reload"
     await waitFor(() => expect(screen.getByRole("textbox", { name: /Description/ }).textContent).toContain("Theirs"));
     expect(screen.queryByText(en.formNotSaved)).toBeNull();
   });
