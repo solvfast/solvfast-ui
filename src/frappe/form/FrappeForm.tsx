@@ -12,7 +12,7 @@
 import * as React from "react";
 import { Skeleton } from "../../primitives/skeleton";
 import { useLocale } from "../../theme/ThemeProvider";
-import { rolePermissions } from "../services/permissions";
+import { isAdministrator, rolePermissions } from "../services/permissions";
 import type { DocTypeMeta, FrappeDoc } from "../contract";
 import { useFrappeSettings } from "../FrappeProvider";
 import { useDoc, useMetaBundle } from "../hooks/useDoc";
@@ -36,12 +36,16 @@ export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "d
 const isNewName = (name?: string) => !name || name.startsWith("new-");
 
 type SessionLike = { user?: string; roles?: string[] } | undefined;
-const isAdministrator = (session: SessionLike) => session?.user === "Administrator" || !!session?.roles?.includes("Administrator");
 
 /**
- * Desk `frappe.model.can_cancel(doctype)` (model.js:366-460): the DocType is in boot `can_cancel`, which the server
- * builds from the user's roles × the DocType's permission rows (a cancel right at permlevel 0); Administrator holds every
- * role, so every DocType (R3-F1). Without roles the answer is unknown (undefined).
+ * Desk `frappe.model.can_cancel(doctype)` (model.js:400-402): the DocType is in boot `can_cancel`, which the server
+ * builds from the user's roles × the DocType's level-0 permission rows (utils/user.py:149-150 over `get_valid_perms`).
+ * The Administrator USER (keyed on the user name — `isAdministrator` from services, P3-6): true for every DocType, with or
+ * without a role list — `cancel_all_linked_docs` → `linked_doc.cancel()` is never refused to it (permissions.py:107-109;
+ * Desk's boot list would name only DocTypes with some cancel row, since its roles are every Role, :506-507 — the server
+ * is the authority). The "Administrator" ROLE on another user is just a role (its rows): the server never reports it for
+ * anyone else (automatic role, permissions.py:37, excluded from `Has Role` at :515). Without roles: unknown (undefined),
+ * and the form then offers no "Cancel All" (rule 9, P3-1).
  */
 export function canCancelDoctype(meta: DocTypeMeta, session: SessionLike): boolean | undefined {
   if (isAdministrator(session)) return true;

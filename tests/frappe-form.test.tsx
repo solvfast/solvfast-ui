@@ -532,13 +532,16 @@ describe("review R2 items", () => {
   });
 });
 
-/** FrappeForm with a canCancelAllLinked answer of false (as for a user without the cancel right on a linked DocType). */
+/** FrappeForm with a canCancelAllLinked answer of false (as for a user without the cancel right on a linked DocType).
+ *  Phase 27 P2-1: a FrappeFormView without `permissions` now denies every right (rule 9), so the probe states the
+ *  cancel right it relies on — the intent (Desk's explanation replaces Cancel All) is unchanged. */
 function FrappeFormServicesProbe() {
   const meta = useMetaBundle("Sales Memo");
   const doc = useDoc("Sales Memo", "SM-1");
   if (!meta.data || !doc.data) return null;
   return (
     <FrappeFormView bundle={meta.data} doc={doc.data.doc} onSave={async (d) => d} onCancelDoc={async (d) => ({ ...d, docstatus: 2 })}
+      permissions={{ can: (p) => p === "read" || p === "cancel", known: true }}
       getSubmittedLinkedDocs={async () => ({ docs: [{ doctype: "Sales Memo", name: "SM-9" }], count: 1 })}
       cancelAllLinkedDocs={async () => {}} canCancelAllLinked={() => false} />
   );
@@ -548,7 +551,11 @@ describe("review R3 items", () => {
   it("R3-F1: can_cancel — Administrator can cancel every DocType; others need a cancel right from their roles", () => {
     const meta: DocTypeMeta = { name: "X", fields: [], permissions: [{ role: "Accounts Manager", permlevel: 0, cancel: 1 }, { role: "Accounts User", permlevel: 0, read: 1 }] };
     expect(canCancelDoctype({ name: "Y", fields: [] }, { user: "Administrator" })).toBe(true);
-    expect(canCancelDoctype({ name: "Y", fields: [] }, { user: "x@y.z", roles: ["Administrator"] })).toBe(true);
+    // Phase 27 P3-6: the Administrator is a USER (permissions.py:107); the "Administrator" ROLE on another user is just a
+    // role with its DocPerm rows (none here) — the server never reports it for anyone else (automatic role,
+    // permissions.py:37, excluded from Has Role at :515). Before dev.31 FrappeForm's own helper also keyed on the role.
+    expect(canCancelDoctype({ name: "Y", fields: [] }, { user: "x@y.z", roles: ["Administrator"] })).toBe(false);
+    expect(canCancelDoctype({ name: "Y", fields: [] }, { user: "Administrator", roles: ["Administrator"] })).toBe(true);
     expect(canCancelDoctype(meta, { user: "x@y.z", roles: ["Accounts Manager"] })).toBe(true);
     expect(canCancelDoctype(meta, { user: "x@y.z", roles: ["Accounts User", "System Manager"] })).toBe(false);
     expect(canCancelDoctype(meta, { user: "x@y.z" })).toBeUndefined();
