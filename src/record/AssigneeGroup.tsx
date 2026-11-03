@@ -107,7 +107,7 @@ export function AssignPicker({ searchUsers, onAssign, exclude = [], me, single, 
           </Button>
         )}
       </PopoverTrigger>
-      <PopoverContent align="start" className={cn("space-y-2 p-2", withDetails ? "w-80" : "w-72")}>
+      <PopoverContent align="start" className={cn("space-y-2 p-2", withDetails ? "w-[22rem] max-w-[92vw]" : "w-72")}>
         <Input
           autoFocus role="combobox" aria-expanded aria-controls={listId} aria-activedescendant={options[active] ? `${listId}-${active}` : undefined}
           value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} placeholder={L.search} aria-label={L.search}
@@ -146,7 +146,7 @@ export function AssignPicker({ searchUsers, onAssign, exclude = [], me, single, 
               <Textarea id={`${fieldId}-comment`} rows={2} value={details.description ?? ""} className="min-h-0 text-xs"
                 onChange={(e) => setDetails((d) => ({ ...d, description: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-2">
               <div className="min-w-0 space-y-1">
                 <Label htmlFor={`${fieldId}-due`} className="text-xs">{L.due}</Label>
                 <div className="flex items-center gap-1">
