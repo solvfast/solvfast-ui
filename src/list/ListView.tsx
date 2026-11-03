@@ -18,7 +18,8 @@ import { BulkActionBar, ListPagination, type BulkAction } from "./parts/ListFoot
 import { GroupedListTable, ListTable } from "./parts/ListTable";
 import { ColumnManager, GroupByMenu, QuickFilters, SavedFilters, SortMenu } from "./parts/Toolbar";
 import { useListState, type UseListStateOptions } from "./useListState";
-import type { FiscalYear } from "./model/filters";
+import type { FiscalYear, Operator } from "./model/filters";
+import { ListActionsContext } from "./ListActionsContext";
 
 export interface RowAction<T> {
   key: string;
@@ -66,6 +67,12 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   searchHint?: React.ReactNode;
   /** Server mode + grouped: fetch the next chunk (the banner's "Load more"). */
   onLoadMore?: () => void;
+  /** Server mode: text shown instead of the numeric total (e.g. "1,000+", or "" when the count is off). */
+  totalLabel?: string;
+  /** Server mode: more rows may follow the current page even though `total` says otherwise (capped or unknown count). */
+  hasMore?: boolean;
+  /** Makes the total a button (Desk: click "1,000+" to count exactly). */
+  onTotalClick?: () => void;
   className?: string;
 }
 
@@ -111,7 +118,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className,
+    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -130,8 +137,13 @@ export function ListView<T>(props: ListViewProps<T>) {
   };
   const partial = s.mode === "server" && s.grouped && s.rows.length < s.total;
   const selectedKeys = [...s.selected];
+  const actions = React.useMemo(() => ({
+    applyCondition: (field: string, operator: Operator, value: string) =>
+      s.setQuery({ ...s.query, conditions: [...s.query.conditions.filter((c) => c.field !== field), { id: `c${Date.now()}`, field, operator, value }] }),
+  }), [s.query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
+    <ListActionsContext.Provider value={actions}>
     <div className={cn("space-y-3 sf-datagrid", className)}>
       <div className="flex flex-wrap items-center gap-2">
         {c.search && (
@@ -171,7 +183,8 @@ export function ListView<T>(props: ListViewProps<T>) {
       {/* The pager must be the last child (pill styles, styles/src/sf-overrides.css); while grouped there is no paging (rule
           C1), and with an error there is nothing to page or count, so an empty element keeps those selectors from
           matching anything else. */}
-      {s.grouped || error ? <div hidden /> : <ListPagination total={s.total} page={s.page} hasPrev={s.hasPrev} hasNext={s.hasNext} onPage={s.setPage} />}
+      {s.grouped || error ? <div hidden /> : <ListPagination total={s.total} totalLabel={totalLabel} onTotalClick={onTotalClick} page={s.page} hasPrev={s.hasPrev} hasNext={s.hasNext || (!!hasMore && s.mode === "server" && s.rows.length >= s.pageSize)} onPage={s.setPage} />}
     </div>
+    </ListActionsContext.Provider>
   );
 }

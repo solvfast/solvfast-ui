@@ -13,20 +13,35 @@ import type { LoadOptions } from "../list/parts/FilterBuilder";
 import type { ListQueryState } from "../list/useListState";
 import { loc, type Localized } from "../lib/localized";
 import { useLocale } from "../theme/ThemeProvider";
-import type { FrappeClient } from "./client";
+import { FrappeError, type DocMeta, type FrappeClient } from "./client";
 import { useFrappeClient } from "./FrappeProvider";
-import { buildFrappeListMeta } from "./meta";
+import { buildFrappeListMeta, type ListDocMeta } from "./meta";
 import { buildListRequest, type FrappeFilter } from "./query";
+import { rowMetaColumns } from "./list/cells";
+import { hasIndicator, indicatorFields, type IndicatorConfig, type IndicatorWorkflow } from "./list/indicator";
+import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser } from "./list/reportview";
+import { applyColumnSettings, fetchListSettings } from "./list/settings";
+
+/** `getdoctype`: the DocType first, then its child-table DocTypes; plus the user's saved `user_settings` (JSON string). */
+export async function loadDocTypeBundle(client: FrappeClient, doctype: string): Promise<{ meta: ListDocMeta; children: Record<string, DocMeta>; userSettings: Record<string, unknown> }> {
+  const res = await client.call("frappe.desk.form.load.getdoctype", { doctype });
+  const docs = (res.docs ?? []) as ListDocMeta[];
+  const meta = docs.find((d) => d?.name === doctype);
+  if (!meta) throw new FrappeError(`No metadata for DocType "${doctype}"`, 404, "DoesNotExistError");
+  let userSettings: Record<string, unknown> = {};
+  try { const raw = res.user_settings; const p = typeof raw === "string" ? JSON.parse(raw || "{}") : raw; if (p && typeof p === "object") userSettings = p as Record<string, unknown>; } catch { /* ignore */ }
+  return { meta, children: Object.fromEntries(docs.filter((d) => d && d.name !== doctype).map((d) => [d.name, d as DocMeta])), userSettings };
+}
 
 export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient } = {}) {
   const fallback = useFrappeClient();
   const client = opts.client ?? fallback;
   const { t } = useLocale();
-  const q = useQuery({ queryKey: ["sf-frappe", "meta", doctype], queryFn: () => client.getMeta(doctype), staleTime: 5 * 60_000 });
-  const meta = React.useMemo(() => (q.data ? buildFrappeListMeta(q.data, t) : undefined), [q.data, t]);
+  const q = useQuery({ queryKey: ["sf-frappe", "list-meta", doctype], queryFn: () => loadDocTypeBundle(client, doctype), staleTime: 5 * 60_000 });
+  const meta = React.useMemo(() => (q.data ? buildFrappeListMeta(q.data.meta, t, q.data.children) : undefined), [q.data, t]);
   // plain types only: React Query's own types live in @tanstack/query-core, which consumers may not be able to resolve
   const refetch = React.useCallback(async (): Promise<void> => { await q.refetch(); }, [q]);
-  return { meta, doc: q.data, loading: q.isPending, error: q.error as Error | null, refetch };
+  return { meta, doc: q.data?.meta, userSettings: q.data?.userSettings, loading: q.isPending, error: q.error as Error | null, refetch };
 }
 
 /** After the app writes (insert, delete, update), reload a DocType's lists and counts — or every Frappe list. */
@@ -64,6 +79,18 @@ export interface FrappeListOptions<T> {
   /** "Fiscal Year" in the date filters. Default: the site's Fiscal Year records when it has them (ERPNext), read as the
    *  logged-in user; `false` = never offer it. */
   fiscalYears?: FiscalYear[] | false;
+  /**
+   * Row metadata columns Desk draws (indicator, assignees, comment count, likes). Default: offered in the column
+   * manager, hidden at first (0.3.x lists look as before). `true`: shown by default. `false`: none. An object turns
+   * single columns off.
+   */
+  rowMeta?: boolean | { indicator?: boolean; assignees?: boolean; comments?: boolean; likes?: boolean };
+  /** The DocType's Workflow, for the indicator (Desk reads it from `frappe.boot`). */
+  workflow?: IndicatorWorkflow;
+  /** `listview_settings.get_indicator` equivalent. */
+  getIndicator?: IndicatorConfig["getIndicator"];
+  /** Read List View Settings (`get_list_settings`). Default true. */
+  listSettings?: boolean;
 }
 
 type Row = Record<string, unknown>;
@@ -75,14 +102,39 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   const { t, language } = useLocale();
   const m = useFrappeMeta(o.doctype, { client });
   const meta = m.meta;
+  const settingsQ = useQuery({ queryKey: ["sf-frappe", "list-settings", o.doctype], queryFn: () => fetchListSettings(client, o.doctype), enabled: o.listSettings !== false, staleTime: 5 * 60_000 });
+  const settings = settingsQ.data ?? null;
+  const settingsReady = o.listSettings === false || !settingsQ.isPending;
+  const [userInfo, setUserInfo] = React.useState<Record<string, ReportviewUser>>({});
+  const [exactCount, setExactCount] = React.useState(false);
 
   // a field's label: the app's `fieldLabels`, else the label of a curated column showing that field, else the DocType's
   const curatedLabel = React.useMemo(() => new Map((o.columns ?? []).map((c) => [fieldOf(c), c.label])), [o.columns]);
   const label = React.useCallback((name: string, fallbackLabel: Localized) => loc(o.fieldLabels?.[name] ?? curatedLabel.get(name) ?? fallbackLabel, language), [o.fieldLabels, curatedLabel, language]);
+  const indicatorCfg = React.useMemo<IndicatorConfig | null>(() => {
+    if (!meta || o.rowMeta === false || (typeof o.rowMeta === "object" && o.rowMeta.indicator === false)) return null;
+    const cfg: IndicatorConfig = {
+      isSubmittable: meta.isSubmittable, workflow: o.workflow, states: meta.states, hasField: meta.hasField, getIndicator: o.getIndicator,
+      words: { draft: t("listDraft"), cancelled: t("listCancelled"), submitted: t("listSubmitted"), enabled: t("yes"), disabled: t("no") },
+    };
+    return hasIndicator(cfg) ? cfg : null;
+  }, [meta, o.rowMeta, o.workflow, o.getIndicator, t]);
+  const rm = o.rowMeta === false ? {} : typeof o.rowMeta === "object" ? o.rowMeta : {};
+  const commentsOff = !!settings?.disable_comment_count;
   const columns = React.useMemo<ColumnDef<T>[]>(() => {
     const generated = (meta?.columns ?? []).map((c) => ({ ...c, label: label(c.key, c.label) })) as unknown as ColumnDef<T>[];
-    return mergeColumns(o.columns ?? [], generated);
-  }, [meta, o.columns, label]);
+    const merged = mergeColumns(o.columns ?? [], generated);
+    const on = (k: "assignees" | "comments" | "likes") => o.rowMeta !== false && rm[k] !== false && (k !== "comments" || !commentsOff) && !!meta?.hasField(k === "assignees" ? "_assign" : k === "comments" ? "_comments" : "_liked_by");
+    const extra = rowMetaColumns({
+      indicator: indicatorCfg, assignees: on("assignees"), comments: on("comments"), likes: on("likes"), userInfo,
+      hidden: o.rowMeta !== true,
+      labels: { indicator: t("listIndicator"), assigned: t("listAssigned"), comments: t("listComments"), likes: t("listLikes") },
+    });
+    // Desk's order: subject, status indicator, the DocType's own columns, then assignees / comments / likes
+    const withIndicator = extra.indicator ? [merged[0], extra.indicator as unknown as ColumnDef<T>, ...merged.slice(1)].filter(Boolean) : merged;
+    const all = [...withIndicator, ...(extra.trailing as unknown as ColumnDef<T>[])];
+    return applyColumnSettings(all, settings, meta?.titleField ?? "name");
+  }, [meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, commentsOff, settings, t]); // eslint-disable-line react-hooks/exhaustive-deps
   const filterFields = React.useMemo(() => (meta?.filterFields ?? []).map((f) => ({ ...f, label: label(f.name, f.label) })), [meta, label]);
 
   const [state, setState] = React.useState<ListQueryState | null>(null);
@@ -115,30 +167,36 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   const waitFy = auto && needFy && fiscalYears === undefined;
 
   const req = React.useMemo(
-    () => (meta && state && !waitFy ? buildListRequest({ meta, columns: columns as never, state, baseFilters: o.baseFilters, searchFields: o.searchFields, chunkSize: o.chunkSize, fiscalYears }) : null),
+    () => (meta && state && !waitFy && settingsReady ? buildListRequest({ meta, columns: columns as never, state, baseFilters: o.baseFilters, searchFields: o.searchFields, chunkSize: o.chunkSize, fiscalYears, rowFields: true, extraFields: indicatorCfg ? indicatorFields(indicatorCfg) : undefined }) : null),
     [meta, state, waitFy, columns, o.baseFilters, o.searchFields, o.chunkSize, fiscalYears],
   );
 
   const list = useInfiniteQuery({
-    queryKey: ["sf-frappe", "list", o.doctype, req && [req.fields, req.filters, req.or_filters, req.order_by, req.limit_start, req.limit_page_length]],
+    queryKey: ["sf-frappe", "list", o.doctype, req && [req.fields, req.filters, req.or_filters, req.order_by, req.limit_start, req.limit_page_length, commentsOff]],
     enabled: !!req,
     initialPageParam: req?.limit_start ?? 0,
-    queryFn: ({ pageParam }) => client.getList<T>(o.doctype, {
+    // Desk's own row source (`reportview.get`): comment counts and assignee profiles exist only there (docs 13 §1.3)
+    queryFn: async ({ pageParam }) => (await reportviewGet<T>(client, o.doctype, {
       fields: req!.fields, filters: req!.filters, or_filters: req!.or_filters, order_by: req!.order_by,
-      limit_start: pageParam, limit_page_length: req!.limit_page_length,
-    }),
+      limit_start: pageParam, limit_page_length: req!.limit_page_length, withCommentCount: !commentsOff, group_by: req!.group_by,
+    })),
     // grouped: the next chunk starts where the loaded rows end; paged: one page per query
-    getNextPageParam: (last, _all, lastParam) => (req?.grouped && last.length === req.limit_page_length ? lastParam + last.length : undefined),
+    getNextPageParam: (last, _all, lastParam) => (req?.grouped && last.rows.length === req.limit_page_length ? lastParam + last.rows.length : undefined),
     placeholderData: keepPreviousData,
   });
+  const countOff = !!settings?.disable_count;
   const count = useQuery({
-    queryKey: ["sf-frappe", "count", o.doctype, req && [req.filters, req.or_filters]],
-    enabled: !!req,
-    queryFn: () => client.getCount(o.doctype, { filters: req!.filters, or_filters: req!.or_filters }),
+    queryKey: ["sf-frappe", "count", o.doctype, req && [req.filters, req.or_filters, exactCount]],
+    enabled: !!req && !countOff,
+    queryFn: () => reportviewCount(client, o.doctype, { filters: req!.filters, or_filters: req!.or_filters, distinct: req!.joinsChild, limit: exactCount ? undefined : COUNT_UPPER_BOUND }),
     placeholderData: keepPreviousData,
   });
 
-  const rows = React.useMemo(() => list.data?.pages.flat() ?? [], [list.data]);
+  const rows = React.useMemo(() => list.data?.pages.flatMap((p) => p.rows) ?? [], [list.data]);
+  React.useEffect(() => {
+    const merged = Object.assign({}, ...(list.data?.pages.map((p) => p.userInfo) ?? []));
+    if (Object.keys(merged).length) setUserInfo((prev) => (sameJson(prev, { ...prev, ...merged }) ? prev : { ...prev, ...merged }));
+  }, [list.data]);
   const err = m.error ?? list.error ?? count.error;
   const titleLabel = filterFields.find((f) => f.name === meta?.titleField)?.label ?? meta?.titleField ?? "";
 
@@ -165,7 +223,11 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     listProps: {
       mode: "server" as const,
       rows,
-      total: count.data ?? rows.length,
+      total: count.data?.count ?? rows.length,
+      // Desk: "1,000+" at the 1001 bound (click to count exactly); no count at all when List View Settings disable it
+      totalLabel: countOff ? "" : count.data?.capped ? `${(count.data.count - 1).toLocaleString(language === "ar" ? "ar-EG" : "en-US")}+` : undefined,
+      hasMore: countOff || !!count.data?.capped,
+      onTotalClick: count.data?.capped ? () => setExactCount(true) : undefined,
       loading: !err && (m.loading || !state || list.isPending),
       error: err ? (err instanceof Error && err.message ? err.message : true) : undefined,
       onRetry: () => { if (m.error) void m.refetch(); else { void list.refetch(); void count.refetch(); } },
