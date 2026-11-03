@@ -36,3 +36,16 @@
   backdrop-filter: none;
   box-shadow: none;
 }
+
+/* Light mode: popups are solid white, not glass (owner request, 2026-11-03). Popovers, dropdown / context menus, menubar
+ * panes, select lists, command palettes (`.sf-popper`), hover cards (`.sf-glass` in a popper), dialogs and alert dialogs
+ * (`.sf-lg-surface.sf-glass-dialog`) and sheets (`.sf-glass-pane`) take the `--popover` token and drop the backdrop blur.
+ * Dark mode is unchanged. The ThemeProvider puts `sf-theme` + `dark` / `data-theme` on <html>, so portalled popups match. */
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-popper,
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-popper.sf-glass,
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-lg-surface.sf-glass-dialog,
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-glass-pane {
+  background: hsl(var(--popover, 0 0% 100%));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
