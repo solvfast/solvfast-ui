@@ -497,6 +497,10 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await page.getByRole("button", { name: T("Add", "إضافة"), exact: true }).last().click();
     await sec.getByText(/omar/i).first().waitFor({ timeout: 10_000 });
     const box = sec.getByRole("textbox").last();
+    // the mention list is a Popover (fixed, portalled) anchored to the box: a real key press ends the page's 2 s section pin
+    // (App.tsx `pin`, which `fill` alone doesn't stop), then type where the box is visible
+    await box.press("End");
+    await box.scrollIntoViewIfNeeded();
     await box.fill("Ping @sar");
     await page.getByRole("option", { name: /Sara Q/ }).first().click();
     await box.press("Control+Enter");
