@@ -27,6 +27,7 @@ import { hasIndicator, indicatorFields, type IndicatorConfig, type IndicatorWork
 import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser } from "./list/reportview";
 import { applyColumnSettings, capDefaultColumns, deskColumnLimit, fetchListSettings, listedFields } from "./list/settings";
 import { filtersToUrl, parseUrlFilters, type ParsedUrlFilters } from "./list/urlFilters";
+import { reportExportFields } from "./list/reportExport";
 
 /**
  * Desk's width-based column limit (`list_view.js:433-444`: 4 at ≤ 1366 px, 10 at ≥ 1920 px, else 6), following the
@@ -325,6 +326,16 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     if (Object.keys(merged).length) setUserInfo((prev) => (sameJson(prev, { ...prev, ...merged }) ? prev : { ...prev, ...merged }));
   }, [list.data]);
   const err = m.error ?? list.error ?? count.error;
+  // What a Report-view export of this list sends (`FrappeReportExportDialog` props): the visible columns' fields, the
+  // current filters and order, the rows shown and the count (null when off or capped: "Export all matching rows?")
+  const reportExport = React.useMemo(() => {
+    if (!req || !meta || !state) return null;
+    const visibleFields = state.visible.map((k) => { const c = columns.find((x) => x.key === k); return c ? fieldOf(c) : ""; });
+    return {
+      fields: reportExportFields(visibleFields, meta.known), filters: req.filters, or_filters: req.or_filters, order_by: req.order_by,
+      shownCount: rows.length, totalCount: countOff || count.data?.capped ? null : count.data?.count,
+    };
+  }, [req, meta, state, columns, rows.length, countOff, count.data]);
   const titleLabel = filterFields.find((f) => f.name === meta?.titleField)?.label ?? meta?.titleField ?? "";
 
   const groupByOptions = React.useMemo<GroupByOption<T>[]>(() => (o.groupByFields ?? []).filter((f) => meta?.known.has(f)).map((f) => {
@@ -350,6 +361,8 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     ready: !!meta,
     request: req,
     refetch: () => { if (m.error) void m.refetch(); else { void list.refetch(); void count.refetch(); } },
+    /** Props for `FrappeReportExportDialog` (fields, filters, or_filters, order_by, shownCount, totalCount); null until loaded. */
+    reportExport,
     /** URL filters read at mount (`urlFilters`): what was applied and which keys were ignored. */
     urlFilters: urlRead,
     listProps: {

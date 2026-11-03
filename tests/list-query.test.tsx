@@ -6,7 +6,7 @@
  *  3. URL filters (list_view.js:2130-2183 read, :1664-1696 write-back);
  *  4. the Report view export (`frappe.desk.reportview.export_query`, reportview.py:352-466; report_view.js:1646-1722).
  */
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import * as React from "react";
 import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -15,6 +15,9 @@ import { FrappeListView, FrappeProvider, buildFrappeListMeta, createFrappeClient
 import type { FrappeListOptions } from "../src/frappe/useFrappeList";
 import { capDefaultColumns, deskColumnLimit } from "../src/frappe/list/settings";
 import { filtersToUrl, parseUrlFilters } from "../src/frappe/list/urlFilters";
+import { EXPORT_QUERY_METHOD, downloadReportExport, reportExportArgs, reportExportFields } from "../src/frappe/list/reportExport";
+import { FrappeReportExportDialog } from "../src/frappe/list/FrappeReportExportDialog";
+import { FrappeError, type FrappeFilesTransport } from "../src/frappe/client";
 import { NESTED_SET_LABEL, NESTED_SET_OPERATORS, operatorLabel } from "../src/list/model/filters";
 import { queryToTuples, tuplesToQuery } from "../src/frappe/list/tuples";
 import { createFrappeSavedFilters } from "../src/frappe/list/storage";
@@ -404,6 +407,150 @@ describe("URL filters (list_view.js:2130-2183 read, :1664-1696 write) — SIMULA
     expect(plain(restored.result.current.query)).toEqual([{ field: "status", operator: "equals", value: "Working" }]);
     const fromUrl = renderHook(() => useListState({ rows: [], columns: cols, rowKey: (r) => r.id, viewKey: "Task", storage: { prefs, saved: null }, initialQuery: q([{ field: "status", operator: "equals", value: "Open" }]) }));
     expect(plain(fromUrl.result.current.query)).toEqual([{ field: "status", operator: "equals", value: "Open" }]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe("Report-view export (reportview.py:352-466; report_view.js:1646-1722) — SIMULATED (stubbed transports; on a site it writes an Access Log: BLOCKED)", () => {
+  const blob = (text: string) => ({ blob: new Blob([text]), filename: "ToDo.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const stub = (answer: () => Promise<ReturnType<typeof blob>> = async () => blob("server-bytes"), callAnswer: () => Promise<Record<string, unknown>> = async () => ({})) => {
+    const downloads: Call[] = []; const calls: Call[] = [];
+    const files: FrappeFilesTransport = { download: async (method, args) => { downloads.push({ method, args }); return answer(); }, upload: async () => { throw new Error("not used"); } };
+    const api = createFrappeClient({ transport: async (method, args) => { calls.push({ method, args }); return callAnswer(); }, files });
+    return { api, downloads, calls };
+  };
+  const base = { doctype: "ToDo", fields: ["name", "status"], filters: [["status", "=", "Open"]] as [string, string, unknown][], order_by: "modified desc" };
+
+  it("posts Desk's fields to export_query through api.download, encoded as open_url_post does (non-strings JSON)", async () => {
+    const answer = blob("server-bytes");
+    const s = stub(async () => answer);
+    const r = await downloadReportExport(s.api, { ...base, fileFormat: "Excel" });
+    expect(s.downloads).toEqual([{ method: EXPORT_QUERY_METHOD, args: {
+      doctype: "ToDo", fields: '["name","status"]', filters: '[["status","=","Open"]]', order_by: "modified desc", view: "Report",
+      file_format_type: "Excel", title: "ToDo", export_in_background: "0",
+    } }]);
+    expect(s.calls).toEqual([]);
+    expect(r.kind).toBe("file");
+    expect(r.kind === "file" && r.file).toBe(answer); // the server's file object, untouched
+  });
+
+  it("CSV options (pop_csv_params), only the rows shown (start/page_length), selected items, translate / totals as the string \"1\"", () => {
+    expect(reportExportArgs({ ...base, fileFormat: "CSV", csvDelimiter: ";;", csvQuoting: 1, pageLength: 20, selectedItems: ["A", "B"], translateValues: true, addTotalsRow: true, title: "Open ToDos", or_filters: [["description", "like", "%x%"]] })).toEqual({
+      doctype: "ToDo", fields: '["name","status"]', filters: '[["status","=","Open"]]', or_filters: '[["description","like","%x%"]]', order_by: "modified desc", view: "Report",
+      file_format_type: "CSV", title: "Open ToDos", csv_delimiter: ";", csv_quoting: "1", translate_values: "1", add_totals_row: "1",
+      selected_items: '["A","B"]', start: "0", page_length: "20", export_in_background: "0",
+    });
+    // Excel: no CSV params; an empty selection is not sent (the server would replace the filters with `name in ()`)
+    const xl = reportExportArgs({ ...base, fileFormat: "Excel", selectedItems: [], csvDelimiter: ";" });
+    expect(Object.keys(xl)).not.toEqual(expect.arrayContaining(["csv_delimiter"]));
+    expect(xl.selected_items).toBeUndefined();
+    expect(reportExportArgs({ ...base, fileFormat: "CSV" })).toMatchObject({ csv_delimiter: ",", csv_quoting: "2" }); // Desk's defaults (report_utils.js:196-215)
+  });
+
+  it("background: an api.call (Desk: frappe.call), no download, the server's msgprint as the answer", async () => {
+    const msg = "Your report is being generated in the background. You will receive an email on <b>u@x.com</b> with a download link once it is ready.";
+    const s = stub(undefined, async () => ({ _server_messages: JSON.stringify([JSON.stringify({ message: msg })]) }));
+    const r = await downloadReportExport(s.api, { ...base, fileFormat: "CSV", background: true });
+    expect(s.downloads).toEqual([]);
+    expect(s.calls).toHaveLength(1);
+    expect(s.calls[0]).toMatchObject({ method: EXPORT_QUERY_METHOD, args: { export_in_background: "1", file_format_type: "CSV" } });
+    expect(r).toMatchObject({ kind: "background", message: "Your report is being generated in the background. You will receive an email on u@x.com with a download link once it is ready." });
+  });
+
+  it("a 403 (can_export, permissions.py:608-616) is a permission FrappeError and NO file — through the real fetch file transport", async () => {
+    const seen: { url: string; init: RequestInit }[] = [];
+    const fetch403 = vi.fn(async (url: string, init: RequestInit) => {
+      seen.push({ url, init });
+      return new Response(JSON.stringify({ exc_type: "PermissionError", _server_messages: JSON.stringify([JSON.stringify({ message: "You are not allowed to export ToDo doctype" })]) }), { status: 403, headers: { "Content-Type": "application/json" } });
+    });
+    const api = createFrappeClient({ fetch: fetch403 as unknown as typeof fetch, csrfToken: "tok" });
+    const err = await downloadReportExport(api, { ...base, fileFormat: "Excel" }).catch((e) => e);
+    expect(err).toBeInstanceOf(FrappeError);
+    expect((err as FrappeError).kind).toBe("permission");
+    expect((err as FrappeError).message).toContain("not allowed to export");
+    expect(seen[0].url).toBe(`/api/method/${EXPORT_QUERY_METHOD}`);
+    expect(seen[0].init.method).toBe("POST");
+    expect(JSON.parse(String(seen[0].init.body))).toMatchObject({ doctype: "ToDo", file_format_type: "Excel" });
+  });
+
+  it("an empty list: whatever the server streams (a header-only sheet) is the file — nothing is synthesised on the client", async () => {
+    const fetchEmpty = vi.fn(async () => new Response("Sr,ID,Status\r\n", { status: 200, headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="ToDo.csv"' } }));
+    const api = createFrappeClient({ fetch: fetchEmpty as unknown as typeof fetch });
+    const r = await downloadReportExport(api, { ...base, filters: [["status", "=", "Nothing"]], fileFormat: "CSV" });
+    expect(r.kind).toBe("file");
+    if (r.kind === "file") { expect(r.file.filename).toBe("ToDo.csv"); expect(await r.file.blob.text()).toBe("Sr,ID,Status\r\n"); }
+  });
+
+  it("export fields: the visible columns' real fields, `name` first — not the row metadata the list also requests", () => {
+    expect(reportExportFields(["status", "_assign", "_comments", "", "Order Item.qty", "status", "date", "gone"], new Set(["name", "status", "date", "_assign", "_comments"]))).toEqual(["name", "status", "date"]);
+  });
+
+  const dialog = (props: Partial<React.ComponentProps<typeof FrappeReportExportDialog>>, api: React.ComponentProps<typeof FrappeReportExportDialog>["api"]) => {
+    const onOpenChange = vi.fn(); const onDone = vi.fn();
+    render(<ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
+      <FrappeReportExportDialog api={api} doctype="ToDo" open onOpenChange={onOpenChange} onDone={onDone} fields={["name", "status"]} filters={[["status", "=", "Open"]]} order_by="modified desc" {...props} />
+    </ThemeProvider>);
+    return { onOpenChange, onDone };
+  };
+
+  it("dialog: Excel by default; checked rows exported as selected_items unless 'All matching rows'; 'Export all N rows?' unchecked → page_length", async () => {
+    const s = stub();
+    const ui = dialog({ selectedNames: ["T-1", "T-2"], shownCount: 20, totalCount: 57 }, s.api);
+    expect(screen.getByRole("dialog").textContent).toContain("Export Report: ToDo");
+    expect(screen.getByText("Export all 57 rows?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await waitFor(() => expect(ui.onDone).toHaveBeenCalled());
+    expect(s.downloads[0].args).toMatchObject({ file_format_type: "Excel", selected_items: '["T-1","T-2"]', start: "0", page_length: "20" });
+    expect(ui.onOpenChange).toHaveBeenCalledWith(false);
+    cleanup();
+    const s2 = stub();
+    dialog({ selectedNames: ["T-1"], shownCount: 20, totalCount: 57 }, s2.api);
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Rows" }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("option", { name: "All matching rows" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Export all 57 rows?" }));
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "File Format" }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("option", { name: "CSV" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "CSV Delimiter" }), { target: { value: "|" } });
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await waitFor(() => expect(s2.downloads).toHaveLength(1));
+    expect(s2.downloads[0].args.selected_items).toBeUndefined();
+    expect(s2.downloads[0].args.page_length).toBeUndefined();
+    expect(s2.downloads[0].args).toMatchObject({ file_format_type: "CSV", csv_delimiter: "|", csv_quoting: "2" });
+  });
+
+  it("dialog: a background export shows the server's message and saves nothing; a 403 shows the refusal, stays open, no file", async () => {
+    const u = URL as unknown as { createObjectURL?: unknown };
+    const orig = u.createObjectURL;
+    const save = vi.fn(() => "blob:x");
+    u.createObjectURL = save;
+    onTestFinished(() => { u.createObjectURL = orig; });
+    const s = stub(undefined, async () => ({ _server_messages: JSON.stringify([JSON.stringify({ message: "Your report is being generated in the background." })]) }));
+    const ui = dialog({ totalCount: null, shownCount: 20 }, s.api);
+    expect(screen.getByText("Export all matching rows?")).toBeTruthy(); // the count is off (report_view.js:1654-1661)
+    fireEvent.click(screen.getByRole("checkbox", { name: "Export in Background" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("generated in the background"));
+    expect(s.downloads).toEqual([]);
+    expect(ui.onDone).toHaveBeenCalledWith(expect.objectContaining({ kind: "background" }));
+    expect(ui.onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(save).not.toHaveBeenCalled();
+    cleanup();
+    const refused = stub(async () => { throw new FrappeError("You are not allowed to export ToDo doctype", 403, "PermissionError"); });
+    const ui2 = dialog({}, refused.api);
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await waitFor(() => expect(screen.getByRole("dialog").textContent).toContain("not allowed to export"));
+    expect(ui2.onDone).not.toHaveBeenCalled();
+    expect(ui2.onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("useFrappeList().reportExport: the visible fields, the current filters / order, rows shown and the count", async () => {
+    let seen: unknown = null;
+    const Probe = () => { const f = useFrappeList({ doctype: "Task", urlFilters: { read: true, write: false } }); seen = f.reportExport; const { quickFilterFields, loadOptions, ...data } = f.listProps; return <ListView key={f.ready ? "r" : "m"} viewKey="Task" storage={null} quickFilterFields={quickFilterFields} loadOptions={loadOptions} {...data} />; };
+    window.history.replaceState(null, "", "/app/task?status=Open");
+    const st = site(TASK, { rows: [{ name: "T-1", subject: "A", status: "Open", project: "P" }] });
+    render(<ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FrappeProvider client={createFrappeClient({ transport: st.transport })}><Probe /></FrappeProvider></QueryClientProvider></ThemeProvider>);
+    await waitFor(() => expect(seen).toMatchObject({ fields: ["name", "subject", "status", "project"], filters: [["status", "=", "Open"]], order_by: "modified desc", shownCount: 1, totalCount: 1 }));
+    window.history.replaceState(null, "", "/");
   });
 });
 
