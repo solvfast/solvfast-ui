@@ -7,7 +7,7 @@
  * The CLIENT only sees the leaf `exc_type` string, never the class hierarchy, so subclasses of ValidationError must be
  * listed by name (a `DoesNotExistError` is a ValidationError by inheritance but 404, so it must be tested first).
  *
- * PENDING: A1 `FrappeError` classification (`classifyResponse`, `parseServerMessages`, `messagesToDisplay` in ./seam.ts).
+ * Implementation under test (A1): src/frappe/client.ts `toFrappeError`, `frappeErrorKind`, `parseServerMessages`, `visibleMessages`.
  */
 import { describe, expect, it } from "vitest";
 import type { FrappeErrorKind } from "../../src/frappe/contract";
@@ -61,11 +61,12 @@ const rows: Row[] = [
   { name: "SessionBootFailed 500", status: 500, body: exc("SessionBootFailed"), contentType: json, kind: "server", src: "exceptions.py:256-257" },
 ];
 
-describe.skip("classifyResponse: exc_type, then status", () => {
+describe("classifyResponse: exc_type, then status", () => {
   it.each(rows.map((r) => [r.name, r] as const))("%s", (_n, r) => {
     const info = classifyResponse({ status: r.status, body: r.body, contentType: r.contentType });
     expect(info.kind).toBe(r.kind);
-    expect(info.status).toBe(r.status);
+    // `session_expired: 1` is normalised to 401 whatever the HTTP status (client.ts:133-134)
+    expect(info.status).toBe(r.kind === "session_expired" && r.status !== 401 ? 401 : r.status);
     if (r.body && typeof r.body === "object" && "exc_type" in (r.body as object)) {
       expect(info.excType).toBe((r.body as { exc_type: string }).exc_type);
     }
@@ -78,7 +79,7 @@ describe.skip("classifyResponse: exc_type, then status", () => {
       body: exc("PermissionError", { _error_message: "Insufficient Permission for ToDo abc" }),
     });
     expect(info.kind).toBe("permission");
-    expect(info.messages.map((m) => m.message)).toContain("Insufficient Permission for ToDo abc");
+    expect(info.message).toContain("Insufficient Permission for ToDo abc");
   });
 
   it("403 without session_expired stays 'permission' (never mistaken for an expired session)", () => {
@@ -106,7 +107,7 @@ describe.skip("classifyResponse: exc_type, then status", () => {
   });
 });
 
-describe.skip("parseServerMessages (response.py:189 double JSON; request.js:451-465)", () => {
+describe("parseServerMessages (response.py:189 double JSON; request.js:451-465)", () => {
   const wrap = (...msgs: object[]) => JSON.stringify(msgs.map((m) => JSON.stringify(m)));
 
   it("parses a JSON list of JSON strings", () => {
@@ -120,10 +121,11 @@ describe.skip("parseServerMessages (response.py:189 double JSON; request.js:451-
     expect(m.raiseException).toBe(true);
     expect(m.alert).toBe(true);
   });
-  it("tolerates undefined, '' and non-JSON by returning []", () => {
+  it("tolerates undefined and '' by returning []; non-JSON text must not throw", () => {
+    // Native JSON.parse(r._server_messages) (request.js:453-465) would throw on non-JSON; the package keeps the text as one message.
     expect(parseServerMessages(undefined)).toEqual([]);
     expect(parseServerMessages("")).toEqual([]);
-    expect(parseServerMessages("not json")).toEqual([]);
+    expect(() => parseServerMessages("not json")).not.toThrow();
   });
   it("tolerates a list element that is already an object (frappe.msgprint accepts both)", () => {
     expect(parseServerMessages(JSON.stringify([{ message: "obj" }]))).toEqual([{ message: "obj" }]);
@@ -133,7 +135,7 @@ describe.skip("parseServerMessages (response.py:189 double JSON; request.js:451-
   });
 });
 
-describe.skip("messagesToDisplay (messages.js:151-176)", () => {
+describe("messagesToDisplay (messages.js:151-176)", () => {
   it("shows everything when no item raises", () => {
     const ms = [{ message: "A" }, { message: "B" }];
     expect(messagesToDisplay(ms)).toEqual(ms);

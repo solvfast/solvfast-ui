@@ -7,31 +7,30 @@
  * control_currency.js; rounding.js. Python: test_fmt_money.py (server `fmt_money`).
  *
  * `formatValue` returns a STRING (CONTRACT-0.4.md §2). Desk returns HTML; the strings below are the visible text.
- * PENDING: A1/A2 `formatValue`, `translateLabel` (./seam.ts). Skipped until wired.
+ * Implementation under test (A1): src/frappe/services/format.ts `formatValue`, services/translate.ts `translateLabel`.
  *
  * Numbers assume number_format "#,###.##". Everything not derivable from the cited source is `it.todo`, not guessed.
  */
 import { describe, expect, it } from "vitest";
 import type { FrappeDocField } from "../../src/frappe/contract";
-import { fieldOf, formatValue, loadBundle, translateLabel, type FormatContext } from "./seam";
+import { formatValue, type FormatContext } from "../../src/frappe/services/format";
+import { fieldOf, loadBundle, translateLabel } from "./seam";
 
 const df = (fieldtype: string, extra: Partial<FrappeDocField> = {}): FrappeDocField => ({ fieldname: "f", fieldtype, ...extra });
 
 const ctx: FormatContext = {
-  sysdefaults: {
-    date_format: "dd-mm-yyyy",
-    time_format: "HH:mm:ss",
-    number_format: "#,###.##",
-    float_precision: 3,
-    currency_precision: 2,
-    currency: "USD",
-    rounding_method: "Banker's Rounding (legacy)",
-  },
+  dateFormat: "dd-mm-yyyy",
+  timeFormat: "HH:mm:ss",
+  numberFormat: "#,###.##",
+  floatPrecision: 3,
+  currencyPrecision: 2,
+  currency: "USD",
+  roundingMethod: "Banker's Rounding (legacy)",
   timeZone: { system: "Asia/Riyadh", user: "Asia/Dubai" }, // +3 / +4, no DST
   currencies: { USD: { symbol: "$" }, SAR: { symbol: "SAR", symbol_on_right: 1 } },
 };
 
-describe.skip("formatValue — null / dispatch", () => {
+describe("formatValue — null / dispatch", () => {
   it("null and undefined -> ''", () => {
     for (const t of ["Data", "Int", "Float", "Currency", "Percent", "Date", "Datetime", "Time"]) {
       expect(formatValue(null, df(t), undefined, ctx), t).toBe("");
@@ -45,7 +44,7 @@ describe.skip("formatValue — null / dispatch", () => {
   });
 });
 
-describe.skip("formatValue — numbers", () => {
+describe("formatValue — numbers", () => {
   it("Float: a value without decimals drops them (1.000000 -> 1, formatters.js:67-74)", () => {
     expect(formatValue(1, df("Float"), undefined, ctx)).toBe("1");
     expect(formatValue("1.000000", df("Float"), undefined, ctx)).toBe("1");
@@ -60,7 +59,7 @@ describe.skip("formatValue — numbers", () => {
     expect(formatValue(0.125, df("Float", { precision: "1" }), undefined, ctx)).toBe("0.1");
   });
   it("Percent: default precision 2 when neither df.precision nor float_precision is set, '%' suffix, no clamp", () => {
-    const c = { ...ctx, sysdefaults: { ...ctx.sysdefaults, float_precision: undefined } };
+    const c = { ...ctx, floatPrecision: undefined };
     expect(formatValue(45.678, df("Percent"), undefined, c)).toBe("45.68%");
     expect(formatValue(150, df("Percent"), undefined, c)).toBe("150.00%");
   });
@@ -77,7 +76,7 @@ describe.skip("formatValue — numbers", () => {
     expect(formatValue(1234.5, df("Currency", { options: "currency" }), { doctype: "X", name: "x", currency: "SAR" }, ctx)).toBe("1,234.50 SAR");
   });
   it("Currency: hide_currency_symbol == 'Yes' removes the symbol", () => {
-    const c = { ...ctx, sysdefaults: { ...ctx.sysdefaults, hide_currency_symbol: "Yes" as const } };
+    const c = { ...ctx, hideCurrencySymbol: true };
     expect(formatValue(1234.5, df("Currency", { options: "currency" }), { doctype: "X", name: "x", currency: "USD" }, c)).toBe("1,234.50");
   });
   it("Currency: df.precision 0 is honoured (typeof precision == 'number' branch)", () => {
@@ -87,7 +86,10 @@ describe.skip("formatValue — numbers", () => {
   it.todo("negative numbers keep the minus attached in RTL (number_format.js:120-125) — assert on a bidi-aware renderer instead");
 });
 
-describe.skip("formatValue — dates and durations (user formats; storage formats in, display out)", () => {
+// KNOWN DIVERGENCE (it.fails): services/format.ts has no Duration case, so a Duration value falls through to the Data
+// formatter and prints the raw seconds ("93784", "0"). Native: form/formatters.js:281-288 + utils/utils.js:1115-1175 print
+// "1d 2h 3m 4s" / "0s". Flip `it.fails` to `it` when A1 adds it.
+describe("formatValue — dates and durations (user formats; storage formats in, display out)", () => {
   it("Date: system YYYY-MM-DD -> user format (dd-mm-yyyy)", () => {
     expect(formatValue("2026-01-02", df("Date"), undefined, ctx)).toBe("02-01-2026");
   });
@@ -98,27 +100,27 @@ describe.skip("formatValue — dates and durations (user formats; storage format
     expect(formatValue("2026-01-02 10:00:00.123456", df("Datetime"), undefined, ctx)).toBe("02-01-2026 11:00:00");
   });
   it("Datetime without timezone info configured: plain formatting, no shift", () => {
-    expect(formatValue("2026-01-02 10:00:00", df("Datetime"), undefined, { sysdefaults: ctx.sysdefaults })).toBe("02-01-2026 10:00:00");
+    expect(formatValue("2026-01-02 10:00:00", df("Datetime"), undefined, { ...ctx, timeZone: undefined })).toBe("02-01-2026 10:00:00");
   });
   it("Time: accepts the unpadded server form '9:30:00' and pads with time_format; NO time-zone conversion", () => {
     expect(formatValue("9:30:00", df("Time"), undefined, ctx)).toBe("09:30:00");
   });
-  it("Duration: 93784 s -> '1d 2h 3m 4s' (get_formatted_duration, utils.js:1115-1143)", () => {
+  it.fails("Duration: 93784 s -> '1d 2h 3m 4s' (get_formatted_duration, utils.js:1115-1143)", () => {
     expect(formatValue(93784, df("Duration"), undefined, ctx)).toBe("1d 2h 3m 4s");
   });
-  it("Duration: empty/0 -> '0s' (formatters.js:281-288)", () => {
+  it.fails("Duration: empty/0 -> '0s' (formatters.js:281-288)", () => {
     expect(formatValue(0, df("Duration"), undefined, ctx)).toBe("0s");
     expect(formatValue(null, df("Duration"), undefined, ctx)).toBe("0s");
   });
-  it("Duration: hide_days folds days into hours (utils.js:1153-1173)", () => {
+  it.fails("Duration: hide_days folds days into hours (utils.js:1153-1173)", () => {
     expect(formatValue(93784, df("Duration", { hide_days: 1 }), undefined, ctx)).toBe("26h 3m 4s");
   });
-  it("Duration: hide_seconds rounds seconds into minutes", () => {
+  it.fails("Duration: hide_seconds rounds seconds into minutes", () => {
     expect(formatValue(3690, df("Duration", { hide_seconds: 1 }), undefined, ctx)).toBe("1h 2m"); // 61 min 30 s -> 1h 1m + round(30/60)=1 -> 2m
   });
 });
 
-describe.skip("formatValue — links", () => {
+describe("formatValue — links", () => {
   it("Link shows the cached title when the target has show_title_field_in_link, else the name", () => {
     const l = df("Link", { options: "Customer" });
     expect(formatValue("CUST-0001", l, undefined, { ...ctx, linkTitles: { "Customer::CUST-0001": "Acme Co" } })).toBe("Acme Co");
@@ -130,7 +132,7 @@ describe.skip("formatValue — links", () => {
   });
 });
 
-describe.skip("translateLabel (meta.__messages)", () => {
+describe("translateLabel (meta.__messages)", () => {
   const b = loadBundle("todo.en.json");
   const withMessages = { ...b, meta: { ...b.meta, __messages: { Status: "الحالة", Priority: "الأولوية" } } };
 
