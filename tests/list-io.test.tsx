@@ -293,9 +293,9 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     expect(screen.queryByRole("menuitem", { name: /Export/ })).toBeNull(); // Desk would show Export here (list_view.js:2092); the package hides it
   });
 
-  it("Exporter role: Export in the menu, Export in the selection bar; the bar's Export posts by_filter on the checked names", async () => {
+  it("Exporter role: Export in the menu; with `selectable` also in the selection bar; the bar's Export posts by_filter on the checked names", async () => {
     const { seen, files } = dl();
-    const { mock } = mountList(["Exporter"], META(), { onImport: vi.fn() }, undefined, files);
+    const { mock } = mountList(["Exporter"], META(), { onImport: vi.fn(), selectable: true }, undefined, files);
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.queryByRole("menuitem", { name: /Import/ })).toBeNull();

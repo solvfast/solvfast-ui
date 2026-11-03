@@ -411,3 +411,12 @@
   backdrop-filter: none;
   box-shadow: none;
 }
+
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-popper,
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-popper.sf-glass,
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-lg-surface.sf-glass-dialog,
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-glass-pane {
+  background: hsl(var(--popover, 0 0% 100%));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
