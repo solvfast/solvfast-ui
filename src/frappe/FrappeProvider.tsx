@@ -66,7 +66,7 @@ export interface FrappeProviderProps {
   /** Use this React Query client. Default: the app's, if there is one above; otherwise a new one. */
   queryClient?: QueryClient;
   /** The logged-in user and roles (Desk: `frappe.session.user`, `frappe.user_roles`). Without roles, permissions are
-   *  approximated from `docinfo.permissions` (see `buildDocPermissions`). */
+   *  denied (rule 9: missing information denies) from `docinfo.permissions` (see `buildDocPermissions`). */
   session?: FrappeSession;
   /** Source text → translation for the UI language (Desk: boot `__messages`). 15.110's getdoctype sends none. */
   translations?: TranslationDictionary;

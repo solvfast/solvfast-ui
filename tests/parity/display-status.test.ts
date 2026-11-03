@@ -98,9 +98,15 @@ describe("real metadata: ToDo (tests/fixtures/real-15.110/todo.en.json)", () => 
     const ro = buildDocPermissions({ meta: todo.meta, children: todo.children, doc, docinfo: { permissions: { read: 1 } } as never, session: { user: "b@example.com", roles: ["ToDo-less role"] } });
     expect(fieldDisplayStatus(fieldOf(todo, "status"), doc, ro)).toBe("None");
   });
-  it("owner-less approximation without roles: docinfo.permissions alone decides (docs 10 C6 §3)", () => {
+  it("without roles (rule 9: missing information denies): a saved doc gets exactly the server's docinfo.permissions, nothing more", () => {
     const l = buildDocPermissions({ meta: todo.meta, children: todo.children, doc, docinfo: { permissions: { read: 1 } } as never });
     expect(l[0].write).toBeFalsy();
+    expect(l[0].read).toBe(true);
     expect(fieldDisplayStatus(fieldOf(todo, "status"), doc, l)).toBe("Read");
+  });
+  it("without roles a NEW doc is denied (rule 9; before dev.26 it was optimistic read/write/create)", () => {
+    const l = buildDocPermissions({ meta: todo.meta, children: todo.children, doc: { doctype: "ToDo", name: "new-todo-1", __islocal: 1 } });
+    expect(l[0]).toEqual({});
+    expect(fieldDisplayStatus(fieldOf(todo, "description"), { doctype: "ToDo", name: "new-todo-1", __islocal: 1 }, l)).toBe("None");
   });
 });

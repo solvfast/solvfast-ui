@@ -28,7 +28,10 @@ export function bulkMenu(i: BulkMenuInput): BulkKind[] {
   if (editAllowed && can(i.permissions, "write")) out.push("edit");
   if (i.isSubmittable && !i.hasWorkflow && can(i.permissions, "submit")) out.push("submit");
   if (i.isSubmittable && !i.hasWorkflow && can(i.permissions, "cancel")) out.push("cancel");
-  if (can(i.permissions, "write")) out.push("assign"); // UNVERIFIED: Desk offers "Assign To" to every user; the server checks each document
+  // Desk offers "Assign To" unconditionally (list_view.js:2095); the server requires READ on each document
+  // (assign_to.add → doc.check_permission(), default ptype "read": assign_to.py:67-68, document.py:225). The package
+  // asks for read (rule D.1: hide what the server would refuse; nothing is offered without permissions).
+  if (can(i.permissions, "read")) out.push("assign");
   if ((!i.hasWorkflow || i.allowEdit) && can(i.permissions, "delete")) out.push("delete");
   return out;
 }
@@ -42,7 +45,9 @@ export interface BulkOutcome {
 
 const json = (v: unknown) => JSON.stringify(v);
 
-/** `delete_items`: more than 10 are enqueued by the server; it answers nothing either way (results come as a msgprint). */
+/** `delete_items`: more than 10 are enqueued by the server; it answers nothing either way — failures arrive as a REALTIME
+ *  msgprint ("Failed to delete {0} documents: {1}", reportview.py:608-616), so `failed: []` here means "not reported in the
+ *  response", never "none failed". `FrappeBulkActions` says so instead of counting successes. */
 export async function bulkDelete(client: FrappeClient, doctype: string, names: string[]): Promise<BulkOutcome> {
   await client.call("frappe.desk.reportview.delete_items", { doctype, items: json(names) });
   return { failed: [], queued: names.length > 10 };

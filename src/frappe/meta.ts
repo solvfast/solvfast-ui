@@ -9,7 +9,8 @@ import type { ColumnDef } from "../list/model/columns";
 import type { FieldType, FilterField } from "../list/model/filters";
 import type { Messages } from "../theme/messages";
 import type { DocField, DocMeta } from "./client";
-import type { FrappeDocField } from "./contract";
+import type { DocPermissions, FrappeDocField } from "./contract";
+import { readableFields } from "./services/permissions";
 
 const TYPE_MAP: Record<string, FieldType> = {
   Data: "text", "Small Text": "text", Text: "text", "Long Text": "text", "Text Editor": "text",
@@ -135,6 +136,22 @@ export function columnsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string)
 
 const titleOf = (meta: DocMeta, fields: FilterField[]) =>
   meta.title_field || fields.find((f) => f.type === "text" && f.name !== "name")?.name || "name";
+
+/**
+ * Drop the fields the user cannot read, by permlevel (`readableFields`): the server strips their values from
+ * `reportview.get` rows and refuses them as filters, so the list must not offer them as columns / filters / editable
+ * fields. Applied only when the rights are KNOWN and level 0 is readable (`levels[0].read`); otherwise (no session
+ * roles, or a DocType whose `permissions` rows the user's roles do not match — the server's 403 then explains) the
+ * metas are returned untouched, which is the pre-0.4.0 behaviour. Child metas are filtered the same way.
+ */
+export function restrictMetaToReadable<M extends DocMeta>(meta: M, children: Record<string, DocMeta>, levels: DocPermissions | undefined): { meta: M; children: Record<string, DocMeta> } {
+  if (!levels || !levels[0]?.read) return { meta, children };
+  const keep = <F extends DocField>(fields: F[] | undefined) => readableFields((fields ?? []) as (F & { permlevel?: number })[], levels);
+  return {
+    meta: { ...meta, fields: keep(meta.fields) },
+    children: Object.fromEntries(Object.entries(children).map(([k, c]) => [k, { ...c, fields: keep(c.fields) }])),
+  };
+}
 
 export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}): FrappeListMeta {
   const filterFields = filterFieldsFromMeta(meta, t, children);

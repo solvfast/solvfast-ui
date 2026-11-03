@@ -56,3 +56,12 @@ export * from "./form";
 export { commaAnd } from "./record";
 // Form helpers (A3): Desk's can_cancel rule and the form loading skeleton.
 export { canCancelDoctype, FormSkeleton } from "./form/FrappeForm";
+
+// 0.4.0 — Phase 26: server-authorised Export (Data Exporter `download_template`) and Data Import sequence; gated menu.
+export { downloadExportTemplate, exportPickerGroups, mandatorySelection, selectedNamesFilter, saveFile, DOWNLOAD_TEMPLATE_METHOD } from "./list/export";
+export type { ExportFileType, ExportRecords, ImportType, ExportTemplateOptions, ExportPickerGroup, ExportPickerField } from "./list/export";
+export { startDataImport, startImport, getImportPreview, getImportStatus, getImportLogs, downloadImportTemplate, downloadErroredRows, downloadImportLog, parseTemplateWarnings, useImportStatus, DATA_IMPORT_METHODS } from "./list/import";
+export type { DataImportDoc, DataImportStatus, ImportPreview, ImportWarning, StartDataImportOptions, StartedDataImport, ImportStatus, ImportProgress, ImportLogRow } from "./list/import";
+export { FrappeExportDialog, EXPORT_DIALOG_LABELS_EN } from "./list/FrappeExportDialog";
+export type { ExportDialogLabels, FrappeExportDialogProps } from "./list/FrappeExportDialog";
+export { restrictMetaToReadable } from "./meta";

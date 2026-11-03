@@ -67,6 +67,9 @@ export interface FormPermissions {
   displayStatus?(df: FrappeDocField, doc: FrappeDoc, parent?: FrappeDoc, opts?: { gridCell?: boolean; onlyInput?: boolean }): FieldDisplayStatus;
   workflowReadOnly?: boolean;
   workflow?: unknown;
+  /** `usePermissions().known`: false = the rights are the rule-9 denial for missing information (no `session.roles`);
+   *  the toolbar then says read-only instead of silently offering nothing. */
+  known?: boolean;
 }
 
 export type SaveAction = "Save" | "Submit" | "Update";
@@ -580,6 +583,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           </div>
           {indicator && <Badge variant={indicator.variant}>{indicator.text}</Badge>}
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
+          {!notice && permissions?.known === false && <span role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</span>}
           {props.toolbarExtra}
           {actions.secondary && onCancelDoc && (
             <Button type="button" variant="outline" disabled={!!saving} loading={saving === "Cancel"} onClick={() => void startCancel()}>{actionLabel("Cancel")}</Button>

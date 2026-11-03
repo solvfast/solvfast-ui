@@ -56,7 +56,12 @@ export function FrappeBulkActions({ client, meta, doctype, keys, clear, options,
     try {
       const out = await call();
       options.onDone?.(kind, out, keys);
-      setMessage(out.queued ? t("listBulkQueued") : t("listBulkResult").replace("{ok}", String(keys.length - out.failed.length)).replace("{failed}", String(out.failed.length)));
+      // the server's own list of failed names (`submit_cancel_or_update_docs` answers it; bulk_update.py) is shown as is —
+      // never a plain success line when some failed
+      const result = t("listBulkResult").replace("{ok}", String(keys.length - out.failed.length)).replace("{failed}", String(out.failed.length));
+      // delete_items answers nothing (reportview.py:608-616: failures come as a realtime msgprint): never claim "0 failed"
+      const requested = `${t(LABEL[kind])}: ${keys.length} requested — the server reports failures in its messages.`;
+      setMessage(out.queued ? t("listBulkQueued") : kind === "delete" ? requested : out.failed.length ? `${result}: ${out.failed.join(", ")}` : result);
       if (out.failed.length < keys.length) { clear(); await invalidateFrappeList(qc, doctype); } // Desk refreshes unless everything failed
     } catch (e) {
       options.onError?.(e, kind);

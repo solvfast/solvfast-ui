@@ -14,14 +14,15 @@ import type { ListQueryState } from "../list/useListState";
 import { loc, type Localized } from "../lib/localized";
 import { useLocale } from "../theme/ThemeProvider";
 import { FrappeError, type DocMeta, type FrappeClient } from "./client";
-import { useFrappeClient } from "./FrappeProvider";
-import { buildFrappeListMeta, type ListDocMeta } from "./meta";
+import { useFrappeClient, useFrappeSettings } from "./FrappeProvider";
+import { buildFrappeListMeta, restrictMetaToReadable, type ListDocMeta } from "./meta";
 import { buildListRequest, type FrappeFilter } from "./query";
 import { rowMetaColumns } from "./list/cells";
 import { FrappeErrorState } from "./feedback/FrappeErrorState";
 import { formatValue, type FormatContext } from "./services/format";
 import { useFormatContext } from "./FrappeProvider";
-import type { MetaBundle } from "./contract";
+import type { DocPerm, MetaBundle } from "./contract";
+import { rolePermissions } from "./services/permissions";
 import { hasIndicator, indicatorFields, type IndicatorConfig, type IndicatorWorkflow } from "./list/indicator";
 import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser } from "./list/reportview";
 import { applyColumnSettings, fetchListSettings } from "./list/settings";
@@ -42,7 +43,15 @@ export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient } =
   const client = opts.client ?? fallback;
   const { t } = useLocale();
   const q = useQuery({ queryKey: ["sf-frappe", "list-meta", doctype], queryFn: () => loadDocTypeBundle(client, doctype), staleTime: 5 * 60_000 });
-  const meta = React.useMemo(() => (q.data ? buildFrappeListMeta(q.data.meta, t, q.data.children) : undefined), [q.data, t]);
+  // permlevel: with the session's roles, fields at a level the user cannot read are dropped (restrictMetaToReadable)
+  const roles = useFrappeSettings().session?.roles;
+  const readable = React.useMemo(() => {
+    if (!q.data) return undefined;
+    const perms = (q.data.meta as { permissions?: DocPerm[] }).permissions;
+    const levels = roles && perms ? rolePermissions(perms, roles).levels : undefined;
+    return restrictMetaToReadable(q.data.meta, q.data.children, levels);
+  }, [q.data, roles]);
+  const meta = React.useMemo(() => (readable ? buildFrappeListMeta(readable.meta, t, readable.children) : undefined), [readable, t]);
   // plain types only: React Query's own types live in @tanstack/query-core, which consumers may not be able to resolve
   const refetch = React.useCallback(async (): Promise<void> => { await q.refetch(); }, [q]);
   const bundle = React.useMemo<MetaBundle | undefined>(() => (q.data ? ({ doctype, meta: q.data.meta, children: q.data.children } as unknown as MetaBundle) : undefined), [q.data, doctype]);
