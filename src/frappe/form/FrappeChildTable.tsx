@@ -27,6 +27,7 @@ import { isEmptyValue, resolveFields, type EffectiveField } from "./model/depend
 import { LAYOUT_TYPES, NO_VALUE_TYPES } from "./model/fieldtypes";
 import { buildLayout, sectionFields } from "./model/layout";
 import { controlStatus, ladderStatus } from "./model/status";
+import { usePermissions } from "../hooks";
 import { useFormServices } from "./services";
 import { FrappeField, type FrappeFieldProps } from "./FrappeField";
 
@@ -77,8 +78,9 @@ export function useLocalTableController(df: FrappeDocField, childMeta: DocTypeMe
 }
 
 /** Visible grid columns (grid.js `setup_visible_columns`). */
-export function gridColumns(childMeta: DocTypeMeta): { df: FrappeDocField; width: number }[] {
-  const candidates = (childMeta.fields ?? []).filter((f) => !LAYOUT_TYPES.has(f.fieldtype) && !f.hidden);
+export function gridColumns(childMeta: DocTypeMeta, canRead?: (df: FrappeDocField) => boolean): { df: FrappeDocField; width: number }[] {
+  // grid.js:1015-1021: `frm.get_perm(df.permlevel, "read")` filters the columns BEFORE the width budget is spent
+  const candidates = (childMeta.fields ?? []).filter((f) => !LAYOUT_TYPES.has(f.fieldtype) && !f.hidden && (!canRead || canRead(f)));
   const listed = candidates.filter((f) => f.in_list_view);
   const pool = listed.length ? listed : candidates.filter((f) => !NO_VALUE_TYPES.has(f.fieldtype) && f.fieldtype !== "Table");
   const out: { df: FrappeDocField; width: number }[] = [];
@@ -114,6 +116,8 @@ export function FrappeChildTable({ df, bundle, childMeta: metaProp, parent, rows
   const { t } = useLocale();
   const s = useFormServices();
   const childMeta = metaProp ?? childMetaOf(df, bundle);
+  // inside a form (a controller) Desk filters columns by the read right of their permlevel; a standalone grid has no frm and shows all
+  const perms = usePermissions(bundle, parent);
   const local = useLocalTableController(df, childMeta, parent, rows, onRowsChange);
   const ctl = controller ?? local;
   const [openRow, setOpenRow] = React.useState<string | null>(null);
@@ -126,7 +130,7 @@ export function FrappeChildTable({ df, bundle, childMeta: metaProp, parent, rows
     const base = ctl.statusFor?.(f, row) ?? controlStatus(ladderStatus(f, row), f, row, { gridStatus: status });
     return status === "Read" && base === "Write" && !f.allow_on_submit ? "Read" : base;
   };
-  const cols = gridColumns(childMeta);
+  const cols = gridColumns(childMeta, controller && bundle ? (f) => perms.can("read", f.permlevel ?? 0) : undefined);
   const columns: DataGridColumn<FrappeDoc>[] = cols.map(({ df: col, width }) => ({
     key: col.fieldname,
     label: s.translate(bundle, col.label || col.fieldname),

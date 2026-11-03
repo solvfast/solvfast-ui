@@ -238,7 +238,7 @@ describe("fetch_from (docs 11 §4.2)", () => {
     expect(map.get("assigned_by")).toEqual([{ link: "assigned_by", source: "full_name", target: "assigned_by_full_name", fetchIfEmpty: false }]);
     const e = map.get("assigned_by")!;
     expect(fetchUpdates(e, "assigned_by", { name: "a@x.com", values: { full_name: "A X" } })).toEqual({ assigned_by_full_name: "A X" });
-    expect(fetchUpdates(e, "assigned_by", { name: null, values: {} })).toEqual({ assigned_by: null });
+    expect(fetchUpdates(e, "assigned_by", { name: null, values: {} })).toEqual({ assigned_by: null, assigned_by_full_name: "" });
     expect(fetchUpdates(e, "assigned_by", null)).toEqual({ assigned_by_full_name: "" });
     const df = fieldOf(todo, "assigned_by_full_name");
     expect(isReadOnlyByFetch(df, doc(todo, { assigned_by: "a@x.com" }))).toBe(true);
