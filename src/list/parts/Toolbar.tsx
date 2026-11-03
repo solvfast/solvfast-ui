@@ -16,6 +16,9 @@ import {
 } from "../../primitives/dropdown-menu";
 import { Input } from "../../primitives/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../primitives/popover";
+
+/** Desk's list popovers must stay readable over the table: an opaque surface instead of the glass tint. */
+const OPAQUE: React.CSSProperties = { backgroundColor: "hsl(var(--background))", backdropFilter: "none", WebkitBackdropFilter: "none" };
 import { ScrollArea } from "../../primitives/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { cn } from "../../lib/cn";
@@ -37,7 +40,7 @@ export function SavedFilters({ saved, activeCount, onApply, onSave, onDelete }: 
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5"><Bookmark className="h-4 w-4" /> {t("saved")}</Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-2 !bg-popover !bg-none !backdrop-blur-none" align="end">
+      <PopoverContent className="w-64 p-2" style={OPAQUE} align="end">
         {saved.length > 0 ? (
           <div className="mb-2 space-y-0.5">
             {saved.map((s) => (
@@ -143,7 +146,7 @@ export function ColumnManager<T>({ columns, visibleKeys, onChange }: { columns: 
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5"><Columns3 className="h-4 w-4" /> {t("columns")}</Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-1.5 !bg-popover !bg-none !backdrop-blur-none" align="end">
+      <PopoverContent className="w-64 p-1.5" style={OPAQUE} align="end">
         <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{t("editColumns")}</div>
         <span className="sr-only" aria-live="polite">{announce}</span>
         <ScrollArea className="max-h-72">
