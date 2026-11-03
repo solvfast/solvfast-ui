@@ -219,6 +219,12 @@ export interface SearchLinkOptions {
   query?: string;
   searchfield?: string;
   ignoreUserPermissions?: boolean;
+  /**
+   * Extra keys a custom link query returned (Desk's `get_query` result object: link.js merges them into the
+   * search_link request). Sent as top-level request args (objects / lists as JSON); `search_link` itself drops them,
+   * a custom query reads them from `frappe.form_dict`. They never replace the keys above.
+   */
+  args?: Record<string, unknown>;
 }
 export interface SearchResult { value: string; label?: string; description?: string }
 

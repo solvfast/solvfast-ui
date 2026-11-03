@@ -127,10 +127,13 @@ describe("DocumentApi", () => {
     await client.searchLink("User", "a", { referenceDoctype: "ToDo" });
     await client.searchLink("User", "a", { filters: { enabled: 1 }, query: "app.queries.users", searchfield: "full_name", ignoreUserPermissions: true, pageLength: 5 });
     await client.searchLink("User", "a", { filters: [["User", "enabled", "=", 1]] });
+    await client.searchLink("Item", "x", { query: "app.queries.items", args: { company: "SF", item_group: ["A", "B"], doctype: "Hacked", skipped: undefined } });
     expect(seen.map((s) => s.args)).toEqual([
       { doctype: "User", txt: "a", page_length: 10, reference_doctype: "ToDo" },
       { doctype: "User", txt: "a", page_length: 5, filters: '{"enabled":1}', query: "app.queries.users", searchfield: "full_name", ignore_user_permissions: 1 },
       { doctype: "User", txt: "a", page_length: 10, filters: '[["User","enabled","=",1]]' },
+      // R1-F13: extra get_query keys at top level (objects as JSON); they cannot replace doctype / txt / query …
+      { company: "SF", item_group: '["A","B"]', doctype: "Item", txt: "x", page_length: 10, query: "app.queries.items" },
     ]);
   });
 });
