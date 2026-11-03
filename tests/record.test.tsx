@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
-  ActionBar, AssigneeGroup, CommentComposer, LifecycleBar, StatusBadge, Timeline, draftToHtml, htmlToDraft, sanitizeHtml, sortItems,
+  ActionBar, AssigneeGroup, CommentComposer, LifecycleBar, StatusBadge, Timeline, draftToHtml, htmlToDraft, sanitizeCommentHtml, sortItems,
   type TimelineItem,
 } from "../src/record";
 import { ThemeProvider } from "../src";
@@ -35,7 +35,7 @@ describe("Timeline", () => {
     expect(container.querySelector("span.mention")?.getAttribute("data-id")).toBe("bob@x.com");
   });
   it("sanitiser drops javascript: links and event handlers", () => {
-    const out = sanitizeHtml('<a href="javascript:alert(1)" onclick="x()">k</a><img src="x" onerror="y()">');
+    const out = sanitizeCommentHtml('<a href="javascript:alert(1)" onclick="x()">k</a><img src="x" onerror="y()">');
     expect(out).not.toMatch(/javascript:|onclick|onerror/);
   });
   it("expands multi-field changes, including child-table rows", () => {

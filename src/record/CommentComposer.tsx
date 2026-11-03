@@ -4,7 +4,7 @@ import { Skeleton } from "../primitives/skeleton";
 import { cn } from "../lib/cn";
 import { useLocale } from "../theme/ThemeProvider";
 import { errorText, escapeHtml } from "./format";
-import { htmlToText, sanitizeHtml } from "./sanitize";
+import { htmlToText, sanitizeCommentHtml } from "./sanitize";
 import type { MentionOption } from "./types";
 import { useAsyncOptions } from "./useAsyncOptions";
 
@@ -25,7 +25,7 @@ export function draftToHtml(draft: CommentDraft): string {
 export function htmlToDraft(html: string): CommentDraft {
   const mentions: MentionOption[] = [];
   if (typeof DOMParser !== "undefined") {
-    const doc = new DOMParser().parseFromString(`<body>${sanitizeHtml(html)}</body>`, "text/html");
+    const doc = new DOMParser().parseFromString(`<body>${sanitizeCommentHtml(html)}</body>`, "text/html");
     doc.querySelectorAll("span.mention").forEach((el) => {
       const id = el.getAttribute("data-id"); const label = (el.textContent ?? "").replace(/^@/, "");
       if (id && label) mentions.push({ id, label, isGroup: el.getAttribute("data-is-group") === "true" });

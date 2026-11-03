@@ -94,7 +94,9 @@ Detail pages are owned by A5: A3 and A4 deliver components plus a wiring note; A
   DocType metas live as JSON under `data/frappe/meta/` in the CRM work copy.
 - **No `bench`, no database access, no network installs, no new dependencies** (`package.json` is the Lead's), no
   `git push`, no tags, no publishing.
-- Package checks: `npx tsc --noEmit -p tsconfig.json`, `npx vitest run <your tests>`, `node scripts/check-boundaries.mjs`.
+- Package checks: `npx tsc --noEmit -p tsconfig.json`, `npx vitest run <your tests>`, and **`npm run build` before every
+  commit you want merged** (declarations use `tsconfig.build.json`, an older lib — no `Array.prototype.at`; the dist
+  boundary check rejects `csrf` or `/api/` strings, including message-key names, in core modules).
   CRM checks: `npx tsc --noEmit -p tsconfig.app.json` (baseline: 43 errors — never add any) and, when needed,
   `npx vite build --outDir /tmp/<agent>-build` (never the default outDir).
 - **Commit after each unit of work** on your branch, with the attribution line

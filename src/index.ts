@@ -162,3 +162,6 @@ export type {
 
 // 0.4.0 — generic field controls (Frappe-free). docs/CONTRACT-0.4.md §1
 export * from "./fields";
+
+// 0.4.0 — list actions context (A2)
+export { ListActionsContext, useListActions } from "./list/ListActionsContext";
