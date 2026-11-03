@@ -3,10 +3,19 @@
  * - Inside an app's own `QueryClientProvider`: that client (and its cache) is used.
  * - Otherwise one is created here, with Frappe-aware retries (4xx errors such as PermissionError are not retried).
  * `FrappeListView` wraps itself in one when neither is present, so the simplest use needs no provider at all.
+ *
+ * 0.4.0: also what Desk has from boot and a React page must supply itself (none of it has a whitelisted 15.110
+ * endpoint): the session user and roles (permissions), a translation dictionary (labels), the formatting settings
+ * (dates, numbers, currency, time zones) — and the host that shows server messages (msgprint semantics).
  */
 import * as React from "react";
 import { QueryClient, QueryClientContext, QueryClientProvider } from "@tanstack/react-query";
-import { createFrappeClient, FrappeError, type FrappeClient } from "./client";
+import { createFrappeClient, FrappeError, withFrappeApi, type FrappeApi, type FrappeClient } from "./client";
+import type { FrappeMessage } from "./contract";
+import { FrappeMessagesProvider } from "./feedback/messages";
+import type { FormatContext } from "./services/format";
+import type { FrappeSession } from "./services/permissions";
+import type { TranslationDictionary } from "./services/translate";
 
 const FrappeContext = React.createContext<FrappeClient | null>(null);
 let sameOrigin: FrappeClient | null = null;
@@ -14,6 +23,30 @@ let sameOrigin: FrappeClient | null = null;
 /** The provider's client, or a same-origin client with the default options. */
 export function useFrappeClient(): FrappeClient {
   return React.useContext(FrappeContext) ?? (sameOrigin ??= createFrappeClient());
+}
+
+/** The provider's client with the 0.4.0 DocumentApi + RecordApi (a 0.3-style custom client is upgraded over its `call`). */
+export function useFrappeApi(): FrappeApi {
+  const client = useFrappeClient();
+  return React.useMemo(() => withFrappeApi(client), [client]);
+}
+
+export interface FrappeSettings {
+  session?: FrappeSession;
+  translations?: TranslationDictionary;
+  formatContext?: FormatContext;
+}
+const SettingsContext = React.createContext<FrappeSettings>({});
+const EMPTY: FormatContext = {};
+
+/** Session, translations and format settings given to the nearest FrappeProvider (none by default). */
+export function useFrappeSettings(): FrappeSettings {
+  return React.useContext(SettingsContext);
+}
+
+/** The FormatContext for `formatValue` from the provider (`formatContext` prop), or {} (Frappe's defaults). */
+export function useFormatContext(): FormatContext {
+  return React.useContext(SettingsContext).formatContext ?? EMPTY;
 }
 
 const NO_RETRY = new Set(["csrf", "session_expired", "too_large"]);
@@ -31,13 +64,37 @@ export interface FrappeProviderProps {
   client?: FrappeClient;
   /** Use this React Query client. Default: the app's, if there is one above; otherwise a new one. */
   queryClient?: QueryClient;
+  /** The logged-in user and roles (Desk: `frappe.session.user`, `frappe.user_roles`). Without roles, permissions are
+   *  approximated from `docinfo.permissions` (see `buildDocPermissions`). */
+  session?: FrappeSession;
+  /** Source text → translation for the UI language (Desk: boot `__messages`). 15.110's getdoctype sends none. */
+  translations?: TranslationDictionary;
+  /** Date / number / currency / time-zone settings (Desk: boot `sysdefaults`, `time_zone`, `:Currency`). */
+  formatContext?: FormatContext;
+  /**
+   * Server messages: "show" (default) shows the `_server_messages` of successful calls made through this client
+   * (Desk shows them for every response — the "Saved" alert, …) and hosts `useFrappeMessages`; "host" only hosts
+   * `useFrappeMessages`; false renders no host (an outer FrappeProvider's, if any, is used).
+   */
+  serverMessages?: "show" | "host" | false;
+  /** Route alert messages (`alert: 1`, e.g. "Saved") elsewhere, e.g. to `toast()` from "@solvfast/ui/toast". Default:
+   *  the built-in alert region. */
+  onAlert?: (message: FrappeMessage) => void;
   children: React.ReactNode;
 }
 
-export function FrappeProvider({ client, queryClient, children }: FrappeProviderProps) {
+export function FrappeProvider({ client, queryClient, session, translations, formatContext, serverMessages = "show", onAlert, children }: FrappeProviderProps) {
   const existing = React.useContext(QueryClientContext);
   const [own] = React.useState(() => queryClient ?? (existing ? undefined : createFrappeQueryClient()));
   const value = React.useMemo(() => client ?? createFrappeClient(), [client]);
-  const inner = <FrappeContext.Provider value={value}>{children}</FrappeContext.Provider>;
+  const outer = React.useContext(SettingsContext);
+  const settings = React.useMemo(
+    () => ({ session: session ?? outer.session, translations: translations ?? outer.translations, formatContext: formatContext ?? outer.formatContext }),
+    [session, translations, formatContext, outer],
+  );
+  const source = React.useMemo(() => (serverMessages === "show" ? withFrappeApi(value) : undefined), [serverMessages, value]);
+  let inner = <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>;
+  if (serverMessages) inner = <FrappeMessagesProvider source={source} onAlert={onAlert}>{inner}</FrappeMessagesProvider>;
+  inner = <FrappeContext.Provider value={value}>{inner}</FrappeContext.Provider>;
   return own ? <QueryClientProvider client={own}>{inner}</QueryClientProvider> : inner;
 }
