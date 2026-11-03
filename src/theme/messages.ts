@@ -278,6 +278,11 @@ const en = {
   formReadOnly: "Read only",
   formValidating: "Checking…",
   formNotFound: "{value} was not found",
+  formInvalidFormat: "Not a valid {type}",
+  formMultiSelectNoLink: "Table MultiSelect requires a Table with atleast one Link field",
+  formSaving: "Saving…",
+  formError: "Could not save",
+  formUnsupportedField: "{fieldtype} fields cannot be edited here yet",
 
   // ---- frappe:record ----
   recChangedValues: "{0} changed the values for {1}",
@@ -633,6 +638,11 @@ const ar: Messages = {
   formReadOnly: "للقراءة فقط",
   formValidating: "جارٍ التحقق…",
   formNotFound: "لم يُعثر على {value}",
+  formInvalidFormat: "قيمة {type} غير صالحة",
+  formMultiSelectNoLink: "يتطلب حقل الاختيار المتعدد جدولًا يحتوي على حقل ربط واحد على الأقل",
+  formSaving: "جارٍ الحفظ…",
+  formError: "تعذّر الحفظ",
+  formUnsupportedField: "لا يمكن تعديل حقول {fieldtype} هنا بعد",
 
   // ---- frappe:record ----
   recChangedValues: "غيّر {0} القيم في {1}",
