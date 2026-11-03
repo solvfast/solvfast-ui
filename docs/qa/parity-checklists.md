@@ -709,10 +709,18 @@ means the client-side logic can be pre-checked on `sim`. Counts: `grep -o '^- \*
 5. **Hidden fields in `check_mandatory`.** Doc 11 §5.6 marks "hidden-by-dependency fields still checked" as UNVERIFIED.
    Resolved by reading `save.js:118-160`: the loop filters only on `reqd`/`mandatory_depends_on`/Fold, not on display
    status, so they **are** checked.
-6. Everything else spot-checked agrees with docs 10–14: `getdoc` `[]` (`load.py:33-38`), `savedocs` `json.loads`
+6. **Fixture defect (not a doc error).** The seven `tests/fixtures/real-15.110/*.ar.json` files are byte-identical to
+   the `*.en.json` files and every `__messages` is `null`, although the README says "with `__messages`". The capture
+   (`scripts/capture-real-meta.py:31-36`) switches `frappe.local.lang` but `getdoctype` reads the form-meta Redis cache
+   keyed by doctype only (`desk/form/meta.py:35-47`), so the English object was returned twice (probable cause, not
+   run). Arabic assertions need authored `__messages` or a re-capture; M-02 uses authored ones.
+7. **Open question closed by source.** Doc 11 §12 and doc 30 ask which globals real `eval:` expressions need. In the
+   seven real DocTypes (`tests/parity/dependencies.test.ts`, runs now) the only free functions are `in_list`
+   (`utils/number_format.js:276`) and `cint` (`utils/datatype.js:9`), besides `doc` and `parent`.
+8. Everything else spot-checked agrees with docs 10-14: `getdoc` `[]` (`load.py:33-38`), `savedocs` `json.loads`
    (`save.py:18`) and docstatus map (`:26-31`), assign `limit=5` (`assign_to.py:38`), `remove_attach` reads only `fid`
    (`utils.py:19-23`), Comment delete perms (`comment.json`), `session_expired` (`sessions.py:326-333`), the `*` hook
-   chain (`hooks.py:151-181`).
+   chain (`hooks.py:151-181`), `check_mandatory` (`save.js:120-298`), the ladder (`perm.js:191-265`).
 
 ## Open questions
 
@@ -721,7 +729,11 @@ means the client-side logic can be pre-checked on `sim`. Counts: `grep -o '^- \*
 2. Kind for classes the contract does not list: `NameError` 409 (not `DuplicateEntryError`), `RateLimitExceededError`
    429 (a ValidationError), `TooManyRequestsError` 429, `InReadOnlyMode` 503, `LinkExpired` 410. Proposal: map by status
    first for 429/503/410 → `server` with `retryAfter`-style handling, or add kinds.
-3. Is the extra roles/users set (SFUI Reader, SFUI Approver) acceptable in the footprint, or must everything use
-   `SFUI Tester` plus User Permissions?
+3. `FormatContext` is named in CONTRACT-0.4.md §2 but not defined in `contract.ts`. `tests/parity/seam.ts` assumes
+   `{sysdefaults, timeZone, currencies, linkTitles}`; the Lead should define it.
+4. How do roles reach `usePermissions(bundle, doc, docinfo)`? The signature has no roles input, yet permlevel>0
+   rights come from `meta.permissions` filtered by the user's roles. The seam assumes a `roles` input.
+5. Is the extra role/user set (SFUI Reader, SFUI Approver, five users) acceptable in the footprint, or must everything
+   use `SFUI Tester` plus User Permissions? (`docs/qa/test-footprint.md` §6.)
 
-<!-- tag counts are produced by: grep -o '^- \*\*Tag:\*\* [a-z-]*' docs/qa/parity-checklists.md | sort | uniq -c -->
+<!-- tag counts: grep -o '^- \*\*Tag:\*\* [a-z-]*' docs/qa/parity-checklists.md | sort | uniq -c -->
