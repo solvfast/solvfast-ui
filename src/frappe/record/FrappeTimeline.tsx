@@ -6,8 +6,6 @@ import { useLocale } from "../../theme/ThemeProvider";
 import type { DocInfo, DocTypeMeta, FrappeDoc, MetaBundle } from "../contract";
 import { useDocAction } from "../hooks";
 import { usePermissions } from "../hooks";
-import { useFrappeSettings } from "../FrappeProvider";
-import { formatValue } from "../services/format";
 import { useRecordApi, useRecordDocInfo, useRecordMeta } from "./data";
 import { useCommunications } from "./useCommunications";
 import { buildTimelineItems, type TimelineContext } from "./timeline";
@@ -45,7 +43,6 @@ export function FrappeTimeline({
   const q = useRecordDocInfo(doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
   const meta = useRecordMeta(doc.doctype, bundle);
   const info = q.data;
-  const { formatContext } = useFrappeSettings();
   const perms = usePermissions(meta.data, doc, info);
   const comm = useCommunications(doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
   const comms = comm.communications;
@@ -70,16 +67,10 @@ export function FrappeTimeline({
     const ctx: TimelineContext = {
       user, t, isSystemManager, canDeleteComment, fieldLabel, activity, isolate: isRTL,
       milestoneLabel: (f) => fieldLabel(f) ?? f,
-      formatValue: (fieldname, value, table) => {
-        const m = meta.data; if (!m) return undefined;
-        const tableDf = table ? m.meta.fields.find((x) => x.fieldname === table) : undefined;
-        const df = (tableDf ? m.children[String(tableDf.options)] : m.meta)?.fields.find((x) => x.fieldname === fieldname);
-        return df ? formatValue(value, df, doc, formatContext) : undefined;
-      },
     };
     return buildTimelineItems(doc, { ...info, communications: comms }, ctx);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info, comms, doc.modified, user, isSystemManager, canDeleteComment, fieldLabel, activity, t, isRTL, formatContext]);
+  }, [info, comms, doc.modified, user, isSystemManager, canDeleteComment, fieldLabel, activity, t, isRTL]);
 
   const mentionSearch = React.useCallback(
     searchMentions ?? (async (term: string): Promise<MentionOption[]> => {

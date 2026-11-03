@@ -187,24 +187,21 @@ describe("R2-V8 bidi isolation of interpolated tokens in Arabic version lines", 
   });
 });
 
-import { namesForIds, looksRaw } from "../src/frappe/record/timeline";
-describe("assignment names and version value display", () => {
-  it("replaces user ids in an assignment text with full names, leaving names and unknown ids alone", () => {
-    const ui = { "Administrator": { fullname: "Admin User" }, "sara@rihlat.travel": { fullname: "Sara Nasr" } };
-    expect(namesForIds("Administrator assigned sara@rihlat.travel: call", ui)).toBe("Admin User assigned Sara Nasr: call");
-    expect(namesForIds("Sara Nasr removed their assignment.", ui)).toBe("Sara Nasr removed their assignment.");
-    expect(namesForIds("x@y.com assigned z", ui)).toBe("x@y.com assigned z");
-    expect(namesForIds("not-Administrator-ish", ui)).toBe("not-Administrator-ish");
+describe("stored text is rendered verbatim (as Desk does)", () => {
+  // Evidence: version.py get_diff stores get_formatted() values (blacklisted types raw); version_timeline_content_builder.js
+  // format_content_for_timeline only strips HTML, truncates to 40 and escapes; todo.py writes assignment texts with get_fullname().
+  const mk = (changed: unknown[]) => ({ owner: "bob@x", data: JSON.stringify({ changed, row_changed: [["items", 0, "r1", [["qty", 1, 2]]]] }) });
+  it("shows version values exactly as stored: server-formatted strings and raw values alike, no client formatting", () => {
+    const lines = formatVersion(mk([["amount", "USD 111,000.00", 222000]]), ctx(), "Bob");
+    expect(lines[0].summary).toContain("Amount from USD 111,000.00 to 222000");
+    expect(lines[1].summary).toContain("Qty from 1 to 2 in row #1");
   });
-  it("looksRaw tells database values from server-formatted strings", () => {
-    for (const v of [111000, "111000", "12.5", "2026-11-01", "2026-11-01 10:00:00.123456"]) expect(looksRaw(v), String(v)).toBe(true);
-    for (const v of ["₹ 111,000.00", "111,000.00", "01-11-2026", "Open", ""]) expect(looksRaw(v), String(v)).toBe(false);
-  });
-  it("formats raw values through ctx.formatValue only; server-formatted ones stay as stored", () => {
-    const c = ctx({ formatValue: (_f, v) => `<${String(v)}>` });
-    const mk = (a: unknown, b: unknown) => ({ owner: "bob@x", data: JSON.stringify({ changed: [["amount", a, b]], row_changed: [["items", 0, "r1", [["qty", 1, 2]]]] }) });
-    const lines = formatVersion(mk(111000, "₹ 222,000.00"), c, "Bob");
-    expect(lines[0].summary).toContain("Amount from <111000> to ₹ 222,000.00");
-    expect(lines[1].summary).toContain("Qty from <1> to <2> in row #1");
+  it("shows assignment texts exactly as the server wrote them, ids included", () => {
+    const info = { attachments: [], communications: [], comments: [], versions: [], shared: [], views: [], assignments: [], permissions: {},
+      assignment_logs: [{ name: "A1", owner: "bob@x", creation: "2026-11-02 10:00:00", content: "Admin User assigned Sara Nasr: call" }, { name: "A2", owner: "bob@x", creation: "2026-11-02 11:00:00", content: "bob@x assigned cy@x: call" }],
+      user_info: { "bob@x": { fullname: "Bob Ray" }, "cy@x": { fullname: "Cy Lo" } } } as unknown as DocInfo;
+    const items = buildTimelineItems({ doctype: "Deal", name: "D1" }, info, ctx());
+    expect(items.find((i) => i.id === "assignment-A1")!.summary).toBe("Admin User assigned Sara Nasr: call");
+    expect(items.find((i) => i.id === "assignment-A2")!.summary).toBe("bob@x assigned cy@x: call");
   });
 });
