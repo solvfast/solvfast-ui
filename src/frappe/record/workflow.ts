@@ -5,6 +5,7 @@
  */
 import type { Check, DocTypeMeta, FrappeDoc, WorkflowInfo, WorkflowState, WorkflowTransition } from "../contract";
 import type { LifecycleActionItem, LifecycleStateItem, Tone } from "../../record/types";
+import { styleTone } from "../services/indicator";
 
 /** `WorkflowInfo` plus what the status indicator needs (see the report: the Lead may fold these into the contract). */
 export interface RecordWorkflow extends Omit<WorkflowInfo, "states"> {
@@ -101,15 +102,7 @@ export function standardActionsUnderWorkflow(wf: RecordWorkflow | null, actionsA
 }
 
 /** Workflow State.style → tone (indicator.js). No style → gray; Inverse (black) → neutral. */
-export function toneForStyle(style: string | undefined): Tone {
-  switch (style) {
-    case "Success": return "success";
-    case "Warning": return "warning";
-    case "Danger": return "danger";
-    case "Primary": case "Info": return "info";
-    default: return "neutral";
-  }
-}
+export function toneForStyle(style: string | undefined): Tone { return styleTone(style); }
 
 /** The ordered states for `LifecycleBar` (workflow row order, duplicates removed). */
 export function lifecycleStates(wf: RecordWorkflow, translate: (s: string) => string = (s) => s): LifecycleStateItem[] {
