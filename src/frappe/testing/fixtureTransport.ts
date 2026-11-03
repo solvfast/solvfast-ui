@@ -238,6 +238,13 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
   function makeName(meta: DocTypeMeta, doc: FrappeDoc): string {
     const auto = String(meta.autoname ?? "").trim();
     const series = (key: string) => parseSeries((key.includes("#") ? key : `${key}.#####`).split("."), doc);
+    if (typeof doc.amended_from === "string" && doc.amended_from) {
+      // _set_amended_name with the "Amend Counter" rule (UNVERIFIED: the site's Document Naming Settings may say
+      // "Default Naming"): X → X-1; an amendment of X-1 (itself amended) → X-2
+      const src = String(doc.amended_from);
+      const srcDoc = table(meta.name).get(src);
+      return srcDoc?.amended_from ? `${src.split("-").slice(0, -1).join("-")}-${(parseInt(src.split("-").pop() ?? "0", 10) || 0) + 1}` : `${src}-1`;
+    }
     if (typeof doc.__newname === "string" && doc.__newname.trim()) return doc.__newname.trim();
     if (auto.toLowerCase() === "prompt") return fail(417, "ValidationError", "Please set the document name"); // UNVERIFIED wording
     if (auto.startsWith("field:")) { const v = doc[auto.slice(6).trim()]; if (v) return String(v).trim(); return fail(417, "ValidationError", `${auto.slice(6)} is required`); }
@@ -444,6 +451,10 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       if (from === 0 && target === 2) fail(417, "DocstatusTransitionError", "Cannot change docstatus from 0 (Draft) to 2 (Cancelled)");
     }
     if (target === 1 && !meta.is_submittable) fail(417, "ValidationError", `${meta.name} is not submittable`);
+    if (isNew && raw.amended_from && Number(table(meta.name).get(String(raw.amended_from))?.docstatus) !== 2) {
+      // Document.validate_amended_from
+      fail(417, "ValidationError", `${meta.name} ${String(raw.amended_from)} cannot be amended because it is not cancelled. Please cancel the document before creating an amendment.`, {});
+    }
     const before = { ...counters }; // a failed insert rolls back, so a naming series number is not consumed
     const rollback = () => { for (const k of Object.keys(counters)) if (!(k in before)) delete counters[k]; else counters[k] = before[k]; };
     const dropped: FrappeDoc[] = [];
@@ -542,6 +553,33 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     const composed = [ud?.first_name, ud?.middle_name, ud?.last_name].filter((x) => typeof x === "string" && x.trim()).join(" ");
     return { fullname: String(ud?.full_name || composed || u), image: (ud?.user_image as string | undefined) ?? null, name: u };
   };
+
+  /**
+   * `get_submitted_linked_docs` (desk/form/linked_with.py SubmittableDocumentTree), SIMULATED: submitted documents of
+   * submittable DocTypes whose Link fields (parent or child rows) point at the document, followed recursively through
+   * submitted documents only. Dynamic Links and the auto_cancel_exempted_doctypes hook are not considered.
+   */
+  function submittedLinkedDocs(doctype: string, name: string, ignore: string[]): { doctype: string; name: string; docstatus: 1 }[] {
+    const out: { doctype: string; name: string; docstatus: 1 }[] = [];
+    const seen = new Set([`${doctype}\u0000${name}`]);
+    const queue: [string, string][] = [[doctype, name]];
+    const metas = Object.values(store.meta).flat().filter((m) => m.is_submittable && !ignore.includes(m.name));
+    while (queue.length) {
+      const [dt, nm] = queue.shift()!;
+      for (const m of metas) {
+        const own = m.fields.filter((f) => f.fieldtype === "Link" && f.options === dt).map((f) => f.fieldname);
+        const rows = tableFields(m).map((tf) => [tf.fieldname, (metaOf(tf.options!)?.fields ?? []).filter((f) => f.fieldtype === "Link" && f.options === dt).map((f) => f.fieldname)] as const).filter(([, fs]) => fs.length);
+        if (!own.length && !rows.length) continue;
+        for (const d of store.docs.get(m.name)?.values() ?? []) {
+          if (Number(d.docstatus) !== 1) continue;
+          const links = own.some((f) => d[f] === nm) || rows.some(([tf, fs]) => ((d[tf] as FrappeDoc[] | undefined) ?? []).some((r) => fs.some((f) => r[f] === nm)));
+          const key = `${m.name}\u0000${d.name}`;
+          if (links && !seen.has(key)) { seen.add(key); out.push({ doctype: m.name, name: d.name, docstatus: 1 }); queue.push([m.name, d.name]); }
+        }
+      }
+    }
+    return out;
+  }
 
   function workflowOf(doctype: string): WorkflowInfo | undefined {
     return store.workflows[doctype] ?? Object.values(store.workflows).find((w) => w.document_type === doctype);
@@ -671,6 +709,26 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const n = rowsFor(String(a.doctype), a).length;
       const limit = Number(a.limit) || 0;
       return { message: limit ? Math.min(n, limit) : n };
+    },
+    // ---- cancel pre-flight and amend (form toolbar, docs 11 §5.4, §1.8) ----
+    "frappe.desk.form.linked_with.get_submitted_linked_docs": (a) => {
+      const docs = submittedLinkedDocs(String(a.doctype), String(a.name), (parse(a.ignore_doctypes_on_cancel_all) as string[] | undefined) ?? []);
+      return { message: { docs, count: docs.length } };
+    },
+    "frappe.desk.form.linked_with.cancel_all_linked_docs": (a) => {
+      const ignore = (parse(a.ignore_doctypes_on_cancel_all) as string[] | undefined) ?? [];
+      for (const d of (parse(a.docs) as { doctype: string; name: string }[] | undefined) ?? []) {
+        const cur = store.docs.get(d.doctype)?.get(d.name);
+        // validate_linked_doc: only submitted documents of DocTypes not exempted
+        if (cur && Number(cur.docstatus) === 1 && !ignore.includes(d.doctype)) save({ ...cur }, "Cancel");
+      }
+      return {};
+    },
+    "frappe.client.is_document_amended": (a) => {
+      requireMeta(a.doctype);
+      const hit = [...table(String(a.doctype)).values()].find((d) => d.amended_from === a.docname);
+      // frappe.db.exists → the amending doc's name, or None (a None return leaves no `message` key)
+      return hit ? { message: hit.name } : {};
     },
     "frappe.desk.listview.get_list_settings": (a) => ({ message: clone(options.listSettings?.[String(a.doctype)] ?? null) }),
     "frappe.model.utils.user_settings.save": (a) => {
