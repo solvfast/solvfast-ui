@@ -396,7 +396,7 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
   await check("frappe gallery: cards link to sections", async () => {
     const sec = await go(page, "frappe-gallery");
     if ((await sec.getByRole("link", { name: T("Open section", "فتح القسم") }).count()) < 15) throw new Error("gallery cards missing");
-    if (!(await sec.getByText("SIMULATED", { exact: false }).first().isVisible())) throw new Error("status strip missing");
+    if (!(await sec.getByRole("note").first().isVisible())) throw new Error("status strip missing");
   });
   await check("frappe list view: scenarios, session, realtime event, bulk bar", async () => {
     const sec = await go(page, "frappe-list-view");
@@ -411,13 +411,15 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await sec.getByRole("checkbox").nth(1).click();
     await page.waitForTimeout(300);
     if (await sec.getByRole("button", { name: T("Delete", "حذف") }).count()) throw new Error("bulk Delete offered without the right");
-    await sec.getByRole("radio", { name: T("Empty", "فارغ") }).click();
-    await sec.getByText(/ToDo/).filter({ hasText: /haven't|لم تنشئ|No ToDo|لا توجد/ }).first().waitFor({ timeout: 10_000 });
-    await sec.getByRole("radio", { name: /403/ }).click();
+    const scenario = sec.locator(`[aria-label="${T("Scenario", "السيناريو")}"]`);
+    await scenario.getByRole("radio", { name: T("Empty", "فارغ"), exact: true }).click();
+    await sec.getByText(T("You haven't created a ToDo yet", "لم تُنشئ ToDo بعد")).first().waitFor({ timeout: 10_000 });
+    await scenario.getByRole("radio", { name: /403/ }).click();
     await sec.getByText(T("Not permitted", "غير مسموح")).first().waitFor({ timeout: 10_000 });
-    await sec.getByRole("radio", { name: T("Loading", "جارٍ التحميل") }).click();
+    await scenario.getByRole("radio", { name: T("Loading", "جارٍ التحميل") }).click();
     await page.waitForTimeout(500);
-    if (!(await sec.locator('[aria-busy="true"], .animate-pulse').count())) throw new Error("no loading state");
+    const skeletonRows = await sec.locator("tbody tr").count();
+    if (!skeletonRows || (await sec.locator("tbody").innerText()).trim() !== "") throw new Error(`no loading skeleton (${skeletonRows} rows)`);
   });
   await check("frappe forms: new ToDo mandatory, Travel Request depends_on, 403, 417, read-only by role", async () => {
     const sec = await go(page, "frappe-forms");
@@ -427,11 +429,11 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await page.getByRole("dialog").waitFor({ timeout: 5000 });                                    // Missing Fields
     await page.keyboard.press("Escape");
     await sec.getByRole("radio", { name: /New Travel Request|طلب سفر جديد/ }).click();
-    const visa = sec.getByText(T("Visa country", "Visa country"), { exact: true });
-    await sec.getByText(T("Needs a visa", "Needs a visa"), { exact: true }).waitFor({ timeout: 10_000 });
+    const visa = sec.getByText(/^Visa country/);
+    await sec.getByText(/^Needs a visa/).waitFor({ timeout: 10_000 });
     if (await visa.count()) throw new Error("depends_on field visible before its condition");
     await sec.getByRole("checkbox", { name: /Needs a visa/ }).click();
-    await visa.first().waitFor();
+    await visa.first().waitFor({ timeout: 5000 });
     await sec.getByRole("radio", { name: /403/ }).click();
     await sec.getByText(T("Not permitted", "غير مسموح")).first().waitFor({ timeout: 10_000 });
     await sec.getByRole("radio", { name: /417/ }).click();
@@ -445,12 +447,12 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await sec.getByText("Riyadh offsite").first().waitFor({ timeout: 10_000 });
     await page.waitForTimeout(300);
     if (await sec.getByRole("button", { name: T("Save", "حفظ") }).count()) throw new Error("Save offered without write");
-    if (await sec.getByText(T("Internal notes", "Internal notes"), { exact: true }).count()) throw new Error("permlevel-1 field shown to Sales User");
+    if (await sec.getByText(/^Internal notes/).count()) throw new Error("permlevel-1 field shown to Sales User");
   });
   await check("frappe record: status chip, timeline, add a comment", async () => {
     const sec = await go(page, "frappe-record");
     await sec.getByRole("textbox").first().waitFor({ timeout: 15_000 });
-    await sec.getByText(/You changed the value|غيّرت/).first().waitFor();                       // a Version line
+    await sec.getByText(/changed the value|غيّر/).first().waitFor({ timeout: 10_000 });          // a Version line
     await sec.getByRole("textbox").first().fill("Smoke comment Q7");
     await sec.getByRole("button", { name: T("Comment", "تعليق") }).first().click();
     await sec.getByText("Smoke comment Q7").waitFor({ timeout: 10_000 });
@@ -467,13 +469,14 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
   });
   await check("frappe assign: add through the simulator, generic picker, composer mention", async () => {
     const sec = await go(page, "frappe-assign");
-    const add = sec.getByRole("button", { name: T("Add assignee", "إضافة مُسنَد إليه") }).first();
+    const add = sec.getByRole("button", { name: T("Add assignment", "إضافة إسناد") }).nth(1);   // FrappeAssignTo, list variant (names as text)
     await add.waitFor({ timeout: 10_000 });
     await add.click();
-    await page.getByRole("combobox").last().fill("omar");
-    await page.getByRole("option", { name: /omar/ }).first().click();
-    await page.getByRole("button", { name: T("Assign", "إسناد") }).last().click();
-    await sec.getByText(/Omar Q|omar@example.com/).first().waitFor({ timeout: 10_000 });
+    const search = page.getByRole("combobox", { name: T("Search users…", "ابحث عن مستخدمين…") });
+    await search.fill("omar");
+    await page.getByRole("option", { name: /omar/i }).first().click();
+    await page.getByRole("button", { name: T("Add", "إضافة"), exact: true }).last().click();
+    await sec.getByText(/omar/i).first().waitFor({ timeout: 10_000 });
     const box = sec.getByRole("textbox").last();
     await box.fill("Ping @sar");
     await page.getByRole("option", { name: /Sara Q/ }).first().click();
