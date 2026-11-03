@@ -79,7 +79,7 @@ function pickerFields(meta: DocTypeMeta, importType: ImportType, levels: DocPerm
   // the DocType's fields: not layout / display / table, not lft / rgt, not virtual (data_exporter.js:314-326); and, the
   // package's addition, only fields at a permlevel the user may read (the server strips the others — `readableFields`)
   let fields: FrappeDocField[] = (meta.fields ?? []).filter((df) => !NOT_EXPORTABLE.has(df.fieldtype) && df.fieldname !== "lft" && df.fieldname !== "rgt" && !truthy(df.is_virtual));
-  if (levels) fields = readableFields(fields, levels);
+  if (levels?.[0]?.read) fields = readableFields(fields, levels); // same guard as `restrictMetaToReadable`: rights known and level 0 readable
   const mandatory = (df: Pick<FrappeDocField, "fieldname" | "reqd">) =>
     (truthy(df.reqd) && importType === "Insert New Records") || df.fieldname === autoname || df.fieldname === "name";
   const id: ExportPickerField[] = autoname ? [] : [{ fieldname: "name", label: "ID", fieldtype: "Data", reqd: true, mandatory: true }];

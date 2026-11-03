@@ -159,12 +159,13 @@ Shown in the selection bar, which sits above the table (sticky) so it never scro
 |---|---|---|
 | Edit | an editable field exists, `write`, and no workflow (or `allow_edit`) | `frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs` (`action: "update"`, `data: {field: value}`) |
 | Submit / Cancel | submittable, `submit` / `cancel`, no workflow | same, `action: "submit"` / `"cancel"` |
-| Assign to | `write` (UNVERIFIED: Desk offers it to everyone; the server checks each document) | `frappe.desk.form.assign_to.add_multiple` (`bulk_assign`, `re_assign`); user picked with `AssignPicker` (searches `search_link` on `User`) with comment, due date, priority |
+| Assign to | `read` (Desk offers it to everyone, `list_view.js:2095`; the server requires read on each document, `assign_to.py:67-68`) | `frappe.desk.form.assign_to.add_multiple` (`bulk_assign`, `re_assign`); user picked with `AssignPicker` (searches `search_link` on `User`) with comment, due date, priority |
 | Delete | `delete`, and no workflow (or `allow_edit`) | `frappe.desk.reportview.delete_items` (more than 10 are enqueued by the server) |
 
 Destructive actions confirm. The outcome line ("N succeeded, M failed" / "queued, will run in the background") is shown under the list; the list reloads and the selection clears unless
 everything failed. For 20–500 submit/cancel documents the server enqueues and answers nothing: treated as *queued* (UNVERIFIED at runtime). `onDone`/`onError` report each action.
-When the server answers with failed names (`submit_cancel_or_update_docs`), the line reads "N succeeded, M failed: B, D" — the server's names, never a plain
+Delete (`delete_items`) answers nothing — failures arrive as a realtime msgprint (`reportview.py:608-616`) — so the bar says "N requested — the server reports
+failures in its messages" and never "0 failed". When the server answers with failed names (`submit_cancel_or_update_docs`), the line reads "N succeeded, M failed: B, D" — the server's names, never a plain
 success line; a 403 shows the server's message and changes nothing (no reload, no cache change).
 **Not offered:** Print, Clear Assignment, Apply Assignment Rule, Add Tags, workflow bulk approval. **Export** is in the selection bar (section 6a).
 

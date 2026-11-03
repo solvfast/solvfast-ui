@@ -6,7 +6,7 @@
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src";
 import { FrappeListView, FrappeProvider, createFrappeClient, FrappeError, type FrappeTransport } from "../src/frappe";
@@ -14,7 +14,7 @@ import type { FrappeFilesTransport } from "../src/frappe/client";
 import type { DocPermissions, FrappeDocField, MetaBundle } from "../src/frappe/contract";
 import type { DocMeta } from "../src/frappe/client";
 import { DOWNLOAD_TEMPLATE_METHOD, downloadExportTemplate, exportPickerGroups, mandatorySelection, saveFile, selectedNamesFilter } from "../src/frappe/list/export";
-import { DATA_IMPORT_METHODS, getImportStatus, parseTemplateWarnings, startDataImport } from "../src/frappe/list/import";
+import { DATA_IMPORT_METHODS, getImportStatus, parseTemplateWarnings, startDataImport, useImportStatus } from "../src/frappe/list/import";
 import { buildFrappeListMeta, restrictMetaToReadable } from "../src/frappe/meta";
 import { canExport, canImport, readableFields, rolePermissions } from "../src/frappe/services/permissions";
 import { defaultMessages } from "../src/theme/messages";
@@ -209,6 +209,39 @@ describe("Import sequence (data_import.js; attach.js:137-144; handler.py:175-260
     expect(parseTemplateWarnings({ template_warnings: JSON.stringify([{ col: 2, message: "Cannot match column X with any field" }]) })).toEqual([{ col: 2, message: "Cannot match column X with any field" }]);
     expect(parseTemplateWarnings({ template_warnings: null })).toEqual([]);
     expect(parseTemplateWarnings(undefined)).toEqual([]);
+  });
+});
+
+describe("useImportStatus (polling stand-in for data_import_refresh / data_import_progress)", () => {
+  const hook = (statuses: Record<string, unknown>[], doc: Record<string, unknown> = {}) => {
+    let i = 0;
+    const calls: string[] = [];
+    const api = {
+      call: async (m: string) => { calls.push(m); return { message: statuses[Math.min(i++, statuses.length - 1)] }; },
+      getDoc: async (dt: string, n: string) => { calls.push(`getdoc:${dt}/${n}`); return { doc: { doctype: dt, name: n, ...doc }, docinfo: {} as never }; },
+    };
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const r = renderHook(() => useImportStatus(api as never, "DI-9", { intervalMs: 30 }), { wrapper: ({ children }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider> });
+    return { ...r, calls };
+  };
+
+  it("keeps polling while Pending without warnings, stops once the status leaves Pending", async () => {
+    const { result, calls } = hook([{ status: "Pending", total_records: 4 }, { status: "Pending", success: 2, total_records: 4 }, { status: "Success", success: 4, total_records: 4 }]);
+    await waitFor(() => expect(result.current.progress?.running).toBe(true));
+    expect(calls.filter((c) => c === DATA_IMPORT_METHODS.status).length).toBeGreaterThanOrEqual(1);
+    expect(calls).toContain("getdoc:Data Import/DI-9");
+    await waitFor(() => expect(result.current.progress?.status).toBe("Success"));
+    expect(result.current.progress).toMatchObject({ running: false, success: 4, total: 4, warnings: [] });
+    const n = calls.filter((c) => c === DATA_IMPORT_METHODS.status).length;
+    await act(() => new Promise((r) => setTimeout(r, 120)));
+    expect(calls.filter((c) => c === DATA_IMPORT_METHODS.status).length).toBe(n); // no further polls
+  });
+
+  it("template warnings stop the job before importing (importer.py:81-90): Pending, not running, warnings surfaced", async () => {
+    const { result } = hook([{ status: "Pending", total_records: 3 }], { template_warnings: JSON.stringify([{ col: 1, message: "Cannot match column Foo with any field" }]) });
+    await waitFor(() => expect(result.current.progress).toBeTruthy());
+    expect(result.current.progress).toMatchObject({ status: "Pending", running: false });
+    expect(result.current.progress?.warnings[0].message).toMatch(/Cannot match column/);
   });
 });
 
