@@ -10,7 +10,7 @@ export { ActionBar } from "./ActionBar";
 export type { ActionBarProps, ActionBarLabels } from "./ActionBar";
 export { StatusBadge } from "./StatusBadge";
 export type { StatusBadgeProps } from "./StatusBadge";
-export { sanitizeHtml, htmlToText } from "./sanitize";
+export { sanitizeCommentHtml, htmlToText } from "./sanitize";
 export type {
   Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem, Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./types";

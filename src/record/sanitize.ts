@@ -1,11 +1,14 @@
 /**
+ * NOT a duplicate of primitives/rich-text-editor `sanitizeHtml`: that one re-creates every element WITHOUT attributes, which would
+ * strip the `span.mention[data-id][data-is-group]` markup the server reads (docs 14 A11.2) and comment images. This one keeps exactly those
+ * attributes (plus safe href/src) and nothing else. Parsing through DOMParser is inert (no script, no image load).
  * Minimal allow-list HTML sanitiser for comment bodies (Frappe stores comments as HTML; the server removes form
  * controls but the client must still not trust it). Keeps basic formatting, links, images and `span.mention`.
  */
 const TAGS = new Set(["A", "B", "STRONG", "I", "EM", "U", "S", "DEL", "P", "BR", "UL", "OL", "LI", "BLOCKQUOTE", "CODE", "PRE", "SPAN", "DIV", "H1", "H2", "H3", "H4", "IMG"]);
 const SAFE_URL = /^(https?:|mailto:|\/|#|data:image\/(png|jpe?g|gif|webp);)/i;
 
-export function sanitizeHtml(html: string): string {
+export function sanitizeCommentHtml(html: string): string {
   if (typeof DOMParser === "undefined") return html.replace(/<[^>]*>/g, "");
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
   const walk = (node: Element) => {
