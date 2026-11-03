@@ -88,38 +88,9 @@ interface RealtimeProgress { current: number; total: number; eta: number; succes
 
 const FILE_TYPES = ".csv,.xls,.xlsx";
 
-export function FrappeDataImport(props: FrappeDataImportProps) {
-  const { doctype, open, onOpenChange, className } = props;
-  const L = useDataImportLabels(props.labels);
+export function FrappeDataImport({ api, doctype, bundle: bundleProp, importType: importTypeProp, open, onOpenChange, pollIntervalMs, subscribe, onGoToList, onFinished, docHref, labels, exportLabels, className }: FrappeDataImportProps) {
+  const L = useDataImportLabels(labels);
   const [busy, setBusy] = React.useState<null | "upload" | "remap" | "start" | "download">(null);
-  const body = <DataImportBody {...props} L={L} busy={busy} setBusy={setBusy} />;
-  if (open === undefined) {
-    return (
-      <section className={cn("space-y-4", className)} aria-label={L.title} data-frappe-import={doctype}>
-        <header>
-          <h2 className="text-lg font-semibold">{L.title}</h2>
-          <p className="text-sm text-muted-foreground">{doctype}</p>
-        </header>
-        {body}
-      </section>
-    );
-  }
-  return (
-    <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange?.(o)}>
-      <DialogContent className={cn("max-h-[90vh] overflow-y-auto sm:max-w-4xl", className)} data-frappe-import={doctype}>
-        <DialogHeader>
-          <DialogTitle>{L.title}</DialogTitle>
-          <DialogDescription>{doctype}</DialogDescription>
-        </DialogHeader>
-        {body}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function DataImportBody({ api, doctype, bundle: bundleProp, importType: importTypeProp, pollIntervalMs, subscribe, onGoToList, onFinished, docHref, exportLabels, L, busy, setBusy }: FrappeDataImportProps & {
-  L: DataImportLabels; busy: null | "upload" | "remap" | "start" | "download"; setBusy: (b: null | "upload" | "remap" | "start" | "download") => void;
-}) {
   const metaQ = useQuery<MetaBundle>({ queryKey: frappeKeys.metaBundle(doctype), queryFn: () => api.getMetaBundle(doctype), enabled: !bundleProp, staleTime: 5 * 60_000, retry: false });
   const bundle = bundleProp ?? metaQ.data;
 
@@ -269,7 +240,7 @@ function DataImportBody({ api, doctype, bundle: bundleProp, importType: importTy
   const previewHasFailures = (preview?.import_log ?? []).some((l) => !l.success);
   const startLabel = status === "Pending" ? L.startImport : L.retry;
 
-  return (
+  const body = (
     <div className="space-y-4">
       <Stepper steps={steps} ariaLabel={L.steps} />
 
@@ -360,6 +331,31 @@ function DataImportBody({ api, doctype, bundle: bundleProp, importType: importTy
         </div>
       )}
     </div>
+  );
+
+  // the state above lives in THIS component: in dialog mode, closing the dialog keeps it (and the poll) — reopening shows
+  // the same import; "Import another file" starts a new one. Unmounting the component stops polling, never the job.
+  if (open === undefined) {
+    return (
+      <section className={cn("space-y-4", className)} aria-label={L.title} data-frappe-import={doctype}>
+        <header>
+          <h2 className="text-lg font-semibold">{L.title}</h2>
+          <p className="text-sm text-muted-foreground">{doctype}</p>
+        </header>
+        {body}
+      </section>
+    );
+  }
+  return (
+    <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange?.(o)}>
+      <DialogContent className={cn("max-h-[90vh] overflow-y-auto sm:max-w-4xl", className)} data-frappe-import={doctype}>
+        <DialogHeader>
+          <DialogTitle>{L.title}</DialogTitle>
+          <DialogDescription>{doctype}</DialogDescription>
+        </DialogHeader>
+        {body}
+      </DialogContent>
+    </Dialog>
   );
 }
 

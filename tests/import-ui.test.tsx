@@ -444,6 +444,41 @@ describe("FrappeDataImport — upload, preview, warnings (data_import.js:250-406
     expect(sim.count(DATA_IMPORT_METHODS.save)).toBe(0); // no Data Import is created for a template
   });
 
+  it("dialog mode: closing keeps the import (state + poll live in the component); reopened, the mapper works inside the dialog", async () => {
+    const sim = makeSim();
+    const api = createFrappeClient({ transport: sim.transport, files: sim.files });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function Host() {
+      const [open, setOpen] = React.useState(true);
+      return (
+        <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
+          <QueryClientProvider client={qc}>
+            <button type="button" onClick={() => setOpen(true)}>reopen</button>
+            <FrappeDataImport api={api} doctype="Sales Order" bundle={BUNDLE} pollIntervalMs={20} open={open} onOpenChange={setOpen} />
+          </QueryClientProvider>
+        </ThemeProvider>
+      );
+    }
+    render(<Host />);
+    await uploadAndPreview();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "reopen" }));
+    await screen.findByRole("dialog");
+    expect(screen.getByRole("region", { name: L.preview })).toBeTruthy(); // same Data Import, no new requests
+    expect(sim.methods()).toEqual([DATA_IMPORT_METHODS.save, "upload_file", DATA_IMPORT_METHODS.save, DATA_IMPORT_METHODS.preview]);
+
+    click(L.mapColumns);
+    const form = await screen.findByRole("form", { name: L.mapColumns });
+    fireEvent.click(within(form).getByRole("combobox", { name: "Customer Name" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Customer customer" }));
+    await waitFor(() => expect(within(form).getByRole("combobox", { name: "Customer Name" }).getAttribute("data-value")).toBe("customer"));
+    expect(screen.getByRole("dialog")).toBeTruthy(); // picking in the popover did not dismiss the dialog
+    fireEvent.click(within(form).getByRole("button", { name: L.saveMapping }));
+    await waitFor(() => expect(sim.count(DATA_IMPORT_METHODS.preview)).toBe(2));
+    expect(JSON.parse(String(JSON.parse(String(sim.sent(DATA_IMPORT_METHODS.save, 2)?.doc)).template_options))).toEqual({ column_to_field_map: { "1": "customer" } });
+  });
+
   it("Arabic labels by default under language 'ar' (labels prop still overrides)", async () => {
     const sim = makeSim();
     mount(sim, { labels: { upload: "ارفع" } }, "ar");
