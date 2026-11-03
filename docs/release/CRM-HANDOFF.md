@@ -8,8 +8,8 @@ Written 2026-11-03 at the end of Phase 27.5. **No CRM migration has started; thi
 | | |
 |---|---|
 | Version | `0.4.0-dev.34` (not published; not tagged) |
-| Branch / commit | `feat/0.4.0-frappe` in `/home/frappe/solvfast-ui`, packed from `a581361` |
-| Artifact | local `npm pack` tarball `solvfast-ui-0.4.0-dev.34.tgz`, 651,316 B, SHA-256 `b6468c275a355586e8530ca0a9f938f839e92b7f06b90ecd2fae5b5def2edbdc`. GitHub Packages only after the owner approves `0.4.0-rc.1` |
+| Branch / commit | `feat/0.4.0-frappe` in `/home/frappe/solvfast-ui`, packed from `374e7a9` |
+| Artifact | local `npm pack` tarball `solvfast-ui-0.4.0-dev.34.tgz`, 651,850 B, SHA-256 `5992eea2a289200ac225ad56fce07808fcd32d7d830485f49a9b35c51be4b9ad`. GitHub Packages only after the owner approves `0.4.0-rc.1` |
 | Status | **NOT READY FOR RC** (checklist §0): package-side scope complete; no authenticated real-session or write evidence |
 
 **How the CRM work copy gets it today:** the Lead's drop script (`/home/frappe/sfui-dev/drop-package.sh`) installs the
