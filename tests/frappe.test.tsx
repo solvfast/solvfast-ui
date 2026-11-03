@@ -48,7 +48,7 @@ function setup(props: Props = {}, opts: { lang?: "en" | "ar"; mock?: MockFrappe;
     </ThemeProvider>
   );
   const utils = render(tree(props));
-  return { mock, qc, rerender: (p: Props) => utils.rerender(tree(p)) };
+  return { mock, qc, unmount: utils.unmount, rerender: (p: Props) => utils.rerender(tree(p)) };
 }
 const calls = (mock: MockFrappe, method: string) => mock.calls.filter((c) => c.method === method);
 const ROWS = "frappe.desk.reportview.get";
@@ -392,12 +392,17 @@ describe("FrappeListView (F31 data mode)", () => {
     expect(screen.getAllByRole("button", { expanded: true }).some((b) => b.textContent!.includes("+"))).toBe(false);
   });
 
-  it("F29 server errors are shown with Frappe's message; Retry reloads (403 and 500)", async () => {
-    const mock = createMockFrappe();
-    mock.failNext(1, { status: 403, exc_type: "PermissionError", message: "No permission for ToDo" }, ROWS);
-    setup({}, { mock });
+  it("F29 server errors are shown with Frappe's message and one action per kind: a 403 has none, a 500 offers Retry", async () => {
+    // changed in 0.4.0 (R2-V6): 0.3.0 offered Retry on a 403, which can never succeed
+    const denied = createMockFrappe();
+    denied.failNext(1, { status: 403, exc_type: "PermissionError", message: "No permission for ToDo" }, ROWS);
+    const first = setup({}, { mock: denied });
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("No permission for ToDo"));
-    fireEvent.click(btn("Retry"));
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    first.unmount();
+
+    const mock = createMockFrappe();
+    setup({}, { mock });
     await loaded();
     mock.failNext(1, { status: 500, exc_type: "Exception", message: "Server error" }, ROWS);
     fireEvent.click(btn("Next page"));

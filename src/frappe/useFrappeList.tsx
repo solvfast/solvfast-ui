@@ -18,6 +18,7 @@ import { useFrappeClient } from "./FrappeProvider";
 import { buildFrappeListMeta, type ListDocMeta } from "./meta";
 import { buildListRequest, type FrappeFilter } from "./query";
 import { rowMetaColumns } from "./list/cells";
+import { FrappeErrorState } from "./feedback/FrappeErrorState";
 import { formatValue, type FormatContext } from "./services/format";
 import { useFormatContext } from "./FrappeProvider";
 import type { MetaBundle } from "./contract";
@@ -278,8 +279,8 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
       hasMore: countOff || !!count.data?.capped,
       onTotalClick: count.data?.capped ? () => setExactCount(true) : undefined,
       loading: !err && (m.loading || !state || list.isPending),
-      error: err ? (err instanceof Error && err.message ? err.message : true) : undefined,
-      onRetry: () => { if (m.error) void m.refetch(); else { void list.refetch(); void count.refetch(); } },
+      // FrappeErrorState: the server's message and one action per error kind (Retry only when retrying can help)
+      error: err ? <FrappeErrorState error={err} onRetry={() => { if (m.error) void m.refetch(); else { void list.refetch(); void count.refetch(); } }} /> : undefined,
       onStateChange,
       onLoadMore: req?.grouped && list.hasNextPage ? () => void list.fetchNextPage() : undefined,
       searchHint: req?.searchNarrowed ? t("searchTitleOnly").replace("{field}", titleLabel) : undefined,

@@ -194,7 +194,11 @@ export function ListTable<T>({
                     {columns.map((c) => <td key={c.key} className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>)}
                   </tr>
                 ))}
-              {!loading && error && (
+              {!loading && React.isValidElement(error) && (
+                // an element is the caller's own error state (e.g. FrappeErrorState with its per-kind actions): rendered as is
+                <tr><td colSpan={colCount} className="py-12"><div className="mx-auto max-w-lg">{error}</div></td></tr>
+              )}
+              {!loading && error && !React.isValidElement(error) && (
                 <tr><td colSpan={colCount} className="py-12 text-center">
                   <div className="flex flex-col items-center gap-3" role="alert">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="h-5 w-5" /></div>

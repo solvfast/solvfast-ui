@@ -48,6 +48,8 @@ Works without a provider too (it creates one with the default same-origin client
 | `belowToolbar` | A node between the toolbar and the table (e.g. state chips). |
 | `rowKey`, `client`, `fiscalYears`, `storage`, … | `rowKey` default `row.name`. `storage` (explicit) wins over `serverStorage`. |
 
+**Errors.** A failed request renders `FrappeErrorState` in the table area: the server's own message and one action per error kind. Retry only for network, server, rate-limited and unavailable errors; a 403 (permission), not found, validation, duplicate, mandatory, link or too-large error has no action, because retrying cannot succeed. *Changed from 0.3.0, which offered Retry on every error (its F29 test now expects none on a 403).*
+
 **Subject first.** Without curated `columns`, the title field (else the ID) is always the first, visible column, as in Desk. Curated columns keep full control.
 
 **Cells.** Int, Float, Percent, Currency, Date, Datetime and Time cells without a custom `render` go through `formatValue` (docs 12 §9), never wrapping
