@@ -252,6 +252,25 @@ describe("SIMULATED missing permission information denies (P2-1)", () => {
     expect(unknownNotice()).toBeTruthy();
   });
 
+  it("FrappeFormView without `permissions`: a child table is read-only (no Add Row, no editable cell); blank fields are hidden; no naming prompt", () => {
+    const ITEM: DocTypeMeta = { name: "Memo Item", istable: 1, fields: [{ fieldname: "item", fieldtype: "Data", label: "Item", in_list_view: 1 }] };
+    const withItems = { ...MEMO(1), autoname: "Prompt", fields: [...MEMO(1).fields, { fieldname: "note", fieldtype: "Data", label: "Note" }, { fieldname: "items", fieldtype: "Table", label: "Items", options: "Memo Item" }] } as DocTypeMeta;
+    const bundle = { meta: withItems, children: { "Memo Item": ITEM }, fetchedAt: 0 } as unknown as MetaBundle;
+    const rows = [{ doctype: "Memo Item", name: "row-1", item: "Widget", parent: "M-1", parentfield: "items", parenttype: "Memo", idx: 1 }];
+    // the provider knows the user's roles (the grid's column filter reads them, FrappeChildTable.tsx:124), but the VIEW was
+    // given no `permissions`: it must still edit nothing
+    const session = { user: "u@x", roles: ["Clerk"] };
+    mount(<FrappeFormView bundle={bundle} doc={memo({ items: rows })} onSave={async (d) => d} />, noop, session);
+    expect(button(en.formAddRow)).toBeNull();
+    expect(screen.getByText("Widget")).toBeTruthy();
+    expect(screen.queryAllByRole("textbox")).toEqual([]);
+    expect(screen.queryByText("Note")).toBeNull(); // blank and read-only → hidden (base_control.js get_status)
+    cleanup();
+    mount(<FrappeFormView bundle={bundle} doc={{ ...NEW_MEMO, title: "Draft plan" }} onSave={async (d) => d} />, noop, session);
+    expect(screen.queryAllByRole("textbox")).toEqual([]); // no __newname prompt either
+    expect(button(en.formAddRow)).toBeNull();
+  });
+
   it("rights given as `levels` only are read from level 0 (no `can`): Submit offered, no unknown notice", () => {
     const permissions: FormPermissions = { levels: [{ read: true, write: true, submit: true }] };
     view(memo(), { permissions });

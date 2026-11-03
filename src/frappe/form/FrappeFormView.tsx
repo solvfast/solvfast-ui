@@ -190,12 +190,15 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     // ladder step 3 (hidden_due_to_dependency → None); the foundation applies it too (its boolean handling was fixed in
     // e266cfe) — kept so a field hidden by a dependency never shows whatever status function is supplied
     if (df.hidden_due_to_dependency) return "None";
-    let st = permissions?.displayStatus
-      ? permissions.displayStatus(df, row, parent, gridCell ? { gridCell: true } : undefined)
-      : controlStatus(ladderStatus(df, parent && !row.docstatus ? { ...row, docstatus: parent.docstatus } : row, permissions?.levels, { workflowReadOnly: permissions?.workflowReadOnly }), df, row);
+    let st: FieldDisplayStatus;
+    if (permissions?.displayStatus) st = permissions.displayStatus(df, row, parent, gridCell ? { gridCell: true } : undefined);
+    else {
+      const ladder = ladderStatus(df, parent && !row.docstatus ? { ...row, docstatus: parent.docstatus } : row, permissions?.levels, { workflowReadOnly: permissions?.workflowReadOnly });
+      // no permission information at all (P2-1): show what the app handed over, edit nothing — demoted BEFORE the control
+      // rules so a blank read-only field is hidden as Desk hides it (base_control.js get_status)
+      st = controlStatus(!permissions && ladder === "Write" ? "Read" : ladder, df, row);
+    }
     if (st === "Write" && isReadOnlyByFetch(df, row)) st = "Read";
-    // no permission information at all (P2-1): show what the app handed over, edit nothing
-    if (st === "Write" && !permissions) st = "Read";
     return st;
   }, [permissions]);
 
@@ -290,7 +293,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const layout = React.useMemo(() => buildLayout(meta, { isNew: !!doc.__islocal }), [meta, doc.__islocal]);
   const fieldStatus = (df: FrappeDocField) => {
     const e = eff.get(df.fieldname) ?? df;
-    if (df.fieldname === "__newname") return doc.__islocal ? "Write" : "None";
+    if (df.fieldname === "__newname") return doc.__islocal && permissions ? "Write" : "None"; // no permissions: nothing to name (P2-1)
     return statusOf(e, doc);
   };
   const breakHidden = (df?: FrappeDocField) => !!df && (!!eff.get(df.fieldname)?.hidden || !!eff.get(df.fieldname)?.hidden_due_to_dependency);

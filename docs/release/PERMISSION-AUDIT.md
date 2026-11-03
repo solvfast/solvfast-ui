@@ -7,7 +7,7 @@ site, two full-rights role holders only). No test users or roles were created an
 
 **Phase 27 (agent perm27, worktree `p27-perm`, on 0.4.0-dev.30):** P2-1, P2-3, P2-4, P3-1 and P3-6 closed — §3 (status,
 commit, test), §6 (Administrator, verified in source), §7 (evidence per class). Tests: `tests/parity/permissions-p27.test.tsx`
-(59 tests). Evidence classes used below, kept separate: **Implemented** (code), **Tested with simulator or test doubles**,
+(60 tests). Evidence classes used below, kept separate: **Implemented** (code), **Tested with simulator or test doubles**,
 **Replayed from recorded real responses** (`tests/fixtures/real-15.110*`, read-only captures), **Verified against an
 authenticated real session** (none), **Verified with actual writes** (none).
 
@@ -20,7 +20,7 @@ authenticated real session** (none), **Verified with actual writes** (none).
 - DocType level (`has_permission` without a doc, `permissions.py:132-157`): `submit` needs `is_submittable`, `import`
   needs `allow_import` (:142), then `get_role_permissions` (:251-330): a right at permlevel 0 if ANY of the user's roles
   grants it; rights granted only by `if_owner` rows collapse to `select`/`read` for the DocType and move to `if_owner`.
-  Administrator: everything, unconditionally (:107-109, :288-290).
+  Administrator: everything, unconditionally (:107-109, :273-275; its roles are every Role, :506-507 — §6).
 - Document level (`get_doc_permissions`, :196-250): role rights, then `submit = 0` for non-submittable, **`import = 0`
   always** (:221), the `if_owner` overlay for the owner (:224-230), then User Permissions (:232-244: a non-owner that
   fails them gets `{}`; the owner keeps only `if_owner` rights and never `create`). Shares (`share.py:155`) are a
@@ -51,10 +51,10 @@ answers: `useSaveDoc` / `useDocAction` update the cache in `onSuccess` only (`sr
 |---|---|---|---|---|---|---|
 | Read (form) | `FrappeForm.tsx:86` → `usePermissions`; fields `fieldDisplayStatus` (`permissions.ts:176`), tabs `FrappeFormView.tsx:291` (`read` at the tab's permlevel) | `read` per permlevel | `load.py:40 has_permission("read")`, field stripping `:53` | `api.getDoc` — the server answers 403 | `FrappeForm.tsx:101` → `FrappeErrorState` (kind permission, no Retry) | SIMULATED (matrix §2, §4, §5); REAL read for 2 holders |
 | Read (list rows) | `FrappeListView.tsx:56` `usePermissions(bundle)`; columns are what `reportview.get` returns | — (Desk: `list_view.js:38-52` read) | `db_query.py:566-585`, field stripping `:668-760` | yes | list `FrappeErrorState` per kind (RELEASE "List errors") | SIMULATED (list tests, list-io) |
-| Create | `FrappeFormView.tsx:380` → `formActions` (`form/model/actions.ts:53`: new doc needs `create` or `write`); no `permissions` prop → no right (P2-1); `FrappeListView.tsx:93` "Create your first" only via the app's `onCreate` | `create` (or `write`, Desk `form.js` save button parity) | `savedocs` → `doc.insert` → `has_permission("create")` | `useSaveDoc` | rejects with kind permission; cache untouched (matrix §3) | SIMULATED |
-| Write | `FrappeFormView.tsx:380` `can("write")`; fields Write/Read by `displayStatus` (no `permissions` → Read, `:198`); Ctrl+S `:507` | `write` at level 0 (+ per-permlevel for fields) | `savedocs` → `has_permission("write")`, permlevel reset of unwritable values | `useSaveDoc`, `api.saveDoc` | as above (p27 §6) | SIMULATED; REAL agreement for 2 holders |
+| Create | `FrappeFormView.tsx:383` → `formActions` (`form/model/actions.ts:53`: new doc needs `create` or `write`); no `permissions` prop → no right, no `__newname` prompt (`:296`) (P2-1); `FrappeListView.tsx:93` "Create your first" only via the app's `onCreate` | `create` (or `write`, Desk `form.js` save button parity) | `savedocs` → `doc.insert` → `has_permission("create")` | `useSaveDoc` | rejects with kind permission; cache untouched (matrix §3) | SIMULATED |
+| Write | `FrappeFormView.tsx:383` `can("write")`; fields Write/Read by `displayStatus` (no `permissions` → Read, `:199`); Ctrl+S `:510` | `write` at level 0 (+ per-permlevel for fields) | `savedocs` → `has_permission("write")`, permlevel reset of unwritable values | `useSaveDoc`, `api.saveDoc` | as above (p27 §6) | SIMULATED; REAL agreement for 2 holders |
 | Delete (document) | **Not offered by any component** — `useDocAction().remove` only (`useDocMutations.ts:71-73`) | app's responsibility (`can("delete")`) | `frappe.client.delete` → `delete_doc` → `has_permission("delete")` | yes | rejects kind permission; `doc` / `docinfo` stay cached (matrix §3) | SIMULATED |
-| Submit / Cancel / Amend | `FrappeFormView.tsx:380` → `actions.ts:45-54`; Cancel-All-linked gate `FrappeForm.tsx:50-54` `canCancelDoctype` → `FrappeFormView.tsx:665` (offered only for `true`, P3-1) | `submit` / `cancel` / `amend` at level 0; Cancel All: `cancel` on every linked DocType | `savedocs` submit, `save.cancel`, amend = insert with `create`; `cancel_all_linked_docs` → `linked_doc.cancel()` (`linked_with.py:363-381`) | `useSaveDoc`, `useDocAction().cancel` | rejects kind permission | SIMULATED (form tests, p27 §4) |
+| Submit / Cancel / Amend | `FrappeFormView.tsx:383` → `actions.ts:45-54`; Cancel-All-linked gate `FrappeForm.tsx:50-54` `canCancelDoctype` → `FrappeFormView.tsx:668` (offered only for `true`, P3-1) | `submit` / `cancel` / `amend` at level 0; Cancel All: `cancel` on every linked DocType | `savedocs` submit, `save.cancel`, amend = insert with `create`; `cancel_all_linked_docs` → `linked_doc.cancel()` (`linked_with.py:363-381`) | `useSaveDoc`, `useDocAction().cancel` | rejects kind permission | SIMULATED (form tests, p27 §4) |
 | Report | **Not offered** (no report view in 0.4.0) | — | `report` right in `reportview.get` for Report View | — | — | n/a |
 | Export | `canExport` (`permissions.ts:277`): System Manager or the Administrator USER (session form, P2-4), else level-0 `export`; `FrappeListView.tsx:88` | `export` | `permissions.py:608-615`, exporters above | `api.download` | rejects kind permission (matrix §3) | SIMULATED; REPLAYED (Administrator, p27 §7); REAL BLOCKED (no limited user) |
 | Import | `canImport` (`permissions.ts:262`): `allow_import` AND (System Manager, the Administrator USER, or level-0 `import`); `FrappeListView.tsx:87` | `import` + `allow_import` | `permissions.py:599-605`, `data_import.py:64` (allow_import, everyone) then `:71` | `api.uploadFile` / Data Import insert | rejects kind permission | SIMULATED (matrix §1, p27 §1); REPLAYED (p27 §7); REAL BLOCKED |
@@ -84,9 +84,11 @@ answers: `useSaveDoc` / `useDocAction` update the cache in `onSuccess` only (`sr
 - P2-1 `FrappeFormView.tsx:369`: with no `permissions` prop the standalone view assumes every right (`can` → true). It is the
   presentational component and has no permission source; `FrappeForm` always passes one. Document "pass `permissions`";
   consider denying by default in 0.5.
-  **Status: FIXED (Phase 27, `abb6a72`).** No `permissions` → no right (`FrappeFormView.tsx:380`: `can` reads `permissions.can`
-  or `permissions.levels[0]`, else false), fields Write → Read (`:198`), the "Read only" notice with
-  `data-permissions="unknown"` (`:381`, `:598`), Ctrl+S inert (`:507`). Callers checked (`grep -rn FrappeFormView src tests
+  **Status: FIXED (Phase 27, `abb6a72`, refined in `08d8721`).** No `permissions` → no right
+  (`FrappeFormView.tsx:383`: `can` reads `permissions.can` or `permissions.levels[0]`, else false), fields Write → Read
+  before the control rules so blank fields hide as in Desk (`:199`), child tables read-only (no Add Row), no `__newname`
+  prompt (`:296`), the "Read only" notice with `data-permissions="unknown"` (`:384`, `:601`), Ctrl+S inert (`:510`). Fields
+  are SHOWN read-only (the data the app handed over), not hidden. Callers checked (`grep -rn FrappeFormView src tests
   playground showcase`): `FrappeForm.tsx:109` passes `usePermissions` (unchanged); `tests/frappe-form.test.tsx`
   `FrappeFormServicesProbe` now passes the cancel right it relies on (intent kept). Also: `usePermissions().known` is false
   for a saved workflow doc without roles (`usePermissions.ts:46-47`) so that form shows the notice too. Tests:
@@ -133,7 +135,7 @@ answers: `useSaveDoc` / `useDocAction` update the cache in `onSuccess` only (`sr
   (`FrappeFormView.tsx:651`); the server refuses per DocType. Rule 9 would hide it; left as is (the brief's standard:
   callable is fine when the refusal surfaces and nothing is applied optimistically).
   **Status: FIXED (Phase 27, `abb6a72`).** "Cancel All" only when `canCancelAllLinked` answers `true`
-  (`FrappeFormView.tsx:665`); missing / undefined → the explanation marked `data-permissions="unknown"` (`:660-662`), false →
+  (`FrappeFormView.tsx:668`); missing / undefined → the explanation marked `data-permissions="unknown"` (`:663-665`), false →
   Desk's explanation (`data-permissions="denied"`, form.js:925-931). Tests: permissions-p27 §4 (undefined, missing, false,
   true, FrappeForm without roles, Administrator with no / full / partial role list, Clerk vs Reader).
 - P3-2 Empty `docinfo.permissions` `{}` WITH roles keeps the role rights (Desk parity, `perm.js:78-82`); the server only
@@ -204,7 +206,7 @@ session, no writes.
 
 | Issue | Implemented | Tested with simulator or test doubles | Replayed from recorded real responses | Verified against an authenticated real session | Verified with actual writes |
 |---|---|---|---|---|---|
-| P2-1 form without permissions | `abb6a72` | permissions-p27 §2, §3 | none | none | none |
+| P2-1 form without permissions | `abb6a72`, `08d8721` | permissions-p27 §2, §3 | none | none | none |
 | P2-3 workflow without roles | `064ce46` | permissions-p27 §5, §6; record-frappe | none | none | none |
 | P2-4 Administrator without roles | `2b4a8ed`, `064ce46` | permissions-p27 §1, §4, §5 | permissions-p27 §7 (roles list, `get_doc_permissions`, import / export) | none | none |
 | P3-1 Cancel All unknown | `abb6a72` | permissions-p27 §4 | none | none | none |
