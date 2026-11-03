@@ -49,3 +49,8 @@ export * from "./feedback";
 // 0.4.0 — client extras (A1). The simulated backend is NOT exported here: import it from "@solvfast/ui/frappe/testing".
 export { withFrappeApi, createDocumentApis, toMetaBundle, normalizeDocInfo, workflowFromMeta as workflowInfoFromMeta, frappeErrorKind, parseServerMessages, toFrappeMessage, visibleMessages } from "./client";
 export type { FrappeApi, SessionUser, ServerMessagesListener } from "./client";
+
+// 0.4.0 — forms (A3): FrappeForm, fields, link, dynamic link, child table, table multiselect, behaviour engine, formEvents.
+export * from "./form";
+// `commaAnd` exists in record and form (duplicate — consolidation debt); the record one is exported.
+export { commaAnd } from "./record";
