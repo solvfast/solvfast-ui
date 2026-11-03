@@ -8,6 +8,7 @@ import { QueryClientContext } from "@tanstack/react-query";
 import { ListView, type ListViewProps } from "../list/ListView";
 import { FrappeProvider } from "./FrappeProvider";
 import { useFrappeClient } from "./FrappeProvider";
+import { usePermissions } from "./hooks/usePermissions";
 import { useFrappeList, type FrappeListOptions } from "./useFrappeList";
 import { FrappeBulkActions, type FrappeBulkOptions } from "./list/FrappeBulkActions";
 import { useListRealtime } from "./list/realtime";
@@ -41,13 +42,15 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, serverStorage, bulk, realtime, realtimeDebounceMs, rowKey, ...rest }: FrappeListViewProps<T>) {
-  const f = useFrappeList<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings });
+function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, realtime, realtimeDebounceMs, rowKey, ...rest }: FrappeListViewProps<T>) {
+  const f = useFrappeList<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext });
   const { quickFilterFields, loadOptions, ...data } = f.listProps;
   const fallbackClient = useFrappeClient();
   const c = client ?? fallbackClient;
   const metaRef = React.useRef(f.meta);
   metaRef.current = f.meta;
+  // bulk gates: the user's rights on the DocType (Desk's `frm.perm`); the `permissions` prop overrides
+  const perms = usePermissions(f.bundle);
   const [selectedCount, setSelectedCount] = React.useState(0);
   const [bulkBusy, setBulkBusy] = React.useState(false);
   const [bulkMessage, setBulkMessage] = React.useState("");
@@ -58,11 +61,11 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
     return (ctx: { keys: string[]; rows: T[]; clear: () => void }) => (
       <>
         <FrappeBulkActions client={c} meta={meta} doctype={doctype} keys={ctx.keys} clear={ctx.clear} onBusy={setBulkBusy} onMessage={setBulkMessage}
-          options={{ allowEdit: !!f.settings?.allow_edit, ...bulk }} />
+          options={{ allowEdit: !!f.settings?.allow_edit, ...bulk, permissions: bulk.permissions ?? ((p) => perms.can(p)) }} />
         {rest.renderBulkActions?.(ctx)}
       </>
     );
-  }, [bulk, f.meta, f.settings, c, doctype, rest.renderBulkActions]);
+  }, [bulk, perms, f.meta, f.settings, c, doctype, rest.renderBulkActions]);
   const server = typeof serverStorage === "object" ? serverStorage : serverStorage ? {} : null;
   const storage = React.useMemo(() => {
     if (rest.storage !== undefined || !server || !f.ready) return rest.storage;

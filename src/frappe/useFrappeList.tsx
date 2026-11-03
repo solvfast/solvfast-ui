@@ -18,6 +18,9 @@ import { useFrappeClient } from "./FrappeProvider";
 import { buildFrappeListMeta, type ListDocMeta } from "./meta";
 import { buildListRequest, type FrappeFilter } from "./query";
 import { rowMetaColumns } from "./list/cells";
+import { formatValue, type FormatContext } from "./services/format";
+import { useFormatContext } from "./FrappeProvider";
+import type { MetaBundle } from "./contract";
 import { hasIndicator, indicatorFields, type IndicatorConfig, type IndicatorWorkflow } from "./list/indicator";
 import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser } from "./list/reportview";
 import { applyColumnSettings, fetchListSettings } from "./list/settings";
@@ -41,7 +44,8 @@ export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient } =
   const meta = React.useMemo(() => (q.data ? buildFrappeListMeta(q.data.meta, t, q.data.children) : undefined), [q.data, t]);
   // plain types only: React Query's own types live in @tanstack/query-core, which consumers may not be able to resolve
   const refetch = React.useCallback(async (): Promise<void> => { await q.refetch(); }, [q]);
-  return { meta, doc: q.data?.meta, userSettings: q.data?.userSettings, loading: q.isPending, error: q.error as Error | null, refetch };
+  const bundle = React.useMemo<MetaBundle | undefined>(() => (q.data ? ({ doctype, meta: q.data.meta, children: q.data.children } as unknown as MetaBundle) : undefined), [q.data, doctype]);
+  return { meta, bundle, doc: q.data?.meta, userSettings: q.data?.userSettings, loading: q.isPending, error: q.error as Error | null, refetch };
 }
 
 /** After the app writes (insert, delete, update), reload a DocType's lists and counts — or every Frappe list. */
@@ -91,6 +95,8 @@ export interface FrappeListOptions<T> {
   getIndicator?: IndicatorConfig["getIndicator"];
   /** Read List View Settings (`get_list_settings`). Default true. */
   listSettings?: boolean;
+  /** Site / user formats for `formatValue` (number format, currency, date format …). Default: the provider's `formatContext`. */
+  formatContext?: FormatContext;
 }
 
 type Row = Record<string, unknown>;
@@ -107,6 +113,8 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   const settingsReady = o.listSettings === false || !settingsQ.isPending;
   const [userInfo, setUserInfo] = React.useState<Record<string, ReportviewUser>>({});
   const [exactCount, setExactCount] = React.useState(false);
+  const providerFormat = useFormatContext();
+  const formatCtx = React.useMemo<FormatContext>(() => ({ checkLabels: { yes: t("yes"), no: t("no") }, ...providerFormat, ...o.formatContext }), [providerFormat, o.formatContext, t]);
 
   // a field's label: the app's `fieldLabels`, else the label of a curated column showing that field, else the DocType's
   const curatedLabel = React.useMemo(() => new Map((o.columns ?? []).map((c) => [fieldOf(c), c.label])), [o.columns]);
@@ -133,8 +141,15 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     // Desk's order: subject, status indicator, the DocType's own columns, then assignees / comments / likes
     const withIndicator = extra.indicator ? [merged[0], extra.indicator as unknown as ColumnDef<T>, ...merged.slice(1)].filter(Boolean) : merged;
     const all = [...withIndicator, ...(extra.trailing as unknown as ColumnDef<T>[])];
-    return applyColumnSettings(all, settings, meta?.titleField ?? "name");
-  }, [meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, commentsOff, settings, t]); // eslint-disable-line react-hooks/exhaustive-deps
+    // cell display = Desk's formatter (docs 12 §9): numbers, currency, dates by the site's formats
+    const FORMATTED = new Set(["Int", "Float", "Percent", "Currency", "Date", "Datetime", "Time"]);
+    const formatted = all.map((c) => {
+      const df = meta?.fieldDefs[fieldOf(c)];
+      if (c.render || !df || !FORMATTED.has(df.fieldtype)) return c;
+      return { ...c, render: (row: T) => { const v = (row as Row)[fieldOf(c)]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <span dir="ltr" className="tabular-nums">{formatValue(v, df, row as never, formatCtx)}</span>; } };
+    });
+    return applyColumnSettings(formatted, settings, meta?.titleField ?? "name");
+  }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, commentsOff, settings, t]); // eslint-disable-line react-hooks/exhaustive-deps
   const filterFields = React.useMemo(() => (meta?.filterFields ?? []).map((f) => ({ ...f, label: label(f.name, f.label) })), [meta, label]);
 
   const [state, setState] = React.useState<ListQueryState | null>(null);
@@ -166,8 +181,10 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   // a Fiscal Year condition waits for the years' dates (else it would be dropped and the list shown unfiltered)
   const waitFy = auto && needFy && fiscalYears === undefined;
 
+  // a Currency column shows its amount in the currency named by its `options` field, which the row must carry
+  const currencyFields = React.useMemo(() => Object.values(meta?.fieldDefs ?? {}).filter((d) => d.fieldtype === "Currency" && d.options && !String(d.options).includes(":")).map((d) => String(d.options)), [meta]);
   const req = React.useMemo(
-    () => (meta && state && !waitFy && settingsReady ? buildListRequest({ meta, columns: columns as never, state, baseFilters: o.baseFilters, searchFields: o.searchFields, chunkSize: o.chunkSize, fiscalYears, rowFields: true, extraFields: indicatorCfg ? indicatorFields(indicatorCfg) : undefined }) : null),
+    () => (meta && state && !waitFy && settingsReady ? buildListRequest({ meta, columns: columns as never, state, baseFilters: o.baseFilters, searchFields: o.searchFields, chunkSize: o.chunkSize, fiscalYears, rowFields: true, extraFields: [...(indicatorCfg ? indicatorFields(indicatorCfg) : []), ...currencyFields] }) : null),
     [meta, state, waitFy, columns, o.baseFilters, o.searchFields, o.chunkSize, fiscalYears],
   );
 
@@ -217,6 +234,7 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
 
   return {
     meta,
+    bundle: m.bundle,
     userSettings: m.userSettings,
     settings,
     ready: !!meta,
