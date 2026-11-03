@@ -62,3 +62,15 @@ No `site_config.json` or `common_site_config.json` copy, no database credentials
 2. The CRM work repo must go only to a **private** remote (C3, C4, C5 are business content, not secrets). No history rewrite is needed for credentials because none exist.
 3. Decide on C9 before the push; decide whether `graphify-out/` (12 MB) belongs on the remote (a later `git rm` does not shrink history; it is already in every `crm/*` branch).
 4. Re-run the scan at the push moment (branch heads move): `python3 docs/qa/tools/secret_scan.py <repo> <refs...>`; the numbers above are for the heads listed in `offsite-backup-list.md`.
+
+## Re-run 2026-11-03 (after the Sada fixtures, package `fb32d69`)
+
+- `secret_scan.py /home/frappe/solvfast-ui 'feat/0.4.0*' main`: 1,150 blobs, 71 findings.
+  - 50 e-mail addresses, all test placeholders. The Sada fixtures contain only `user-1/2@example.invalid` pseudonyms.
+  - 20 npm-auth hits, all `${NODE_AUTH_TOKEN}` / `${GITHUB_TOKEN}` placeholders or the scan's own patterns.
+  - 1 `.npmrc` (placeholder).
+  - **No credentials.**
+- `crm-base`, all `crm/*` branches plus `baseline-20261103`: 1,821 blobs, 42 findings.
+  - 34 demo e-mail addresses, 4 large blobs, 3 build outputs, 1 `.npmrc`.
+  - **No credentials.** The earlier advice stands: push the CRM history to a private remote only.
+- Full names in the Sada fixtures: only "Pseudonymised User". The `owner` / `modified_by` fields are "Administrator".
