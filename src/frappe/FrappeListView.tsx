@@ -34,8 +34,11 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    * localStorage. An explicit `storage` prop wins. `user` (the session user) is required for saved filters.
    */
   /**
-   * Bulk actions (delete, submit, cancel, edit, assign) in the selection bar, each offered only when `permissions` allow
-   * it. Turns `selectable` on. Runs next to the app's own `bulkActions`.
+   * Desk's Actions in the selection bar, in Desk's order (`list_view.js:2088-2128`): Edit, Export, Assign To, Clear
+   * Assignment, Apply Assignment Rule, Add Tags, Print, Submit, Cancel, Delete, then the workflow's actions — each offered
+   * only when `permissions` allow it (Export always). Turns `selectable` on. Runs next to the app's own `bulkActions`.
+   * `bulk.print` passes the site's Print Settings and a background-print task subscriber; `bulk.hasWorkflow` defaults to
+   * the DocType's active Workflow (`__workflow_docs`).
    */
   bulk?: FrappeBulkOptions;
   /** Offers "Create your first {DocType}" in the empty list (Desk: only when the user may create). */
@@ -61,7 +64,7 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    * hide it can pass `menu={{ export: canExport(roles, levels[0]) }}`.
    */
   menu?: boolean | { import?: boolean; export?: boolean };
-  /** Labels of the Import / Export entries and the Export dialog (English by default). */
+  /** Labels of the Import / Export entries (default: the message catalogue) and of the Export dialog (English by default). */
   ioLabels?: Partial<ExportDialogLabels & { importEntry: string; exportEntry: string; moreActions: string }>;
 }
 
@@ -99,7 +102,7 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   const showImport = menuOn.import !== false && canImport(f.bundle?.meta, session?.roles, perms.levels[0]);
   const showExport = menuOn.export !== false && !!f.bundle;
   const [exporting, setExporting] = React.useState<{ names?: string[] } | null>(null);
-  const L = { importEntry: "Import", exportEntry: "Export", moreActions: "More actions", ...ioLabels };
+  const L = { importEntry: t("listMenuImport"), exportEntry: t("listBulkExport"), moreActions: t("listMenuMore"), ...ioLabels };
   // Desk: frappe.set_route("list", "data-import", { reference_doctype }) — the Data Import LIST (list_view.js:1703-1712)
   const doImport = onImport ?? (() => { if (typeof location !== "undefined") location.assign(dataImportListUrl(doctype)); });
   const menuNode = showImport || showExport ? (
@@ -117,18 +120,23 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   const renderBulk = React.useMemo(() => {
     if ((!bulk && !showExport) || !f.meta) return rest.renderBulkActions;
     const meta = f.meta;
+    // Desk hides Edit / Submit / Cancel / Delete and adds the workflow's actions when the DocType has an active Workflow
+    // (frappe.model.has_workflow, list_view.js:1806, 1881-1886, 2111-2125) — read from getdoctype's `__workflow_docs`
+    const hasWorkflow = bulk?.hasWorkflow ?? !!perms.workflow;
     return (ctx: { keys: string[]; rows: T[]; clear: () => void }) => (
       <>
-        {bulk && <FrappeBulkActions client={c} meta={meta} doctype={doctype} keys={ctx.keys} clear={ctx.clear} onBusy={setBulkBusy} onMessage={setBulkMessage}
-          options={{ allowEdit: !!f.settings?.allow_edit, ...bulk, permissions: bulk.permissions ?? ((p) => perms.can(p)) }} />}
-        {showExport && (
-          // Desk's Actions → Export: the exporter preset to "by_filter" on the checked names (bulk_operations.js:463-474)
+        {bulk ? (
+          <FrappeBulkActions client={c} meta={meta} doctype={doctype} keys={ctx.keys} rows={ctx.rows} docMeta={f.bundle?.meta} roles={session?.roles} clear={ctx.clear} onBusy={setBulkBusy} onMessage={setBulkMessage}
+            // Desk's Actions → Export: the exporter preset to "by_filter" on the checked names (bulk_operations.js:463-474), in Desk's position
+            onExport={showExport ? () => setExporting({ names: ctx.keys }) : undefined} exportLabel={L.exportEntry}
+            options={{ allowEdit: !!f.settings?.allow_edit, ...bulk, hasWorkflow, permissions: bulk.permissions ?? ((p) => perms.can(p)) }} />
+        ) : showExport ? (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setExporting({ names: ctx.keys })}><Download className="h-4 w-4" /> {L.exportEntry}</Button>
-        )}
+        ) : null}
         {rest.renderBulkActions?.(ctx)}
       </>
     );
-  }, [bulk, perms, f.meta, f.settings, c, doctype, rest.renderBulkActions, showExport, L.exportEntry]);
+  }, [bulk, perms, f.meta, f.bundle, f.settings, c, doctype, rest.renderBulkActions, showExport, L.exportEntry, session?.roles]);
   const server = typeof serverStorage === "object" ? serverStorage : serverStorage ? {} : null;
   const storage = React.useMemo(() => {
     if (rest.storage !== undefined || !server || !f.ready) return rest.storage;
