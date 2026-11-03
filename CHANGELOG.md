@@ -336,3 +336,12 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
 - **Import (C):** `FrappeDataImport` — upload, the server's preview and warnings, column mapping (`template_options`),
   Start / Retry, server-confirmed result, import log, errored rows.
 - All of the above is tested against stubs / the simulator only; nothing has run on a site.
+
+## 0.4.0-dev.33 (2026-11-03, Phase 27 D — simulator permissions)
+- `@solvfast/ui/frappe/testing` only: `createFixtureTransport(backend, { permissions })` evaluates permissions server-side
+  (roles as `get_roles`, DocPerm rows, `if_owner`, User Permissions, sharing, permlevel stripping and reset, 403s on
+  writes, workflow roles, assignment, `download_template` / `export_query` with `can_export`); seven `simScenario.*`
+  builders (Administrator, full access, read-only, restricted DocType, restricted fields, User Permissions, unknown roles).
+  Without the option the simulator behaves as before. Handlers for the dev.32 methods (Print, tags, assignment, workflow
+  bulk, report export, Data Import). Files it returns are labelled SIMULATED and carry labels and the request only — no
+  document values, no counts. The production `./frappe` entry never imports it (`check:boundaries`).

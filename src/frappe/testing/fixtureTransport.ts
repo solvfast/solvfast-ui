@@ -1403,7 +1403,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
   }
   /** `export_query` → `_export_query` (reportview.py:393-466): an Access Log row FIRST (:410-415, a site write — kept in
    *  the store as "Access Log"), the query with the row filter (403 without read), `can_export` (403), then a text file
-   *  labelled SIMULATED: the column labels, the row COUNT and the request — never values. */
+   *  labelled SIMULATED: the column labels and the request — never values or counts (owner decision 6, Phase 27). */
   function exportQuery(args: Record<string, unknown>): DownloadedFile {
     const doctype = String(args.doctype ?? "");
     const meta = requireMeta(doctype);
@@ -1421,9 +1421,8 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     const labelOf = (f: string) => (f === "name" ? "ID" : meta.fields.find((x) => x.fieldname === f)?.label || f);
     const ext = String(args.file_format_type) === "CSV" ? "csv" : "xlsx";
     return simulatedFile(`SIMULATED-${slugName(String(args.title ?? doctype))}-not-a-${ext}.txt`, [
-      "NOT AN EXPORT: no document values are included, only the column labels, the row count and the request.",
+      "NOT AN EXPORT: no document values and no counts are included — only the column labels and the request.",
       `Columns (labels only): Sr | ${keys.map(labelOf).join(" | ")}`,
-      `Rows the simulated server matched: ${rows.length}`,
       `Request: ${EXPORT_QUERY} ${JSON.stringify(args)}`,
     ]);
   }

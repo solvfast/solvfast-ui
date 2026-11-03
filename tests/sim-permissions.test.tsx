@@ -543,7 +543,8 @@ describe("Phase 27 list actions on the simulated server (handlers + permission c
     const text = await readText(f.blob);
     expect(f.filename).toBe("SIMULATED-Trips-not-a-csv.txt");
     expect(text).toMatch(/Columns \(labels only\): Sr \| ID \| Purpose$/m); // the permlevel-1 column is dropped
-    expect(text).toMatch(/Rows the simulated server matched: 4/);
+    expect(text).not.toMatch(/Rows the simulated server matched/); // no counts in a simulated file (owner decision 6, Phase 27)
+    expect(text).toMatch(/no document values and no counts/);
     expect(text).not.toContain("Riyadh offsite");
     const bg = await exporter("frappe.desk.reportview.export_query", { ...args, export_in_background: "1" });
     expect(String(bg._server_messages)).toMatch(/generated in the background/);
