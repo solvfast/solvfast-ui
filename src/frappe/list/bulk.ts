@@ -28,7 +28,12 @@ export function bulkMenu(i: BulkMenuInput): BulkKind[] {
   if (editAllowed && can(i.permissions, "write")) out.push("edit");
   if (i.isSubmittable && !i.hasWorkflow && can(i.permissions, "submit")) out.push("submit");
   if (i.isSubmittable && !i.hasWorkflow && can(i.permissions, "cancel")) out.push("cancel");
-  if (can(i.permissions, "write")) out.push("assign"); // UNVERIFIED: Desk offers "Assign To" to every user; the server checks each document
+  // Desk offers "Assign To" unconditionally (list_view.js:2095); the server requires READ on each document
+  // (assign_to.add → doc.check_permission(), default ptype "read": assign_to.py:67-68, document.py:225). The package
+  // asks for read (rule D.1: hide what the server would refuse; nothing is offered without permissions). `write` is
+  // accepted too: apps pass partial level-0 maps with only the editing rights, and a write-without-read DocPerm row is
+  // pathological (the server would refuse the assignment — the failure is surfaced, never applied optimistically).
+  if (can(i.permissions, "read") || can(i.permissions, "write")) out.push("assign");
   if ((!i.hasWorkflow || i.allowEdit) && can(i.permissions, "delete")) out.push("delete");
   return out;
 }

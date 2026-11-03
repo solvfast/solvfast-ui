@@ -124,11 +124,20 @@ const { levels, can, fieldStatus, displayStatus, workflow, workflowReadOnly } = 
   saved doc every key of `docinfo.permissions` (server-evaluated: ownership, user permissions, shares) overwrites level 0;
   for a non-owner the rights granted only by `if_owner` rows are removed; the user's `docinfo.shared` row adds read /
   write / submit / share.
-- **Without roles** (no session): an APPROXIMATION — level 0 = `docinfo.permissions`; a permlevel > 0 is readable when
-  the doc carries one of its fields (Frappe strips unreadable ones) and writable when level 0 is; a NEW doc is
-  optimistic. The server still decides on save.
+- **Without roles** (no `session.roles`): Phase 26 **rule 9 — missing information denies** (since 0.4.0-dev.26). A saved
+  doc gets exactly the server-evaluated level 0 (`docinfo.permissions`, which already applied ownership, `if_owner` and
+  User Permissions — permissions.py:196-250 — plus the user's `docinfo.shared` row, load.py:130); permlevels > 0 get
+  nothing (Desk reads them from the role rows, which are missing — nothing is inferred from which fields the doc
+  carries). A NEW doc gets nothing: no read / write / create, the form renders no fields and no Save. `known` is then
+  `false` (`permissionsKnown`): show "permissions unknown", not "forbidden" — and pass `session.roles`
+  (`frappe.user_roles` in Desk, `frappe.auth.get_logged_user` + roles from boot in an SPA). Before dev.26 a new doc was
+  optimistic (read / write / create) and permlevels > 0 were inferred.
+- **Administrator**: `session.user === "Administrator"` (or the "Administrator" role) gets every right at every permlevel —
+  the server never checks further (permissions.py:107-109, 288-290); Desk lists every role for it. `canImport` still needs
+  `allow_import`.
 - **Workflow read-only** (`frappe.workflow.is_read_only`): a saved doc whose state's `allow_edit` roles the user lacks →
-  rights shrink to read / cancel / share / print / email. Needs roles.
+  rights shrink to read / cancel / share / print / email. Needs roles; without them a saved doc in a workflow is
+  read-only (rule 9; Administrator excepted).
 - **`fieldStatus(df, doc, parent?)`** = `frappe.perm.get_field_display_status`, step by step (docs 11 §2.5): permlevel
   rights (write and not disabled / virtual → Write, read → Read, else None) → `hidden` → `hidden_due_to_dependency`
   (set by whoever evaluates `depends_on`) → submitted demotes Write → `allow_on_submit` re-promotes on docstatus 1 →
@@ -138,7 +147,9 @@ const { levels, can, fieldStatus, displayStatus, workflow, workflowReadOnly } = 
   is hidden (except HTML / Image / Button / Geolocation). `isFetchLocked(df, doc)` tells whether a `fetch_from` field
   renders read-only.
 
-The server is the authority: these reproduce Desk's UX; nothing is skipped because the client checked it.
+The server is the authority: these reproduce Desk's UX; nothing is skipped because the client checked it. The full
+action-by-action audit (which right gates what, what the server checks, how a refusal surfaces) is
+`docs/release/PERMISSION-AUDIT.md`.
 
 ## 6. Formatting: `formatValue` / `FormatContext`
 

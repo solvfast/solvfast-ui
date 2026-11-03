@@ -733,4 +733,5 @@ it has **not** been verified against a real site, and the CRM's "frappe" mode bo
 
 ## Behaviour change added after this checklist was written
 
+- **Permissions without roles (since 0.4.0-dev.26, Phase 26 rule 9):** `FrappeForm` / `usePermissions` for a NEW doc with no `session.roles` is now read-only/denied (no fields, no Save; `usePermissions().known === false`, the toolbar says "Read only") — pass `session.roles` to `FrappeProvider`. A saved doc without roles gets exactly the server's `docinfo.permissions` (+ its `shared` row) at level 0 and nothing at permlevels > 0 (previously inferred from the doc's fields); a saved doc in a workflow is read-only without roles. `session.user === "Administrator"` gets everything (as the server does). The list's bulk "Assign To" is offered with read (or write) instead of write only (Desk offers it unconditionally; the server checks read per document).
 - **List errors (since 0.4.0-dev.25):** the Frappe list renders `FrappeErrorState` per error kind. A 403 / not-found / validation error no longer offers Retry (0.3.x offered Retry on every error); network / server / rate-limited / unavailable still do.
