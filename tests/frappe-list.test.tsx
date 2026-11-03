@@ -413,7 +413,9 @@ describe("bulk bar in the list", () => {
     await waitFor(() => expect(del).toHaveLength(1));
     expect(del[0]).toHaveLength(2);
     await waitFor(() => expect(mock.calls.filter((c) => c.method === "frappe.desk.reportview.get").length).toBeGreaterThan(before));
-    expect(await screen.findByText("2 succeeded, 0 failed")).toBeTruthy();
+    // delete_items answers nothing (reportview.py:608-616): the bar never claims "0 failed" for a delete
+    expect(await screen.findByText(/2 requested — the server reports failures/)).toBeTruthy();
+    expect(screen.queryByText(/succeeded/)).toBeNull();
   });
 
   it("assign: AssignPicker over the user search, then add_multiple", async () => {
@@ -423,7 +425,7 @@ describe("bulk bar in the list", () => {
       if (method === "frappe.desk.form.assign_to.add_multiple") { seen.push(args); return { message: null }; }
       return mock.transport(method, args);
     };
-    mount(transport, { bulk: { permissions: { write: true }, only: ["assign"] } });
+    mount(transport, { bulk: { permissions: { read: true }, only: ["assign"] } }); // Assign To needs read (assign_to.py:67-68)
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     fireEvent.click(await screen.findByRole("button", { name: en("listBulkAssign") }));
