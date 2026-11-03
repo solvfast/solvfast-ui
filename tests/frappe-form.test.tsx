@@ -19,7 +19,7 @@ import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle, WorkflowInfo } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
 import {
-  FrappeChildTable, FrappeDynamicLinkField, FrappeField, FrappeForm, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
+  FrappeChildTable, FrappeDynamicLinkField, FrappeField, FrappeForm, linkTitleCache, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
   type FormEventsConfig, type FormServices,
 } from "../src/frappe/form";
 
@@ -457,5 +457,17 @@ describe("review R1 P3 items", () => {
     cleanup();
     setup(<FrappeChildTable df={b.meta.fields[0]} bundle={b} parent={{ doctype: "P", name: "P-1" }} rows={rows} permissions={[{ read: true, write: true }]} label="Items" />);
     expect(screen.getByRole("button", { name: en.formAddRow })).toBeTruthy();
+  });
+});
+
+describe("R1-F10: link titles are scoped to the client and the session user", () => {
+  it("a title remembered under one client / user is not seen by another", () => {
+    const a = {}; const b = {};
+    linkTitleCache(a, "u1").remember("Customer", "C-1", "Acme");
+    expect(linkTitleCache(a, "u1").get("Customer", "C-1")).toBe("Acme");
+    expect(linkTitleCache(a, "u2").get("Customer", "C-1")).toBeUndefined();
+    expect(linkTitleCache(b, "u1").get("Customer", "C-1")).toBeUndefined();
+    linkTitleCache(a, "u1").remember("Customer", "C-2", "C-2");
+    expect(linkTitleCache(a, "u1").get("Customer", "C-2")).toBeUndefined();
   });
 });
