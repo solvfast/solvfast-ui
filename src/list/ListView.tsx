@@ -71,6 +71,8 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   totalLabel?: string;
   /** Server mode: more rows may follow the current page even though `total` says otherwise (capped or unknown count). */
   hasMore?: boolean;
+  /** Content between the toolbar and the table (e.g. a row of state chips). */
+  belowToolbar?: React.ReactNode;
   /** Called when the set of selected rows changes (keys). */
   onSelectionChange?: (keys: string[]) => void;
   /** Makes the total a button (Desk: click "1,000+" to count exactly). */
@@ -120,7 +122,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange,
+    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -168,6 +170,8 @@ export function ListView<T>(props: ListViewProps<T>) {
           {toolbarActions}
         </div>
       </div>
+
+      {belowToolbar}
 
       {searchHint && s.search.trim() && <p className="text-xs text-muted-foreground" role="status">{searchHint}</p>}
 
