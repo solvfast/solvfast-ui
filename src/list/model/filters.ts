@@ -2,7 +2,8 @@
  * Filter model shared by Sear's DataGrid (sear_product lib/data-grid/filter-engine.ts) and PMO's lists
  * (solvfast_pmo lib/filter-engine.ts) — the two were verified semantically identical. Pure TS.
  */
-import type { Messages } from "../../theme/messages";
+import type { Language, Messages } from "../../theme/messages";
+import { loc } from "../../lib/localized";
 
 export type FieldType = "text" | "select" | "number" | "date" | "boolean" | "link";
 export type Operator =
@@ -13,7 +14,19 @@ export type Operator =
   /** Dates: value is one of TIMESPANS ("last 7 days", "this month", …), resolved on the day the filter runs. */
   | "timespan"
   /** Dates: value is a FiscalYear `name`. */
-  | "fiscal_year";
+  | "fiscal_year"
+  /** Links to a tree (nested set) DocType, value = one node: Frappe's hierarchy operators, evaluated on the SERVER only. */
+  | NestedSetOperator;
+
+/**
+ * Frappe's nested-set operators (`ui/filters/filter.js:32-36`), offered only on a link field marked `tree`
+ * (`filter.js:440-446`). The server resolves them from `lft` / `rgt` (`model/db_query.py:794-842`); a client-mode list
+ * cannot, so `applyFilterQuery` leaves such a condition out (it filters nothing on the client).
+ */
+export type NestedSetOperator = "descendants_of" | "descendants_of_inclusive" | "not_descendants_of" | "ancestors_of" | "not_ancestors_of";
+/** In Frappe's order (filter.js:32-36). */
+export const NESTED_SET_OPERATORS: readonly NestedSetOperator[] = ["descendants_of", "descendants_of_inclusive", "not_descendants_of", "ancestors_of", "not_ancestors_of"];
+export const isNestedSetOperator = (op: string): op is NestedSetOperator => (NESTED_SET_OPERATORS as readonly string[]).includes(op);
 
 /** A fiscal year the date filters can offer (Frappe/ERPNext "Fiscal Year"); `from` / `to` are YYYY-MM-DD. */
 export interface FiscalYear { name: string; from: string; to: string; }
@@ -27,6 +40,8 @@ export interface FilterField {
   link_doctype?: string;
   /** Raw backend field type (e.g. Frappe "Currency"), for default cell rendering. */
   fieldtype?: string;
+  /** `type: "link"` to a tree (nested set): also offer the hierarchy operators (`NESTED_SET_OPERATORS`, server-side only). */
+  tree?: boolean;
 }
 export interface FilterCondition { id: string; field: string; operator: Operator; value: string; }
 export interface FilterQuery { conjunction: "and" | "or"; conditions: FilterCondition[]; }
@@ -41,10 +56,25 @@ export const OPERATORS_BY_TYPE: Record<FieldType, Operator[]> = {
   boolean: ["equals"],
   link: ["equals", "not_equals", "in", "not_in", "like", "is_set", "is_not_set"],
 };
+/**
+ * Message keys of the operators. The five nested-set keys are not in the package catalogue yet (`theme/messages.ts`):
+ * they are named here so a catalogue entry takes over as soon as it exists; until then `operatorLabel` falls back to
+ * `NESTED_SET_LABEL` (Frappe's own English and Arabic, `locale/ar.po`).
+ */
 export const OPERATOR_LABEL: Record<Operator, keyof Messages> = {
   equals: "opEquals", not_equals: "opNotEquals", like: "opLike", not_like: "opNotLike", in: "opIn", not_in: "opNotIn",
   gt: "opGt", lt: "opLt", gte: "opGte", lte: "opLte", is_set: "opIsSet", is_not_set: "opIsNotSet",
   between: "opBetween", timespan: "opTimespan", fiscal_year: "opFiscalYear",
+  descendants_of: "opDescendantsOf" as keyof Messages, descendants_of_inclusive: "opDescendantsOfInclusive" as keyof Messages,
+  not_descendants_of: "opNotDescendantsOf" as keyof Messages, ancestors_of: "opAncestorsOf" as keyof Messages, not_ancestors_of: "opNotAncestorsOf" as keyof Messages,
+};
+/** Frappe's labels (filter.js:32-36) and its Arabic catalogue (`frappe/locale/ar.po`: 2278, 7353, 7357, 17495, 17499). */
+export const NESTED_SET_LABEL: Record<NestedSetOperator, { en: string; ar: string }> = {
+  descendants_of: { en: "Descendants Of", ar: "أحفاد من" },
+  descendants_of_inclusive: { en: "Descendants Of (inclusive)", ar: "أحفاد (شاملة)" },
+  not_descendants_of: { en: "Not Descendants Of", ar: "ليس من أحفاد" },
+  ancestors_of: { en: "Ancestors Of", ar: "أجداد" },
+  not_ancestors_of: { en: "Not Ancestors Of", ar: "ليس الأجداد من" },
 };
 export const VALUELESS_OPERATORS: Operator[] = ["is_set", "is_not_set"];
 
@@ -62,7 +92,9 @@ export function operatorsFor(field: FilterField | undefined, opts: { fiscalYears
     if (opts.fiscalYears) ops.push("fiscal_year");
     return ops;
   }
-  return OPERATORS_BY_TYPE[type].filter((op) => op !== "is_not_set");
+  const ops = OPERATORS_BY_TYPE[type].filter((op) => op !== "is_not_set");
+  // Desk: the hierarchy operators only on a Link to a nested-set DocType (filter.js:440-446 toggle_nested_set_conditions)
+  return type === "link" && field?.tree ? [...ops, ...NESTED_SET_OPERATORS] : ops;
 }
 
 /** The operator a new condition on this field starts with (dates: Between, as Frappe's date filters are used). */
@@ -77,6 +109,14 @@ export function operatorLabelKey(op: Operator, field?: FilterField): keyof Messa
     if (date[op]) return date[op]!;
   }
   return OPERATOR_LABEL[op];
+}
+
+/** The operator's label in the UI language: the catalogue's (`t`), else — nested-set keys not in the catalogue yet — Frappe's. */
+export function operatorLabel(op: Operator, field: FilterField | undefined, t: (k: keyof Messages) => string, language: Language): string {
+  const key = operatorLabelKey(op, field);
+  const s = t(key);
+  if (isNestedSetOperator(op) && (!s || s === key)) return loc(NESTED_SET_LABEL[op], language);
+  return s;
 }
 
 // ---- Frappe's timespans (frappe.utils.data.get_timespan_date_range) -------------------------------------------------
@@ -213,7 +253,8 @@ const isActiveCondition = (c: FilterCondition) =>
 export function applyFilterQuery<T>(rows: T[], query: FilterQuery | undefined, fields: FilterField[], opts: { fiscalYears?: FiscalYear[] } = {}): T[] {
   if (!query || !query.conditions.length) return rows;
   const byName = new Map(fields.map((f) => [f.name, f]));
-  const active = query.conditions.filter(isActiveCondition);
+  // nested-set conditions need the tree's lft / rgt: only the server can evaluate them (they filter nothing here)
+  const active = query.conditions.filter((c) => isActiveCondition(c) && !isNestedSetOperator(c.operator));
   if (!active.length) return rows;
   return rows.filter((row) => {
     const res = active.map((c) => evalCondition(row as unknown as Record<string, unknown>, c, byName.get(c.field), opts.fiscalYears));

@@ -40,6 +40,9 @@ Works without a provider too (it creates one with the default same-origin client
 | `rowMeta` | Indicator / assignees / comment count / likes columns. Default: offered in the column manager, hidden. `true`: shown. `false`: none. `{ comments: false }` turns single ones off. |
 | `workflow` / `getIndicator` | Inputs of the indicator (section 5). |
 | `listSettings` | Read List View Settings (default `true`). |
+| `columnLimit` / `hideNameColumn` | **Opt-in** Desk default columns (Phase 27, section 3): without curated `columns`, cap them to List View Settings `total_fields`, else 4 / 6 / 10 slots by window width (≤ 1366 px / default / ≥ 1920 px), following resizes, and append the ID column (`hideNameColumn` turns it off). |
+| `treeDoctypes` | Link targets that are trees (nested set): their Link fields offer Descendants Of / Ancestors Of … (section 2). The DocType itself and its child tables are detected from their metas. |
+| `urlFilters` | **Opt-in** filters in the page URL, Desk's format (`?status=Open&priority=["!=","Low"]`; section 4a): `true`, or `{ read, write, routeOptions? }`. |
 | `formatContext` | `FormatContext` for `formatValue` (number/date formats, currencies). Default: the provider's `formatContext`. |
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
@@ -52,6 +55,10 @@ Works without a provider too (it creates one with the default same-origin client
 **Errors.** A failed request renders `FrappeErrorState` in the table area: the server's own message and one action per error kind. Retry only for network, server, rate-limited and unavailable errors; a 403 (permission), not found, validation, duplicate, mandatory, link or too-large error has no action, because retrying cannot succeed. *Changed from 0.3.0, which offered Retry on every error (its F29 test now expects none on a 403).*
 
 **Subject first.** Without curated `columns`, the title field (else the ID) is always the first, visible column, as in Desk. Curated columns keep full control.
+
+*Phase 27:* `columnLimit`, `hideNameColumn`, `treeDoctypes` and `urlFilters` are `useFrappeList` options. On `FrappeListView` they take
+effect once the component forwards them to `useFrappeList` (Phase 27 integration); until then they are accepted and ignored there.
+The Report-view export (section 6b) is a dialog + functions for the host (`useFrappeList().reportExport` carries its list props).
 
 **Cells.** Int, Float, Percent, Currency, Date, Datetime and Time cells without a custom `render` go through `formatValue` (docs 12 §9), never wrapping
 (`whitespace-nowrap`, tabular numerals). A Currency column's currency field (its `options`) is requested with the rows. User columns (`owner`,
@@ -78,6 +85,14 @@ view: "List", with_comment_count: 1 | 0, [group_by]
 - **`order_by`:** the column's field, plus Desk's tie-break `, name <dir>` unless the field is `name`, `creation` or `modified`.
 - **Child-table filters:** a condition on `Child DocType.field` is sent as `[child, field, op, value]`; the request then joins the child table:
   fields fully quoted (`` `tabDT`.`f` ``), `group_by` the parent name, and the count uses `distinct`.
+- **Nested-set operators** (Phase 27): on a Link field whose target is a tree, the filter also offers Descendants Of, Descendants Of
+  (inclusive), Not Descendants Of, Ancestors Of, Not Ancestors Of (Desk: `filter.js:32-36`, shown only for
+  `frappe.boot.nested_set_doctypes`, `:440-446`). The value is one node (Link picker); the condition is sent unchanged —
+  `["parent_task", "descendants of (inclusive)", "TASK-1"]` — and the server expands it from `lft` / `rgt` (`db_query.py:794-842`).
+  Tree targets: the DocType and its child tables when their meta has an `lft` field or `is_tree` (Desk's own boot rule,
+  `boot.py:70-72`), plus `treeDoctypes` (a React page has no boot list). Generic model: `FilterField.tree`, `NESTED_SET_OPERATORS`;
+  a client-mode list cannot evaluate them (the condition filters nothing there). Labels: Frappe's English and Arabic until the
+  catalogue has `opDescendantsOf` … (`operatorLabel`).
 - **Response:** compressed `{ keys, values, user_info }`, or `[]` for no rows. `decodeReportview(res)` expands it; `reportviewGet(client, doctype, args)` is the call.
 - **Count:** `frappe.desk.reportview.get_count` with `limit: 1001` (`COUNT_UPPER_BOUND`). At the bound the footer reads **"1,000+"**; clicking it counts exactly
   (no limit). While the count is capped, "next page" stays on as long as a page comes back full. List View Settings `disable_count` skips the count entirely.
@@ -100,6 +115,23 @@ Desk admin concern (it flips `in_list_view` through Property Setters) and is not
 
 `fetchListSettings(client, doctype)` and `applyColumnSettings(columns, settings, titleField)` are exported.
 
+**Desk's default columns (`columnLimit`, opt-in, Phase 27).** Desk caps `this.columns` with `slice(0, total_fields || width)`
+where width = 4 at `innerWidth <= 1366`, 10 at `>= 1920`, else 6 (`list_view.js:433-444`). What counts, in order:
+
+| Slot | Desk (`list_view.js`) | Package (`capDefaultColumns`) |
+|---|---|---|
+| 1 | Subject: title field, else ID (`:381-395`) | the subject column — always shown |
+| 2 | Tag (`:396-399`) — always in the list, rendered hidden (`:709`, `:799-809`) | an empty slot (the package draws no tag column) |
+| 3 | Status, when `frappe.has_indicator` (`:401-407`); with List View Settings `fields`, only if they list `status_field` | the indicator column when shown; otherwise the `status` field column (Desk drops `status` when it has an indicator, `:414-416`); otherwise an empty slot |
+| 4… | `in_list_view` fields (not virtual, not the title), or List View Settings `fields` in their order | the other visible columns, in order |
+| after the cap | ID, when `title_field` is set and is not `name` and `hide_name_column` is off (`:446-457`) | the `name` column, shown after the last kept column (`hideNameColumn` turns it off) |
+
+Never counted: assignees, comment count, likes (Desk draws them in the row's activity area, not as columns). So a 1366 px
+window shows the subject + 2 columns (+ ID); 1600 px: + 4; 1920 px: + 8. `total_fields` wins over the width. The cap
+follows the window across the 1366 / 1920 bounds (Desk computes it once per setup); without a window (SSR, hydration) it
+is 6. Only generated columns are capped: curated `columns` are not. The user's own column choice still wins (the list
+follows a changed default only until the user picks columns). Exported: `deskColumnLimit(width)`, `capDefaultColumns(columns, options)`.
+
 ---
 
 ## 4. Saved filters and user settings (server-backed storage)
@@ -116,8 +148,23 @@ Adapters for the generic list's `storage` prop (also usable alone):
 | `createFrappeSavedFilters(client, { user, meta, global? })` → `SavedFiltersStorage` | `List Filter` rows: `frappe.client.get_list` (mine + global: `for_user` = user or empty), `frappe.client.insert`, `frappe.client.delete` | Filters are stored as Desk's 4-tuples `[doctype, field, op, value]`, so Desk can load them. **AND only:** an OR query is refused (`UnstorableQueryError`). Duplicate names are rejected. `global: true` stores `for_user = ""` (Desk offers it to System Managers). `List Filter` is readable by every Desk User (personal vs shared is a client-side split in Desk too). |
 | `createFrappeUserSettings(client, { doctype, initial, meta })` → `ListPrefsStorage` | `user_settings` from `getdoctype`; saved with `frappe.model.utils.user_settings.save(doctype, user_settings)` (500 ms debounce, skipped when unchanged) | Sort and filters use Desk's keys (`List.sort_by`, `List.sort_order`, `List.filters`); the package's extras (columns, quick filters, group-by) live in `List.sf_ui`. Restores the filters on load (`persistQuery`). |
 
-`tuplesToQuery` / `queryToTuples` convert between the two models; tuples on unknown fields or unsupported operators are dropped (as Desk drops invalid saved filters).
+`tuplesToQuery` / `queryToTuples` convert between the two models (nested-set operators included); tuples on unknown fields or unsupported operators are dropped (as Desk drops invalid saved filters).
 **UNVERIFIED:** that Desk's deep merge keeps the `sf_ui` key.
+
+### 4a. URL filters (`urlFilters`, opt-in, Phase 27)
+
+Desk's list routes carry the filters in the query string (`list_view.js:2130-2183` read, `:1664-1696` write):
+`/app/todo?status=Open&priority=["!=","Low"]&Order Item.item_code=X`. With `urlFilters`:
+
+- **read** (once the meta is loaded): every `key=value` pair is a filter — Equals, or `["op", value]` JSON; a repeated key gives one filter per
+  value; `Child DocType.field` or a bare child-table field (resolved like Desk's `get_doctype_for_field`). The URL's filters replace the restored
+  ones (Desk does the same, `:559-571`) through the new generic `initialQuery` option. **Keys that are not fields of the DocType (or of a loaded
+  child table) are ignored** and reported in `useFrappeList().urlFilters.ignored` — never sent to the server as a fieldname; values are always values;
+  unparsable JSON and operators the list cannot show are ignored. `routeOptions` (Desk's `frappe.route_options`) is read when the query string is empty.
+- **write**: after every applied change, `history.replaceState` (no history entry) with Desk's format (`=` raw, else `JSON.stringify([op, value])`).
+  Other query parameters are kept (Desk replaces the whole string). An OR query cannot be written — its filter parameters are removed. Search text and sort are not written.
+  `replaceState` fires no `popstate`: a router hook reading the search string (e.g. React Router's `useSearchParams`) sees the change at its next navigation (Desk has the same property).
+- Never on the server (no `window`). Functions: `parseUrlFilters(search | URLSearchParams | route_options, meta)`, `filtersToUrl(query, meta, currentSearch)`.
 
 ---
 
@@ -135,7 +182,7 @@ Adapters for the generic list's `storage` prop (also usable alone):
 9. `enabled`  10. `disabled`
 
 The column appears when the DocType has an indicator (`hasIndicator`: submittable, workflow, hook, `enabled`/`disabled`, or `status` with `meta.states`). Clicking a pill filters by
-its value. One colour table maps every vocabulary (`colourTone`, `styleTone`, `toListTone`, `feedbackTone`).
+its value. With `columnLimit`, a DocType with an indicator spends Desk's Status slot (section 3) whether or not the column is shown. One colour table maps every vocabulary (`colourTone`, `styleTone`, `toListTone`, `feedbackTone`).
 
 ```tsx
 <FrappeListView doctype="Sales Order" rowMeta
@@ -197,6 +244,30 @@ Note: the Data Import DocType grants `create` to System Manager only; a role wit
 
 ---
 
+### 6b. Report-view export (Phase 27) — SIMULATED only; on a site it writes an Access Log (BLOCKED)
+
+Desk's Report view → Export (`report_view.js:1646-1722`, dialog `report_utils.js:173-241`) over
+**`frappe.desk.reportview.export_query`**. The server runs the query, checks `can_export` (System Manager, the role's `export`, or `if_owner`
+export with every row's owner checked — `permissions.py:608-616`) and streams the file; **it writes an Access Log row first, on every call**
+(`reportview.py:410-415`). Desk offers the entry only when `frappe.model.can_export` — use `canExport(session.roles, levels[0])`.
+
+```tsx
+const f = useFrappeList({ doctype: "ToDo" });
+<FrappeReportExportDialog api={api} doctype="ToDo" open={open} onOpenChange={setOpen} {...f.reportExport!}
+  selectedNames={checked} offerTranslate={language !== "en"} />
+```
+
+- `downloadReportExport(api, { doctype, fields, filters, or_filters, order_by, fileFormat: "Excel" | "CSV", selectedItems?, title?, pageLength?,
+  csvDelimiter?, csvQuoting?, translateValues?, addTotalsRow?, background? })` → `api.download("frappe.desk.reportview.export_query", …)` with
+  Desk's fields, non-strings JSON-encoded as Desk's `open_url_post` does (`reportExportArgs`). `selected_items` makes the server REPLACE the filters
+  with `name in (…)`; `pageLength` = only the rows shown (Desk's "Export all N rows?" left unchecked).
+- Result: `{ kind: "file", file }` (hand it to the browser with `saveFile`) or, for `background`, `{ kind: "background", message }` — an `api.call`
+  as Desk's `frappe.call`; the server enqueues the job, e-mails the link and returns no file. A refusal rejects with the `FrappeError` (403 → `kind: "permission"`); no file.
+- The dialog: File Format (Excel default), Selected rows (n) / All matching rows, Export in Background, CSV Delimiter / CSV Quoting (CSV), "Export all N rows?"
+  (or "…matching rows?" when the count is off), "Translate values" (`offerTranslate`). English labels, `labels` override. No CSV Preview box.
+- `useFrappeList().reportExport` = `{ fields (visible columns' real fields, `name` first), filters, or_filters, order_by, shownCount, totalCount }`.
+- **Never a client-built file.** Not in `FrappeListView`'s menu yet.
+
 ## 7. Realtime refresh
 
 ```tsx
@@ -228,9 +299,10 @@ Custom cells can use `useListActions().applyCondition(field, operator, value)` t
 
 ## 9. Known limitations (not reproduced)
 
-- Width-based column cap (4/6/10) when `total_fields` is unset; the default 90-day recency filter on large tables; List View Settings editing.
-- Nested-set filter operators; filters from the URL query; the group-by sidebar with server counts (`get_group_by_count`), tag stats (`get_sidebar_stats`) and "assigned to me" counters.
-- Other bulk actions (section 6: Print, Clear Assignment, Assignment Rule, Add Tags, workflow approval); Report view (incl. its `export_query` export), Kanban, Calendar and the other Desk views (the CRM keeps its own for those).
+- The width-based column cap and URL filters are opt-in (`columnLimit`, `urlFilters`); the default 90-day recency filter on large tables; List View Settings editing.
+- Nested-set operators need the app to name tree Link targets the page has no meta for (`treeDoctypes`); they filter nothing in client mode. The group-by sidebar with server counts (`get_group_by_count`), tag stats (`get_sidebar_stats`) and "assigned to me" counters.
+- URL filters: the package keeps non-filter query parameters (Desk replaces the whole string); OR queries, search text and sort are not written.
+- Other bulk actions (section 6: Print, Clear Assignment, Assignment Rule, Add Tags, workflow approval); the Report view itself, Kanban, Calendar and the other Desk views (the CRM keeps its own for those). Its export exists (section 6b) without the CSV preview, totals row or group-by aggregates; it writes an Access Log on a site (BLOCKED for verification).
 - Import: the preview grid, column mapper and import-log table of Desk's Data Import form (functions only, section 6a); progress is polled, not realtime.
 - Export: the in-dialog filter editor and record-count message; Export hidden without the `export` right where Desk shows it to everyone.
 - Permlevel columns are dropped only when the session's roles are known; without them the header of an unreadable field is still offered (the server strips the values).

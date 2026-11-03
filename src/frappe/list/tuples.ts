@@ -5,7 +5,10 @@
  */
 import type { FilterCondition, FilterQuery, Operator } from "../../list/model/filters";
 import type { FrappeListMeta } from "../meta";
-import { queryToFrappe, type FrappeFilter } from "../query";
+import { NESTED_SET_FRAPPE_OP, queryToFrappe, type FrappeFilter } from "../query";
+
+/** Frappe's operator string → the package's nested-set operator (saved List Filters, user_settings, URL filters). */
+const NESTED_SET_BY_FRAPPE_OP = new Map(Object.entries(NESTED_SET_FRAPPE_OP).map(([k, v]) => [v, k as Operator]));
 
 export type StoredFilter = [string, string, string, unknown];
 
@@ -49,6 +52,9 @@ export function tuplesToQuery(tuples: unknown, meta: MetaLike): FilterQuery {
       case "between": operator = "between"; v = list(value); break;
       case "timespan": operator = "timespan"; v = String(value).toLowerCase(); break;
       case "is": operator = String(value).toLowerCase() === "set" ? "is_set" : "is_not_set"; v = ""; break;
+      default:
+        // descendants of / descendants of (inclusive) / not descendants of / ancestors of / not ancestors of (one node)
+        if (NESTED_SET_BY_FRAPPE_OP.has(op) && !Array.isArray(value) && value !== null && typeof value !== "object") { operator = NESTED_SET_BY_FRAPPE_OP.get(op); v = String(value); }
     }
     if (operator) conditions.push({ id: `s${i}`, field, operator, value: v });
   });

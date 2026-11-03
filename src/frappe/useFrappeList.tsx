@@ -8,7 +8,7 @@ import * as React from "react";
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { fieldOf, mergeColumns, type ColumnDef } from "../list/model/columns";
 import type { GroupByOption } from "../list/model/group";
-import type { FilterField, FiscalYear } from "../list/model/filters";
+import type { FilterField, FilterQuery, FiscalYear } from "../list/model/filters";
 import type { LoadOptions } from "../list/parts/FilterBuilder";
 import type { ListQueryState } from "../list/useListState";
 import { loc, type Localized } from "../lib/localized";
@@ -25,7 +25,23 @@ import type { DocPerm, MetaBundle } from "./contract";
 import { rolePermissions } from "./services/permissions";
 import { hasIndicator, indicatorFields, type IndicatorConfig, type IndicatorWorkflow } from "./list/indicator";
 import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser } from "./list/reportview";
-import { applyColumnSettings, fetchListSettings } from "./list/settings";
+import { applyColumnSettings, capDefaultColumns, deskColumnLimit, fetchListSettings, listedFields } from "./list/settings";
+import { filtersToUrl, parseUrlFilters, type ParsedUrlFilters } from "./list/urlFilters";
+import { reportExportFields } from "./list/reportExport";
+
+/**
+ * Desk's width-based column limit (`list_view.js:433-444`: 4 at ≤ 1366 px, 10 at ≥ 1920 px, else 6), following the
+ * window: it re-renders only when the width crosses one of those bounds (Desk reads `innerWidth` once per setup; the
+ * package keeps up with a resize). Without a window (SSR) and during hydration: 6.
+ */
+function useDeskColumnLimit(enabled: boolean): number {
+  const subscribe = React.useCallback((notify: () => void) => {
+    if (!enabled || typeof window === "undefined") return () => {};
+    window.addEventListener("resize", notify);
+    return () => window.removeEventListener("resize", notify);
+  }, [enabled]);
+  return React.useSyncExternalStore(subscribe, () => deskColumnLimit(typeof window === "undefined" ? undefined : window.innerWidth), () => deskColumnLimit(undefined));
+}
 
 /** `getdoctype`: the DocType first, then its child-table DocTypes; plus the user's saved `user_settings` (JSON string). */
 export async function loadDocTypeBundle(client: FrappeClient, doctype: string): Promise<{ meta: ListDocMeta; children: Record<string, DocMeta>; userSettings: Record<string, unknown> }> {
@@ -38,7 +54,7 @@ export async function loadDocTypeBundle(client: FrappeClient, doctype: string): 
   return { meta, children: Object.fromEntries(docs.filter((d) => d && d.name !== doctype).map((d) => [d.name, d as DocMeta])), userSettings };
 }
 
-export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient } = {}) {
+export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient; /** Desk's `frappe.boot.nested_set_doctypes` (Link targets that are trees). */ treeDoctypes?: readonly string[] } = {}) {
   const fallback = useFrappeClient();
   const client = opts.client ?? fallback;
   const { t } = useLocale();
@@ -51,7 +67,8 @@ export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient } =
     const levels = roles && perms ? rolePermissions(perms, roles).levels : undefined;
     return restrictMetaToReadable(q.data.meta, q.data.children, levels);
   }, [q.data, roles]);
-  const meta = React.useMemo(() => (readable ? buildFrappeListMeta(readable.meta, t, readable.children) : undefined), [readable, t]);
+  const treeKey = (opts.treeDoctypes ?? []).join("\u0000");
+  const meta = React.useMemo(() => (readable ? buildFrappeListMeta(readable.meta, t, readable.children, { treeDoctypes: treeKey ? treeKey.split("\u0000") : [] }) : undefined), [readable, t, treeKey]);
   // plain types only: React Query's own types live in @tanstack/query-core, which consumers may not be able to resolve
   const refetch = React.useCallback(async (): Promise<void> => { await q.refetch(); }, [q]);
   const bundle = React.useMemo<MetaBundle | undefined>(() => (q.data ? ({ doctype, meta: q.data.meta, children: q.data.children } as unknown as MetaBundle) : undefined), [q.data, doctype]);
@@ -107,6 +124,30 @@ export interface FrappeListOptions<T> {
   listSettings?: boolean;
   /** Site / user formats for `formatValue` (number format, currency, date format …). Default: the provider's `formatContext`. */
   formatContext?: FormatContext;
+  /**
+   * Link targets that are trees (nested set): their Link fields offer Descendants Of / Ancestors Of … (Desk reads
+   * `frappe.boot.nested_set_doctypes`, `filter.js:440-446`; a React page has no boot). The DocType itself and its child
+   * tables are detected from their metas (an `lft` field or `is_tree`).
+   */
+  treeDoctypes?: string[];
+  /**
+   * Desk's default columns (opt-in, default false = the 0.4.0-dev columns): without curated `columns`, cap them as Desk
+   * does (`list_view.js:375-457`) — List View Settings `total_fields`, else 4 slots at a window ≤ 1366 px, 6 by
+   * default, 10 at ≥ 1920 px, following the window as it is resized — counted as `capDefaultColumns` documents
+   * (Subject, Desk's hidden Tag slot, the Status slot, then fields), and append the ID column when the DocType has a
+   * `title_field` other than `name`. Curated `columns` are never capped by width.
+   */
+  columnLimit?: boolean;
+  /** With `columnLimit`: Desk's `listview_settings.hide_name_column` — no ID column after the capped ones (list_view.js:446-457). */
+  hideNameColumn?: boolean;
+  /**
+   * Filters in the page URL, as Desk's list routes (`?status=Open&priority=["!=","Low"]`; `list/urlFilters.ts`). Opt-in.
+   * `read`: at mount, the URL's filters replace the restored ones (list_view.js:559-571, 2130-2183) — keys that are not
+   * fields of the DocType are ignored, never sent; `routeOptions` (Desk's `frappe.route_options`) is read when the query
+   * string is empty. `write`: the current filters are written back with `history.replaceState` (list_view.js:1664-1696),
+   * other query parameters kept. `true` = both. Never on the server (no `window`).
+   */
+  urlFilters?: boolean | { read: boolean; write: boolean; routeOptions?: Record<string, unknown> };
 }
 
 type Row = Record<string, unknown>;
@@ -116,7 +157,7 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   const fallback = useFrappeClient();
   const client = o.client ?? fallback;
   const { t, language } = useLocale();
-  const m = useFrappeMeta(o.doctype, { client });
+  const m = useFrappeMeta(o.doctype, { client, treeDoctypes: o.treeDoctypes });
   const meta = m.meta;
   const settingsQ = useQuery({ queryKey: ["sf-frappe", "list-settings", o.doctype], queryFn: () => fetchListSettings(client, o.doctype), enabled: o.listSettings !== false, staleTime: 5 * 60_000 });
   const settings = settingsQ.data ?? null;
@@ -140,6 +181,11 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   }, [meta, o.rowMeta, o.workflow, o.getIndicator, t]);
   const rm = o.rowMeta === false ? {} : typeof o.rowMeta === "object" ? o.rowMeta : {};
   const commentsOff = !!settings?.disable_comment_count;
+  const curated = !!o.columns?.length;
+  const widthCap = o.columnLimit === true && !curated;
+  const widthLimit = useDeskColumnLimit(widthCap && !(Number(settings?.total_fields) > 0));
+  // Desk counts a Status slot whenever the DocType has an indicator, whatever the package draws (`rowMeta`)
+  const deskIndicator = React.useMemo(() => !!meta && hasIndicator({ isSubmittable: meta.isSubmittable, workflow: o.workflow, states: meta.states, hasField: meta.hasField, getIndicator: o.getIndicator }), [meta, o.workflow, o.getIndicator]);
   const columns = React.useMemo<ColumnDef<T>[]>(() => {
     const generated = (meta?.columns ?? []).map((c) => ({ ...c, label: label(c.key, c.label) })) as unknown as ColumnDef<T>[];
     // Desk always puts the Subject (title field, else the ID) first and shows it (list_view.js:375-486). Apps that curate
@@ -174,11 +220,37 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
       if (c.render || !df || !FORMATTED.has(df.fieldtype)) return c;
       return { ...c, render: (row: T) => { const v = (row as Row)[fieldOf(c)]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <span dir="ltr" className="whitespace-nowrap tabular-nums">{formatValue(v, df, row as never, formatCtx)}</span>; } };
     });
-    return applyColumnSettings(formatted, settings, meta?.titleField ?? "name");
-  }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, userNames, commentsOff, settings, t]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!widthCap || !meta) return applyColumnSettings(formatted, settings, meta?.titleField ?? "name");
+    // Desk's default columns: List View Settings `fields` order (no cap yet), then Desk's slot count (list_view.js:375-457)
+    const ordered = applyColumnSettings(formatted, settings ? { ...settings, total_fields: undefined } : settings, meta.titleField);
+    const rawTitle = (m.doc as { title_field?: string } | undefined)?.title_field;
+    return capDefaultColumns(ordered, {
+      limit: Number(settings?.total_fields) || widthLimit, subjectKey: subjectKey ?? "name", hasIndicator: deskIndicator,
+      settingsFields: listedFields(settings), uncounted: ["_assign", "_comments", "_liked_by"],
+      nameColumn: !o.hideNameColumn && !!rawTitle && rawTitle !== "name" && meta.hasField(rawTitle),
+    });
+  }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, userNames, commentsOff, settings, t, widthCap, widthLimit, deskIndicator, o.hideNameColumn, m.doc]); // eslint-disable-line react-hooks/exhaustive-deps
   const filterFields = React.useMemo(() => (meta?.filterFields ?? []).map((f) => ({ ...f, label: label(f.name, f.label) })), [meta, label]);
 
   const [state, setState] = React.useState<ListQueryState | null>(null);
+
+  // URL filters (opt-in): read once the meta is known (validated against it), written back on every applied change
+  const urlCfg = o.urlFilters === true ? { read: true, write: true } : o.urlFilters || null;
+  const urlRead = React.useMemo<ParsedUrlFilters | undefined>(() => {
+    if (!urlCfg?.read || !meta || typeof window === "undefined") return undefined;
+    const search = window.location.search;
+    const source = search && search !== "?" ? search : urlCfg.routeOptions;
+    return source ? parseUrlFilters(source, meta) : undefined;
+  }, [meta]); // eslint-disable-line react-hooks/exhaustive-deps -- the URL at the time the list starts, not after our own write-back
+  const urlWrite = !!urlCfg?.write;
+  const appliedQuery = state?.query;
+  React.useEffect(() => {
+    if (!urlWrite || !meta || !appliedQuery || typeof window === "undefined") return;
+    const { pathname, search, hash } = window.location;
+    const next = filtersToUrl(appliedQuery, meta, search);
+    if (next === search || (next === "" && search === "?")) return;
+    window.history.replaceState(window.history.state, "", `${pathname}${next}${hash}`);
+  }, [urlWrite, meta, appliedQuery]);
   // Only the list built from the DocType reports state: the placeholder shown while the meta loads has no columns, and
   // its state would fetch rows with `name` only before the real request.
   const metaRef = React.useRef(meta);
@@ -254,6 +326,16 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     if (Object.keys(merged).length) setUserInfo((prev) => (sameJson(prev, { ...prev, ...merged }) ? prev : { ...prev, ...merged }));
   }, [list.data]);
   const err = m.error ?? list.error ?? count.error;
+  // What a Report-view export of this list sends (`FrappeReportExportDialog` props): the visible columns' fields, the
+  // current filters and order, the rows shown and the count (null when off or capped: "Export all matching rows?")
+  const reportExport = React.useMemo(() => {
+    if (!req || !meta || !state) return null;
+    const visibleFields = state.visible.map((k) => { const c = columns.find((x) => x.key === k); return c ? fieldOf(c) : ""; });
+    return {
+      fields: reportExportFields(visibleFields, meta.known), filters: req.filters, or_filters: req.or_filters, order_by: req.order_by,
+      shownCount: rows.length, totalCount: countOff || count.data?.capped ? null : count.data?.count,
+    };
+  }, [req, meta, state, columns, rows.length, countOff, count.data]);
   const titleLabel = filterFields.find((f) => f.name === meta?.titleField)?.label ?? meta?.titleField ?? "";
 
   const groupByOptions = React.useMemo<GroupByOption<T>[]>(() => (o.groupByFields ?? []).filter((f) => meta?.known.has(f)).map((f) => {
@@ -279,7 +361,13 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     ready: !!meta,
     request: req,
     refetch: () => { if (m.error) void m.refetch(); else { void list.refetch(); void count.refetch(); } },
+    /** Props for `FrappeReportExportDialog` (fields, filters, or_filters, order_by, shownCount, totalCount); null until loaded. */
+    reportExport,
+    /** URL filters read at mount (`urlFilters`): what was applied and which keys were ignored. */
+    urlFilters: urlRead,
     listProps: {
+      // only when the URL had usable filters (Desk replaces the restored ones only then, list_view.js:565-570)
+      ...(urlRead?.query.conditions.length ? { initialQuery: urlRead.query as FilterQuery } : {}),
       mode: "server" as const,
       rows,
       total: count.data?.count ?? rows.length,
