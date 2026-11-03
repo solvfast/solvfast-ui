@@ -170,7 +170,18 @@ export function simulatedFiles(mode: "none" | "refuse" | "respond", onCall?: (c:
       record({ kind: "download", method, args, at: Date.now(), outcome: `200 — simulated ${file.filename} (${text.length} bytes)` });
       return file;
     },
-    async upload(_file, filename, opts) {
+    async upload(file, filename, opts) {
+      if (server && mode === "respond") {
+        try {
+          const doc = await server.upload(file, filename, opts);
+          record({ kind: "upload", method: "upload_file", args: { filename, ...opts }, at: Date.now(), outcome: `200 — kept in the simulator's memory as ${String(doc.file_url)} (simulated server)` });
+          return doc;
+        } catch (e) {
+          const err = e instanceof FrappeError ? e : undefined;
+          record({ kind: "upload", method: "upload_file", args: { filename, ...opts }, at: Date.now(), outcome: `${err?.status ?? "?"} ${err?.excType ?? ""} — ${err?.message ?? String(e)} (simulated server decision)` });
+          throw e;
+        }
+      }
       record({ kind: "upload", method: "upload_file", args: { filename, ...opts }, at: Date.now(), outcome: "417 — uploads are not simulated (an import would write to the site)" });
       throw refuse(417, "ValidationError", "SIMULATED showcase: uploads are not simulated; an import writes to the site.");
     },
@@ -195,6 +206,9 @@ export interface SimSiteOptions {
    * permlevel values. `site.transport.store.session` is the matching client session. Omitted: every right (as before).
    */
   permissions?: SimulatedPermissions;
+  /** The simulated Data Import job: "dry-run" (default — rows checked and logged, nothing written) or "insert" (the
+   *  simulator plays the server and inserts valid rows into its own memory; labelled in the log). */
+  dataImport?: "dry-run" | "insert";
   /** Artificial latency (ms); a huge value keeps "loading" on screen. */
   latency?: number;
   /** Number of demo ToDos (default 45; 0 = empty list). */
@@ -219,7 +233,7 @@ export function createSimSite(o: SimSiteOptions = {}): SimSite {
     docs: { User: userDocs, ToDo: todos(o.todoCount ?? 45), Contact: [CONTACT], "Approval Memo": MEMOS, "Travel Request": TRAVELS },
     latency: o.latency ?? 0,
     user: o.user ?? "Administrator",
-  }, { handlers: o.handlers ?? {}, roles: o.roles ?? ["System Manager", "All"], permissions: o.permissions });
+  }, { handlers: o.handlers ?? {}, roles: o.roles ?? ["System Manager", "All"], permissions: o.permissions, dataImport: o.dataImport });
   const client = createFrappeClient({ transport, files: o.files ?? simulatedFiles(o.fileMode ?? "none", o.onFileCall, transport.files) });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   let extra = 0;

@@ -7,7 +7,7 @@
 import * as React from "react";
 import { Badge, Button, Skeleton, cn } from "@ui";
 import { FrappeError, FrappeForm, FrappeListView, useDoc, useMetaBundle, usePermissions, type FrappeDoc, type PermType } from "@ui/frappe";
-import { PERMISSION_SCENARIOS, probeServer, type PermissionScenario, type ProbeLine, type SimSite } from "../../../../playground/src/demo/sim-site";
+import { PERMISSION_SCENARIOS, probeServer, type FileCall, type PermissionScenario, type ProbeLine, type SimSite } from "../../../../playground/src/demo/sim-site";
 import type { SimScenarioName } from "../../../../src/frappe/testing";
 import { l, useTr, type L } from "../../i18n";
 import { Picker, Readout, SimProvider, SimulatedPermissionStrip, useSimSite } from "./shared";
@@ -141,7 +141,7 @@ export function ForcedSave({ site, sc }: { site: SimSite; sc: PermissionScenario
   };
   return (
     <div className="space-y-2">
-      <Button variant="outline" size="sm" onClick={() => void send()} data-testid="forced-save">{tr(l("Send a save request anyway (bypasses the client's gate)", "أرسل طلب حفظ رغم ذلك (يتجاوز بوابة العميل)"))}</Button>
+      <Button variant="outline" size="sm" className="h-auto min-h-8 whitespace-normal text-start" onClick={() => void send()} data-testid="forced-save">{tr(l("Send a save request anyway (bypasses the client's gate)", "أرسل طلب حفظ رغم ذلك (يتجاوز بوابة العميل)"))}</Button>
       <Readout label="server →">{out || "—"}</Readout>
     </div>
   );
@@ -198,14 +198,21 @@ export function ScenarioFormDemo() {
   );
 }
 
-/** The permissions page: client rights | server answers, the filtered list, the focus document. */
+/** What the simulated server pushed over "realtime" (msgprints of bulk actions) — kept in `store.published`. */
+const plainText = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+/** The permissions page: client rights | server answers, the filtered list (with Desk's Actions), the focus document. */
 export function ScenarioPermissionsDemo() {
   const tr = useTr();
   const [key, setKey] = React.useState<SimScenarioName>("read-only");
-  const { site, sc } = useScenarioSite(key);
+  const [actions, setActions] = React.useState<string[]>([]);
+  const note = React.useCallback((line: string) => setActions((a) => [line, ...a].slice(0, 6)), []);
+  const onFileCall = React.useCallback((c: FileCall) => note(`${c.kind} ${c.method} → ${c.outcome}`), [note]);
+  const { site, sc } = useScenarioSite(key, { fileMode: "respond", onFileCall });
+  const published = () => site.transport.store.published.slice(-3).map((m) => `published (${m.event}${m.title ? ` · ${m.title}` : ""}): ${plainText(m.message).slice(0, 220)}`);
   return (
     <div className="space-y-4" data-testid="scenario-permissions-demo">
-      <ScenarioPicker value={key} onChange={setKey} />
+      <ScenarioPicker value={key} onChange={(v) => { setKey(v); setActions([]); }} />
       <ScenarioFacts site={site} sc={sc} />
       <SimProvider site={site} key={key}>
         <div className="grid gap-6 lg:grid-cols-2">
@@ -215,8 +222,12 @@ export function ScenarioPermissionsDemo() {
         <div className="mt-6 space-y-2">
           <h4 className="text-sm font-semibold text-foreground">{tr(l("Travel Request list — the rows this session may read", "قائمة طلبات السفر — الصفوف التي تستطيع هذه الجلسة قراءتها"))}</h4>
           <div className={cn("rounded-2xl border border-border px-4 py-4 md:px-6")} data-testid="scenario-list">
-            <FrappeListView doctype="Travel Request" storage={null} rowMeta={false} />
+            <FrappeListView doctype="Travel Request" storage={null} rowMeta={false}
+              bulk={{ onDone: (kind, outcome, names, action) => { note(`bulk ${action ?? kind}: ${names.length} requested${outcome.queued ? " (queued)" : ""}${outcome.failed.length ? `, failed: ${outcome.failed.join(", ")}` : ""}${outcome.silent ? " — the answer reports nothing per document" : ""}`); setActions((a) => [...published(), ...a].slice(0, 8)); },
+                onError: (e, kind) => note(`bulk ${kind} refused: ${e instanceof FrappeError ? `${e.status} ${e.excType ?? ""} ${e.message}` : String(e)}`) }} />
           </div>
+          <p className="text-xs text-muted-foreground">{tr(l("Select rows: the selection bar offers Desk's Actions for this session's rights (Export always); each action goes to the simulated server, which applies its own checks — Print and Export answer text files labelled SIMULATED, never data.", "حدّد صفوفاً: يعرض شريط التحديد إجراءات ديسك بحسب حقوق هذه الجلسة (التصدير دائماً)؛ كل إجراء يذهب إلى الخادم المحاكى الذي يطبّق فحوصه — الطباعة والتصدير يجيبان بملفات نصية موسومة SIMULATED، دون بيانات أبداً."))}</p>
+          <Readout label="actions →">{actions.length ? actions.join("\n") : "—"}</Readout>
         </div>
         <div className="mt-6 space-y-2">
           <h4 className="text-sm font-semibold text-foreground">{tr(l(`${sc.focus.name} as this session`, `${sc.focus.name} بهذه الجلسة`))}</h4>

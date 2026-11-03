@@ -12,8 +12,8 @@ import {
 } from "@ui";
 import {
   DATA_IMPORT_METHODS, DOWNLOAD_TEMPLATE_METHOD, FrappeAssignTo, FrappeExportDialog, FrappeForm, FrappeListView, FrappeStatusIndicator, FrappeTimeline,
-  FrappeWorkflowActions, bulkMenu, canExport, canImport, fieldDisplayStatus, readableFields, rolePermissions, useDoc, useMetaBundle,
-  usePermissions, withFrappeApi, type BulkKind, type FrappeDoc, type PermType,
+  FrappeDataImport, FrappeWorkflowActions, canExport, canImport, fieldDisplayStatus, listActionsMenu, readableFields, rolePermissions, useDoc, useMetaBundle,
+  usePermissions, withFrappeApi, type FrappeDoc, type ListActionKind, type PermType,
 } from "@ui/frappe";
 import { SCENARIO_HANDLERS, TRAVEL, TRAVELS, USERS, type FileCall, type SimSite } from "../../../../playground/src/demo/sim-site";
 import { simScenario } from "../../../../src/frappe/testing";
@@ -28,7 +28,7 @@ import { ScenarioFormDemo, ScenarioPermissionsDemo } from "./scenarios";
 
 const GALLERY: { name: string; row: string; purpose: L; status: MatrixStatus; section: string }[] = [
   { name: "FrappeListView", row: "15–19", purpose: l("A DocType's list from its metadata: columns, filters, saved filters, sort, paging, selection.", "قائمة نوع مستند من بياناته الوصفية: الأعمدة والتصفية والتصفيات المحفوظة والفرز والتصفّح والتحديد."), status: "verified-read", section: "frappe-list-view" },
-  { name: "FrappeBulkActions · bulkMenu", row: "21", purpose: l("Delete / submit / cancel / edit / assign on the selection, gated by the user's rights.", "حذف / اعتماد / إلغاء / تعديل / إسناد على التحديد، مقيّدة بحقوق المستخدم."), status: "partial", section: "frappe-list-view" },
+  { name: "FrappeBulkActions · listActionsMenu", row: "21", purpose: l("Desk's Actions on the selection: Edit, Export, Assign To, Clear Assignment, Apply Assignment Rule, Add Tags, Print, Submit, Cancel, Delete and the workflow's actions — offered like Desk; the server decides.", "إجراءات ديسك على التحديد: تعديل وتصدير وإسناد ومسح الإسناد وتطبيق قاعدة الإسناد وإضافة وسوم وطباعة واعتماد وإلغاء وحذف وإجراءات سير العمل — تُعرض كما في ديسك والخادم يقرّر."), status: "partial", section: "frappe-list-view" },
   { name: "Saved filters · user settings (server)", row: "20", purpose: l("List Filter rows and __UserSettings instead of localStorage.", "صفوف List Filter و __UserSettings بدل localStorage."), status: "simulated", section: "frappe-list-view" },
   { name: "useListRealtime", row: "13", purpose: l("Reload the list on the server's list_update event (debounced).", "إعادة تحميل القائمة عند حدث list_update من الخادم (مع تأخير)."), status: "skeleton", section: "frappe-list-view" },
   { name: "FrappeErrorState", row: "10", purpose: l("One rendering per error kind; Retry only when retrying can succeed.", "عرض واحد لكل نوع خطأ؛ إعادة المحاولة فقط عندما يمكن أن تنجح."), status: "verified-read", section: "frappe-list-view" },
@@ -44,17 +44,17 @@ const GALLERY: { name: string; row: string; purpose: L; status: MatrixStatus; se
   { name: "LifecycleBar · ActionBar · StatusBadge", row: "41", purpose: l("Generic stepper, actions menu and status chip (no Frappe).", "متتبّع خطوات وقائمة إجراءات وشارة حالة عامة (بلا فرابيه)."), status: "generic", section: "frappe-workflow" },
   { name: "FrappeAssignTo", row: "33", purpose: l("ToDo-based assignment: add / remove through assign_to.", "الإسناد عبر ToDo: إضافة وإزالة من خلال assign_to."), status: "partial", section: "frappe-assign" },
   { name: "AssigneeGroup · AssignPicker", row: "40", purpose: l("Generic assignees with a searchable picker (no Frappe).", "مُسنَد إليهم عامّون مع منتقٍ قابل للبحث (بلا فرابيه)."), status: "generic", section: "frappe-assign" },
-  { name: "usePermissions · canImport · canExport", row: "7", purpose: l("Desk's frm.perm ladder in the client; field display status per permlevel.", "سلّم frm.perm في العميل؛ حالة عرض الحقل لكل permlevel."), status: "partial", section: "frappe-permissions" },
-  { name: "Import entry · startDataImport · useImportStatus", row: "23", purpose: l("List menu entry gated by canImport; the Data Import tool's client sequence as functions (dev.28, partially implemented).", "مدخل في قائمة القائمة مقيّد بـ canImport؛ تسلسل أداة الاستيراد كدوال (dev.28، منفَّذ جزئياً)."), status: "partial", section: "frappe-import-export" },
-  { name: "FrappeExportDialog · downloadExportTemplate", row: "22", purpose: l("Desk's Export Data dialog; the file always comes from the server's download_template (dev.28).", "حوار تصدير البيانات في ديسك؛ الملف يأتي دائماً من download_template على الخادم (dev.28)."), status: "simulated", section: "frappe-import-export" },
+  { name: "usePermissions · canImport · canExport", row: "7", purpose: l("Desk's frm.perm ladder in the client; field display status per permlevel (dev.32).", "سلّم frm.perm في العميل؛ حالة عرض الحقل لكل permlevel ‏(dev.32)."), status: "simulated", section: "frappe-permissions" },
+  { name: "Import entry · FrappeDataImport · startDataImport", row: "23", purpose: l("The list's Import entry (canImport) and the Data Import tool: upload, the server's preview and warnings, column mapping, start, the server-confirmed result (dev.32).", "مدخل الاستيراد في القائمة (canImport) وأداة الاستيراد: الرفع ومعاينة الخادم وتحذيراته وربط الأعمدة والبدء والنتيجة التي يؤكّدها الخادم (dev.32)."), status: "simulated", section: "frappe-import-export" },
+  { name: "FrappeExportDialog · FrappeReportExportDialog", row: "22", purpose: l("Desk's Export Data dialog (download_template) and the report-view export (export_query); the file always comes from the server (dev.32).", "حوار تصدير البيانات في ديسك (download_template) وتصدير عرض التقرير (export_query)؛ الملف يأتي دائماً من الخادم (dev.32)."), status: "simulated", section: "frappe-import-export" },
 ];
 
 export function FrappeGalleryPage() {
   const tr = useTr();
   return (
     <div className="space-y-12">
-      <StatusStrip verified="10, 15–19, 24–27" parts={[["FrappeListView", "verified-read"], ["FrappeForm + fields", "verified-read"], ["workflow / assign / timeline / status", "simulated"], ["Import / Export (22 implemented, 23 partial — dev.28)", "simulated"]]}
-        note={l("Status words come from docs/release/COMPONENT-COMPLETION-MATRIX.md (rows 7/21/22/23 as updated for 0.4.0-dev.28; Import / Export: docs/components/list.md §6a). \"Verified\" means the read path replayed recorded real 15.110 responses in tests; no write has run on a real site; nothing is production ready.", "كلمات الحالة من docs/release/COMPONENT-COMPLETION-MATRIX.md ‏(الصفوف 7/21/22/23 كما حُدّثت لـ 0.4.0-dev.28؛ الاستيراد / التصدير: docs/components/list.md §6a). «مُتحقَّق» تعني أن مسار القراءة أُعيد تشغيله على استجابات 15.110 حقيقية مسجّلة في الاختبارات؛ لم تُشغَّل أي كتابة على موقع حقيقي؛ لا شيء جاهز للإنتاج.")} />
+      <StatusStrip verified="10, 15–19, 24–27" parts={[["FrappeListView", "verified-read"], ["FrappeForm + fields", "verified-read"], ["workflow / assign / timeline / status", "simulated"], ["Import / Export (22, 23 implemented — dev.32)", "simulated"]]}
+        note={l("Status words come from docs/release/COMPONENT-COMPLETION-MATRIX.md (rows 7/21/22/23 as updated for 0.4.0-dev.32; Import / Export: docs/components/list.md §6a). \"Verified\" means the read path replayed recorded real 15.110 responses in tests; no write has run on a real site; nothing is production ready.", "كلمات الحالة من docs/release/COMPONENT-COMPLETION-MATRIX.md ‏(الصفوف 7/21/22/23 كما حُدّثت لـ 0.4.0-dev.32؛ الاستيراد / التصدير: docs/components/list.md §6a). «مُتحقَّق» تعني أن مسار القراءة أُعيد تشغيله على استجابات 15.110 حقيقية مسجّلة في الاختبارات؛ لم تُشغَّل أي كتابة على موقع حقيقي؛ لا شيء جاهز للإنتاج.")} />
       <Section title={l("The 0.4 Frappe components", "مكوّنات فرابيه 0.4")} description={l("One card per component with its matrix row and status; each links to the section where it runs on the simulated site.", "بطاقة لكل مكوّن مع صفّه في المصفوفة وحالته؛ كل بطاقة تربط بالقسم الذي يعمل فيه على الموقع المحاكى.")}>
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label={tr(l("Frappe components", "مكوّنات فرابيه"))}>
           {GALLERY.map((g) => (
@@ -107,6 +107,8 @@ export function FrappeListViewPage() {
     handlers: scenario === "error" ? SCENARIO_HANDLERS["list-error"] : undefined,
     latency: scenario === "loading" ? 3_600_000 : 0,
     todoCount: scenario === "empty" ? 0 : 45,
+    // Print / Export go to the simulator's file server: text files labelled SIMULATED, never data
+    fileMode: "respond", onFileCall: (c) => setLog((s) => [`${c.kind} ${c.method} → ${c.outcome}`, ...s].slice(0, 6)),
   }, [scenario]);
   const push = (line: string) => setLog((s) => [line, ...s].slice(0, 6));
   const serverEvent = () => {
@@ -118,7 +120,7 @@ export function FrappeListViewPage() {
 
   return (
     <div className="space-y-12">
-      <StatusStrip verified="15–19, 10" parts={[["FrappeListView · reportview decode · list meta · query · List View Settings (15–19)", "verified-read"], ["FrappeErrorState (10)", "verified-read"], ["saved filters / user settings on the server (20)", "simulated"], ["bulk delete / assign (21)", "partial"], ["Export entry in the ⋯ menu (22; the showcase file server refuses with a labelled 417 here)", "simulated"], ["useListRealtime (13)", "skeleton"]]} />
+      <StatusStrip verified="15–19, 10" parts={[["FrappeListView · reportview decode · list meta · query · List View Settings (15–19)", "verified-read"], ["FrappeErrorState (10)", "verified-read"], ["saved filters / user settings on the server (20)", "simulated"], ["Desk's Actions on the selection — delete, assign, clear assignment, assignment rule, tags, print, export (21; Print / Export answer SIMULATED text files)", "partial"], ["Export entry in the ⋯ menu (22; the showcase file server refuses with a labelled 417 here)", "simulated"], ["useListRealtime (13)", "skeleton"]]} />
       <Section title={l("ToDo on the simulated site", "المهام على الموقع المحاكى")} description={l("Columns, filter fields and quick filters come from the real Frappe 15.110 ToDo metadata (getdoctype, in-page). Search, filters, saved filters (stored as List Filter rows by the simulator), the column manager, sorting, paging, selection and the bulk actions all work; delete and assign run through the simulator's delete_items / assign_to.add_multiple.", "الأعمدة وحقول التصفية والتصفيات السريعة تأتي من بيانات ToDo الحقيقية في فرابيه 15.110 ‏(getdoctype داخل الصفحة). البحث والتصفية والتصفيات المحفوظة (يحفظها المحاكي كصفوف List Filter) ومدير الأعمدة والفرز والتصفّح والتحديد والإجراءات الجماعية كلها تعمل؛ الحذف والإسناد يمرّان عبر delete_items / assign_to.add_multiple في المحاكي.")}>
         <div className="flex flex-col gap-3">
           <Picker legend={l("Scenario", "السيناريو")} value={scenario} onChange={setScenario} options={[
@@ -363,6 +365,27 @@ function GenericLifecycleDemo() {
   );
 }
 
+/** Approval Memo list with Desk's Actions: the workflow's actions common to the checked rows come from the simulated
+ *  server (`get_common_transition_actions`); choosing one runs `bulk_workflow_approval` (result published as realtime). */
+function WorkflowBulkDemo() {
+  const tr = useTr();
+  const site = useSimSite({ fileMode: "respond" }, []);
+  const [log, setLog] = React.useState<string[]>([]);
+  return (
+    <div className="space-y-3">
+      <SimProvider site={site}>
+        <div className="px-4 py-4 md:px-6" data-testid="workflow-bulk-list">
+          <FrappeListView doctype="Approval Memo" storage={null} rowMeta={false}
+            bulk={{ onDone: (kind, _o, names, action) => setLog((l) => [`bulk ${action ?? kind} on ${names.join(", ")}`, ...site.transport.store.published.slice(-2).map((m) => `published (${m.title ?? m.event}): ${m.message.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}`), ...l].slice(0, 6)),
+              onError: (e, kind) => setLog((l) => [`bulk ${kind} refused: ${e instanceof Error ? e.message : String(e)}`, ...l].slice(0, 6)) }} />
+        </div>
+      </SimProvider>
+      <Readout label="→">{log.length ? log.join("\n") : "—"}</Readout>
+      <p className="text-xs text-muted-foreground">{tr(l("Check rows in the same state: the Actions menu adds the transitions they all allow (asked from the simulated server when the menu opens). Rows in different states share none.", "حدّد صفوفاً في الحالة نفسها: تضيف قائمة الإجراءات الانتقالات المسموحة لها جميعاً (تُسأل من الخادم المحاكى عند فتح القائمة). صفوف في حالات مختلفة لا تشترك في شيء."))}</p>
+    </div>
+  );
+}
+
 export function FrappeWorkflowPage() {
   const site = useSimSite({}, []);
   // Seed: comments + an edit, then Reject (Pending → Draft) and Request Approval (Draft → Pending) through the simulator's
@@ -391,6 +414,11 @@ export function FrappeWorkflowPage() {
           <SimProvider site={site}>{ready ? <WorkflowDemo onApplied={setLog} /> : <Skeleton className="h-40 w-full" />}</SimProvider>
         </Example>
         <Readout label="→">{log || "—"}</Readout>
+      </Section>
+      <Section title={l("Bulk workflow approval from the list (dev.32)", "اعتماد سير العمل جماعياً من القائمة (dev.32)")} description={l("SIMULATED: FrappeListView's Actions on Approval Memo — get_common_transition_actions when the menu opens, bulk_workflow_approval on a choice; the per-document result is a realtime \"Workflow Status\" message on a site (shown here from the simulator's store).", "محاكاة: إجراءات FrappeListView على مذكرات الاعتماد — get_common_transition_actions عند فتح القائمة و bulk_workflow_approval عند الاختيار؛ نتيجة كل مستند رسالة «Workflow Status» عبر الزمن الحقيقي على موقع (معروضة هنا من مخزن المحاكي).")}>
+        <Example className="p-0" code={`<FrappeListView doctype="Approval Memo" bulk={{ onDone: (kind, outcome, names, action) => … }} />`}>
+          <WorkflowBulkDemo />
+        </Example>
       </Section>
       <Section title={l("Generic LifecycleBar and ActionBar", "LifecycleBar و ActionBar العامّان")} description={l("Frappe-free: states, actions and callbacks are props. \"Mark lost\" rejects on purpose to show the inline error and retry.", "بلا فرابيه: الحالات والإجراءات والاستدعاءات كلها خصائص. «تعليم كخاسرة» يرفض عمداً ليُظهر الخطأ المضمّن وإعادة المحاولة.")}>
         <Example code={`<LifecycleBar states={[{ id: "new", label: "New", by: "Sara", at }, …]} current="qualified" variant="steps"
@@ -474,7 +502,8 @@ export function FrappeAssignPage() {
 // ---------------------------------------------------------------------------------------------------------------------
 
 const RIGHTS: PermType[] = ["read", "write", "create", "delete", "import", "export"];
-const BULK_LABEL: Record<BulkKind, string> = { edit: "Edit", submit: "Submit", cancel: "Cancel", assign: "Assign To", delete: "Delete" };
+/** Desk's Actions menu labels (list_view.js:2088-2128). */
+const ACTION_LABEL: Record<ListActionKind, string> = { edit: "Edit", export: "Export", assign: "Assign To", clear_assignment: "Clear Assignment", assignment_rule: "Apply Assignment Rule", add_tags: "Add Tags", print: "Print", submit: "Submit", cancel: "Cancel", delete: "Delete", workflow: "(workflow actions)" };
 
 function PermissionsLive({ session }: { session: SessionKey }) {
   const tr = useTr();
@@ -486,7 +515,7 @@ function PermissionsLive({ session }: { session: SessionKey }) {
   const level0 = perms.levels[0];
   const imp = canImport(meta, s.roles, level0);
   const exp = canExport(s.roles, level0);
-  const menu = bulkMenu({ permissions: level0, isSubmittable: !!meta.is_submittable, hasWorkflow: !!perms.workflow, allowEdit: false, hasEditableFields: true });
+  const menu = listActionsMenu({ permissions: level0, isSubmittable: !!meta.is_submittable, hasWorkflow: !!perms.workflow, allowEdit: false, hasEditableFields: true });
   const newDoc: FrappeDoc = { doctype: "Travel Request", name: "new-travel-request-1", __islocal: 1 } as FrappeDoc;
   const internal = meta.fields.find((f) => f.fieldname === "internal_notes")!;
   const status = fieldDisplayStatus(internal, newDoc, perms.levels);
@@ -496,7 +525,7 @@ function PermissionsLive({ session }: { session: SessionKey }) {
     ["Import menu entry (canImport)", imp, l("needs allow_import on the DocType and System Manager or the import right", "يتطلّب allow_import على نوع المستند و System Manager أو حق الاستيراد")],
     ["Export dialog (canExport)", exp, l("System Manager, else the export right (if_owner rows included; the server checks every row's owner)", "System Manager أو حق التصدير (شاملاً صفوف if_owner؛ الخادم يفحص مالك كل صف)")],
     ["New document button (create)", !!level0?.create, l("the form's Save needs create on a new document", "حفظ النموذج يتطلّب create على مستند جديد")],
-    ["Bulk actions menu", menu.length > 0, l(menu.length ? `offers: ${menu.map((k) => BULK_LABEL[k]).join(", ")}` : "nothing is offered", menu.length ? `يعرض: ${menu.map((k) => BULK_LABEL[k]).join(", ")}` : "لا يُعرض شيء")],
+    ["Actions menu (listActionsMenu)", menu.length > 0, l(`offers: ${menu.map((k) => ACTION_LABEL[k]).join(", ")} — Export always, as Desk`, `يعرض: ${menu.map((k) => ACTION_LABEL[k]).join(", ")} — التصدير دائماً كما في ديسك`)],
     ["Internal notes (permlevel 1)", status !== "None", l(`display status: ${status}`, `حالة العرض: ${status}`)],
     ["Readable fields", readable.length > 0, l(`${readable.length} of ${meta.fields.filter((f) => !["Section Break", "Column Break"].includes(f.fieldtype)).length} data fields`, `${readable.length} من ${meta.fields.filter((f) => !["Section Break", "Column Break"].includes(f.fieldtype)).length} حقل بيانات`)],
   ];
@@ -553,7 +582,7 @@ export function FrappePermissionsPage() {
   const site = useSimSite({ permissions: sessionPermissions(session) }, [session]);
   return (
     <div className="space-y-12">
-      <StatusStrip parts={[["usePermissions · buildDocPermissions · rolePermissions · fieldDisplayStatus (7; rule 9 since dev.27)", "partial"], ["canImport · canExport · readableFields · permissionsKnown", "simulated"], ["bulkMenu (21)", "partial"], ["server-side permission decisions — the simulator's approximation (Phase 27)", "simulated"]]}
+      <StatusStrip parts={[["usePermissions · buildDocPermissions · rolePermissions · fieldDisplayStatus (7; rule 9 since dev.27)", "partial"], ["canImport · canExport · readableFields · permissionsKnown", "simulated"], ["listActionsMenu (21)", "partial"], ["server-side permission decisions — the simulator's approximation (Phase 27)", "simulated"]]}
         note={l("Client-side mirror of Desk's frm.perm; the server is the authority. The real check agreed with get_doc_permissions for two full-rights users only (weak evidence). Here the simulated server evaluates permissions too (opt-in permission model of @solvfast/ui/frappe/testing): DocPerm rows × roles, if_owner, User Permissions, DocShare, permlevel stripping and 403s — an approximation of the Frappe server, never evidence of it.", "مرآة في العميل لـ frm.perm في ديسك؛ الخادم هو المرجع. الفحص الحقيقي اتفق مع get_doc_permissions لمستخدمَين كاملي الحقوق فقط (دليل ضعيف). هنا يقيّم الخادم المحاكى الأذونات أيضاً (نموذج الأذونات الاختياري في @solvfast/ui/frappe/testing): صفوف DocPerm × الأدوار و if_owner وأذونات المستخدم والمشاركة وحذف حقول permlevel وأخطاء 403 — تقريبٌ لخادم فرابيه وليس دليلاً عليه.")} />
       <Section title={l("Seven scenarios — the client and the simulated server together", "سبعة سيناريوهات — العميل والخادم المحاكى معاً")} description={l("Pick a scenario: the client's rights on the scenario's saved Travel Request (usePermissions with the server's docinfo) beside what the simulated server answers to getdoc, a list query, saves, a delete, another DocType and an export; below, the list as the server filters it and the document as this session sees it.", "اختر سيناريو: حقوق العميل على طلب السفر المحفوظ للسيناريو (usePermissions مع docinfo من الخادم) بجانب ما يجيب به الخادم المحاكى لـ getdoc واستعلام قائمة والحفظ والحذف ونوع مستند آخر والتصدير؛ وأدناه القائمة كما يرشّحها الخادم والمستند كما تراه هذه الجلسة.")}>
         <Example className="p-4 md:p-6" code={`const transport = createFixtureTransport(backend, { permissions: simScenario.userPermissions("omar@example.com", ["Data Entry"],
@@ -576,7 +605,7 @@ export function FrappePermissionsPage() {
         <Example code={`<FrappeProvider client={client} session={{ user, roles }}>
   const perms = usePermissions(bundle);                 // Desk's frm.perm for a new document
   perms.can("write"); canImport(meta, roles, perms.levels[0]); canExport(roles, perms.levels[0]);
-  bulkMenu({ permissions: perms.levels[0], isSubmittable, hasWorkflow, allowEdit, hasEditableFields });
+  listActionsMenu({ permissions: perms.levels[0], isSubmittable, hasWorkflow, allowEdit, hasEditableFields });
   fieldDisplayStatus(df, doc, perms.levels)             // "Write" | "Read" | "None"`}>
           <SimProvider site={site} session={session} key={session}><PermissionsLive session={session} /></SimProvider>
         </Example>
@@ -587,7 +616,7 @@ export function FrappePermissionsPage() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// 8. Import / Export (dev.28) — gated menu entries, the Export dialog, the exact requests; the file server is simulated
+// 8. Import / Export (dev.32) — Export for everyone, the Import entry → FrappeDataImport, the exact requests; the server is simulated
 // ---------------------------------------------------------------------------------------------------------------------
 
 type IoSession = "admin" | "sales" | "dataEntry" | "exporter" | "none";
@@ -606,66 +635,84 @@ function RefusedExportDemo({ site }: { site: SimSite }) {
   if (!bundle.data) return <Skeleton className="h-10 w-48" />;
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>{tr(l("Open the Export dialog as a user with no role on Travel Request (server refuses)", "فتح حوار التصدير بمستخدم بلا دور على طلب السفر (الخادم يرفض)"))}</Button>
+      <Button variant="outline" className="h-auto min-h-9 whitespace-normal text-start" onClick={() => setOpen(true)}>{tr(l("Open the Export dialog as a user with no role on Travel Request (server refuses)", "فتح حوار التصدير بمستخدم بلا دور على طلب السفر (الخادم يرفض)"))}</Button>
       <FrappeExportDialog api={api} bundle={bundle.data} open={open} onOpenChange={setOpen} filters={[]} />
     </>
   );
 }
+/** A DEMO CSV with fictional rows to try the simulated Data Import (made by the showcase, not by the simulator). */
+const DEMO_CSV = "Purpose,Lead traveller,Destination,Budget\nDemo: Dubai trade fair,omar@example.com,Dubai,500\n,lina@example.com,Riyadh,100\nDemo: unknown traveller,ghost@example.com,London,50\n";
+function downloadDemoCsv() {
+  const url = URL.createObjectURL(new Blob([DEMO_CSV], { type: "text/csv" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: "DEMO-travel-requests.csv" });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function ImportDemo({ site, open, onOpenChange, onGoToList }: { site: SimSite; open: boolean; onOpenChange: (o: boolean) => void; onGoToList: () => void }) {
+  const api = React.useMemo(() => withFrappeApi(site.client), [site]);
+  return <FrappeDataImport api={api} doctype="Travel Request" open={open} onOpenChange={onOpenChange} pollIntervalMs={400} onGoToList={onGoToList} />;
+}
+
 export function FrappeImportExportPage() {
   const tr = useTr();
   const [session, setSession] = React.useState<IoSession>("admin");
   const [log, setLog] = React.useState<string[]>([]);
+  const [importOpen, setImportOpen] = React.useState(false);
   const push = React.useCallback((line: string) => setLog((s) => [line, ...s].slice(0, 8)), []);
   const onCall = React.useCallback((c: FileCall) => push(fmtCall(c)), [push]);
-  // the simulator's file server decides (read + can_export) and answers a text file labelled SIMULATED — labels and the
-  // request only; Sales User / no roles never reach the dialog from the list
-  const site = useSimSite({ fileMode: "respond", onFileCall: onCall, permissions: sessionPermissions(session) }, [onCall, session]);
+  // the simulator's file server decides (read, can_export, Data Import rights) and answers text files labelled SIMULATED;
+  // the import job plays the server ("insert"): valid rows go into this page's in-browser memory only
+  const site = useSimSite({ fileMode: "respond", onFileCall: onCall, permissions: sessionPermissions(session), dataImport: "insert" }, [onCall, session]);
   const refusedSite = useSimSite({ fileMode: "respond", onFileCall: onCall, permissions: sessionPermissions("none") }, [onCall]);
   const s = SESSIONS[session];
   const level0 = s.roles ? rolePermissions(TRAVEL.permissions, s.roles).levels[0] : undefined;
   const imp = canImport(TRAVEL, s.roles, level0), exp = canExport(s.roles, level0);
   return (
     <div className="space-y-12">
-      <StatusStrip parts={[["Import entry · onImport · startDataImport sequence (23, dev.28)", "partial"], ["FrappeExportDialog · downloadExportTemplate (22, dev.28)", "simulated"], ["canImport · canExport gates", "simulated"]]}
-        note={l("SIMULATED, end to end. The list's ⋯ menu and the selection bar are the real package; the file transport records the exact request the package would POST and hands it to the simulator's file server, which evaluates the session's permissions (read, can_export) and answers either a 403 or a small text file labelled SIMULATED that carries the column labels and the request — never document values. No export is ever built from client data; no import runs (uploads are refused). The package's own default would navigate to /app/data-import — here onImport only logs.", "محاكاة من البداية إلى النهاية. قائمة ⋯ وشريط التحديد هما الحزمة الحقيقية؛ ناقل الملفات يسجّل الطلب الدقيق الذي سترسله الحزمة ويسلّمه لخادم ملفات المحاكي الذي يقيّم أذونات الجلسة (القراءة و can_export) ويجيب إمّا بـ 403 أو بملف نصي صغير موسوم بـ SIMULATED يحمل عناوين الأعمدة والطلب — دون أي قيم من المستندات. لا يُبنى أي تصدير من بيانات العميل؛ لا يُشغَّل أي استيراد (الرفع مرفوض). الافتراضي في الحزمة ينتقل إلى /app/data-import — هنا onImport يسجّل فقط.")} />
-      <Section title={l("Gated entries on the Travel Request list", "المدخلان المقيّدان في قائمة طلبات السفر")} description={l("Switch the session: the ⋯ menu offers Import only when canImport (allow_import and System Manager or the import right) and Export only when canExport; select rows and Export appears in the selection bar preset to the checked names. Open the dialog, pick fields, press Export: the request is recorded below and the simulated server answers a labelled text file (the browser saves it as SIMULATED-Travel-Request-not-an-export.txt).", "بدّل الجلسة: تعرض قائمة ⋯ «استيراد» فقط عند canImport (allow_import و System Manager أو حق الاستيراد) و«تصدير» فقط عند canExport؛ حدّد صفوفاً فيظهر «تصدير» في شريط التحديد مضبوطاً على الأسماء المحدّدة. افتح الحوار واختر الحقول واضغط تصدير: يُسجَّل الطلب أدناه ويجيب الخادم المحاكى بملف نصي موسوم (يحفظه المتصفّح باسم SIMULATED-Travel-Request-not-an-export.txt).")}>
-        <Picker legend={l("Session", "الجلسة")} value={session} onChange={(v) => { setSession(v); setLog([]); }} options={IO_SESSIONS} />
+      <StatusStrip parts={[["Import entry · FrappeDataImport · startDataImport (23, dev.32)", "simulated"], ["FrappeExportDialog · FrappeReportExportDialog (22, dev.32)", "simulated"], ["canImport gate · Export offered to everyone, as Desk", "simulated"], ["server-side permission decisions — the simulator's approximation (Phase 27)", "simulated"]]}
+        note={l("SIMULATED, end to end. The list, its ⋯ menu, the selection bar, the Export dialog and FrappeDataImport are the real package; every request goes to the in-browser simulator, which evaluates the session's permissions and answers like a server: 403s, the Data Import preview of YOUR file, and text files labelled SIMULATED (labels, counts and the request — never document values). The import job plays the server: valid rows are inserted into this page's memory only and vanish on reload. Nothing leaves the browser.", "محاكاة من البداية إلى النهاية. القائمة وقائمة ⋯ وشريط التحديد وحوار التصدير و FrappeDataImport هي الحزمة الحقيقية؛ كل طلب يذهب إلى المحاكي داخل المتصفّح الذي يقيّم أذونات الجلسة ويجيب كخادم: أخطاء 403 ومعاينة ملفك في أداة الاستيراد وملفات نصية موسومة بـ SIMULATED (عناوين وأعداد والطلب — دون أي قيم من المستندات). مهمة الاستيراد تؤدّي دور الخادم: تُدرج الصفوف الصالحة في ذاكرة هذه الصفحة فقط وتختفي عند إعادة التحميل. لا يغادر شيء المتصفّح.")} />
+      <Section title={l("Import and Export on the Travel Request list", "الاستيراد والتصدير في قائمة طلبات السفر")} description={l("Export is in the ⋯ menu for every session and in the selection bar (Desk offers it to everyone; owner decision Phase 27 #1): the simulated server decides — a blank template needs read, records need can_export, so Sales User gets the 403 inside the dialog. Import is offered only when canImport (allow_import and System Manager or the import right) and opens FrappeDataImport here (the package's default navigates to /app/data-import?reference_doctype=…). Only System Manager may create a Data Import, so Data Entry sees the entry and gets the server's 403 at the first step, as in Desk.", "التصدير في قائمة ⋯ لكل جلسة وفي شريط التحديد (ديسك يعرضه للجميع؛ قرار المالك في المرحلة 27 #1): الخادم المحاكى يقرّر — القالب الفارغ يحتاج القراءة، والسجلات تحتاج can_export، فيتلقّى Sales User خطأ 403 داخل الحوار. يُعرض الاستيراد فقط عند canImport (allow_import و System Manager أو حق الاستيراد) ويفتح FrappeDataImport هنا (الافتراضي في الحزمة ينتقل إلى /app/data-import?reference_doctype=…). وحده System Manager ينشئ Data Import، فيرى Data Entry المدخل ويتلقّى 403 من الخادم في الخطوة الأولى كما في ديسك.")}>
+        <Picker legend={l("Session", "الجلسة")} value={session} onChange={(v) => { setSession(v); setLog([]); setImportOpen(false); }} options={IO_SESSIONS} />
         <div className="flex flex-wrap items-center gap-2">
           <SessionBadge session={session} />
           <Badge variant={imp ? "success" : "outline"} dir="ltr">canImport: {String(imp)}</Badge>
-          <Badge variant={exp ? "success" : "outline"} dir="ltr">canExport: {String(exp)}</Badge>
+          <Badge variant={exp ? "success" : "outline"} dir="ltr">canExport (client): {String(exp)}</Badge>
+          <Button variant="outline" size="sm" className="h-auto min-h-8 whitespace-normal text-start" onClick={downloadDemoCsv}>{tr(l("Download a DEMO CSV (fictional rows) to try the import", "تنزيل ملف CSV تجريبي (صفوف وهمية) لتجربة الاستيراد"))}</Button>
         </div>
+        <SimulatedPermissionStrip />
         <Example className="p-0" code={`<FrappeProvider client={createFrappeClient({ transport, files })} session={{ user, roles }}>
   <FrappeListView doctype="Travel Request" selectable
-    onImport={() => openMyImportFlow()}           // default: location.assign("/app/data-import/new?reference_doctype=…")
+    onImport={() => setImportOpen(true)}          // default: location.assign("/app/data-import?reference_doctype=…")
     ioLabels={{ importEntry: "Import", exportEntry: "Export", title: "Export Data" }} />
+  <FrappeDataImport api={api} doctype="Travel Request" open={importOpen} onOpenChange={setImportOpen} />
 </FrappeProvider>
-// the dialog posts: ${DOWNLOAD_TEMPLATE_METHOD}
+// Export posts ${DOWNLOAD_TEMPLATE_METHOD}
 //   { doctype, file_type: "CSV" | "Excel", export_records: "all" | "by_filter" | "5_records" | "blank_template", export_fields: JSON, export_filters: JSON | null }`}>
           <SimProvider site={site} session={session} key={session}>
-            <div className="px-4 py-4 md:px-6">
-              <FrappeListView doctype="Travel Request" selectable storage={null} rowMeta={false} onImport={() => push(`onImport → the app opens its Data Import flow (package default: location.assign("/app/data-import/new?reference_doctype=Travel%20Request"))`)} />
+            <div className="px-4 py-4 md:px-6" data-testid="io-list">
+              <FrappeListView doctype="Travel Request" selectable storage={null} rowMeta={false} onImport={() => { push(`onImport → FrappeDataImport opens (package default: location.assign("/app/data-import?reference_doctype=Travel%20Request"))`); setImportOpen(true); }} />
+              <ImportDemo site={site} open={importOpen} onOpenChange={setImportOpen} onGoToList={() => { setImportOpen(false); void site.qc.invalidateQueries(); }} />
             </div>
           </SimProvider>
         </Example>
         <Readout label="file transport →">{log.length ? log.join("\n\n") : "—"}</Readout>
       </Section>
-      <Section title={l("Permission denied by the server", "الخادم يرفض الإذن")} description={l("The client gate hides the entry, but the server is the authority: this opens the same FrappeExportDialog for a user whose roles have no Travel Request row; the simulated server answers 403 \"No permission for Travel Request\" (data_import.py:188) — shown inside the dialog as FrappeErrorState, no file, no retry. (A Sales User may download a BLANK template — it needs read only — and is refused \"You are not allowed to export\" as soon as records are included, exporter.py:116-126.)", "بوابة العميل تخفي المدخل، لكن الخادم هو المرجع: هذا يفتح FrappeExportDialog نفسه لمستخدم لا صف لأدواره في طلب السفر؛ فيجيب الخادم المحاكى بـ 403 «No permission for Travel Request» ‏(data_import.py:188) — يُعرض داخل الحوار كـ FrappeErrorState، بلا ملف ولا إعادة محاولة. (يستطيع Sales User تنزيل قالب فارغ — يكفيه حق القراءة — ويُرفض «You are not allowed to export» حالما تُضمَّن السجلات، exporter.py:116-126.)")}>
+      <Section title={l("Permission denied by the server", "الخادم يرفض الإذن")} description={l("Export is offered to everyone; the server is the authority. This opens the same FrappeExportDialog for a user whose roles have no Travel Request row: the simulated server answers 403 \"No permission for Travel Request\" (data_import.py:188) — shown inside the dialog as FrappeErrorState, no file, no retry. (A Sales User may download a BLANK template — it needs read only — and is refused \"You are not allowed to export\" as soon as records are included, exporter.py:116-126.)", "التصدير معروض للجميع؛ والخادم هو المرجع. هذا يفتح FrappeExportDialog نفسه لمستخدم لا صف لأدواره في طلب السفر: فيجيب الخادم المحاكى بـ 403 «No permission for Travel Request» ‏(data_import.py:188) — يُعرض داخل الحوار كـ FrappeErrorState، بلا ملف ولا إعادة محاولة. (يستطيع Sales User تنزيل قالب فارغ — يكفيه حق القراءة — ويُرفض «You are not allowed to export» حالما تُضمَّن السجلات، exporter.py:116-126.)")}>
         <Example code={`<FrappeExportDialog api={api} bundle={bundle} open onOpenChange={…} filters={list.filters} levels={perms.levels} />`}>
           <SimProvider site={refusedSite} session="none"><RefusedExportDemo site={refusedSite} /></SimProvider>
         </Example>
       </Section>
-      <Section title={l("What an import would send (never run here)", "ما سيرسله الاستيراد (لا يُشغَّل هنا)")} description={l("startDataImport reproduces Desk's Data Import sequence; every step is a write on the site, so the showcase only lists the methods. Nothing on this page creates a Data Import document.", "startDataImport يعيد تسلسل أداة الاستيراد في ديسك؛ كل خطوة كتابة على الموقع، لذا يكتفي المعرض بسرد الأساليب. لا شيء في هذه الصفحة ينشئ مستند Data Import.")}>
+      <Section title={l("The Data Import sequence (on the simulated server)", "تسلسل استيراد البيانات (على الخادم المحاكى)")} description={l("FrappeDataImport and startDataImport reproduce Desk's Data Import sequence; here every step is answered by the simulator (CSV only; .xlsx is refused with a message labelled SIMULATED). The simulated job checks each row (create right, mandatory, Link values) and — playing the server — inserts the valid ones into this page's memory.", "يعيد FrappeDataImport و startDataImport تسلسل أداة الاستيراد في ديسك؛ هنا يجيب المحاكي عن كل خطوة (CSV فقط؛ يُرفض .xlsx برسالة موسومة SIMULATED). تفحص المهمة المحاكاة كل صف (حق الإنشاء والحقول الإلزامية وقيم الروابط) — وبأداء دور الخادم — تُدرج الصالحة في ذاكرة هذه الصفحة.")}>
         <Readout label="startDataImport(api, { referenceDoctype, importType, file, filename }) →">{[
-          `1. ${DATA_IMPORT_METHODS.save}  (new Data Import: reference_doctype, import_type — server checks allow_import + import right)`,
-          `2. ${DATA_IMPORT_METHODS.upload}  (multipart; doctype "Data Import", fieldname import_file, is_private 1)`,
+          `1. ${DATA_IMPORT_METHODS.save}  (new Data Import — System Manager only; the server checks allow_import + the import right)`,
+          `2. ${DATA_IMPORT_METHODS.upload}  (multipart; doctype "Data Import", fieldname import_file, is_private 1 — write checked)`,
           `3. ${DATA_IMPORT_METHODS.save}  (import_file = file_url — the server parses the template here)`,
-          `4. ${DATA_IMPORT_METHODS.preview}`,
-          `5. ${DATA_IMPORT_METHODS.start}  → true (enqueued) | false (already queued)`,
-          `6. ${DATA_IMPORT_METHODS.status} / ${DATA_IMPORT_METHODS.logs}  (useImportStatus polls; realtime data_import_progress)`,
-          `7. ${DATA_IMPORT_METHODS.erroredRows}  (Export Errored Rows)`,
+          `4. ${DATA_IMPORT_METHODS.preview}  (columns matched by label / fieldname, column_to_field_map honoured)`,
+          `5. ${DATA_IMPORT_METHODS.start}  → true (the simulated job runs at once)`,
+          `6. ${DATA_IMPORT_METHODS.status} / ${DATA_IMPORT_METHODS.logs}  (useImportStatus polls)`,
+          `7. ${DATA_IMPORT_METHODS.erroredRows} / ${DATA_IMPORT_METHODS.importLog}  (text files labelled SIMULATED: row numbers only)`,
         ].join("\n")}</Readout>
-        <p className="text-xs text-muted-foreground">{tr(l("Server fact: the Data Import DocType grants create to System Manager only, so a Data Entry user with the import right is refused at step 1 (403) — Desk and the package both still show the entry.", "حقيقة من الخادم: نوع Data Import يمنح الإنشاء لـ System Manager فقط، فيُرفض مستخدم Data Entry ذو حق الاستيراد في الخطوة 1 ‏(403) — ديسك والحزمة يعرضان المدخل مع ذلك."))}</p>
       </Section>
     </div>
   );
