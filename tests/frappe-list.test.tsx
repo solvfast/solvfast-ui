@@ -236,3 +236,106 @@ describe("child-table filters and docstatus / owner / modified_by filter fields"
     expect(plain).toMatchObject({ joinsChild: false, fields: ["name", "title"] });
   });
 });
+
+// ---- server-backed storage (List Filter, user_settings) ---------------------------------------------------------------
+import { createFrappeSavedFilters, createFrappeUserSettings } from "../src/frappe/list/storage";
+import { queryToTuples, tuplesToQuery } from "../src/frappe/list/tuples";
+
+describe("filter tuples ↔ FilterQuery", () => {
+  const meta = buildFrappeListMeta(TODO_META as DocMeta, en);
+  const q = (conditions: { field: string; operator: string; value: string }[], conjunction: "and" | "or" = "and") =>
+    ({ conjunction, conditions: conditions.map((c, i) => ({ id: `${i}`, ...c })) }) as never;
+  it("stores Desk's 4-tuples and reads them back", () => {
+    const query = q([{ field: "status", operator: "equals", value: "Open" }, { field: "description", operator: "like", value: "visa" }, { field: "date", operator: "between", value: "2026-01-01,2026-02-01" }, { field: "allocated_to", operator: "is_not_set", value: "" }]);
+    const tuples = queryToTuples(query, meta);
+    expect(tuples).toEqual([["ToDo", "status", "=", "Open"], ["ToDo", "description", "like", "%visa%"], ["ToDo", "date", "between", ["2026-01-01", "2026-02-01"]], ["ToDo", "allocated_to", "is", "not set"]]);
+    expect(tuplesToQuery(tuples, meta).conditions.map(({ field, operator, value }) => ({ field, operator, value }))).toEqual([
+      { field: "status", operator: "equals", value: "Open" }, { field: "description", operator: "like", value: "visa" },
+      { field: "date", operator: "between", value: "2026-01-01,2026-02-01" }, { field: "allocated_to", operator: "is_not_set", value: "" },
+    ]);
+  });
+  it("drops tuples on unknown fields; accepts 3-tuples; refuses an OR query", () => {
+    expect(tuplesToQuery([["ToDo", "gone", "=", "x"], ["status", "=", "Open"], "junk"], meta).conditions).toHaveLength(1);
+    expect(() => queryToTuples(q([{ field: "status", operator: "equals", value: "Open" }, { field: "status", operator: "equals", value: "Closed" }], "or"), meta)).toThrow(/OR/);
+  });
+});
+
+describe("server-backed storage adapters", () => {
+  const meta = buildFrappeListMeta(TODO_META as DocMeta, en);
+  function site(initial: Record<string, unknown>[] = []) {
+    const rows = [...initial]; const log: { method: string; args: Record<string, unknown> }[] = [];
+    const transport: FrappeTransport = async (method, args) => {
+      log.push({ method, args });
+      if (method === "frappe.client.get_list") return { message: rows.filter((r) => r.reference_doctype === JSON.parse(String(args.filters))[0][2]) };
+      if (method === "frappe.client.insert") { const d = JSON.parse(String(args.doc)); rows.push({ ...d, name: `LF-${rows.length + 1}` }); return { message: d }; }
+      if (method === "frappe.client.delete") { rows.splice(rows.findIndex((r) => r.name === args.name), 1); return { message: "ok" }; }
+      return { message: null };
+    };
+    return { client: createFrappeClient({ transport }), log, rows };
+  }
+  const query = { conjunction: "and" as const, conditions: [{ id: "1", field: "status", operator: "equals" as const, value: "Open" }] };
+
+  it("saved filters: List Filter rows — listed for me + global, inserted with 4-tuples, deleted", async () => {
+    const s = site([{ name: "LF-0", reference_doctype: "ToDo", filter_name: "Mine", for_user: "me@x.com", filters: '[["ToDo","status","=","Closed"]]' }]);
+    const store = createFrappeSavedFilters(s.client, { user: "me@x.com", meta });
+    const first = await store.list("ToDo");
+    expect(first).toMatchObject([{ id: "LF-0", label: "Mine" }]);
+    expect(first[0].query.conditions[0]).toMatchObject({ field: "status", value: "Closed" });
+    expect(s.log[0].args).toMatchObject({ doctype: "List Filter", order_by: "filter_name asc" });
+    expect(JSON.parse(String(s.log[0].args.or_filters))).toEqual([["for_user", "=", "me@x.com"], ["for_user", "=", ""]]);
+    const after = await store.save("ToDo", "Open ones", query);
+    expect(JSON.parse(String(s.log.find((c) => c.method === "frappe.client.insert")!.args.doc))).toEqual({
+      doctype: "List Filter", reference_doctype: "ToDo", filter_name: "Open ones", for_user: "me@x.com", filters: '[["ToDo","status","=","Open"]]',
+    });
+    expect(after.map((f) => f.label)).toEqual(["Mine", "Open ones"]);
+    await expect(store.save("ToDo", "Open ones", query)).rejects.toThrow(/already exists/);
+    expect((await store.remove("ToDo", "LF-0")).map((f) => f.label)).toEqual(["Open ones"]);
+    expect(s.log.some((c) => c.method === "frappe.client.delete" && c.args.name === "LF-0" && c.args.doctype === "List Filter")).toBe(true);
+    const global = createFrappeSavedFilters(s.client, { user: "me@x.com", meta, global: true });
+    await global.save("ToDo", "For all", query);
+    expect(s.rows.at(-1)!.for_user).toBe("");
+  });
+
+  it("user settings: load from getdoctype's user_settings; save keeps Desk's keys, batches, skips unchanged", async () => {
+    vi.useFakeTimers();
+    const s = site();
+    const initial = { last_view: "List", List: { sort_by: "date", sort_order: "asc", filters: [["ToDo", "status", "=", "Open"]], other: 1 }, group_by_fields: ["owner"] };
+    const store = createFrappeUserSettings(s.client, { doctype: "ToDo", initial, meta, delayMs: 100 });
+    expect(store.load("ToDo")).toMatchObject({ sort: { key: "date", dir: "asc" } });
+    expect(store.load("ToDo").query!.conditions[0]).toMatchObject({ field: "status", value: "Open" });
+    store.save("ToDo", { visible: ["status"], sort: { key: "priority", dir: "desc" } });
+    store.save("ToDo", { visible: ["status", "date"], sort: { key: "priority", dir: "desc" }, query });
+    expect(s.log).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(150);
+    const calls = s.log.filter((c) => c.method === "frappe.model.utils.user_settings.save");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args.doctype).toBe("ToDo");
+    expect(JSON.parse(String(calls[0].args.user_settings))).toMatchObject({
+      last_view: "List", group_by_fields: ["owner"],
+      List: { sort_by: "priority", sort_order: "desc", other: 1, filters: [["ToDo", "status", "=", "Open"]], sf_ui: { visible: ["status", "date"] } },
+    });
+    store.save("ToDo", { visible: ["status", "date"], sort: { key: "priority", dir: "desc" }, query });
+    await vi.advanceTimersByTimeAsync(150);
+    expect(s.log.filter((c) => c.method === "frappe.model.utils.user_settings.save")).toHaveLength(1); // unchanged → no call
+    vi.useRealTimers();
+  });
+
+  it("FrappeListView serverStorage: restores the saved filters from user_settings and lists List Filter rows", async () => {
+    const mock = createMockFrappe();
+    const base = mock.transport;
+    const log: string[] = [];
+    const transport: FrappeTransport = async (method, args) => {
+      log.push(method);
+      if (method === "frappe.desk.form.load.getdoctype") return { docs: [TODO_META], user_settings: JSON.stringify({ List: { filters: [["ToDo", "status", "=", "Closed"]] } }) };
+      if (method === "frappe.client.get_list" && args.doctype === "List Filter") return { message: [{ name: "LF-1", filter_name: "Urgent", for_user: "", filters: '[["ToDo","priority","=","High"]]' }] };
+      return base(method, args);
+    };
+    mount(transport, { serverStorage: { user: "me@x.com" }, storage: undefined });
+    await waitFor(() => expect(bodyRows().length).toBeGreaterThan(0));
+    const lastRows = () => mock.calls.filter((c) => c.method === "frappe.desk.reportview.get").at(-1)!.args;
+    expect(JSON.parse(JSON.stringify(lastRows().filters))).toEqual([["status", "=", "Closed"]]);
+    expect(log).toContain("frappe.client.get_list");
+    fireEvent.click(screen.getByRole("button", { name: /Saved/i }));
+    expect(await screen.findByText("Urgent")).toBeTruthy();
+  });
+});
