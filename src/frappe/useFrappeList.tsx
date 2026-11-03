@@ -112,6 +112,7 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   const settings = settingsQ.data ?? null;
   const settingsReady = o.listSettings === false || !settingsQ.isPending;
   const [userInfo, setUserInfo] = React.useState<Record<string, ReportviewUser>>({});
+  const [userNames, setUserNames] = React.useState<Record<string, string>>({});
   const [exactCount, setExactCount] = React.useState(false);
   const providerFormat = useFormatContext();
   const formatCtx = React.useMemo<FormatContext>(() => ({ checkLabels: { yes: t("yes"), no: t("no") }, ...providerFormat, ...o.formatContext }), [providerFormat, o.formatContext, t]);
@@ -145,11 +146,21 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     const FORMATTED = new Set(["Int", "Float", "Percent", "Currency", "Date", "Datetime", "Time"]);
     const formatted = all.map((c) => {
       const df = meta?.fieldDefs[fieldOf(c)];
+      const f = fieldOf(c);
+      // User links (owner, modified_by, Link → User) show the full name, as Desk does; the id when it is not known
+      if (!c.render && (f === "owner" || f === "modified_by" || (df?.fieldtype === "Link" && df.options === "User"))) {
+        return { ...c, render: (row: T) => {
+          const id = (row as Row)[f];
+          if (id === null || id === undefined || id === "") return <span className="text-muted-foreground">—</span>;
+          const key = String(id);
+          return <span title={key}>{userInfo[key]?.fullname || userNames[key] || formatCtx.linkTitles?.[`User::${key}`] || key}</span>;
+        } };
+      }
       if (c.render || !df || !FORMATTED.has(df.fieldtype)) return c;
-      return { ...c, render: (row: T) => { const v = (row as Row)[fieldOf(c)]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <span dir="ltr" className="tabular-nums">{formatValue(v, df, row as never, formatCtx)}</span>; } };
+      return { ...c, render: (row: T) => { const v = (row as Row)[fieldOf(c)]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <span dir="ltr" className="whitespace-nowrap tabular-nums">{formatValue(v, df, row as never, formatCtx)}</span>; } };
     });
     return applyColumnSettings(formatted, settings, meta?.titleField ?? "name");
-  }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, commentsOff, settings, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, userNames, commentsOff, settings, t]); // eslint-disable-line react-hooks/exhaustive-deps
   const filterFields = React.useMemo(() => (meta?.filterFields ?? []).map((f) => ({ ...f, label: label(f.name, f.label) })), [meta, label]);
 
   const [state, setState] = React.useState<ListQueryState | null>(null);
@@ -210,6 +221,19 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   });
 
   const rows = React.useMemo(() => list.data?.pages.flatMap((p) => p.rows) ?? [], [list.data]);
+  // Full names of the users the rows mention in owner / User-link columns that `user_info` (assignees only) does not cover.
+  // Best effort: a site that hides the User list leaves ids.
+  const userFields = React.useMemo(() => Object.values(meta?.fieldDefs ?? {}).filter((d) => d.fieldname === "owner" || d.fieldname === "modified_by" || (d.fieldtype === "Link" && d.options === "User")).map((d) => d.fieldname).concat(["owner", "modified_by"]), [meta]);
+  React.useEffect(() => {
+    const ids = new Set<string>();
+    for (const r of rows as Row[]) for (const f of userFields) { const v = r[f]; if (typeof v === "string" && v && !userInfo[v] && !userNames[v] && v !== "Administrator") ids.add(v); }
+    if (!ids.size) return;
+    let live = true;
+    void client.getList<{ name: string; full_name?: string }>("User", { fields: ["name", "full_name"], filters: [["name", "in", [...ids]]], limit_page_length: ids.size })
+      .then((us) => { if (live) setUserNames((p) => ({ ...p, ...Object.fromEntries([...ids].map((id) => [id, us.find((u) => u.name === id)?.full_name || id])) })); })
+      .catch(() => { if (live) setUserNames((p) => ({ ...p, ...Object.fromEntries([...ids].map((id) => [id, id])) })); });
+    return () => { live = false; };
+  }, [rows, userFields, userInfo, userNames, client]);
   React.useEffect(() => {
     const merged = Object.assign({}, ...(list.data?.pages.map((p) => p.userInfo) ?? []));
     if (Object.keys(merged).length) setUserInfo((prev) => (sameJson(prev, { ...prev, ...merged }) ? prev : { ...prev, ...merged }));

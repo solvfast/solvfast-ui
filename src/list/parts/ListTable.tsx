@@ -50,11 +50,11 @@ export function DefaultCell<T>({ value, col }: { value: unknown; col: ColumnDef<
       const yes = value === true || value === 1 || value === "1" || value === "true";
       return yes ? <Check className="h-4 w-4 text-success" aria-label={t("yes")} /> : <X className="h-4 w-4 text-muted-foreground" aria-label={t("no")} />;
     }
-    case "Date": return <span dir="ltr">{fmtDate(value, language)}</span>;
-    case "Datetime": return <span dir="ltr">{fmtDate(value, language, true)}</span>;
-    case "Currency": return <span dir="ltr" className="font-medium tabular-nums">{fmtNumber(value, language, true)}</span>;
+    case "Date": return <span dir="ltr" className="whitespace-nowrap tabular-nums">{fmtDate(value, language)}</span>;
+    case "Datetime": return <span dir="ltr" className="whitespace-nowrap tabular-nums">{fmtDate(value, language, true)}</span>;
+    case "Currency": return <span dir="ltr" className="whitespace-nowrap font-medium tabular-nums">{fmtNumber(value, language, true)}</span>;
     case "Int": case "Float": case "Percent":
-      return <span dir="ltr" className="tabular-nums">{fmtNumber(value, language)}{ft === "Percent" ? "%" : ""}</span>;
+      return <span dir="ltr" className="whitespace-nowrap tabular-nums">{fmtNumber(value, language)}{ft === "Percent" ? "%" : ""}</span>;
     case "Select": return <Badge variant="secondary" className="font-normal">{String(value)}</Badge>;
     case "Link": case "Dynamic Link": return <span className="font-medium text-foreground">{String(value)}</span>;
     case "Text Editor": case "Markdown Editor": case "HTML Editor": return <span className="line-clamp-2">{htmlToText(String(value))}</span>;
