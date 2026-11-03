@@ -31,7 +31,7 @@ const STATE_COLOR: Record<string, Tone> = {
 
 export interface IndicatorInput {
   doc: FrappeDoc;
-  meta: Pick<DocTypeMeta, "is_submittable" | "fields"> & { states?: Array<{ title: string; color?: string }> };
+  meta: Pick<DocTypeMeta, "is_submittable"> & { fields: Array<{ fieldname: string }>; states?: Array<{ title: string; color?: string }> };
   workflow?: RecordWorkflow | null;
   /** `show_workflow_state` argument of get_indicator. */
   showWorkflowState?: boolean;
