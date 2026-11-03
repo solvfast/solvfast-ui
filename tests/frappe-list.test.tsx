@@ -342,22 +342,32 @@ describe("server-backed storage adapters", () => {
 });
 
 // ---- bulk actions and realtime ----------------------------------------------------------------------------------------
-import { bulkAssign, bulkDelete, bulkMenu, bulkSubmitCancelOrUpdate } from "../src/frappe/list/bulk";
+import { bulkAssign, bulkDelete, bulkMenu, bulkSubmitCancelOrUpdate, listActionsMenu } from "../src/frappe/list/bulk";
 import type { RealtimeEvent, RealtimePort } from "../src/frappe/contract";
 
 describe("bulk menu (Desk's guards + permissions)", () => {
   const base = { isSubmittable: true, hasWorkflow: false, allowEdit: false, hasEditableFields: true };
   const all = { read: true, write: true, delete: true, submit: true, cancel: true };
-  it("offers each action only with its right; nothing without permissions", () => {
-    expect(bulkMenu({ ...base, permissions: all })).toEqual(["edit", "submit", "cancel", "assign", "delete"]);
+  const readGroup = ["assign", "clear_assignment", "assignment_rule", "add_tags"] as const;
+  it("offers each action only with its right, in Desk's order (list_view.js:2088-2128); nothing but Export without permissions", () => {
+    expect(listActionsMenu({ ...base, permissions: all })).toEqual(["edit", ...readGroup, "submit", "cancel", "delete"]);
+    expect(listActionsMenu({ ...base, permissions: { ...all, print: true }, exportable: true })).toEqual(["edit", "export", ...readGroup, "print", "submit", "cancel", "delete"]);
+    expect(listActionsMenu({ ...base, permissions: undefined })).toEqual([]);
+    expect(listActionsMenu({ ...base, permissions: undefined, exportable: true })).toEqual(["export"]); // Desk: unconditional (:2092)
+    expect(listActionsMenu({ ...base, permissions: { delete: true } })).toEqual(["delete"]);
+    expect(listActionsMenu({ ...base, permissions: (p) => p === "submit" })).toEqual(["submit"]);
+    expect(listActionsMenu({ ...base, permissions: { print: true } })).toEqual(["print"]); // can_print = perm[0].print (model.js:452-455)
+    expect(listActionsMenu({ ...base, isSubmittable: false, permissions: all })).toEqual(["edit", ...readGroup, "delete"]);
+    // bulkMenu: the five 0.4.0-dev.26 kinds only, now in Desk's relative order (assign before submit / cancel)
+    expect(bulkMenu({ ...base, permissions: { ...all, print: true }, exportable: true })).toEqual(["edit", "assign", "submit", "cancel", "delete"]);
     expect(bulkMenu({ ...base, permissions: undefined })).toEqual([]);
-    expect(bulkMenu({ ...base, permissions: { delete: true } })).toEqual(["delete"]);
-    expect(bulkMenu({ ...base, permissions: (p) => p === "submit" })).toEqual(["submit"]);
-    expect(bulkMenu({ ...base, isSubmittable: false, permissions: all })).toEqual(["edit", "assign", "delete"]);
   });
   it("a Workflow hides edit / delete / submit / cancel unless allow_edit (edit and delete only)", () => {
+    // …and appends the workflow's actions last (list_view.js:163-168); without rights nothing (rule 9)
+    expect(listActionsMenu({ ...base, hasWorkflow: true, permissions: all })).toEqual([...readGroup, "workflow"]);
+    expect(listActionsMenu({ ...base, hasWorkflow: true, allowEdit: true, permissions: all })).toEqual(["edit", ...readGroup, "delete", "workflow"]);
+    expect(listActionsMenu({ ...base, hasWorkflow: true, permissions: undefined })).toEqual([]);
     expect(bulkMenu({ ...base, hasWorkflow: true, permissions: all })).toEqual(["assign"]);
-    expect(bulkMenu({ ...base, hasWorkflow: true, allowEdit: true, permissions: all })).toEqual(["edit", "assign", "delete"]);
     expect(bulkMenu({ ...base, hasEditableFields: false, permissions: all })).not.toContain("edit");
   });
 });
