@@ -16,7 +16,7 @@ import type { FrappeFilesTransport, UploadFileOptions } from "../src/frappe/clie
 import { FrappeDataImport, type ImportRealtimeSubscribe } from "../src/frappe/list/FrappeDataImport";
 import { DATA_IMPORT_METHODS, attachImportFile, createDataImport, importRunning, remapImportColumns, startDataImport, useImportStatus, type DataImportDoc, type ImportLogRow, type ImportPreview } from "../src/frappe/list/import";
 import {
-  DATA_IMPORT_LABELS_EN as L, DONT_IMPORT, changedColumnMap, columnMappingValue, displayDateFormat, groupImportWarnings, importPickerOptions,
+  DATA_IMPORT_LABELS_AR, DATA_IMPORT_LABELS_EN as L, DONT_IMPORT, changedColumnMap, columnMappingValue, displayDateFormat, groupImportWarnings, importPickerOptions,
   importResultMessage, importedRowNumbers, mergeColumnToFieldMap, parseLogMessages, previewCell, previewColumns,
 } from "../src/frappe/list/importMapping";
 
@@ -363,6 +363,22 @@ async function uploadAndPreview(file?: string) {
 const ON_SERVER = (modified: string, status: Record<string, unknown>, doc: Record<string, unknown> = {}): PollState => ({ status, doc: { modified, status: status.status, import_type: "Insert New Records", ...doc } });
 
 describe("FrappeDataImport — upload, preview, warnings (data_import.js:250-406; import_preview.js:48-171)", () => {
+  it("p275: the file picker is a DS button + the chosen file's name, translated — not the browser's 'Choose File / No file chosen'", () => {
+    mount(makeSim(), {}, "ar");
+    const input = screen.getByLabelText(DATA_IMPORT_LABELS_AR.importFile);
+    expect(input.getAttribute("type")).toBe("file");
+    expect(input.className).toContain("sr-only");
+    expect(input.getAttribute("tabindex")).toBe("-1");
+    const pick = screen.getByRole("button", { name: DATA_IMPORT_LABELS_AR.chooseFile });
+    expect(pick.getAttribute("aria-describedby")).toBeTruthy();
+    expect(screen.getByText(DATA_IMPORT_LABELS_AR.noFileChosen!)).toBeTruthy();
+    const clicked = vi.spyOn(input, "click").mockImplementation(() => {});
+    fireEvent.click(pick);
+    expect(clicked).toHaveBeenCalledTimes(1);
+    fireEvent.change(input, { target: { files: [new File(["a"], "orders.csv", { type: "text/csv" })] } });
+    expect(screen.getByText("orders.csv")).toBeTruthy();
+    expect(screen.queryByText(DATA_IMPORT_LABELS_AR.noFileChosen!)).toBeNull();
+  });
   it("Upload and Preview: savedocs → upload_file → savedocs → get_preview_from_template; the server's grid, mapped / skipped columns, max-rows notice and grouped warnings", async () => {
     const sim = makeSim();
     mount(sim);

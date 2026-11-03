@@ -43,6 +43,8 @@ export interface DataImportLabels {
   exportErroredRows: string; exportImportLog: string; importLog: string; rowNumber: string; status: string; message: string; success: string; failure: string;
   importedDoc: string; updatedDoc: string; showTraceback: string; hideTraceback: string; showFailedOnly: string; noFailedLogs: string;
   goToList: string; importAnother: string; close: string; createRefused: string; downloading: string;
+  /** The file picker's button and its empty state (p275: replaces the browser's untranslated "Choose File / No file chosen"). */
+  chooseFile?: string; noFileChosen?: string;
 }
 
 export const DATA_IMPORT_LABELS_EN: DataImportLabels = {
@@ -76,6 +78,7 @@ export const DATA_IMPORT_LABELS_EN: DataImportLabels = {
   goToList: "Go to {0} List", importAnother: "Import another file", close: "Close",
   createRefused: "The server refused to create the Data Import. In Frappe core only the System Manager role may create Data Import documents.",
   downloading: "Downloading…",
+  chooseFile: "Choose File", noFileChosen: "No file chosen",
 };
 
 export const DATA_IMPORT_LABELS_AR: DataImportLabels = {
@@ -109,6 +112,7 @@ export const DATA_IMPORT_LABELS_AR: DataImportLabels = {
   goToList: "الانتقال إلى قائمة {0}", importAnother: "استيراد ملف آخر", close: "إغلاق",
   createRefused: "رفض الخادم إنشاء مستند استيراد البيانات. في نواة Frappe لا يُنشئ مستندات Data Import إلا دور System Manager.",
   downloading: "جارٍ التنزيل…",
+  chooseFile: "اختيار ملف", noFileChosen: "لم يُختر أي ملف",
 };
 
 /** `__("…{0}…", [a, b])`: positional placeholders. */

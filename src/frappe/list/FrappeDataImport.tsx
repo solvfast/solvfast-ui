@@ -26,11 +26,12 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Upload } from "lucide-react";
 import { cn } from "../../lib/cn";
 import { Button } from "../../primitives/button";
 import { Checkbox } from "../../primitives/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../primitives/dialog";
-import { Input } from "../../primitives/input";
+import { Label } from "../../primitives/label";
 import { Progress } from "../../primitives/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { StatusDot } from "../../primitives/status-dot";
@@ -112,6 +113,7 @@ export function FrappeDataImport({ api, doctype, bundle: bundleProp, importType:
   const [failedOnly, setFailedOnly] = React.useState(false);
   const [exportOpen, setExportOpen] = React.useState(false);
   const fileInput = React.useRef<HTMLInputElement>(null);
+  const uid = React.useId();
 
   // the job: polled only after `form_start_import` answered (never before — it would poll a document nobody started)
   const poll = useImportStatus(api, doc?.name, { enabled: phase === "importing", since, intervalMs: pollIntervalMs });
@@ -258,14 +260,22 @@ export function FrappeDataImport({ api, doctype, bundle: bundleProp, importType:
             </label>
             <div className="flex flex-col justify-end gap-2 text-sm">
               {bundle?.meta.is_submittable ? (
-                <label className="flex items-center gap-2"><Checkbox checked={submitAfter} onCheckedChange={(v) => setSubmitAfter(v === true)} disabled={!!doc || !!busy} aria-label={L.submitAfterImport} />{L.submitAfterImport}</label>
+                <div className="flex items-center gap-2"><Checkbox id={`${uid}-submit`} checked={submitAfter} onCheckedChange={(v) => setSubmitAfter(v === true)} disabled={!!doc || !!busy} aria-label={L.submitAfterImport} /><Label htmlFor={`${uid}-submit`} className="font-normal">{L.submitAfterImport}</Label></div>
               ) : null}
-              <label className="flex items-center gap-2"><Checkbox checked={muteEmails} onCheckedChange={(v) => setMuteEmails(v === true)} disabled={!!doc || !!busy} aria-label={L.muteEmails} />{L.muteEmails}</label>
+              <div className="flex items-center gap-2"><Checkbox id={`${uid}-mute`} checked={muteEmails} onCheckedChange={(v) => setMuteEmails(v === true)} disabled={!!doc || !!busy} aria-label={L.muteEmails} /><Label htmlFor={`${uid}-mute`} className="font-normal">{L.muteEmails}</Label></div>
             </div>
           </div>
           <div className="space-y-1 text-sm">
-            <label htmlFor="sf-data-import-file" className="block">{L.importFile}</label>
-            <Input ref={fileInput} id="sf-data-import-file" type="file" accept={FILE_TYPES} disabled={!!busy} onChange={(e) => { setFile(e.target.files?.[0] ?? null); setError(null); }} />
+            <label htmlFor="sf-data-import-file" id={`${uid}-file-label`} className="block">{L.importFile}</label>
+            {/* the browser's own picker text ("Choose File / No file chosen") is never translated: the input stays (labelled, out of the
+                tab order) behind a DS button and the chosen file's name */}
+            <input ref={fileInput} id="sf-data-import-file" type="file" accept={FILE_TYPES} disabled={!!busy} tabIndex={-1} className="sr-only" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setError(null); }} />
+            <div className="flex min-w-0 items-center gap-3">
+              <Button type="button" variant="outline" size="sm" disabled={!!busy} aria-describedby={`${uid}-file-label ${uid}-file-name`} onClick={() => fileInput.current?.click()}>
+                <Upload className="size-4" aria-hidden />{L.chooseFile}
+              </Button>
+              <span id={`${uid}-file-name`} dir="auto" className={cn("min-w-0 truncate", !file && "text-muted-foreground")} data-import-file-name="">{file?.name ?? L.noFileChosen}</span>
+            </div>
             <p className="text-xs text-muted-foreground">{L.fileHint}</p>
           </div>
           {metaQ.error && !bundleProp ? <FrappeErrorState error={metaQ.error} compact /> : null}
@@ -403,11 +413,12 @@ function ImportLogTable({ L, logs, failedOnly, setFailedOnly, doctype, importTyp
   L: DataImportLabels; logs: ImportLogRow[]; failedOnly: boolean; setFailedOnly: (v: boolean) => void; doctype: string; importType: ImportType; docHref?: (doctype: string, name: string) => string | undefined;
 }) {
   const rows = failedOnly ? logs.filter((l) => !l.success) : logs;
+  const failedId = React.useId();
   return (
     <section className="space-y-2" aria-label={L.importLog} data-import-log="">
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-sm font-semibold">{L.importLog}</h4>
-        <label className="flex items-center gap-2 text-sm"><Checkbox checked={failedOnly} onCheckedChange={(v) => setFailedOnly(v === true)} aria-label={L.showFailedOnly} />{L.showFailedOnly}</label>
+        <div className="flex items-center gap-2"><Checkbox id={`${failedId}-failed`} checked={failedOnly} onCheckedChange={(v) => setFailedOnly(v === true)} aria-label={L.showFailedOnly} /><Label htmlFor={`${failedId}-failed`} className="font-normal">{L.showFailedOnly}</Label></div>
       </div>
       <div className="rounded-md border">
         <Table>

@@ -392,6 +392,10 @@ describe("Print in the list (bulk_operations.js:7-167)", () => {
     const bg = within(dialog).getByRole("checkbox", { name: en("listPrintBackground") });
     expect(bg.getAttribute("data-state")).toBe("checked");
     expect((bg as HTMLButtonElement).disabled).toBe(true);
+    // p275: the label is the DS Label next to the checkbox (peer), so it dims with the forced, read-only checkbox
+    const bgLabel = within(dialog).getByText(en("listPrintBackground"));
+    expect(bgLabel.previousElementSibling).toBe(bg);
+    expect(bgLabel.className).toContain("peer-disabled:opacity-70");
     fireEvent.click(within(dialog).getByRole("button", { name: en("listBulkPrint") }));
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0].method).toBe(PRINT_METHODS.pdfAsync);

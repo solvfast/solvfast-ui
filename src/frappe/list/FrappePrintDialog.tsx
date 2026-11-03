@@ -16,6 +16,7 @@ import { Button } from "../../primitives/button";
 import { Checkbox } from "../../primitives/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../primitives/dialog";
 import { Input } from "../../primitives/input";
+import { Label } from "../../primitives/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { useLocale } from "../../theme/ThemeProvider";
 import type { DownloadedFile, FrappeApi, FrappeClient } from "../client";
@@ -149,7 +150,7 @@ export function FrappePrintDialog({ api, doctype, names, meta, settings, subscri
             )}
             <div className="flex items-center gap-2 text-sm">
               <Checkbox id="sf-print-background" checked={background} disabled={forced} onCheckedChange={(v) => setBackground(v === true)} aria-label={t("listPrintBackground")} />
-              <label htmlFor="sf-print-background">{t("listPrintBackground")}</label>
+              <Label htmlFor="sf-print-background" className="font-normal">{t("listPrintBackground")}</Label>
             </div>
           </div>
         ) : phase.kind === "queued" ? (
