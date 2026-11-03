@@ -10,7 +10,7 @@ From A6 (QA). Evidence read-only; nothing was changed. Details and sources in `r
 1. `hotelswavaota.solvfaster.com` is a stub: `site_config.json` has 94 bytes (`db_name`, `db_password`, `db_type` only), created 2026-07-17 10:41, no backups folder. MariaDB answers
    `1045 Access denied for user '_3253a0f569748e46'@'localhost'` for it. (The password is not reproduced here.)
 2. The `bench backup` loop (`apps/frappe/frappe/commands/site.py:844-885`) calls `frappe.destroy()` only after a successful backup; on failure it `continue`s. `frappe.init()` returns early when already
-   initialised (`frappe/__init__.py:197-198`), so every later site in the alphabetical `--site all` list inherits the failed site's configuration and fails with the same user. 68 identical errors per run confirm it.
+   initialised (`frappe/__init__.py:197-198`), so every later site in the alphabetical `--site all` list inherits the failed site's configuration and fails with the same user. In the last run every one of the 15 failures names the same user (`_3253a0f569748e46`), none names its own site's user.
 
 **Proposed fix (for Ops to decide and apply; ordered by safety).**
 1. Decide the fate of `hotelswavaota.solvfaster.com`: if unused, archive it (`bench drop-site`, which keeps a backup, needs MariaDB root) or move its folder out of `sites/` so `--site all` no longer lists it; if used, repair its DB user/password to match `site_config.json`.
