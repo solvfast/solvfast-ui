@@ -182,3 +182,56 @@ describe("fixture still answers raw transport calls", () => {
     expect(((await transport("frappe.desk.form.load.getdoctype", { doctype: "Sales Invoice" })) as FrappeResponse).user_settings).toBe("{}");
   });
 });
+
+describe("cancel pre-flight and amend (A3 R1-F5 call sites)", () => {
+  const PAYMENT: DocTypeMeta = { name: "Payment", is_submittable: 1, fields: [{ fieldname: "invoice", fieldtype: "Link", options: "Sales Invoice" }] };
+  const RECEIPT: DocTypeMeta = { name: "Receipt", is_submittable: 1, fields: [{ fieldname: "payment", fieldtype: "Link", options: "Payment" }] };
+  const NOTE: DocTypeMeta = { name: "Note Draft", fields: [{ fieldname: "invoice", fieldtype: "Link", options: "Sales Invoice" }] };
+  function linked() {
+    const transport = createFixtureTransport({
+      meta: { "Sales Invoice": [INVOICE, ITEM], Customer: [CUSTOMER], Payment: [PAYMENT], Receipt: [RECEIPT], "Note Draft": [NOTE] },
+      docs: {
+        Customer: [{ doctype: "Customer", name: "ACME", customer_name: "ACME" }],
+        "Sales Invoice": [{ doctype: "Sales Invoice", name: "SI-1", customer: "ACME", docstatus: 1, modified: "2026-11-01 10:00:00.000000" }],
+        Payment: [
+          { doctype: "Payment", name: "PAY-1", invoice: "SI-1", docstatus: 1 },
+          { doctype: "Payment", name: "PAY-2", invoice: "SI-1", docstatus: 0 },
+        ],
+        Receipt: [{ doctype: "Receipt", name: "REC-1", payment: "PAY-1", docstatus: 1 }],
+        "Note Draft": [{ doctype: "Note Draft", name: "N-1", invoice: "SI-1" }],
+      },
+    }, { now: NOW });
+    return { transport, client: createFrappeClient({ transport }) };
+  }
+
+  it("get_submitted_linked_docs: submitted docs of submittable DocTypes, followed recursively → {docs, count}", async () => {
+    const { client } = linked();
+    const r = await client.call("frappe.desk.form.linked_with.get_submitted_linked_docs", { doctype: "Sales Invoice", name: "SI-1" });
+    expect(r.message).toEqual({ docs: [{ doctype: "Payment", name: "PAY-1", docstatus: 1 }, { doctype: "Receipt", name: "REC-1", docstatus: 1 }], count: 2 });
+    const none = await client.call("frappe.desk.form.linked_with.get_submitted_linked_docs", { doctype: "Receipt", name: "REC-1" });
+    expect(none.message).toEqual({ docs: [], count: 0 });
+  });
+
+  it("cancel_all_linked_docs cancels them; then the doc itself cancels", async () => {
+    const { client } = linked();
+    const { message } = await client.call("frappe.desk.form.linked_with.get_submitted_linked_docs", { doctype: "Sales Invoice", name: "SI-1" }) as { message: { docs: unknown[] } };
+    await client.call("frappe.desk.form.linked_with.cancel_all_linked_docs", { docs: JSON.stringify(message.docs) });
+    expect((await client.getDoc("Payment", "PAY-1")).doc.docstatus).toBe(2);
+    expect((await client.getDoc("Receipt", "REC-1")).doc.docstatus).toBe(2);
+    expect((await client.cancelDoc("Sales Invoice", "SI-1")).docstatus).toBe(2);
+  });
+
+  it("is_document_amended: no message until an amendment exists; amend names X-1 then X-2 and needs a cancelled source", async () => {
+    const { client } = linked();
+    const ask = () => client.call("frappe.client.is_document_amended", { doctype: "Sales Invoice", docname: "SI-1" }).then((r) => r.message);
+    expect(await ask()).toBeUndefined();
+    expect(await client.saveDoc({ doctype: "Sales Invoice", name: "new-si", __islocal: 1, customer: "ACME", amended_from: "SI-1" }, "Save").catch((e) => e.kind)).toBe("validation");
+    await client.cancelDoc("Sales Invoice", "SI-1");
+    const amended = await client.saveDoc({ doctype: "Sales Invoice", name: "new-si", __islocal: 1, customer: "ACME", amended_from: "SI-1" }, "Save");
+    expect(amended.name).toBe("SI-1-1");
+    expect(await ask()).toBe("SI-1-1");
+    await client.saveDoc(amended, "Submit");
+    await client.cancelDoc("Sales Invoice", "SI-1-1");
+    expect((await client.saveDoc({ doctype: "Sales Invoice", name: "new-si-2", __islocal: 1, customer: "ACME", amended_from: "SI-1-1" }, "Save")).name).toBe("SI-1-2");
+  });
+});
