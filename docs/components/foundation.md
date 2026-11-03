@@ -284,6 +284,11 @@ const transport = createFixtureTransport(backend, {
 - Seven named builders (`simScenario.*`): administrator, full-access role, read-only role, restricted DocType, restricted
   fields (permlevel), User Permissions, unknown roles (the client gets no roles — rule 9 — while the server evaluates the
   automatic roles, as `get_roles` always appends them). `transport.store.session` is the session to give the client.
+- Phase 27 list actions and Data Import are simulated too (caveats §4.1b): `remove_multiple`, `bulk_apply` (no rules →
+  no-op), `add_tags`, workflow common actions / bulk approval, `download_multi_pdf(_async)`, `export_query` (an Access
+  Log row first, as on a site), and the Data Import sequence over CSV files — a **dry run** by default (rows checked and
+  logged, nothing written; `dataImport: "insert"` makes the simulator insert them, labelled). Every file the simulator
+  answers is a text file labelled SIMULATED — never a PDF / CSV / XLSX with document values.
 - Without `permissions` nothing changes (every right, as before).
 
 **What it is NOT:** evidence of Frappe behaviour. Without `permissions` it has no permission model (the session user may

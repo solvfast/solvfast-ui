@@ -20,6 +20,7 @@ import { toFrappeError, type DownloadedFile, type FrappeFilesTransport, type Fra
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, FrappeDocField, PermType, WorkflowInfo } from "../contract";
 import type { FrappeSession } from "../services/permissions";
 import { createPermissionEngine, permissionError, type PermissionEngine, type SimulatedPermissions } from "./permissions";
+import { parseCsv, parseTemplate, payloadsOf, previewOf, type ParsedTemplate } from "./importer";
 import { fieldCurrency, formatDate, formatDatetime, formatDuration, formatNumber, formatTime, numberFormatPrecision, type FormatContext } from "../services/format";
 
 type Row = Record<string, unknown>;
@@ -50,6 +51,16 @@ export interface FixtureOptions {
   strict?: boolean;
   /** The site's system defaults as the SERVER formats with them (Version values). Default: Frappe's defaults. */
   formatContext?: FormatContext;
+  /** Print Settings the simulated `get_print` honours for submittable DocTypes (printview.py:137-142). Default: the
+   *  DocType defaults (drafts allowed, cancelled not). */
+  printSettings?: { allow_print_for_draft?: 0 | 1 | boolean; allow_print_for_cancelled?: 0 | 1 | boolean };
+  /**
+   * What the simulated Data Import job does with the uploaded rows (`form_start_import`). "dry-run" (default): every row
+   * is checked (create / write right, mandatory, Link values) and logged — NOTHING is written to the store, and every
+   * log row says so. "insert": the simulator plays the server and inserts / updates the rows through its save path
+   * (labelled in the log). CSV files only.
+   */
+  dataImport?: "dry-run" | "insert";
   /** `frappe.desk.listview.get_list_settings` answers by DocType (List View Settings rows). Default: null. */
   listSettings?: Record<string, Record<string, unknown> | null>;
 }
@@ -212,7 +223,47 @@ export const BUILTIN_FIXTURE_META: Record<string, DocTypeMeta[]> = {
       { fieldname: "filters", fieldtype: "Long Text", label: "Filters" },
     ],
   }],
+  /** printing/doctype/letter_head/letter_head.json (the Print dialog lists them; Desk User reads). No records by default. */
+  "Letter Head": [{
+    name: "Letter Head", autoname: "field:letter_head_name",
+    permissions: [{ role: "System Manager", permlevel: 0, read: 1, write: 1, create: 1, delete: 1 }, { role: "Desk User", permlevel: 0, read: 1 }],
+    fields: [
+      { fieldname: "letter_head_name", fieldtype: "Data", label: "Letter Head Name", reqd: 1 },
+      { fieldname: "disabled", fieldtype: "Check", label: "Disabled", default: "0" },
+      { fieldname: "is_default", fieldtype: "Check", label: "Is Default", default: "0" },
+    ],
+  }],
+  /** desk/doctype/tag/tag.json (Add Tags creates the master; search_link on Tag). */
+  Tag: [{
+    name: "Tag", autoname: "Prompt",
+    permissions: [{ role: "System Manager", permlevel: 0, read: 1, write: 1, create: 1, delete: 1 }, { role: "All", permlevel: 0, read: 1, write: 1, create: 1 }],
+    fields: [{ fieldname: "description", fieldtype: "Small Text", label: "Description" }],
+  }],
+  /** core/doctype/data_import/data_import.json (a subset; System Manager only). Named by hash here (natively
+   *  "format:{reference_doctype} Import on {creation}"). */
+  "Data Import": [{
+    name: "Data Import", autoname: "hash", title_field: "reference_doctype", track_changes: 0,
+    permissions: [{ role: "System Manager", permlevel: 0, read: 1, write: 1, create: 1, delete: 1 }],
+    fields: [
+      { fieldname: "reference_doctype", fieldtype: "Link", label: "Document Type", options: "DocType", reqd: 1 },
+      { fieldname: "import_type", fieldtype: "Select", label: "Import Type", options: "\nInsert New Records\nUpdate Existing Records", reqd: 1 },
+      { fieldname: "import_file", fieldtype: "Attach", label: "Import File" },
+      { fieldname: "template_options", fieldtype: "Code", label: "Template Options", options: "JSON", hidden: 1 },
+      { fieldname: "status", fieldtype: "Select", label: "Status", options: "Pending\nSuccess\nPartial Success\nError\nTimed Out", default: "Pending", read_only: 1 },
+      { fieldname: "template_warnings", fieldtype: "Code", label: "Template Warnings", options: "JSON", hidden: 1 },
+      { fieldname: "submit_after_import", fieldtype: "Check", label: "Submit After Import", default: "0" },
+      { fieldname: "mute_emails", fieldtype: "Check", label: "Don't Send Emails", default: "1" },
+      { fieldname: "show_failed_logs", fieldtype: "Check", label: "Show Failed Logs", default: "0" },
+      { fieldname: "google_sheets_url", fieldtype: "Data", label: "Import from Google Sheets" },
+      { fieldname: "payload_count", fieldtype: "Int", label: "Payload Count", read_only: 1, hidden: 1 },
+    ],
+  }],
 };
+/** `BLOCKED_DOCTYPES` (data_import.py:19): core DocTypes except User, Role, Print Format. */
+const IMPORT_BLOCKED = new Set(["DefaultValue", "DocType", "DocField", "DocPerm", "DocType Action", "DocType Link", "Has Role", "Page", "Module Def", "Report", "Customize Form", "Customize Form Field", "Property Setter", "Custom Field", "Client Script"]);
+const DI = "frappe.core.doctype.data_import.data_import";
+const PRINT_PDF = "frappe.utils.print_format.download_multi_pdf";
+const EXPORT_QUERY = "frappe.desk.reportview.export_query";
 
 export function createFixtureTransport(backend: FixtureBackend, options: FixtureOptions = {}): FixtureTransport {
   const now = options.now ?? (() => new Date());
@@ -590,6 +641,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     try {
       doc = prepare(meta, { ...raw, docstatus: target as 0 | 1 | 2 }, isNew, previous, dropped);
       if (P) P.resetUnwritable(meta, doc, previous); // validate_higher_perm_levels (document.py:306, 412)
+      if (meta.name === "Data Import" && target !== 2) validateDataImport(doc, previous);
       if (options.strict && target !== 2) validateLinks(meta, doc);
       if (target !== 2) {
         const missing = missingMandatory(meta, doc);
@@ -782,6 +834,101 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
   const docResponse = (doc: FrappeDoc, message: string, extra: Row = {}): FrappeResponse => ({
     docs: [clone(visible(doc, "null"))], docinfo: docinfo(doc.doctype, doc.name), _server_messages: sm({ message, indicator: message === "Cancelled" ? "red" : "green", alert: 1 }), ...extra,
   });
+
+  // ---- Data Import (core/doctype/data_import), SIMULATED -------------------------------------------------------------
+  /** Uploaded files by file_url (in memory; the Data Import preview / job read them). */
+  const uploads = new Map<string, { content: string; filename: string; csv: boolean }>();
+  /** Data Import Log rows by Data Import name. */
+  const importLogs = new Map<string, Row[]>();
+  /** The uploaded template parsed with the doc's `template_options.column_to_field_map` (ImportFile, importer.py:404-478). */
+  function templateOf(doc: FrappeDoc): ParsedTemplate {
+    const up = uploads.get(String(doc.import_file ?? ""));
+    if (!up) return fail(417, "ValidationError", "Invalid template file for import");
+    if (!up.csv) return fail(417, "ValidationError", "SIMULATED: the in-browser simulator reads CSV files only (a site also reads .xlsx / .xls).");
+    const opts = parse(doc.template_options) as { column_to_field_map?: Record<string, string> } | null;
+    try { return parseTemplate(String(doc.reference_doctype), parseCsv(up.content), opts?.column_to_field_map ?? {}, metaOf); }
+    catch (e) { return fail(417, "ValidationError", (e as Error).message); }
+  }
+  /** `DataImport.validate` (data_import.py:44-91): template state reset on a new file, blocked / non-importable DocTypes,
+   *  the import right on the target (403), the template parsed (its errors are SAVE errors), payload_count. */
+  function validateDataImport(doc: FrappeDoc, previous: FrappeDoc | undefined) {
+    if (!doc.import_file || (previous && previous.import_file !== doc.import_file)) { doc.template_options = ""; doc.template_warnings = ""; }
+    const ref = String(doc.reference_doctype ?? "");
+    if (IMPORT_BLOCKED.has(ref)) fail(417, "ValidationError", `Importing ${ref} is not allowed.`);
+    const rm = metaOf(ref) ?? notFound(`DocType ${ref}`);
+    if (!Number(rm.allow_import)) fail(417, "ValidationError", `Data Import is not allowed for ${ref}. Enable 'Allow Import' in DocType settings.`);
+    if (P && !P.hasPermission(ref, "import")) throw permissionError(undefined, [`You do not have import permission for ${ref}`], true);
+    doc.status ??= "Pending";
+    if (doc.import_file) doc.payload_count = payloadsOf(templateOf(doc), ref).length;
+  }
+  const msgList = (message: string, title = "Message") => JSON.stringify([JSON.stringify({ message, title, indicator: "red" })]);
+  /**
+   * The import job (`start_import` → `Importer.import_data`, importer.py:64-240), run at once (no scheduler). Rows already
+   * imported successfully by an earlier run are skipped (Retry). "dry-run": the checks only; "insert": the save path.
+   */
+  function runImport(di: FrappeDoc) {
+    const ref = String(di.reference_doctype);
+    const rm = requireMeta(ref);
+    const tpl = templateOf(di);
+    const old = importLogs.get(di.name) ?? [];
+    const done = new Set(old.filter((l) => Number(l.success) === 1).map((l) => String(l.row_indexes)));
+    const logs: Row[] = old.filter((l) => Number(l.success) === 1);
+    const insert = options.dataImport === "insert";
+    const update = di.import_type === "Update Existing Records";
+    for (const pl of payloadsOf(tpl, ref)) {
+      const rowIndexes = JSON.stringify([pl.rowNumber]);
+      if (done.has(rowIndexes)) continue;
+      try {
+        let docname: string | null = null;
+        if (update) {
+          const cur = table(ref).get(String(pl.values.name ?? "")) ?? notFound(`${ref} ${String(pl.values.name ?? "")}`);
+          if (insert) docname = save({ ...cur, ...pl.values }, "Save").name;
+          else if (P) P.assertDoc({ ...cur, ...pl.values } as FrappeDoc, "write");
+        } else if (insert) {
+          docname = save({ ...pl.values, doctype: ref, __islocal: 1 } as FrappeDoc, Number(di.submit_after_import) && rm.is_submittable ? "Submit" : "Save").name;
+        } else {
+          const posted = { ...pl.values, doctype: ref, name: "", owner: user } as FrappeDoc;
+          if (P) P.assertDoc(posted, "create");
+          const missing = missingMandatory(rm, posted);
+          if (missing.length) fail(417, "MandatoryError", missing.join(", "));
+          validateLinks(rm, posted);
+        }
+        logs.push({ success: 1, docname, row_indexes: rowIndexes, exception: null, log_index: logs.length,
+          messages: insert ? JSON.stringify([JSON.stringify({ message: `SIMULATED: the in-browser simulator ${update ? "updated" : "inserted"} ${String(docname)} in its own memory (dataImport: "insert").` })]) : JSON.stringify([JSON.stringify({ message: "SIMULATED dry run: this row passed the simulated checks; nothing was written (no document exists)." })]) });
+      } catch (e) {
+        const err = e as { excType?: string; message?: string; messages?: { message: string }[] };
+        const text = err.messages?.map((m) => m.message).join(", ") || err.message || String(e);
+        logs.push({ success: 0, docname: null, row_indexes: rowIndexes, messages: msgList(text), exception: `frappe.exceptions.${err.excType ?? "ValidationError"}: ${text}`, log_index: logs.length });
+      }
+    }
+    importLogs.set(di.name, logs);
+    const ok = logs.filter((l) => Number(l.success) === 1).length;
+    const status = ok === logs.length && logs.length ? "Success" : ok ? "Partial Success" : "Error";
+    const stored = table("Data Import").get(di.name)!;
+    Object.assign(stored, { status, template_warnings: "", modified: stamp(), modified_by: user }); // db_set bumps modified
+    store.published.push({ event: "data_import_refresh", message: JSON.stringify({ data_import: di.name }) });
+  }
+  /** `has_approval_access` (workflow.py:221-222) with the owner of the dict the client sent. */
+  const approvalAccess = (doc: Row, t: { allow_self_approval?: unknown }) => user === "Administrator" || Number(t.allow_self_approval) === 1 || user !== doc.owner;
+  /** `validate_print_permission` (www/printview.py:123, 367-378: read OR print) and Print Settings' draft / cancelled
+   *  rule (:137-142) — the reasons `get_print` raises, which `_download_multi_pdf` swallows per document. */
+  function printRefusal(doctype: string, name: string): string | null {
+    const doc = store.docs.get(doctype)?.get(name);
+    if (!doc) return "not found";
+    if (P && !P.hasPermission(doctype, "read", doc) && !P.hasPermission(doctype, "print", doc)) return "no read / print permission";
+    const meta = metaOf(doctype);
+    const truthy = (v: unknown) => v === true || Number(v) === 1;
+    if (meta?.is_submittable) {
+      if (Number(doc.docstatus ?? 0) === 0 && !truthy(options.printSettings?.allow_print_for_draft ?? 1)) return "Not allowed to print draft documents";
+      if (Number(doc.docstatus ?? 0) === 2 && !truthy(options.printSettings?.allow_print_for_cancelled ?? 0)) return "Not allowed to print cancelled documents";
+    }
+    return null;
+  }
+  const simulatedFile = (filename: string, lines: string[]): DownloadedFile => {
+    const text = ["SIMULATED — in-browser Frappe simulator (@solvfast/ui/frappe/testing).", ...lines, ""].join("\n");
+    return { blob: new Blob([text], { type: "text/plain" }), filename, contentType: "text/plain" };
+  };
+  const slugName = (s: string) => s.replace(/[^\w-]+/g, "-");
 
   const handlers: Record<string, FixtureHandler> = {
     "frappe.desk.form.load.getdoctype": (a) => {
@@ -1093,6 +1240,117 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       }
       return { message: failed };
     },
+    // ---- Phase 27 list actions (bulk) -------------------------------------------------------------------------------
+    // assign_to.py:181-192 → remove → set_status (:195-213): Desk sends ignore_permissions, so NO check then (mirrored)
+    "frappe.desk.form.assign_to.remove_multiple": (a) => {
+      const ignore = a.ignore_permissions === true || Number(a.ignore_permissions) === 1 || a.ignore_permissions === "true";
+      const names = (parse(a.names) as string[]) ?? [];
+      if (P && !ignore) for (const n of names) P.assertDoc(get(String(a.doctype), n), "read");
+      for (const n of names) {
+        for (const as of openAssignments(String(a.doctype), n)) {
+          for (const t of store.todos.values()) if (t.reference_type === a.doctype && t.reference_name === n && t.allocated_to === as.owner && !["Cancelled", "Closed"].includes(String(t.status))) { const prev = String(t.status); t.status = "Cancelled"; todoComment(t, prev); }
+        }
+        syncAssign(String(a.doctype), n);
+      }
+      return {};
+    },
+    // assignment_rule.py:231-245, apply :267-296: no permission check; the simulator has no Assignment Rule records, so
+    // every document is the "no enabled rule" no-op (a missing name still fails in the synchronous path, <= 5 names)
+    "frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply": (a) => {
+      const names = (parse(a.docnames) as string[]) ?? [];
+      if (names.length <= 5) for (const n of names) get(String(a.doctype), n);
+      return {};
+    },
+    // tag.py:42-49, DocTags.add / update :87-116: no permission check; the Tag master is created; `_user_tags` = ",a,b"
+    "frappe.desk.doctype.tag.tag.add_tags": (a) => {
+      const tags = ((parse(a.tags) as string[]) ?? []).map(String);
+      const dt = String(a.dt);
+      for (const n of (parse(a.docs) as string[]) ?? []) {
+        const doc = get(dt, n);
+        const tl = String(doc._user_tags ?? "").split(",").filter(Boolean);
+        for (const tag of tags) {
+          if (tl.includes(tag)) continue;
+          tl.push(tag);
+          if (!table("Tag").has(tag)) { const ts = stamp(); table("Tag").set(tag, { doctype: "Tag", name: tag, owner: user, creation: ts, modified: ts, modified_by: user, docstatus: 0, idx: 0 } as FrappeDoc); }
+        }
+        doc._user_tags = tl.length ? `,${[...new Set(tl)].join(",")}` : "";
+      }
+      return {};
+    },
+    // workflow.py:332-353: per row get_transitions (read on the stored doc; the first unset state ends the scan) minus
+    // self-approval with the owner the CLIENT sent; the intersection
+    "frappe.model.workflow.get_common_transition_actions": (a) => {
+      const docs = (parse(a.docs) as Row[]) ?? [];
+      let common: string[] = [];
+      for (const [i, d] of docs.entries()) {
+        const row = { doctype: a.doctype, ...d } as Row;
+        const cur = get(String(row.doctype), row.name);
+        if (P) P.assertDoc(cur, "read");
+        const wf = workflowOf(cur.doctype);
+        if (wf && !cur[wf.workflow_state_field]) break; // WorkflowStateError swallowed
+        const actions = transitionsFor(cur).filter((t) => approvalAccess(row, t)).map((t) => t.action);
+        if (!actions.length) return { message: [] };
+        common = i === 0 ? [...new Set(actions)] : common.filter((x) => actions.includes(x));
+        if (!common.length) return { message: [] };
+      }
+      return { message: common };
+    },
+    // workflow.py:237-253, 256-329: < 20 now, <= 500 "enqueued" (run at once here, with the alert), > 500 refused; the
+    // per-document result is a REALTIME msgprint (kept in store.published), not in the answer
+    "frappe.model.workflow.bulk_workflow_approval": (a) => {
+      const names = (parse(a.docnames) as string[]) ?? [];
+      if (names.length > 500) return fail(417, "ValidationError", "Bulk approval only support up to 500 documents.", { _server_messages: sm({ message: "Bulk approval only support up to 500 documents.", title: "Too Many Documents", indicator: "red", raise_exception: 1 }) });
+      const failed: string[] = [], ok: string[] = [];
+      for (const n of names) {
+        try { handlers["frappe.model.workflow.apply_workflow"]({ doc: JSON.stringify({ doctype: a.doctype, name: n }), action: a.action }, store); ok.push(n); }
+        catch (e) { failed.push(`${n}: ${(e as Error).message}`); }
+      }
+      const indicator = failed.length && ok.length ? "orange" : failed.length ? "red" : "green";
+      if (failed.length) store.published.push({ event: "msgprint", title: "Workflow Status", message: `<h4>Failed Transactions</h4>${failed.map((f) => `<div>${f}</div>`).join("")} (${indicator})` });
+      if (ok.length) store.published.push({ event: "msgprint", title: "Workflow Status", message: `<h4>Successful Transactions</h4>${ok.map((f) => `<div>${f}</div>`).join("")} (${indicator})` });
+      return names.length >= 20 ? { _server_messages: sm({ message: `Bulk ${String(a.action)} is enqueued in background.`, alert: 1 }) } : {};
+    },
+    // print_format.py:40-70: a task id (HTTP 201); the job publishes task_complete:<id> — the simulator renders no PDF
+    "frappe.utils.print_format.download_multi_pdf_async": (a) => {
+      const taskId = `sim-${hash()}`;
+      const names = (parse(a.name) as string[]) ?? [];
+      const left = names.filter((n) => printRefusal(String(a.doctype), n));
+      store.published.push({ event: `task_complete:${taskId}`, message: JSON.stringify({ simulated: true, file_url: null, note: `SIMULATED: no PDF is rendered in the browser simulator (${names.length - left.length} of ${names.length} document(s) printable)` }) });
+      return { message: { task_id: taskId } };
+    },
+    // reportview.py:352-383: the background variant answers nothing but a msgprint (the e-mail goes nowhere here)
+    [EXPORT_QUERY]: (a) => {
+      if (!Number(a.export_in_background)) return fail(417, "ValidationError", "SIMULATED: a foreground export_query is a file download — use the files transport");
+      const email = String(store.docs.get("User")?.get(user)?.email ?? user);
+      return { _server_messages: sm({ message: `Your report is being generated in the background. You will receive an email on ${email} with a download link once it is ready. (SIMULATED: no e-mail is sent.)` }) };
+    },
+    // ---- Data Import (data_import.py:143-256) ----
+    [`${DI}.get_preview_from_template`]: (a) => {
+      const di = get("Data Import", a.data_import);
+      if (P) P.assertDoc(di, "read");
+      const file = a.import_file ? String(a.import_file) : String(di.import_file ?? "");
+      if (!file) return {};
+      const logs = (importLogs.get(di.name) ?? []).slice(0, 10).map((l) => ({ row_indexes: l.row_indexes, success: l.success }));
+      return { message: previewOf(templateOf({ ...di, import_file: file }), logs) };
+    },
+    [`${DI}.form_start_import`]: (a) => {
+      const di = get("Data Import", a.data_import);
+      if (P) P.assertDoc(di, "write");
+      runImport(di);
+      return { message: true };
+    },
+    [`${DI}.get_import_status`]: (a) => {
+      const di = get("Data Import", a.data_import_name);
+      if (P) P.assertDoc(di, "read");
+      const logs = importLogs.get(di.name) ?? [];
+      const ok = logs.filter((l) => Number(l.success) === 1).length, bad = logs.length - ok;
+      return { message: { status: di.status ?? "Pending", ...(ok ? { success: ok } : {}), ...(bad ? { failed: bad } : {}), total_records: di.payload_count ?? 0 } };
+    },
+    [`${DI}.get_import_logs`]: (a) => {
+      const di = get("Data Import", a.data_import);
+      if (P) P.assertDoc(di, "read");
+      return { message: (importLogs.get(di.name) ?? []).slice(0, 5000).map((l) => ({ success: l.success, docname: l.docname, messages: l.messages, exception: l.exception, row_indexes: l.row_indexes })) };
+    },
     ...options.handlers,
   };
 
@@ -1128,10 +1386,63 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
    * The answer is a small text file that says it is simulated: the request echo and the column LABELS, never document
    * values. Every other download and every upload is refused (no file storage is simulated).
    */
+  /** `download_multi_pdf` (print_format.py:27-39, 72-225): documents `get_print` refuses are LEFT OUT silently (the
+   *  sync path swallows every exception). The answer is a text file labelled SIMULATED — never a PDF, never values. */
+  function printPdf(args: Record<string, unknown>): DownloadedFile {
+    const doctype = String(args.doctype ?? "");
+    requireMeta(doctype);
+    const names = (parse(args.name) as string[]) ?? [];
+    const refused = names.map((n) => [n, printRefusal(doctype, n)] as const).filter(([, r]) => r);
+    return simulatedFile(`SIMULATED-${slugName(doctype)}-not-a-pdf.txt`, [
+      "NOT A PDF: the simulator renders nothing; on a site the merged PDF of the printable documents is streamed.",
+      `Printable (simulated decision): ${names.length - refused.length} of ${names.length}`,
+      `Left out silently by the server (simulated reasons): ${refused.map(([n, r]) => `${n} (${r})`).join(", ") || "—"}`,
+      `Request: ${PRINT_PDF} ${JSON.stringify(args)}`,
+    ]);
+  }
+  /** `export_query` → `_export_query` (reportview.py:393-466): an Access Log row FIRST (:410-415, a site write — kept in
+   *  the store as "Access Log"), the query with the row filter (403 without read), `can_export` (403), then a text file
+   *  labelled SIMULATED: the column labels, the row COUNT and the request — never values. */
+  function exportQuery(args: Record<string, unknown>): DownloadedFile {
+    const doctype = String(args.doctype ?? "");
+    const meta = requireMeta(doctype);
+    const ts = stamp();
+    const log = { doctype: "Access Log", name: hash(), export_from: doctype, file_type: args.file_format_type ?? null, filters: args.filters ?? null, user, owner: user, creation: ts, modified: ts, docstatus: 0, idx: 0, method: "SIMULATED Access Log (reportview.py:410-415)" } as unknown as FrappeDoc;
+    table("Access Log").set(log.name, log);
+    const selected = parse(args.selected_items) as string[] | null;
+    const q: Record<string, unknown> = { ...args, filters: selected?.length ? { name: ["in", selected] } : args.filters };
+    const rows = rowsFor(doctype, q);
+    const { keys } = project(doctype, rows.slice(0, 1), args.fields);
+    if (P && !P.canExport(doctype)) {
+      const denied = toFrappeError(403, { exc_type: "PermissionError", exception: `frappe.exceptions.PermissionError: You are not allowed to export ${doctype} doctype` });
+      if (!P.canExport(doctype, true) || rows.some((r) => String(r.owner ?? "") !== user)) throw denied;
+    }
+    const labelOf = (f: string) => (f === "name" ? "ID" : meta.fields.find((x) => x.fieldname === f)?.label || f);
+    const ext = String(args.file_format_type) === "CSV" ? "csv" : "xlsx";
+    return simulatedFile(`SIMULATED-${slugName(String(args.title ?? doctype))}-not-a-${ext}.txt`, [
+      "NOT AN EXPORT: no document values are included, only the column labels, the row count and the request.",
+      `Columns (labels only): Sr | ${keys.map(labelOf).join(" | ")}`,
+      `Rows the simulated server matched: ${rows.length}`,
+      `Request: ${EXPORT_QUERY} ${JSON.stringify(args)}`,
+    ]);
+  }
+
   const files: FrappeFilesTransport = {
     async download(method, args) {
       store.calls.push({ method, args: clone(args) });
       if (backend.latency) await new Promise((r) => setTimeout(r, backend.latency));
+      if (method === PRINT_PDF) return printPdf(args);
+      if (method === EXPORT_QUERY) return exportQuery(args);
+      if (method === `${DI}.download_errored_template` || method === `${DI}.download_import_log`) {
+        const di = get("Data Import", args.data_import_name);
+        if (P) P.assertDoc(di, "read");
+        const logs = importLogs.get(di.name) ?? [];
+        const rows = (method.endsWith("errored_template") ? logs.filter((l) => !Number(l.success)) : logs).map((l) => String(l.row_indexes));
+        return simulatedFile(`SIMULATED-${slugName(di.name)}-${method.endsWith("errored_template") ? "errored-rows" : "import-log"}.txt`, [
+          "NOT A FILE FROM A SITE: no row values are included, only the row numbers the simulated job logged.",
+          `Request: ${method} ${JSON.stringify(args)}`, `Rows: ${rows.join(" ") || "—"}`,
+        ]);
+      }
       if (method !== DOWNLOAD_TEMPLATE) fail(404, "DoesNotExistError", `SIMULATED: the file server does not simulate ${method}`);
       const doctype = String(args.doctype ?? "");
       const meta = requireMeta(doctype);
@@ -1159,9 +1470,26 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const file: DownloadedFile = { blob: new Blob([text], { type: "text/plain" }), filename: `SIMULATED-${meta.name.replace(/\s+/g, "-")}-not-an-export.txt`, contentType: "text/plain" };
       return file;
     },
-    async upload(_file, filename, opts) {
+    /**
+     * `upload_file` (handler.py:175-263), for the Data Import only: write on the target doc (`check_write_permission`
+     * :266-282, P on), the content kept in memory for the simulated preview / job, a File doc answered. Any other
+     * upload is refused (no file storage is simulated).
+     */
+    async upload(file, filename, opts) {
       store.calls.push({ method: "upload_file", args: clone({ filename, ...opts }) });
-      throw toFrappeError(417, { exc_type: "ValidationError", _server_messages: sm({ message: "SIMULATED: uploads are not simulated (no file storage); an import would write to the site.", indicator: "red", raise_exception: 1 }) });
+      if (backend.latency) await new Promise((r) => setTimeout(r, backend.latency));
+      if (opts.doctype !== "Data Import") throw toFrappeError(417, { exc_type: "ValidationError", _server_messages: sm({ message: "SIMULATED: uploads are not simulated (no file storage) except a Data Import's file.", indicator: "red", raise_exception: 1 }) });
+      if (P) {
+        const target = opts.docname ? store.docs.get("Data Import")?.get(String(opts.docname)) : undefined;
+        if (target) P.assertDoc(target, "write");
+        else P.assertDoctype("Data Import", "write");
+      }
+      const content = await blobText(file);
+      const name = hash();
+      const fileUrl = `${opts.isPrivate ? "/private" : ""}/files/${name}-${filename}`;
+      uploads.set(fileUrl, { content, filename, csv: /\.csv$/i.test(filename) || /^text\/csv/.test((file as Blob).type ?? "") });
+      const ts = stamp();
+      return { doctype: "File", name, file_name: filename, file_url: fileUrl, is_private: opts.isPrivate ? 1 : 0, attached_to_doctype: opts.doctype ?? null, attached_to_name: opts.docname ?? null, attached_to_field: opts.fieldname ?? null, owner: user, creation: ts, modified: ts, docstatus: 0 } as FrappeDoc;
     },
   };
 
@@ -1181,4 +1509,11 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
 /** Helper for authored metas: a Link / Table field list → `FrappeDocField[]` with sane defaults. */
 export function fixtureFields(fields: Array<Partial<FrappeDocField> & { fieldname: string }>): FrappeDocField[] {
   return fields.map((f, i) => ({ fieldtype: "Data", label: f.fieldname, idx: i + 1, ...f }));
+}
+
+/** A Blob's text in browsers (Blob.text), jsdom (FileReader) and Node (Response). */
+async function blobText(b: Blob): Promise<string> {
+  if (typeof (b as Blob & { text?: unknown }).text === "function") return b.text();
+  if (typeof FileReader !== "undefined") return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result ?? "")); r.onerror = () => reject(r.error); r.readAsText(b); });
+  return new Response(b).text();
 }

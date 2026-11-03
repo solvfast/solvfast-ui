@@ -9,7 +9,8 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import todoEn from "./fixtures/real-15.110/todo.en.json";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
-import { createFrappeClient, FrappeError } from "../src/frappe/client";
+import { createFrappeClient, FrappeError, withFrappeApi } from "../src/frappe/client";
+import { startDataImport, getImportStatus, getImportLogs, remapImportColumns } from "../src/frappe/list/import";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import { FrappeForm } from "../src/frappe/form";
 import type { DocPerm, DocTypeMeta, FrappeDoc, WorkflowInfo } from "../src/frappe/contract";
@@ -476,5 +477,127 @@ describe("ToDo docinfo quirk reproduced", () => {
     const t = site({ user: "omar@example.com", roles: ["System Manager"] });
     const r = await getdoc(t, "ToDo", "TD-1");
     expect((r.docinfo as { permissions: Record<string, unknown> }).permissions).toEqual({ null: 0 });
+  });
+});
+
+const readText = (b: Blob) => new Promise<string>((resolve) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.readAsText(b); });
+
+describe("Phase 27 list actions on the simulated server (handlers + permission checks)", () => {
+  const openTodo = (t: FixtureTransport, name: string, ref: string, user: string) =>
+    t.store.todos.set(name, { doctype: "ToDo", name, reference_type: "Travel Request", reference_name: ref, allocated_to: user, status: "Open", description: "x", modified: T } as FrappeDoc);
+  it("assign_to.remove_multiple: Desk's ignore_permissions → no check (assign_to.py:181-207); without it read is checked", async () => {
+    const t = site(SCENARIOS.restrictedDoctype);
+    openTodo(t, "TD-X", "TR-0002", "sara@example.com");
+    expect((await refused(t("frappe.desk.form.assign_to.remove_multiple", { doctype: "Travel Request", names: JSON.stringify(["TR-0002"]) }))).status).toBe(403);
+    await t("frappe.desk.form.assign_to.remove_multiple", { doctype: "Travel Request", names: JSON.stringify(["TR-0002"]), ignore_permissions: true });
+    expect(t.store.todos.get("TD-X")!.status).toBe("Cancelled");
+  });
+  it("assignment_rule.bulk_apply: no check, no rule → no-op; a missing name fails in the synchronous path", async () => {
+    const t = site(SCENARIOS.readOnly);
+    expect(await t("frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply", { doctype: "Travel Request", docnames: JSON.stringify(["TR-0001"]) })).toEqual({});
+    expect((await refused(t("frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply", { doctype: "Travel Request", docnames: JSON.stringify(["TR-9"]) }))).status).toBe(404);
+  });
+  it("tag.add_tags: no permission check (tag.py:42-116); the Tag master is created and found by search_link (All: read)", async () => {
+    const t = site(SCENARIOS.restrictedDoctype);
+    await t("frappe.desk.doctype.tag.tag.add_tags", { tags: JSON.stringify(["urgent", "q4"]), dt: "Travel Request", docs: JSON.stringify(["TR-0001", "TR-0002"]) });
+    expect(t.store.docs.get("Travel Request")!.get("TR-0001")!._user_tags).toBe(",urgent,q4");
+    const found = (await t("frappe.desk.search.search_link", { doctype: "Tag", txt: "urg" })).message as { value: string }[];
+    expect(found.map((x) => x.value)).toEqual(["urgent"]);
+  });
+  it("workflow: common actions per evaluated roles, self-approval from the row's owner; bulk approval publishes the log", async () => {
+    const t = site({ user: "omar@example.com", roles: ["Memo Writer", "Memo Approver"] });
+    const common = async (owner: string) => (await t("frappe.model.workflow.get_common_transition_actions", { doctype: "Approval Memo", docs: JSON.stringify([{ name: "AM-1", owner }]) })).message;
+    expect(await common("omar@example.com")).toEqual(["Request"]);
+    expect(await common("sara@example.com")).toEqual(["Request", "Fast-track"]);
+    expect(await t("frappe.model.workflow.bulk_workflow_approval", { doctype: "Approval Memo", docnames: JSON.stringify(["AM-1"]), action: "Request" })).toEqual({});
+    expect(t.store.docs.get("Approval Memo")!.get("AM-1")!.workflow_state).toBe("Pending");
+    expect(t.store.published.at(-1)).toMatchObject({ title: "Workflow Status", message: expect.stringContaining("Successful Transactions") });
+    const big = await refused(t("frappe.model.workflow.bulk_workflow_approval", { doctype: "Approval Memo", docnames: JSON.stringify(Array.from({ length: 501 }, (_, i) => `x${i}`)), action: "Request" }));
+    expect(big.status).toBe(417);
+    const reader = site(SCENARIOS.readOnly);
+    expect((await refused(reader("frappe.model.workflow.get_common_transition_actions", { doctype: "Approval Memo", docs: JSON.stringify([{ name: "AM-1", owner: "x" }]) }))).status).toBe(403);
+  });
+  it("download_multi_pdf: unprintable documents are left out silently; the file is labelled SIMULATED and carries no values", async () => {
+    const args = { doctype: "Travel Request", name: JSON.stringify(["TR-0001", "TR-0002"]), format: "Standard", no_letterhead: "1" };
+    const ok = await site(SCENARIOS.readOnly).files.download("frappe.utils.print_format.download_multi_pdf", args);
+    const text = await readText(ok.blob);
+    expect(ok.filename).toBe("SIMULATED-Travel-Request-not-a-pdf.txt");
+    expect(text).toMatch(/NOT A PDF/);
+    expect(text).toMatch(/Printable \(simulated decision\): 2 of 2/);
+    expect(text).not.toContain("Riyadh offsite");
+    const none = await readText((await site(SCENARIOS.restrictedDoctype).files.download("frappe.utils.print_format.download_multi_pdf", args)).blob);
+    expect(none).toMatch(/Printable \(simulated decision\): 0 of 2/);
+    const t = site(SCENARIOS.readOnly);
+    const task = (await t("frappe.utils.print_format.download_multi_pdf_async", args)).message as { task_id: string };
+    expect(t.store.published.at(-1)!.event).toBe(`task_complete:${task.task_id}`);
+  });
+  it("export_query: Access Log first, then read (403) and can_export (403); the exporter gets a labelled file with a count, no values", async () => {
+    const args = { doctype: "Travel Request", fields: JSON.stringify(["name", "purpose", "internal_notes"]), filters: "[]", file_format_type: "CSV", title: "Trips" };
+    const reader = site(SCENARIOS.readOnly);
+    const e = await refused(reader.files.download("frappe.desk.reportview.export_query", args));
+    expect(e.status).toBe(403);
+    expect(e.message).toMatch(/You are not allowed to export Travel Request doctype/);
+    expect(reader.store.docs.get("Access Log")!.size).toBe(1); // written before the check, as on a site
+    const exporter = site(simScenario.readOnly("khaled@example.com", ["Exporter"]));
+    const f = await exporter.files.download("frappe.desk.reportview.export_query", args);
+    const text = await readText(f.blob);
+    expect(f.filename).toBe("SIMULATED-Trips-not-a-csv.txt");
+    expect(text).toMatch(/Columns \(labels only\): Sr \| ID \| Purpose$/m); // the permlevel-1 column is dropped
+    expect(text).toMatch(/Rows the simulated server matched: 4/);
+    expect(text).not.toContain("Riyadh offsite");
+    const bg = await exporter("frappe.desk.reportview.export_query", { ...args, export_in_background: "1" });
+    expect(String(bg._server_messages)).toMatch(/generated in the background/);
+    expect((await refused(site(SCENARIOS.restrictedDoctype).files.download("frappe.desk.reportview.export_query", args))).message).toBe("No permission for Travel Request");
+  });
+});
+
+describe("Data Import on the simulated server (data_import.py:44-256) — dry run by default", () => {
+  const csv = "Purpose,Lead traveller,Budget,Unknown column\nDubai fair,omar@example.com,500,x\n,lina@example.com,10,y\nGhost trip,ghost@example.com,1,z\n";
+  const apiOf = (t: FixtureTransport) => withFrappeApi(createFrappeClient({ transport: t, files: t.files }));
+  const file = (text: string, type = "text/csv") => new Blob([text], { type });
+  it("System Manager: create → upload → preview (columns matched, warnings) → start: logs per row, NOTHING written", async () => {
+    const t = site(SCENARIOS.fullAccess);
+    const api = apiOf(t);
+    const r = await startDataImport(api, { referenceDoctype: "Travel Request", importType: "Insert New Records", file: file(csv), filename: "trips.csv", start: true });
+    const cols = (r.preview!.columns as { header_title: string; df?: { fieldname: string } | null; skip_import: boolean }[]);
+    expect(cols.map((c) => [c.header_title, c.df?.fieldname ?? null, c.skip_import])).toEqual([["Sr. No", null, true], ["Purpose", "purpose", false], ["Lead traveller", "traveller", false], ["Budget", "budget", false], ["Unknown column", null, true]]);
+    expect(r.preview!.data).toEqual([[2, "Dubai fair", "omar@example.com", "500", "x"], [3, "", "lina@example.com", "10", "y"], [4, "Ghost trip", "ghost@example.com", "1", "z"]]);
+    expect(JSON.stringify(r.preview!.warnings)).toMatch(/Cannot match column <strong>Unknown column<\/strong>/);
+    expect(r.started).toBe(true);
+    const status = await getImportStatus(api, r.name);
+    expect(status).toMatchObject({ status: "Partial Success", success: 1, failed: 2, total: 3 });
+    const logs = await getImportLogs(api, r.name);
+    expect(logs.map((l) => [l.row_indexes, l.success])).toEqual([["[2]", 1], ["[3]", 0], ["[4]", 0]]);
+    expect(logs[0].messages).toMatch(/SIMULATED dry run/);
+    expect(logs[1].exception).toMatch(/MandatoryError: .*Value missing for Travel Request: Purpose/);
+    expect(logs[2].exception).toMatch(/LinkValidationError: Could not find Lead traveller: ghost@example.com/);
+    expect(t.store.docs.get("Travel Request")!.size).toBe(4); // dry run: nothing written
+  });
+  it("the column map is honoured on the re-parse (template_options.column_to_field_map, Don't Import)", async () => {
+    const t = site(SCENARIOS.fullAccess);
+    const api = apiOf(t);
+    const r = await startDataImport(api, { referenceDoctype: "Travel Request", importType: "Insert New Records", file: file(csv), filename: "trips.csv", start: false });
+    const { preview } = await remapImportColumns(api, r.doc, { "3": "internal_notes", "2": "Don't Import" });
+    const cols = (preview!.columns as { header_title: string; df?: { fieldname: string } | null; skip_import: boolean }[]).slice(1);
+    // Column.parse (importer.py:884-933): "Don't Import" keeps the header's match but skips it
+    expect(cols.map((c) => [c.df?.fieldname ?? null, c.skip_import])).toEqual([["purpose", false], ["traveller", false], ["budget", true], ["internal_notes", false]]);
+  });
+  it("dataImport: \"insert\" — the simulator plays the server and inserts the valid rows (labelled)", async () => {
+    const t = createFixtureTransport({ meta: { "Travel Request": [TRAVEL, COMPANION], User: [USER_META] }, docs: { User: users } }, { permissions: SCENARIOS.fullAccess, dataImport: "insert" });
+    const r = await startDataImport(apiOf(t), { referenceDoctype: "Travel Request", importType: "Insert New Records", file: file("Purpose,Lead traveller\nDubai fair,omar@example.com\n"), filename: "t.csv" });
+    const logs = await getImportLogs(apiOf(t), r.name);
+    expect(logs[0].messages).toMatch(/SIMULATED: the in-browser simulator inserted/);
+    expect(t.store.docs.get("Travel Request")!.get(String(logs[0].docname))!.purpose).toBe("Dubai fair");
+  });
+  it("refusals: Data Entry cannot create a Data Import (System Manager only → 403); no import right → 403; xlsx → labelled 417; bad template → 417", async () => {
+    const entry = site(SCENARIOS.restrictedFields);
+    expect((await refused(startDataImport(apiOf(entry), { referenceDoctype: "Travel Request", importType: "Insert New Records", file: file(csv), filename: "t.csv" }))).status).toBe(403);
+    const sm = site(SCENARIOS.fullAccess);
+    const noImport = await refused(startDataImport(apiOf(sm), { referenceDoctype: "Approval Memo", importType: "Insert New Records", file: file(csv), filename: "t.csv" }));
+    expect(noImport.messages[0].message).toMatch(/Data Import is not allowed for Approval Memo/);
+    const x = await refused(startDataImport(apiOf(sm), { referenceDoctype: "Travel Request", importType: "Insert New Records", file: file("PK..", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"), filename: "t.xlsx" }));
+    expect(x.messages[0].message).toMatch(/^SIMULATED: the in-browser simulator reads CSV files only/);
+    const bad = await refused(startDataImport(apiOf(sm), { referenceDoctype: "Travel Request", importType: "Insert New Records", file: file("Purpose\n"), filename: "t.csv" }));
+    expect(bad.messages[0].message).toBe("Import template should contain a Header and atleast one row.");
   });
 });
