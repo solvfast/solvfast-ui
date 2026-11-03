@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "../../primitives/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../primitives/dialog";
 import { Input } from "../../primitives/input";
+import { AssignPicker } from "../../record";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { useLocale } from "../../theme/ThemeProvider";
 import type { FrappeClient } from "../client";
@@ -44,12 +45,11 @@ export function FrappeBulkActions({ client, meta, doctype, keys, clear, options,
   const kinds = bulkMenu({ permissions: options.permissions, isSubmittable: meta.isSubmittable, hasWorkflow: !!options.hasWorkflow, allowEdit: !!options.allowEdit, hasEditableFields: meta.editable.length > 0 })
     .filter((k) => !options.only || options.only.includes(k));
   const [asking, setAsking] = React.useState<BulkKind | null>(null);
-  const [form, setForm] = React.useState<"edit" | "assign" | null>(null);
+  const [form, setForm] = React.useState<"edit" | null>(null);
   const [busy, setBusy] = React.useState<BulkKind | null>(null);
   const setMessage = (m: string) => onMessage?.(m);
   const [field, setField] = React.useState(meta.editable[0]?.name ?? "");
   const [value, setValue] = React.useState("");
-  const [user, setUser] = React.useState("");
 
   const run = async (kind: BulkKind, call: () => Promise<BulkOutcome>) => {
     setBusy(kind); setMessage(""); onBusy?.(true);
@@ -74,7 +74,6 @@ export function FrappeBulkActions({ client, meta, doctype, keys, clear, options,
   const submitForm = () => {
     const f = form; setForm(null);
     if (f === "edit" && editField) void run("edit", () => bulkSubmitCancelOrUpdate(client, doctype, keys, "update", { [field]: value === "" ? null : editField.fieldtype === "Check" ? Number(value) : value }));
-    if (f === "assign" && user.trim()) void run("assign", () => bulkAssign(client, doctype, keys, [user.trim()]));
   };
 
   if (!kinds.length) return null;
@@ -83,9 +82,18 @@ export function FrappeBulkActions({ client, meta, doctype, keys, clear, options,
     <>
       {kinds.map((k) => {
         const Icon = ICON[k];
+        if (k === "assign") {
+          // Desk's Assign To dialog: search users, comment / due date / priority; applies to every selected document
+          return (
+            <AssignPicker key={k} withDetails disabled={!!busy}
+              searchUsers={async (q) => (await client.searchLink("User", q, { referenceDoctype: doctype })).map((u) => ({ id: u.value, label: u.label || u.value, description: u.description }))}
+              onAssign={(users, d) => run("assign", () => bulkAssign(client, doctype, keys, users.map((u) => u.id), d))}
+              trigger={<Button size="sm" variant="outline" className="gap-1.5" loading={busy === k} disabled={!!busy}><Icon className="h-4 w-4" /> {t(LABEL[k])}</Button>} />
+          );
+        }
         return (
           <Button key={k} size="sm" variant={k === "delete" ? "destructive" : "outline"} className="gap-1.5" loading={busy === k} disabled={!!busy}
-            onClick={() => (k === "edit" || k === "assign" ? setForm(k) : setAsking(k))}>
+            onClick={() => (k === "edit" ? setForm(k) : setAsking(k))}>
             <Icon className="h-4 w-4" /> {t(LABEL[k])}
           </Button>
         );
@@ -133,12 +141,10 @@ export function FrappeBulkActions({ client, meta, doctype, keys, clear, options,
                 <Input aria-label={t("listBulkValue")} placeholder={t("listBulkValue")} value={value} onChange={(e) => setValue(e.target.value)} />
               )}
             </div>
-          ) : (
-            <Input aria-label={t("listBulkAssignee")} placeholder={t("listBulkAssignee")} value={user} onChange={(e) => setUser(e.target.value)} dir="ltr" />
-          )}
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setForm(null)}>{t("cancel")}</Button>
-            <Button onClick={submitForm} disabled={form === "assign" && !user.trim()}>{t("listBulkApply")}</Button>
+            <Button onClick={submitForm}>{t("listBulkApply")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
