@@ -87,7 +87,10 @@ export interface DocTypeMeta {
   max_attachments?: number;
   fields: FrappeDocField[];
   permissions?: DocPerm[];
-  /** Server translations for the session language (label → translation). */
+  /**
+   * Translations (source → translated). NOT returned by `getdoctype` in 15.110 (always absent there); Desk gets them
+   * from boot. `translateLabel` uses this when present, else an app-supplied dictionary.
+   */
   __messages?: Record<string, string>;
   [key: string]: unknown;
 }
