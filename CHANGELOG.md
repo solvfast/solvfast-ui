@@ -314,7 +314,7 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
   source path. Packed size 846 kB → 524 kB.
 
 ## 0.4.0-dev.31 (2026-11-03, Phase 27 B — list query)
-- Nested-set filter operators (Descendants of / inclusive / Not descendants of / Ancestors of / Not ancestors of), offered
+- Nested-set filter operators (Desk's labels: Descendants Of / inclusive / Not Descendants Of / Ancestors Of / Not Ancestors Of), offered
   only for Link fields to tree DocTypes, sent to the server unchanged; en/ar labels.
 - Width-based column limit (Desk `list_view.js:375-457`), URL filters (read and write-back), report-view export
   (`export_query` through `api.download`; on a real site it writes an Access Log row) — functions and `useFrappeList`
