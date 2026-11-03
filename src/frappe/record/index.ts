@@ -12,7 +12,8 @@ export {
   workflowFromMeta, currentState, defaultState, hasApprovalAccess, visibleTransitions, isReadOnlyState, workflowLockedFields, canCancelDocument,
   standardActionsUnderWorkflow, toneForStyle, lifecycleStates, lifecycleActions,
 } from "./workflow";
-export type { RecordWorkflow, RecordWorkflowState } from "./workflow";
+export type { RecordWorkflow, RecordWorkflowState, VisibleTransitionsOptions } from "./workflow";
+export { transitionsKnown } from "./workflow";
 export { indicatorFor, guessTone } from "./indicator";
 export type { Indicator } from "./indicator";
 export { buildTimelineItems, formatVersion, formatTimelineValue, parseFrappeTime, commaAnd } from "./timeline";

@@ -17,7 +17,9 @@ export const PERM_TYPES: PermType[] = ["select", "read", "write", "create", "del
 export interface FrappeSession {
   user: string;
   fullName?: string;
-  /** The user's roles (incl. "All", "Guest" as Frappe lists them). Without them, permissions are approximated. */
+  /** The user's roles (incl. "All", "Guest" as Frappe lists them; Desk's `frappe.user_roles` = boot `user.roles`,
+   *  utils/user.py:245, desk.js:311). Without them nothing is inferred (rule 9: missing information denies) — except
+   *  for the Administrator USER, whose roles the server defines as every Role (permissions.py:506-507). */
   roles?: string[];
 }
 
@@ -61,10 +63,12 @@ export interface BuildPermissionsInput {
 }
 
 /** The server grants the Administrator USER everything, unconditionally (permissions.py:107-109 `has_permission`,
- *  :288-290 `allow_everything` — keyed on the user name; role.py:92-95 resolves the "Administrator" role to that user).
- *  A session that merely lists the "Administrator" ROLE gets the DocPerm rows for it, like any role (perm.js:62-64 sets
- *  only `read` for it and then reads the rows). */
-export const isAdministrator = (session: FrappeSession | undefined) => session?.user === "Administrator";
+ *  :273-275 `get_role_permissions` → `allow_everything` — keyed on the user name; role.py:92-95 resolves the
+ *  "Administrator" role to that user). Its roles are every Role record (`get_roles`, permissions.py:506-507), with or
+ *  without an explicit `session.roles`. A session that merely lists the "Administrator" ROLE gets the DocPerm rows for
+ *  it, like any role (perm.js:59-69 sets only `read` for it and then reads the rows) — and the server never reports that
+ *  role for another user: it is an automatic role (permissions.py:37) excluded from `Has Role` (:515). */
+export const isAdministrator = (session: Pick<Partial<FrappeSession>, "user"> | undefined) => session?.user === "Administrator";
 
 /** The server's `docinfo.shared` row of this user adds read / write / submit / share (perm.js:88-96; share.py:155). */
 function applyShared(base: Partial<Record<PermType, boolean>>, docinfo: DocInfo | undefined, user: string | undefined) {
@@ -93,9 +97,10 @@ export function permissionsKnown({ doc, docinfo, session }: Pick<BuildPermission
  *    non-owner the level-0 rights granted ONLY by `if_owner` rows are removed, then the user's `docinfo.shared` row
  *    adds read / write / submit / share (Desk also sets email / print from boot `can_email` / `can_print` — not
  *    available here, left as they are).
- *  - the Administrator USER: every right at every permlevel (the server never checks further, permissions.py:107-109);
- *    the "Administrator" ROLE on another user is just a role (its DocPerm rows).
- *  - No meta → read for the Administrator only (perm.js:62-70; boot `can_read` is not available here).
+ *  - the Administrator USER: every right at every permlevel, with or without `session.roles` (the server never checks
+ *    further: permissions.py:107-109, :273-275; it neither strips nor resets its permlevel fields, document.py:756,
+ *    :788); the "Administrator" ROLE on another user is just a role (its DocPerm rows).
+ *  - No meta → read for the Administrator only (perm.js:59-67; boot `can_read` is not available here).
  * RULE 9 (Phase 26 D: missing information DENIES) without `session.roles` and not Administrator:
  *  - a saved doc: level 0 = exactly the server-evaluated `docinfo.permissions` (ownership, user permissions and
  *    `if_owner` already applied by `get_doc_permissions`, permissions.py:196-250) plus the user's `docinfo.shared` row
@@ -108,7 +113,7 @@ export function buildDocPermissions({ meta, children, doc, docinfo, session }: B
   const roles = session?.roles;
   const saved = !!doc && !doc.__islocal;
   const admin = isAdministrator(session);
-  if (!meta) return [{ read: admin || !!roles?.includes("Administrator") }]; // perm.js:62-64
+  if (!meta) return [{ read: admin || !!roles?.includes("Administrator") }]; // perm.js:59-61
 
   if (admin) {
     const levels: DocPermissions = [];
@@ -231,31 +236,48 @@ export function isFetchLocked(df: FrappeDocField, doc: FrappeDoc | undefined): b
 
 /** Rights at level 0 as `rolePermissions(meta.permissions, roles).levels[0]`, or `usePermissions().levels[0]`. */
 export type Level0Rights = Partial<Record<PermType, boolean>> | undefined;
+/** Who asks: the role list (as before), or the whole session — pass the session so the Administrator USER is recognised
+ *  without an explicit role list (P2-4). */
+export type RolesOrSession = readonly string[] | FrappeSession | undefined;
+const isRoleList = (who: RolesOrSession): who is readonly string[] => Array.isArray(who);
+const rolesOf = (who: RolesOrSession): readonly string[] | undefined => (isRoleList(who) ? who : who?.roles);
+/** "System Manager" in the roles. The "Administrator" ROLE counts: only the Administrator user can hold it (it is an
+ *  automatic role, permissions.py:37, never read from `Has Role`, :515) and that user's roles include System Manager
+ *  (:506-507; a standard role that cannot be renamed or disabled, role.py:9, :31, :45). */
 const isSystemManager = (roles: readonly string[] | undefined) => !!roles?.includes("System Manager") || !!roles?.includes("Administrator");
+/** The Administrator USER, with or without a role list: `get_roles("Administrator")` is every Role record
+ *  (permissions.py:506-507), so `"System Manager" in frappe.get_roles()` (:600, :609) is true for it. */
+const actsAsSystemManager = (who: RolesOrSession) => (!isRoleList(who) && isAdministrator(who)) || isSystemManager(rolesOf(who));
 
 /**
- * `frappe.model.can_import(doctype, frm, meta)` (model.js:434-442) and the server's `can_import` (permissions.py:600-606):
- * the DocType must have `allow_import`; then System Manager always may, otherwise the level-0 `import` right.
+ * `frappe.model.can_import(doctype, frm, meta)` (model.js:434-442) and the server's `can_import` (permissions.py:599-605):
+ * the DocType must have `allow_import` (model.js:435; the server's `Data Import` refuses it for everyone, the Administrator
+ * included, data_import.py:64 — before its permission check at :71); then System Manager always may (model.js:438),
+ * otherwise the level-0 `import` right.
  * NEVER read this off a loaded document's `docinfo.permissions`: the server forces `permissions["import"] = 0` there
  * (permissions.py:221); Import is a DocType-level right. No roles → false (Phase 26 rule 9: missing information denies).
+ * `who`: the roles, or the session — the Administrator USER needs no role list (its roles are every Role, :506-507).
  * The server re-validates on `Data Import` insert (data_import.py:59-75); this only decides what the UI offers.
  */
-export function canImport(meta: Pick<DocTypeMeta, "allow_import"> | undefined, roles: readonly string[] | undefined, level0: Level0Rights): boolean {
+export function canImport(meta: Pick<DocTypeMeta, "allow_import"> | undefined, who: RolesOrSession, level0: Level0Rights): boolean {
   if (!meta || !truthy(meta.allow_import)) return false;
-  if (isSystemManager(roles)) return true;
-  return !!roles && !!level0?.import;
+  if (actsAsSystemManager(who)) return true;
+  return !!rolesOf(who) && !!level0?.import;
 }
 
 /**
- * `frappe.model.can_export(doctype, frm)` (model.js:444-450) and the server's `can_export` (permissions.py:609-615):
+ * `frappe.model.can_export(doctype, frm)` (model.js:444-450) and the server's `can_export` (permissions.py:608-615):
  * System Manager always may; otherwise the level-0 `export` right, which `rolePermissions` already takes from `if_owner`
  * rows too (the server then checks every exported row's owner — data_import/exporter.py:116-124). No roles → false.
- * Desk shows the list's Export entry to everyone (`list_view.js:2092`) and lets the server refuse; the package hides it
- * (Phase 26 rule D.1). Either way the server decides.
+ * `who`: the roles, or the session — the Administrator USER may always export (System Manager among its roles,
+ * :506-507 + :609; and `get_role_permissions` answers `allow_everything` for it, :273-275).
+ * Desk shows the list's Export entry to everyone (`list_view.js:2092`) and lets the server refuse; so does `FrappeListView`
+ * since Phase 27 (owner decision). This helper gates what Desk gates: the report-view export (`report_view.js:1646`).
+ * Either way the server decides.
  */
-export function canExport(roles: readonly string[] | undefined, level0: Level0Rights): boolean {
-  if (isSystemManager(roles)) return true;
-  return !!roles && !!level0?.export;
+export function canExport(who: RolesOrSession, level0: Level0Rights): boolean {
+  if (actsAsSystemManager(who)) return true;
+  return !!rolesOf(who) && !!level0?.export;
 }
 
 /**

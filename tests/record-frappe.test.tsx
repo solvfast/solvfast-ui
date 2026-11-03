@@ -35,10 +35,15 @@ describe("workflow", () => {
   it("self-approval: owner cannot apply unless allowed; Administrator always can", () => {
     const doc: FrappeDoc = { doctype: "Deal", name: "D1", owner: "a@x", workflow_state: "Draft" };
     const ts = wf.transitions;
-    expect(visibleTransitions(ts, { user: "a@x", doc }).map((t) => t.action)).toEqual(["Reject"]);
-    expect(visibleTransitions(ts, { user: "b@x", doc }).map((t) => t.action)).toEqual(["Approve", "Reject"]);
+    // Phase 27 P2-3: without roles the role filter cannot be applied, so a list is used only when it IS the server's
+    // get_transitions answer (role-filtered server-side by frappe.get_roles(), model/workflow.py:64-67) — `fromServer`.
+    // The self-approval intent of this test is unchanged.
+    expect(visibleTransitions(ts, { user: "a@x", doc, fromServer: true }).map((t) => t.action)).toEqual(["Reject"]);
+    expect(visibleTransitions(ts, { user: "b@x", doc, fromServer: true }).map((t) => t.action)).toEqual(["Approve", "Reject"]);
     expect(visibleTransitions(ts, { user: "Administrator", doc: { ...doc, owner: "Administrator" } })).toHaveLength(2);
     expect(visibleTransitions(ts, { user: "b@x", doc, roles: ["Sales User"] })).toHaveLength(0);
+    // rule 9: roles unknown and not the server's answer (e.g. the definition's transitions) → nothing offered
+    expect(visibleTransitions(ts, { user: "b@x", doc })).toEqual([]);
   });
   it("read-only state follows allow_edit roles; new docs are never read-only", () => {
     const doc: FrappeDoc = { doctype: "Deal", name: "D1", workflow_state: "Draft", docstatus: 0 };

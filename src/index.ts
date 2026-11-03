@@ -167,3 +167,6 @@ export * from "./fields";
 export { ListActionsContext, useListActions } from "./list/ListActionsContext";
 // Plain-text use of timeline summaries (aria-label, copy, export): strip the bidi isolates.
 export { stripIsolates } from "./record/format";
+// 0.4.0 — nested-set filter operators (Frappe filter.js:32-36)
+export { NESTED_SET_OPERATORS, NESTED_SET_LABEL, isNestedSetOperator, operatorLabel } from "./list/model/filters";
+export type { NestedSetOperator } from "./list/model/filters";

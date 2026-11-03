@@ -10,6 +10,7 @@ import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src";
 import { FrappeListView, FrappeProvider, createFrappeClient, FrappeError, type FrappeTransport } from "../src/frappe";
+import { dataImportListUrl } from "../src/frappe/FrappeListView";
 import type { FrappeFilesTransport } from "../src/frappe/client";
 import type { DocPermissions, FrappeDocField, MetaBundle } from "../src/frappe/contract";
 import type { DocMeta } from "../src/frappe/client";
@@ -246,7 +247,7 @@ describe("useImportStatus (polling stand-in for data_import_refresh / data_impor
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
-describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-1712, 2092)", () => {
+describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-1712, 2075-2092; owner decision Phase 27 #1)", () => {
   it("canImport / canExport against the DocPerm rows", () => {
     const lv = (roles: string[]) => rolePermissions(PERMS as never, roles).levels[0];
     expect(canImport({ allow_import: 1 }, ["Importer"], lv(["Importer"]))).toBe(true);
@@ -264,33 +265,71 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.getByRole("menuitem", { name: /Import/ })).toBeTruthy();
-    expect(screen.getByRole("menuitem", { name: /Export/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("menuitem", { name: /Import/ }));
     expect(onImport).toHaveBeenCalledTimes(1);
   });
 
-  it("a read-only role sees no menu at all (nothing to call); no session → nothing either (rule 9)", async () => {
+  // Owner decision Phase 27 #1: Export is offered like Desk — pushed unconditionally (list_view.js:2075-2092) — and the
+  // server refuses a user without the right (data_import/exporter.py:116-126 `can_export`). This REVERSES the Phase 26
+  // rule D.1 assertions ("a read-only role sees no menu", "Export hidden for an importer").
+  it("a read-only role (no export right) still gets Export in the menu and in the selection bar, as Desk; no Import", async () => {
     const { unmount } = mountList(["Guest"], META(), { onImport: vi.fn(), selectable: true });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
-    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+    openMenu("More actions");
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: /Import/ })).toBeNull(); // Import keeps Desk's can_import gate (list_view.js:1703)
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
-    expect(screen.queryByRole("button", { name: "Export" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Export" })).toBeTruthy();
     unmount();
+    // no session roles: Import is denied (rule 9), Export is still offered — the server decides
     mountList(undefined, META(), { bulk: {} });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    openMenu("More actions");
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: /Import/ })).toBeNull();
+  });
+
+  it("menu={{ export: false }} (or an app's own canExport) still hides Export; menu={false} removes the menu", async () => {
+    const { unmount } = mountList(["Guest"], META(), { menu: { export: canExport(["Guest"], rolePermissions(PERMS as never, ["Guest"]).levels[0]) } });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+    unmount();
+    mountList(["System Manager"], META(), { menu: false, onImport: vi.fn() });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
   });
 
-  it("Import is hidden when the DocType has allow_import = 0, even for a role with the import right", async () => {
+  it("Import is hidden when the DocType has allow_import = 0, even for a role with the import right; Export stays", async () => {
     const { unmount } = mountList(["Importer"], META({ allow_import: 0 }), { onImport: vi.fn() });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
-    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+    openMenu("More actions");
+    expect(screen.queryByRole("menuitem", { name: /Import/ })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     unmount();
     mountList(["Importer"], META(), { onImport: vi.fn() });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.getByRole("menuitem", { name: /Import/ })).toBeTruthy();
-    expect(screen.queryByRole("menuitem", { name: /Export/ })).toBeNull(); // Desk would show Export here (list_view.js:2092); the package hides it
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy(); // Desk shows Export here too (list_view.js:2092)
+  });
+
+  it("Import without onImport navigates to Desk's Data Import LIST filtered on the DocType (set_route('list','data-import',{reference_doctype}))", async () => {
+    // router.js:431-440 keeps {reference_doctype} in frappe.route_options and pushes /app/data-import; from outside Desk the
+    // options travel as the query string, which router.js:548-566 reads back into route_options
+    expect(dataImportListUrl("Sales Order")).toBe("/app/data-import?reference_doctype=Sales%20Order");
+    expect(new URLSearchParams(dataImportListUrl("A&B/C").split("?")[1]).get("reference_doctype")).toBe("A&B/C");
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    try {
+      mountList(["System Manager"], META());
+      await waitFor(() => expect(bodyRows()).toHaveLength(20));
+      openMenu("More actions");
+      fireEvent.click(screen.getByRole("menuitem", { name: /Import/ }));
+      expect(assign).toHaveBeenCalledWith("/app/data-import?reference_doctype=ToDo");
+    } finally { vi.unstubAllGlobals(); }
   });
 
   it("Exporter role: Export in the menu; with `selectable` also in the selection bar; the bar's Export posts by_filter on the checked names", async () => {
@@ -299,7 +338,7 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.queryByRole("menuitem", { name: /Import/ })).toBeNull();
-    expect(screen.getByRole("menuitem", { name: /Export/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     fireEvent.click(screen.getAllByRole("checkbox")[2]);
@@ -326,6 +365,27 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); // closed after the server answered; no toast
   });
 
+  it("a role WITHOUT the export right opens the dialog; the server's 403 is shown as a permission error — no success, no file", async () => {
+    const { seen, files } = dl(async () => { throw new FrappeError("You are not allowed to export ToDo doctype", 403, "PermissionError"); });
+    const save = vi.fn(() => "blob:x");
+    Object.assign(globalThis.URL, { createObjectURL: save });
+    mountList(["Guest"], META(), { selectable: true }, undefined, files);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    fireEvent.click(await screen.findByRole("button", { name: "Export" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Select All" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Export" }));
+    await waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0].args.export_records).toBe("by_filter"); // the request is Desk's; only the server decides
+    expect(await within(dialog).findByText(en("feErrPermission"))).toBeTruthy(); // FrappeErrorState, kind "permission"
+    expect(within(dialog).getByText(/not allowed to export/)).toBeTruthy();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).toBeNull(); // no success line anywhere
+    delete (globalThis.URL as unknown as { createObjectURL?: unknown }).createObjectURL;
+  });
+
   it("the dialog shows the server's refusal and stays open; no file was saved", async () => {
     const { seen, files } = dl(async () => { throw new FrappeError("You are not allowed to export ToDo doctype", 403, "PermissionError"); });
     const save = vi.fn(() => "blob:x");
@@ -333,7 +393,7 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     mountList(["Exporter"], META(), {}, undefined, files);
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
-    fireEvent.click(screen.getByRole("menuitem", { name: /Export/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Export" }));
     await waitFor(() => expect(seen).toHaveLength(1));
@@ -410,5 +470,44 @@ describe("Bulk outcomes (FrappeBulkActions)", () => {
     await act(() => new Promise((r) => setTimeout(r, 100)));
     expect(calls("frappe.desk.reportview.get").length).toBe(before);
     expect(bodyRows()).toHaveLength(20);
+  });
+});
+
+// Lead wiring, Phase 27 (SIMULATED — stub transports). Report-view export (`export_query`) and Desk's width cap in FrappeListView.
+describe("FrappeListView wiring (Phase 27 Lead): report-view export entry and the default width cap", () => {
+  it("'Export as report' is offered only with the export right (report_view.js:1646 can_export) and posts export_query through the server", async () => {
+    const { seen, files } = dl(async () => ({ blob: new Blob(["server"]), filename: "ToDo.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    mountList(["Exporter"], META(), {}, undefined, files);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    openMenu("More actions");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Export as report/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /Download/ }));
+    await waitFor(() => expect(seen.map((s) => s.method)).toEqual(["frappe.desk.reportview.export_query"]));
+    expect(seen[0].args.doctype).toBe("ToDo");
+  });
+  it("a role without the export right sees Desk's list Export but not the report-view export", async () => {
+    mountList(["Importer"], META());
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    openMenu("More actions");
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: /Export as report/ })).toBeNull();
+  });
+  it("roles unknown: no report-view export (rule 9), Desk's list Export still offered (the server decides)", async () => {
+    mountList(undefined, META());
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    openMenu("More actions");
+    expect(screen.queryByRole("menuitem", { name: /Export as report/ })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
+  });
+  it("generated columns are capped by width by default (list_view.js:432-444); columnLimit={false} keeps them all", async () => {
+    const headers = () => [...document.querySelectorAll("thead th")].map((th) => th.textContent?.trim()).filter(Boolean);
+    const capped = mountList(["System Manager"], META());
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    const n = headers().length;
+    capped.unmount();
+    mountList(["System Manager"], META(), { columnLimit: false });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    expect(headers().length).toBeGreaterThan(n);
   });
 });

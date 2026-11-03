@@ -4,14 +4,16 @@ import { frappeKeys, type FrappeDoc, type WorkflowTransition } from "../contract
 import { useDocAction } from "../hooks";
 import { useRecordApi, useRecordMeta } from "./data";
 import {
-  currentState, isReadOnlyState, standardActionsUnderWorkflow, visibleTransitions, workflowFromMeta, type RecordWorkflow,
+  currentState, isReadOnlyState, standardActionsUnderWorkflow, transitionsKnown, visibleTransitions, workflowFromMeta, type RecordWorkflow,
 } from "./workflow";
 
 export interface UseWorkflowOptions {
   doc?: FrappeDoc;
-  /** Signed-in user id (for the self-approval rule). */
+  /** Signed-in user id (for the self-approval rule). Empty = unknown: only `allow_self_approval` transitions are offered
+   *  and `transitionsKnown` is false. */
   user: string;
-  /** The user's roles, when known: adds Desk's `frappe.user_roles.includes(allowed)` check and the read-only state test. */
+  /** The user's roles, when known: adds Desk's `frappe.user_roles.includes(allowed)` check and the read-only state test
+   *  (without them a saved doc is read-only — rule 9; the transitions stay the server's `get_transitions` answer). */
   roles?: string[];
   /** Skip the workflow query (the DocType is known not to have one). */
   enabled?: boolean;
@@ -36,6 +38,10 @@ export function useWorkflowDefinition(doctype: string | undefined, enabled = tru
 /**
  * Workflow for one document: definition, the transitions the user may apply now, `apply`, read-only state, and how the standard
  * Submit / Save / Cancel buttons change. Transitions are fetched only for saved, clean documents (form/workflow.js:76).
+ * The transitions are ALWAYS the server's `get_transitions` answer (read-checked, role- and condition-filtered for the
+ * session user, model/workflow.py:52, :64-68) — authoritative even when `roles` are unknown (P2-3); Desk's client filters
+ * are applied on top (`visibleTransitions`). No transitions are computed from the definition here. When the answer is not
+ * available (`error`) or the user is unknown, `transitionsKnown` is false and the UI says so instead of showing nothing.
  */
 export function useWorkflow({ doc, user, roles, enabled = true }: UseWorkflowOptions) {
   const c = useRecordApi();
@@ -53,7 +59,7 @@ export function useWorkflow({ doc, user, roles, enabled = true }: UseWorkflowOpt
   });
 
   const transitions = React.useMemo(
-    () => (wf && doc && saved ? visibleTransitions(trQ.data ?? [], { user, doc, roles }) : []),
+    () => (wf && doc && saved ? visibleTransitions(trQ.data ?? [], { user, doc, roles, fromServer: true }) : []),
     [wf, doc, saved, trQ.data, user, roles],
   );
   return {
@@ -64,7 +70,12 @@ export function useWorkflow({ doc, user, roles, enabled = true }: UseWorkflowOpt
     transitions,
     /** Unsaved edits: Desk shows no workflow actions until the form is saved (`apply_workflow` reloads the doc from the DB). */
     needsSave: !!doc && !doc.__islocal && !!doc.__unsaved,
-    readOnly: wf && doc && roles ? isReadOnlyState(wf, doc, roles) : false,
+    /** Desk's workflow read-only state; without roles a saved doc is read-only (rule 9, P2-3), never for the Administrator. */
+    readOnly: wf && doc ? isReadOnlyState(wf, doc, roles, user) : false,
+    /** False when the actions could not be established: the server's answer failed (`error`) or the user is unknown. */
+    transitionsKnown: transitionsKnown({ user, roles, fromServer: true }) && !trQ.error,
+    /** Ask the server for the transitions again (after an error). */
+    refetchTransitions: () => void trQ.refetch(),
     standardActions: standardActionsUnderWorkflow(wf, transitions.length > 0),
     // useDocAction().applyWorkflow sets the BARE doc under frappeKeys.doc and invalidates docinfo / list / count (A1, services/cache.ts)
     apply: (action: string) => actions.applyWorkflow.mutateAsync({ doc: doc!, action }),

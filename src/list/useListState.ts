@@ -59,6 +59,8 @@ export interface UseListStateOptions<T> {
   viewKey?: string;
   /** Default: localStorage (`sf:list:<viewKey>:…`). `null` disables. */
   storage?: { prefs?: ListPrefsStorage | null; saved?: SavedFiltersStorage | null } | null;
+  /** The filter query to start with (e.g. filters from the URL). Wins over a query restored from `storage`. Read once, at mount. */
+  initialQuery?: FilterQuery;
   /** Server mode: called (debounced for typing) whenever what the app must fetch changes. */
   onStateChange?: (state: ListQueryState) => void;
   /** Server mode: anything else that scopes the result (e.g. the app's base filters, serialized). The selection is
@@ -101,13 +103,23 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   // ---- columns: visibility + order -----------------------------------------------------------------------------------
   const defaultVisible = React.useMemo(() => columns.filter((c) => !c.hidden).map((c) => c.key), [columns]);
   const [visibleKeys, setVisibleKeysState] = React.useState<string[]>(() => initial.visible?.length ? initial.visible : defaultVisible);
+  // Until the user chooses columns (now, or in stored prefs), the shown columns follow the columns' own `hidden` flags
+  // when those change (e.g. a width-based default, List View Settings that arrive after the first render). Compared by
+  // key list, so rebuilding equal columns changes nothing.
+  const [chosenColumns, setChosenColumns] = React.useState(() => !!initial.visible?.length);
+  const defaultKey = defaultVisible.join("\u0000");
+  const [seenDefault, setSeenDefault] = React.useState(defaultKey);
+  if (seenDefault !== defaultKey) {
+    setSeenDefault(defaultKey);
+    if (!chosenColumns) setVisibleKeysState(defaultVisible);
+  }
   const visibleColumns = React.useMemo(() => {
     const locked = columns.filter((c) => c.alwaysVisible && !visibleKeys.includes(c.key));
     return [...locked, ...visibleKeys.map((k) => columns.find((c) => c.key === k)).filter(Boolean)] as ColumnDef<T>[];
   }, [columns, visibleKeys]);
 
   // ---- query state -----------------------------------------------------------------------------------------------------
-  const [query, setQueryState] = React.useState<FilterQuery>(() => (prefsStore?.persistQuery && initial.query ? initial.query : EMPTY_QUERY));
+  const [query, setQueryState] = React.useState<FilterQuery>(() => opts.initialQuery ?? (prefsStore?.persistQuery && initial.query ? initial.query : EMPTY_QUERY));
   const [search, setSearchState] = React.useState("");
   const [sort, setSortState] = React.useState<SortState>(initial.sort ?? opts.defaultSort ?? DEFAULT_SORT);
   const [groupBy, setGroupByState] = React.useState<string>(initial.groupBy ?? "none");
@@ -179,7 +191,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   const setSearch = (v: string) => { setSearchState(v); setPage(0); };
   const setSort = (s: SortState) => { setSortState(s); persist({ sort: s }); };
   const toggleSort = (key: string) => setSort(sort.key === key ? { key, dir: sort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" });
-  const setVisibleKeys = (keys: string[]) => { setVisibleKeysState(keys); persist({ visible: keys }); };
+  const setVisibleKeys = (keys: string[]) => { setChosenColumns(true); setVisibleKeysState(keys); persist({ visible: keys }); };
   const setGroupBy = (key: string) => { setGroupByState(key); setPage(0); persist({ groupBy: key }); };
   const setQuickFields = (names: string[]) => { setQuickFieldsState(names); persist({ quick: names }); };
   // adapters may throw or reject; either way the error goes to `onSavedFiltersError`

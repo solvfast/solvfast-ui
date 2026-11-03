@@ -155,10 +155,20 @@ and assignment writes invalidate docinfo and list). The wrappers never touch the
   reloads the document from the database and discards posted edits (Desk hides them). Save first.
 - `confirm`: `true` or `(action) => boolean` asks before applying (Desk applies immediately).
 - `onApplied(doc, action)` gets the document the server returned, after the cache was updated.
-- A server refusal ("Not a valid Workflow Action", "Self approval is not allowed", a validation error) appears under the bar; retry is possible.
+- A server refusal ("Not a valid Workflow Action", "Self approval is not allowed", a 403 `PermissionError`, a validation error) appears
+  under the bar; retry is possible. Nothing is applied locally before the server answers (the cache changes only on success).
+- **Where the actions come from (since 0.4.0-dev.31, P2-3):** always the server's `get_transitions` answer, which read-checks the document
+  and filters by state, by the session user's roles (`frappe.get_roles()`) and by `condition` (model/workflow.py:52, :64-68). That answer is
+  authoritative even without `roles` — it is the list Desk filters again with the same roles (form/workflow.js:103). When it cannot be
+  had, the state stays visible and the reason is shown instead of an empty Actions slot: a failed call → `FrappeErrorState` (Retry for
+  transient kinds); an unknown `user` (empty) → only `allow_self_approval` actions plus the "Read only" notice marked
+  `data-permissions="unknown"` (self-approval cannot be checked without the user).
+- **Administrator** (`user === "Administrator"`): every transition the server lists, with or without `roles` — its roles are every Role
+  (permissions.py:506-507), so no client role filter is applied; self-approval never blocks it (model/workflow.py:222).
 
-`useWorkflow({ doc, user, roles?, enabled? })` returns `{ workflow, isLoading, error, state, transitions, needsSave, readOnly, standardActions,
-apply(action), applying }`. `useWorkflowDefinition(doctype, enabled?)` returns `{ workflow, isLoading, error }` from `getWorkflow` or, without it,
+`useWorkflow({ doc, user, roles?, enabled? })` returns `{ workflow, isLoading, error, state, transitions, needsSave, readOnly, transitionsKnown,
+refetchTransitions, standardActions, apply(action), applying }`. `readOnly` is `true` for a saved doc when `roles` are unknown (rule 9; before
+dev.31 it was `false`), never for the Administrator; `transitionsKnown` is `false` when the answer failed or the user is unknown. `useWorkflowDefinition(doctype, enabled?)` returns `{ workflow, isLoading, error }` from `getWorkflow` or, without it,
 from `meta.__workflow_docs`.
 
 Rules implemented (pure functions in `workflow.ts`, all exported):
@@ -167,9 +177,10 @@ Rules implemented (pure functions in `workflow.ts`, all exported):
 |---|---|
 | `workflowFromMeta` | `__workflow_docs` → definition, merging each Workflow State's `style` / `icon` into the Workflow's state rows |
 | `currentState`, `defaultState` | state field, else the first state whose `doc_status` equals the docstatus (`workflow.js get_state`) |
-| `visibleTransitions` | server already filtered state, role and `condition` (`get_transitions`); Desk then keeps roles the user holds (when `roles` is given) and `hasApprovalAccess` |
+| `visibleTransitions(ts, { user, doc, roles?, fromServer? })` | `fromServer: true` = `ts` is the `get_transitions` answer (state, role and `condition` filtered by the server); Desk then keeps roles the user holds (when `roles` is given; not for the Administrator) and `hasApprovalAccess`. **Without roles and without `fromServer` (e.g. the definition's transitions computed client-side) → `[]`** (rule 9, since dev.31); without `user` only `allow_self_approval` transitions |
+| `transitionsKnown({ user, roles?, fromServer? })` | `false` when `visibleTransitions` withheld something for lack of information — show "permissions unknown", not "no actions" |
 | `hasApprovalAccess` | `user === "Administrator" || transition.allow_self_approval || user !== doc.owner` (repeated on the server) |
-| `isReadOnlyState` | read-only when none of the user's roles equals the state's `allow_edit`; new docs never |
+| `isReadOnlyState(wf, doc, roles?, user?)` | read-only when none of the user's roles equals the state's `allow_edit`; new docs never; roles unknown → read-only (rule 9); the Administrator never (same rule as `isWorkflowReadOnly`) |
 | `workflowLockedFields` | the state field and every `update_field` stay read-only |
 | `canCancelDocument`, `standardActionsUnderWorkflow` | Submit is never offered; Save only when dirty; Cancel only if no transition leads to a docstatus-2 state; the primary/secondary buttons give way to the workflow actions |
 | `toneForStyle`, `lifecycleStates`, `lifecycleActions` | mapping to `LifecycleBar` items |
@@ -242,7 +253,7 @@ Updated, Deleted, Bot, Relinked are not in docinfo at all.
 
 **Field visibility (permlevel):** a changed field is skipped when it is hidden (unless `show_on_timeline`) or when its display status
 for the user is `None` (`usePermissions().fieldStatus`, with the child DocType and the parent for table rows). This needs
-`session.roles` on `FrappeProvider`; without roles rights are approximated. `canSeeField(fieldname, table?)` adds a filter.
+`session.roles` on `FrappeProvider`; without roles nothing is inferred (rule 9: permlevel > 0 changes are hidden). `canSeeField(fieldname, table?)` adds a filter.
 
 **Paging — `useCommunications(doctype, name, docinfo?)`:** the server sends up to 21 communications in docinfo; 20 are shown, and when
 there were 21 a "Load more" appears: `frappe.desk.form.load.get_communications { start: shown count, limit: 21 }`, 20 of the answer are

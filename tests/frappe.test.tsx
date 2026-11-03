@@ -306,7 +306,7 @@ describe("request building", () => {
 // ---- FrappeListView against the simulated site ------------------------------------------------------------------------------
 describe("FrappeListView (F31 data mode)", () => {
   it("loads meta once, then rows and the count with the same filters; columns, quick filters and total from the DocType", async () => {
-    const { mock } = setup();
+    const { mock } = setup({ columnLimit: false }); // all in_list_view columns (0.3.x set); Desk's width cap is tested in list-query
     await loaded();
     expect(calls(mock, "frappe.desk.form.load.getdoctype")).toHaveLength(1);
     expect(calls(mock, ROWS)).toHaveLength(1); // no request from the placeholder shown while meta loads
@@ -319,7 +319,7 @@ describe("FrappeListView (F31 data mode)", () => {
   });
 
   it("a quick filter reaches list and count identically; sorting and paging change only the list request", async () => {
-    const { mock } = setup();
+    const { mock } = setup({ columnLimit: false }); // all in_list_view columns (0.3.x set); Desk's width cap is tested in list-query
     await loaded();
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Status" }), { key: "Enter" });
     fireEvent.click(await screen.findByRole("option", { name: "Open" }));

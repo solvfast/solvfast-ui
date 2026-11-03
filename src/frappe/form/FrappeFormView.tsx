@@ -6,6 +6,9 @@
  *    required field — evaluated at load and after save;
  *  - dependencies re-evaluated after every change (D-23 interpreter); unsupported expressions listed at load;
  *  - display status: the permissions' `displayStatus` (foundation ladder) + the fetch_from lock;
+ *  - permissions: without a `permissions` prop the view knows nothing about the user's rights and DENIES (Phase 26
+ *    rule 9, P2-1): read-only fields, no Save / Submit / Update / Cancel / Amend, no Ctrl+S, and the "Read only"
+ *    notice (`data-permissions="unknown"`). `FrappeForm` passes `usePermissions`; a standalone view must pass it too;
  *  - value pipeline through the docStore; Link validation writes fetch_from targets; dirty → "Not Saved";
  *  - Save / Submit / Update / Cancel / Amend by Desk's action matrix; Save: `validate` → `before_save` →
  *    check_mandatory (Missing Fields dialog, jumps to the first missing field's tab) → `onSave`; a clean Save shows
@@ -20,8 +23,9 @@
  *  - with a workflow: Cancel only when no transition leads to a cancelled state (`canCancelDocument`), unless given;
  *  - a 417 TimestampMismatchError keeps the user's edits on screen and offers Reload (Desk's refresh banner);
  *  - Cancel pre-flight (`getSubmittedLinkedDocs`): submitted linked documents are listed with "Cancel All"
- *    (`cancelAllLinkedDocs`, then the document is reloaded and cancelled); when `canCancelAllLinked` says the user
- *    cannot cancel every linked DocType, Desk's explanation replaces the button (form.js:925-931);
+ *    (`cancelAllLinkedDocs`, then the document is reloaded and cancelled) — offered only when `canCancelAllLinked`
+ *    answers true (form.js:925-931: Desk always knows `frappe.model.can_cancel`); false → Desk's explanation; no
+ *    answer (unknown) → the same explanation marked `data-permissions="unknown"` and no button (rule 9, P3-1);
  *  - Amend: the app's `onAmend`, else a local copy (`amendDoc`: from_amend copy + `amended_from`), disabled when
  *    `alreadyAmended` (`is_document_amended`).
  * Not implemented here (reported): realtime "modified after you opened it", undo, connections. Workflow action buttons
@@ -68,7 +72,7 @@ export interface FormPermissions {
   workflowReadOnly?: boolean;
   workflow?: unknown;
   /** `usePermissions().known`: false = the rights are the rule-9 denial for missing information (no `session.roles`);
-   *  the toolbar then says read-only instead of silently offering nothing. */
+   *  the toolbar then says read-only instead of silently offering nothing. Omitted = known (the app supplied rights). */
   known?: boolean;
 }
 
@@ -82,6 +86,8 @@ export interface FrappeFormViewProps extends FormEventsConfig {
    *  local copy. */
   doc: FrappeDoc;
   docinfo?: DocInfo;
+  /** The user's rights (`usePermissions`). Omitted → nothing is known → the form is read-only with the "Read only"
+   *  notice (rule 9: missing information denies — before 0.4.0-dev.31 every right was assumed). */
   permissions?: FormPermissions;
   /** savedocs: resolve with the document the server sent back (or reject with a FrappeError). */
   onSave: (doc: FrappeDoc, action: SaveAction) => Promise<FrappeDoc>;
@@ -97,8 +103,9 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   getSubmittedLinkedDocs?: (doc: FrappeDoc) => Promise<{ docs: LinkedDoc[]; count: number }>;
   /** `frappe.desk.form.linked_with.cancel_all_linked_docs`. */
   cancelAllLinkedDocs?: (docs: LinkedDoc[]) => Promise<void>;
-  /** Whether the user may cancel every linked DocType (Desk `frappe.model.can_cancel`, form.js:925-931). When it
-   *  answers false, "Cancel All" is replaced by Desk's explanation; undefined (unknown) offers it (the server decides). */
+  /** Whether the user may cancel every linked DocType (Desk `frappe.model.can_cancel`, form.js:925-931). "Cancel All"
+   *  is offered only for `true`; false → Desk's explanation; undefined / omitted (unknown) → no button and the
+   *  explanation marked `data-permissions="unknown"` (rule 9; before 0.4.0-dev.31 unknown offered it). */
   canCancelAllLinked?: (docs: LinkedDoc[]) => Promise<boolean | undefined> | boolean | undefined;
   onSaved?: (doc: FrappeDoc, action: SaveAction | "Cancel") => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -183,9 +190,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     // ladder step 3 (hidden_due_to_dependency → None); the foundation applies it too (its boolean handling was fixed in
     // e266cfe) — kept so a field hidden by a dependency never shows whatever status function is supplied
     if (df.hidden_due_to_dependency) return "None";
-    let st = permissions?.displayStatus
-      ? permissions.displayStatus(df, row, parent, gridCell ? { gridCell: true } : undefined)
-      : controlStatus(ladderStatus(df, parent && !row.docstatus ? { ...row, docstatus: parent.docstatus } : row, permissions?.levels, { workflowReadOnly: permissions?.workflowReadOnly }), df, row);
+    let st: FieldDisplayStatus;
+    if (permissions?.displayStatus) st = permissions.displayStatus(df, row, parent, gridCell ? { gridCell: true } : undefined);
+    else {
+      const ladder = ladderStatus(df, parent && !row.docstatus ? { ...row, docstatus: parent.docstatus } : row, permissions?.levels, { workflowReadOnly: permissions?.workflowReadOnly });
+      // no permission information at all (P2-1): show what the app handed over, edit nothing — demoted BEFORE the control
+      // rules so a blank read-only field is hidden as Desk hides it (base_control.js get_status)
+      st = controlStatus(!permissions && ladder === "Write" ? "Read" : ladder, df, row);
+    }
     if (st === "Write" && isReadOnlyByFetch(df, row)) st = "Read";
     return st;
   }, [permissions]);
@@ -281,7 +293,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const layout = React.useMemo(() => buildLayout(meta, { isNew: !!doc.__islocal }), [meta, doc.__islocal]);
   const fieldStatus = (df: FrappeDocField) => {
     const e = eff.get(df.fieldname) ?? df;
-    if (df.fieldname === "__newname") return doc.__islocal ? "Write" : "None";
+    if (df.fieldname === "__newname") return doc.__islocal && permissions ? "Write" : "None"; // no permissions: nothing to name (P2-1)
     return statusOf(e, doc);
   };
   const breakHidden = (df?: FrappeDocField) => !!df && (!!eff.get(df.fieldname)?.hidden || !!eff.get(df.fieldname)?.hidden_due_to_dependency);
@@ -366,7 +378,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
 
   // ---- actions ----
   const recWorkflow = React.useMemo(() => workflowFromMeta(meta as never), [meta]);
-  const can = (p: PermType) => (permissions?.can ? permissions.can(p, 0) : p === "submit" || p === "cancel" || p === "amend" ? !!meta.is_submittable : true);
+  // P2-1 (rule 9): no `permissions` → no right. Before dev.31 this assumed every right (submit / cancel / amend when
+  // submittable). Rights given as `levels` without `can()` are read from level 0.
+  const can = (p: PermType) => (permissions?.can ? permissions.can(p, 0) : !!permissions?.levels?.[0]?.[p]);
+  const permissionsUnknown = !permissions || permissions.known === false;
   const actions = formActions({
     docstatus: (doc.docstatus ?? 0) as 0 | 1 | 2, isNew: !!doc.__islocal, dirty: !!doc.__unsaved, isSubmittable: !!meta.is_submittable,
     perms: { write: can("write"), create: can("create"), submit: can("submit"), cancel: can("cancel"), amend: can("amend") },
@@ -583,7 +598,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           </div>
           {indicator && <Badge variant={indicator.variant}>{indicator.text}</Badge>}
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
-          {!notice && permissions?.known === false && <span role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</span>}
+          {!notice && permissionsUnknown && <span role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</span>}
           {props.toolbarExtra}
           {actions.secondary && onCancelDoc && (
             <Button type="button" variant="outline" disabled={!!saving} loading={saving === "Cancel"} onClick={() => void startCancel()}>{actionLabel("Cancel")}</Button>
@@ -645,10 +660,12 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           <ul className="max-h-64 list-disc space-y-1 overflow-y-auto ps-5 text-sm">
             {linked?.map((l) => <li key={`${l.doctype}:${l.name}`}>{s.translate(bundle, l.doctype)}: {l.name}</li>)}
           </ul>
-          {linkedCancellable === false && <p role="status" className="text-sm text-muted-foreground">{t("formNoCancelAllPermission")}</p>}
+          {(linkedCancellable === false || (linkedCancellable === undefined && !!props.cancelAllLinkedDocs)) && (
+            <p role="status" data-permissions={linkedCancellable === false ? "denied" : "unknown"} className="text-sm text-muted-foreground">{t("formNoCancelAllPermission")}</p>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setLinked(null)}>{t("formDismiss")}</Button>
-            {props.cancelAllLinkedDocs && linkedCancellable !== false && <Button type="button" variant="destructive" onClick={() => void cancelAll(linked ?? [])}>{t("formCancelAll")}</Button>}
+            {props.cancelAllLinkedDocs && linkedCancellable === true && <Button type="button" variant="destructive" onClick={() => void cancelAll(linked ?? [])}>{t("formCancelAll")}</Button>}
           </div>
         </DialogContent>
       </Dialog>

@@ -312,3 +312,27 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
 - Source maps no longer embed the TypeScript source (`sourcemapExcludeSources`); they keep line mappings and relative
   `src/` paths. `scripts/check-package.mjs` fails the build when a shipped map carries `sourcesContent` or an absolute
   source path. Packed size 846 kB → 524 kB.
+
+## 0.4.0-dev.31 (2026-11-03, Phase 27 B — list query)
+- Nested-set filter operators (Desk's labels: Descendants Of / inclusive / Not Descendants Of / Ancestors Of / Not Ancestors Of), offered
+  only for Link fields to tree DocTypes, sent to the server unchanged; en/ar labels.
+- Width-based column limit (Desk `list_view.js:375-457`), URL filters (read and write-back), report-view export
+  (`export_query` through `api.download`; on a real site it writes an Access Log row) — functions and `useFrappeList`
+  options; `FrappeListView` wiring follows in the actions merge.
+- Generic `useListState`: `initialQuery`; visible columns follow changes in the columns' default visibility until the user
+  picks columns (List View Settings arriving after the first render now apply).
+
+## 0.4.0-dev.32 (2026-11-03, Phase 27 A + B + C merged)
+- **Permissions (A):** `FrappeFormView` without a `permissions` prop grants nothing (read-only, "Read only" notice);
+  Cancel All only when the cancel rights are known to be true; workflow transitions come from the server's
+  `get_transitions` (client-side filtering without roles offers none); the Administrator user without a role list behaves
+  as Frappe 15.110 (every role: `permissions.py:506-507`); `canImport` / `canExport` accept the session.
+- **List actions (B):** Desk's full Actions menu in the selection bar — Print (`download_multi_pdf`, background above 25),
+  Clear Assignment, Apply Assignment Rule, Add Tags, workflow bulk approval — plus **Export offered to everyone as Desk
+  does** (the server refuses; the dialog shows it) and **Import navigating to the Data Import list**.
+- **List query (B):** `FrappeListView` now **caps generated columns by window width by default**, as Desk
+  (`list_view.js:432-444`; app-curated `columns` are never capped; `columnLimit={false}` opts out); `urlFilters`,
+  `treeDoctypes`, `hideNameColumn` forwarded; "Export as report" (`export_query`) in the list menu when `canExport`.
+- **Import (C):** `FrappeDataImport` — upload, the server's preview and warnings, column mapping (`template_options`),
+  Start / Retry, server-confirmed result, import log, errored rows.
+- All of the above is tested against stubs / the simulator only; nothing has run on a site.

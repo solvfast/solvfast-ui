@@ -125,9 +125,9 @@ describe("SIMULATED permission matrix: six DocPerm scenarios × rolePermissions 
     expect(columnsFor(["Reader"], meta(1))).toEqual(row({ read: true }));
   });
 
-  it("Import needs the DocType's allow_import (permissions.py:142, 221; model.js:435): allow_import 0 → false even with the import right", () => {
+  it("Import needs the DocType's allow_import (permissions.py:142, 221; data_import.py:64; model.js:435): allow_import 0 → false even with the import right", () => {
     expect(columnsFor(["Importer"], meta(0))).toEqual(row({ read: true, create: true }));
-    expect(canImport(meta(0), ["System Manager"], undefined)).toBe(false); // even System Manager (model.js:435 is checked first)
+    expect(canImport(meta(0), ["System Manager"], undefined)).toBe(false); // even System Manager (model.js:435 is checked first; the server's can_import :599-605 would say yes, but Data Import refuses allow_import 0 at data_import.py:64)
     expect(canImport(meta(1), ["System Manager"], undefined)).toBe(true); // System Manager may import an importable DocType without a row
     expect(canExport(["System Manager"], undefined)).toBe(true); // can_export :609-611
   });

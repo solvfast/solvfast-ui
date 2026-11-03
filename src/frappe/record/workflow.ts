@@ -6,6 +6,7 @@
 import type { Check, DocTypeMeta, FrappeDoc, WorkflowInfo, WorkflowState, WorkflowTransition } from "../contract";
 import type { LifecycleActionItem, LifecycleStateItem, Tone } from "../../record/types";
 import { styleTone } from "../services/indicator";
+import { isWorkflowReadOnly } from "../services/permissions";
 
 /** `WorkflowInfo` plus what the status indicator needs (see the report: the Lead may fold these into the contract). */
 export interface RecordWorkflow extends Omit<WorkflowInfo, "states"> {
@@ -63,21 +64,52 @@ export function hasApprovalAccess(user: string, doc: Pick<FrappeDoc, "owner">, t
   return user === "Administrator" || !!t.allow_self_approval || user !== doc.owner;
 }
 
-/**
- * The transitions to show. The server already filtered state, role and condition (`get_transitions`); Desk then keeps those whose
- * role the user holds (when roles are known) and that pass `has_approval_access`.
- */
-export function visibleTransitions(transitions: WorkflowTransition[], opts: { user: string; doc: FrappeDoc; roles?: string[] }): WorkflowTransition[] {
-  return transitions.filter((t) => (!opts.roles || opts.roles.includes(t.allowed)) && hasApprovalAccess(opts.user, opts.doc, t));
+export interface VisibleTransitionsOptions {
+  /** The signed-in user (self-approval rule). Empty = unknown. */
+  user: string;
+  doc: FrappeDoc;
+  /** The user's roles, when known (Desk's `frappe.user_roles`). */
+  roles?: string[];
+  /** The list IS the server's `get_transitions` answer for the session user (already filtered by state, by
+   *  `frappe.get_roles()` and by condition — model/workflow.py:64-68). `useWorkflow` always passes true. */
+  fromServer?: boolean;
 }
 
-/** Desk `frappe.workflow.is_read_only`: the form is read-only when the user holds none of the state's `allow_edit` roles. New docs are never read-only. */
-export function isReadOnlyState(wf: RecordWorkflow, doc: FrappeDoc, roles: string[]): boolean {
-  if (doc.__islocal) return false;
-  const state = currentState(wf, doc);
-  if (!state) return false;
-  const allowed = wf.states.filter((s) => s.state === state).map((s) => s.allow_edit);
-  return !roles.some((r) => allowed.includes(r));
+/**
+ * The transitions to offer as authorized actions (Desk: form/workflow.js:99-103).
+ *  - Role: Desk keeps `frappe.user_roles.includes(allowed)` — applied when `roles` are known. The Administrator USER
+ *    skips it: its roles are every Role (permissions.py:506-507) and `allowed` is a required Link to Role, so the server
+ *    already lists every transition of the state for it (model/workflow.py:64-67) — with or without a role list (P2-4).
+ *  - Approval: `has_approval_access` (model/workflow.py:221-222, re-checked by `apply_workflow` :116) — needs `user`.
+ * Rule 9 (missing information denies, P2-3):
+ *  - roles unknown and the list is NOT the server's answer (e.g. the definition's transitions, computed client-side):
+ *    nothing — the role filter cannot be applied. With `fromServer` the server's list is authoritative: the server
+ *    computed the roles itself (it is exactly the list Desk filters again with the same roles).
+ *  - user unknown: only transitions with `allow_self_approval` (approval holds for anyone); the others cannot be checked.
+ * `transitionsKnown` tells a UI when something was withheld for lack of information.
+ */
+export function visibleTransitions(transitions: WorkflowTransition[], opts: VisibleTransitionsOptions): WorkflowTransition[] {
+  const admin = opts.user === "Administrator";
+  if (!opts.roles && !admin && !opts.fromServer) return [];
+  return transitions.filter((t) =>
+    (admin || !opts.roles || opts.roles.includes(t.allowed)) && (opts.user ? hasApprovalAccess(opts.user, opts.doc, t) : !!t.allow_self_approval));
+}
+
+/** False when `visibleTransitions` had to withhold transitions for MISSING information (rule 9): no user (approval
+ *  access), or no roles for a list that is not the server's answer (the Administrator needs none). Show "permissions
+ *  unknown", not "no actions". */
+export function transitionsKnown(opts: Pick<VisibleTransitionsOptions, "user" | "roles" | "fromServer">): boolean {
+  return !!opts.user && (!!opts.roles || opts.user === "Administrator" || !!opts.fromServer);
+}
+
+/**
+ * Desk `frappe.workflow.is_read_only` (model/workflow.js:53-70): the form is read-only when the user holds none of the
+ * state's `allow_edit` roles. New docs are never read-only. Same rule as `isWorkflowReadOnly` (services): roles unknown →
+ * read-only (rule 9, P2-3 — before dev.31 `useWorkflow` answered false); the Administrator USER never (its roles are every
+ * Role, permissions.py:506-507, so it holds every `allow_edit` role — with or without a role list).
+ */
+export function isReadOnlyState(wf: RecordWorkflow, doc: FrappeDoc, roles: string[] | undefined, user?: string): boolean {
+  return isWorkflowReadOnly(wf, doc, roles, user);
 }
 
 /** Fields that stay read-only under a workflow: the state field and every `update_field` (display-status step 6). */

@@ -40,11 +40,14 @@ Works without a provider too (it creates one with the default same-origin client
 | `rowMeta` | Indicator / assignees / comment count / likes columns. Default: offered in the column manager, hidden. `true`: shown. `false`: none. `{ comments: false }` turns single ones off. |
 | `workflow` / `getIndicator` | Inputs of the indicator (section 5). |
 | `listSettings` | Read List View Settings (default `true`). |
+| `columnLimit` / `hideNameColumn` | **Opt-in** Desk default columns (Phase 27, section 3): without curated `columns`, cap them to List View Settings `total_fields`, else 4 / 6 / 10 slots by window width (≤ 1366 px / default / ≥ 1920 px), following resizes, and append the ID column (`hideNameColumn` turns it off). |
+| `treeDoctypes` | Link targets that are trees (nested set): their Link fields offer Descendants Of / Ancestors Of … (section 2). The DocType itself and its child tables are detected from their metas. |
+| `urlFilters` | **Opt-in** filters in the page URL, Desk's format (`?status=Open&priority=["!=","Low"]`; section 4a): `true`, or `{ read, write, routeOptions? }`. |
 | `formatContext` | `FormatContext` for `formatValue` (number/date formats, currencies). Default: the provider's `formatContext`. |
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
 | `realtime` / `realtimeDebounceMs` | Reload on `list_update` (section 7). |
-| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right) and **Export** (when `canExport`). `onImport` replaces the default navigation to Desk's Data Import (`/app/data-import/new?reference_doctype=…`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
+| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right, as Desk's `list_view.js:1703`) and **Export** (always, as Desk — the server refuses without the right). `onImport` replaces the default navigation to Desk's Data Import **list** filtered on the DocType (`/app/data-import?reference_doctype=…`, Desk's `set_route("list","data-import",{reference_doctype})`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
 | `onCreate` | Offers "Create your first {DocType}" in the empty list. Empty states follow Desk (`list_view.js:497-537`): "You haven't created a {DocType} yet" (+ the create action) when nothing exists; "No {DocType} found with matching filters" (+ Clear filters) when filters or search hide everything. |
 | `belowToolbar` | A node between the toolbar and the table (e.g. state chips). |
 | `rowKey`, `client`, `fiscalYears`, `storage`, … | `rowKey` default `row.name`. `storage` (explicit) wins over `serverStorage`. |
@@ -52,6 +55,10 @@ Works without a provider too (it creates one with the default same-origin client
 **Errors.** A failed request renders `FrappeErrorState` in the table area: the server's own message and one action per error kind. Retry only for network, server, rate-limited and unavailable errors; a 403 (permission), not found, validation, duplicate, mandatory, link or too-large error has no action, because retrying cannot succeed. *Changed from 0.3.0, which offered Retry on every error (its F29 test now expects none on a 403).*
 
 **Subject first.** Without curated `columns`, the title field (else the ID) is always the first, visible column, as in Desk. Curated columns keep full control.
+
+*Phase 27:* `columnLimit`, `hideNameColumn`, `treeDoctypes` and `urlFilters` are `useFrappeList` options. On `FrappeListView` they take
+effect once the component forwards them to `useFrappeList` (Phase 27 integration); until then they are accepted and ignored there.
+The Report-view export (section 6b) is a dialog + functions for the host (`useFrappeList().reportExport` carries its list props).
 
 **Cells.** Int, Float, Percent, Currency, Date, Datetime and Time cells without a custom `render` go through `formatValue` (docs 12 §9), never wrapping
 (`whitespace-nowrap`, tabular numerals). A Currency column's currency field (its `options`) is requested with the rows. User columns (`owner`,
@@ -78,6 +85,14 @@ view: "List", with_comment_count: 1 | 0, [group_by]
 - **`order_by`:** the column's field, plus Desk's tie-break `, name <dir>` unless the field is `name`, `creation` or `modified`.
 - **Child-table filters:** a condition on `Child DocType.field` is sent as `[child, field, op, value]`; the request then joins the child table:
   fields fully quoted (`` `tabDT`.`f` ``), `group_by` the parent name, and the count uses `distinct`.
+- **Nested-set operators** (Phase 27): on a Link field whose target is a tree, the filter also offers Descendants Of, Descendants Of
+  (inclusive), Not Descendants Of, Ancestors Of, Not Ancestors Of (Desk: `filter.js:32-36`, shown only for
+  `frappe.boot.nested_set_doctypes`, `:440-446`). The value is one node (Link picker); the condition is sent unchanged —
+  `["parent_task", "descendants of (inclusive)", "TASK-1"]` — and the server expands it from `lft` / `rgt` (`db_query.py:794-842`).
+  Tree targets: the DocType and its child tables when their meta has an `lft` field or `is_tree` (Desk's own boot rule,
+  `boot.py:70-72`), plus `treeDoctypes` (a React page has no boot list). Generic model: `FilterField.tree`, `NESTED_SET_OPERATORS`;
+  a client-mode list cannot evaluate them (the condition filters nothing there). Labels: Frappe's English and Arabic until the
+  catalogue has `opDescendantsOf` … (`operatorLabel`).
 - **Response:** compressed `{ keys, values, user_info }`, or `[]` for no rows. `decodeReportview(res)` expands it; `reportviewGet(client, doctype, args)` is the call.
 - **Count:** `frappe.desk.reportview.get_count` with `limit: 1001` (`COUNT_UPPER_BOUND`). At the bound the footer reads **"1,000+"**; clicking it counts exactly
   (no limit). While the count is capped, "next page" stays on as long as a page comes back full. List View Settings `disable_count` skips the count entirely.
@@ -100,6 +115,23 @@ Desk admin concern (it flips `in_list_view` through Property Setters) and is not
 
 `fetchListSettings(client, doctype)` and `applyColumnSettings(columns, settings, titleField)` are exported.
 
+**Desk's default columns (`columnLimit`, opt-in, Phase 27).** Desk caps `this.columns` with `slice(0, total_fields || width)`
+where width = 4 at `innerWidth <= 1366`, 10 at `>= 1920`, else 6 (`list_view.js:433-444`). What counts, in order:
+
+| Slot | Desk (`list_view.js`) | Package (`capDefaultColumns`) |
+|---|---|---|
+| 1 | Subject: title field, else ID (`:381-395`) | the subject column — always shown |
+| 2 | Tag (`:396-399`) — always in the list, rendered hidden (`:709`, `:799-809`) | an empty slot (the package draws no tag column) |
+| 3 | Status, when `frappe.has_indicator` (`:401-407`); with List View Settings `fields`, only if they list `status_field` | the indicator column when shown; otherwise the `status` field column (Desk drops `status` when it has an indicator, `:414-416`); otherwise an empty slot |
+| 4… | `in_list_view` fields (not virtual, not the title), or List View Settings `fields` in their order | the other visible columns, in order |
+| after the cap | ID, when `title_field` is set and is not `name` and `hide_name_column` is off (`:446-457`) | the `name` column, shown after the last kept column (`hideNameColumn` turns it off) |
+
+Never counted: assignees, comment count, likes (Desk draws them in the row's activity area, not as columns). So a 1366 px
+window shows the subject + 2 columns (+ ID); 1600 px: + 4; 1920 px: + 8. `total_fields` wins over the width. The cap
+follows the window across the 1366 / 1920 bounds (Desk computes it once per setup); without a window (SSR, hydration) it
+is 6. Only generated columns are capped: curated `columns` are not. The user's own column choice still wins (the list
+follows a changed default only until the user picks columns). Exported: `deskColumnLimit(width)`, `capDefaultColumns(columns, options)`.
+
 ---
 
 ## 4. Saved filters and user settings (server-backed storage)
@@ -116,8 +148,23 @@ Adapters for the generic list's `storage` prop (also usable alone):
 | `createFrappeSavedFilters(client, { user, meta, global? })` → `SavedFiltersStorage` | `List Filter` rows: `frappe.client.get_list` (mine + global: `for_user` = user or empty), `frappe.client.insert`, `frappe.client.delete` | Filters are stored as Desk's 4-tuples `[doctype, field, op, value]`, so Desk can load them. **AND only:** an OR query is refused (`UnstorableQueryError`). Duplicate names are rejected. `global: true` stores `for_user = ""` (Desk offers it to System Managers). `List Filter` is readable by every Desk User (personal vs shared is a client-side split in Desk too). |
 | `createFrappeUserSettings(client, { doctype, initial, meta })` → `ListPrefsStorage` | `user_settings` from `getdoctype`; saved with `frappe.model.utils.user_settings.save(doctype, user_settings)` (500 ms debounce, skipped when unchanged) | Sort and filters use Desk's keys (`List.sort_by`, `List.sort_order`, `List.filters`); the package's extras (columns, quick filters, group-by) live in `List.sf_ui`. Restores the filters on load (`persistQuery`). |
 
-`tuplesToQuery` / `queryToTuples` convert between the two models; tuples on unknown fields or unsupported operators are dropped (as Desk drops invalid saved filters).
+`tuplesToQuery` / `queryToTuples` convert between the two models (nested-set operators included); tuples on unknown fields or unsupported operators are dropped (as Desk drops invalid saved filters).
 **UNVERIFIED:** that Desk's deep merge keeps the `sf_ui` key.
+
+### 4a. URL filters (`urlFilters`, opt-in, Phase 27)
+
+Desk's list routes carry the filters in the query string (`list_view.js:2130-2183` read, `:1664-1696` write):
+`/app/todo?status=Open&priority=["!=","Low"]&Order Item.item_code=X`. With `urlFilters`:
+
+- **read** (once the meta is loaded): every `key=value` pair is a filter — Equals, or `["op", value]` JSON; a repeated key gives one filter per
+  value; `Child DocType.field` or a bare child-table field (resolved like Desk's `get_doctype_for_field`). The URL's filters replace the restored
+  ones (Desk does the same, `:559-571`) through the new generic `initialQuery` option. **Keys that are not fields of the DocType (or of a loaded
+  child table) are ignored** and reported in `useFrappeList().urlFilters.ignored` — never sent to the server as a fieldname; values are always values;
+  unparsable JSON and operators the list cannot show are ignored. `routeOptions` (Desk's `frappe.route_options`) is read when the query string is empty.
+- **write**: after every applied change, `history.replaceState` (no history entry) with Desk's format (`=` raw, else `JSON.stringify([op, value])`).
+  Other query parameters are kept (Desk replaces the whole string). An OR query cannot be written — its filter parameters are removed. Search text and sort are not written.
+  `replaceState` fires no `popstate`: a router hook reading the search string (e.g. React Router's `useSearchParams`) sees the change at its next navigation (Desk has the same property).
+- Never on the server (no `window`). Functions: `parseUrlFilters(search | URLSearchParams | route_options, meta)`, `filtersToUrl(query, meta, currentSearch)`.
 
 ---
 
@@ -135,7 +182,7 @@ Adapters for the generic list's `storage` prop (also usable alone):
 9. `enabled`  10. `disabled`
 
 The column appears when the DocType has an indicator (`hasIndicator`: submittable, workflow, hook, `enabled`/`disabled`, or `status` with `meta.states`). Clicking a pill filters by
-its value. One colour table maps every vocabulary (`colourTone`, `styleTone`, `toListTone`, `feedbackTone`).
+its value. With `columnLimit`, a DocType with an indicator spends Desk's Status slot (section 3) whether or not the column is shown. One colour table maps every vocabulary (`colourTone`, `styleTone`, `toListTone`, `feedbackTone`).
 
 ```tsx
 <FrappeListView doctype="Sales Order" rowMeta
@@ -151,34 +198,60 @@ its value. One colour table maps every vocabulary (`colourTone`, `styleTone`, `t
 ```tsx
 <FrappeListView doctype="ToDo" bulk={{}} />                                   // gates from usePermissions
 <FrappeListView doctype="ToDo" bulk={{ permissions: { read: true, delete: true }, only: ["delete"] }} />   // explicit override
+<FrappeListView doctype="Sales Invoice" bulk={{ print: { settings: boot.print_settings, subscribeTask } }} />  // Print Settings from your boot
 ```
 
-Shown in the selection bar, which sits above the table (sticky) so it never scrolls away. The gate is `usePermissions(bundle).can()` (session roles + the DocType's permissions); the `permissions` prop (a rights map or `can(ptype)`) overrides it. **No rights → no actions.**
+Desk's Actions menu (`list_view.js:1855-2128`) as buttons in the selection bar, which sits above the table (sticky) so it never scrolls away, **in Desk's
+order** (`:2088-2128`, workflow last `:163-168`). The gate is `usePermissions(bundle).can()` (session roles + the DocType's permissions); the `permissions` prop
+(a rights map or `can(ptype)`) overrides it. **No rights → no actions** (Export excepted, as in Desk). Phase 27 (SIMULATED tests only: `tests/list-actions.test.tsx`).
 
 | Action | Shown when | Endpoint |
 |---|---|---|
 | Edit | an editable field exists, `write`, and no workflow (or `allow_edit`) | `frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs` (`action: "update"`, `data: {field: value}`) |
-| Submit / Cancel | submittable, `submit` / `cancel`, no workflow | same, `action: "submit"` / `"cancel"` |
+| Export | always (Desk, `:2092`; section 6a) | opens the Export dialog on the checked names |
 | Assign to | `read` (Desk offers it to everyone, `list_view.js:2095`; the server requires read on each document, `assign_to.py:67-68`) | `frappe.desk.form.assign_to.add_multiple` (`bulk_assign`, `re_assign`); user picked with `AssignPicker` (searches `search_link` on `User`) with comment, due date, priority |
+| Clear Assignment | `read` (Desk: everyone, `:2097`) — confirms with Desk's "Are you sure you want to clear the assignments?" | `frappe.desk.form.assign_to.remove_multiple` (`names`, and Desk's `ignore_permissions: true` — the server then checks no permission; at most 5 open assignments per document are cancelled, `assign_to.py:25-38, 182-192`) |
+| Apply Assignment Rule | `read` (Desk: everyone, `:2099`); no confirmation | `frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply` (more than 5 → one background job per document; no rule → nothing happens) |
+| Add Tags | `read` (Desk: everyone, `:2101`) — dialog with `TagInput` over `search_link` on `Tag`; a new tag is accepted (the server creates the Tag) | `frappe.desk.doctype.tag.tag.add_tags` (`tags`, `dt`, `docs`) |
+| Print | level-0 `print` (`frappe.model.can_print`, `model.js:452-455`) | see below |
+| Submit / Cancel | submittable, `submit` / `cancel`, no workflow | `submit_cancel_or_update_docs`, `action: "submit"` / `"cancel"` |
 | Delete | `delete`, and no workflow (or `allow_edit`) | `frappe.desk.reportview.delete_items` (more than 10 are enqueued by the server) |
+| Workflow ▾ | the DocType has an active Workflow (`__workflow_docs`; `bulk.hasWorkflow` overrides) and `read` | each opening asks `frappe.model.workflow.get_common_transition_actions` (the checked rows, owner included) and lists the server's answer (none → nothing to run); an action → `frappe.model.workflow.bulk_workflow_approval` (< 20 in the request, 20–500 enqueued, > 500 refused by the server) |
 
-Destructive actions confirm. The outcome line ("N succeeded, M failed" / "queued, will run in the background") is shown under the list; the list reloads and the selection clears unless
-everything failed. For 20–500 submit/cancel documents the server enqueues and answers nothing: treated as *queued* (UNVERIFIED at runtime). `onDone`/`onError` report each action.
-Delete (`delete_items`) answers nothing — failures arrive as a realtime msgprint (`reportview.py:608-616`) — so the bar says "N requested — the server reports
-failures in its messages" and never "0 failed". When the server answers with failed names (`submit_cancel_or_update_docs`), the line reads "N succeeded, M failed: B, D" — the server's names, never a plain
-success line; a 403 shows the server's message and changes nothing (no reload, no cache change).
-**Not offered:** Print, Clear Assignment, Apply Assignment Rule, Add Tags, workflow bulk approval. **Export** is in the selection bar (section 6a).
+**Print** (`list/print.ts`, `list/FrappePrintDialog.tsx`; Desk `bulk_operations.js:7-167`). Before the dialog, Desk's filter (`checkPrintable`): for a submittable DocType only
+submitted documents, drafts / cancelled only when Print Settings allow them, anything for the Administrator role; none → "Select at least 1 record"; more
+than 500 → refused. **This filter matters:** the server's synchronous path silently leaves out every document it refuses (`print_format.py:145-147`), so a
+wrong selection would give a PDF with pages missing, not an error. Desk reads Print Settings from boot; most users cannot read them, so pass them as
+`bulk.print.settings` (`allow_print_for_draft`, `allow_print_for_cancelled`, `pdf_page_size`, `enable_raw_printing`); without them the DocType's defaults
+apply (drafts allowed, cancelled not). The dialog: Letter Head (`frappe.client.get_list("Letter Head")`, default first, "No Letterhead"), Print Format
+(getdoctype's `__print_formats`, "Standard", the DocType's default first; no JS formats; raw formats only with `enable_raw_printing`), Page Size ("Custom" →
+height / width in mm, both > 0), Background Print (forced above 25). Sync: `api.download("frappe.utils.print_format.download_multi_pdf", {doctype, name, format,
+no_letterhead, letterhead, options})` — the server's PDF handed to the browser (`saveFile`), a refusal shown in the dialog. Background:
+`download_multi_pdf_async` → `{task_id}`; the link arrives on realtime `task_complete:<task_id>`, which the contract's `RealtimePort` does not carry — pass
+`bulk.print.subscribeTask(taskId, onComplete)` (e.g. over your Socket.IO client) and the dialog offers "Download PDF" with the server's `file_url`; without it
+the dialog says the job is queued (the server saves the PDF as a private File) — **NOT REPRODUCED** beyond that.
 
-Functions: `bulkMenu`, `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`; component `FrappeBulkActions`.
+**Outcome line** (under the list): what the server answered, never more. `submit_cancel_or_update_docs` answers the failed names: "N succeeded, M failed: B, D".
+Methods that answer nothing per document — delete, clear assignment, assignment rule, tags, workflow approval — say "Action: N requested — the server reports
+failures in its messages" (`listBulkRequested`); an enqueued job says "queued, will run in the background". The list reloads and the selection clears unless
+everything failed; a refusal (403 …) shows the server's message and changes nothing. `onDone(kind, outcome, names, action?)` / `onError(error, kind)` report each action.
+
+Functions: `listActionsMenu` (every item, Desk order), `bulkMenu` (the five dev.26 kinds), `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`,
+`bulkClearAssignment`, `bulkApplyAssignmentRule`, `bulkAddTags`, `commonTransitionActions`, `bulkWorkflowApproval`, `workflowDocs`, `checkPrintable`,
+`printFormatOptions`, `letterheadOptions`, `pdfOptions`, `downloadMultiPdf`, `downloadMultiPdfAsync`; components `FrappeBulkActions`, `FrappePrintDialog`.
+Messages: the `frappe:list` block of `src/theme/messages.ts` (en + ar).
 
 ### 6a. Import and Export (Phase 26) — server-authorised, SIMULATED only
 
 Full parity table and verdict: `docs/release/LISTVIEW-FRAPPE-PARITY.md`. Nothing here has run against a site (Import writes; Export is an unapproved read).
 
-**Gates** (`services/permissions.ts`, Desk's `model.js:434-450`): `canImport(meta, roles, levels[0])` — `allow_import` AND (System Manager OR level-0 `import`);
-`canExport(roles, levels[0])` — System Manager OR level-0 `export`. Both need `session.roles`; without them nothing is offered. Import is a DocType-level right:
-never read it off a document's `docinfo` (the server forces it to 0). **Departure from Desk:** Desk's list shows Export to everyone (`list_view.js:2092`) and
-lets the server refuse; the package hides it (Phase 26 rule D.1). The server decides either way (`exporter.py:116-126`, `data_import.py:59-75`).
+**Gates.** Import: `canImport(meta, roles, levels[0])` (`services/permissions.ts`, Desk's `model.js:434-442`) — `allow_import` AND (System Manager OR
+level-0 `import`); needs `session.roles` (without them Import is not offered). Import is a DocType-level right: never read it off a document's `docinfo`
+(the server forces it to 0). **Export has no client gate** — Desk pushes it unconditionally (`list_view.js:2075-2092`) and so does the package (Phase 27
+owner decision #1, reversing Phase 26 rule D.1). A user without the right can open the dialog; the server refuses (`exporter.py:116-126` `can_export`) and
+the dialog shows the refusal as `FrappeErrorState` (kind permission) — no file, no success. `canExport(roles, levels[0])` (System Manager OR level-0
+`export`) stays exported for an app that prefers to hide the entry: `menu={{ export: canExport(roles, levels[0]) }}`. The server decides either way
+(`exporter.py:116-126`, `data_import.py:59-75`).
 
 **Export** (`list/export.ts`, `list/FrappeExportDialog.tsx`): Desk's Data Exporter dialog (`data_exporter.js`) — file type Excel / CSV, export type All /
 Filtered (the list's current filters) / Selected (`[doctype, "name", "in", names]` from the selection bar, `bulk_operations.js:463-474`) / 5 records / Blank
@@ -188,14 +261,66 @@ Unselect All; fields the user cannot read (permlevel) are not offered. The file 
 browser (`saveFile`). A refusal is shown in the dialog (`FrappeErrorState`); there is no success toast and never a client-built file.
 Functions: `downloadExportTemplate`, `exportPickerGroups`, `mandatorySelection`, `selectedNamesFilter`, `saveFile`.
 
-**Import** (`list/import.ts`): the Data Import tool's client sequence (`data_import.js`, `attach.js:137-144`) as functions — `startDataImport(api, {
-referenceDoctype, importType, file, filename, submitAfterImport?, start? })`: `savedocs` (new Data Import) → `upload_file` (attached to it, private) →
-`savedocs` with `import_file` (the server parses the template here) → `get_preview_from_template` → `form_start_import`. Then `useImportStatus(api, name)`
-polls `get_import_status` (+ the document for `template_warnings`) until the job leaves Pending; `getImportLogs`, `downloadErroredRows`, `downloadImportLog`,
-`downloadImportTemplate` (= blank template). **No preview grid, no column mapper, no log table** — the host builds them or routes to Desk (`onImport` default).
-Note: the Data Import DocType grants `create` to System Manager only; a role with `import` but not System Manager is refused at the first save (as in Desk).
+**Import** (`list/import.ts`, `list/FrappeDataImport.tsx`, `list/ImportPreview.tsx`, `list/ColumnMapping.tsx`, `list/importMapping.ts`; Phase 27 UI) —
+SIMULATED only; every step is a write on a site (BLOCKED). The functions reproduce the Data Import tool's client sequence (`data_import.js`, `attach.js:137-144`):
+`startDataImport(api, { referenceDoctype, importType, file, filename, submitAfterImport?, muteEmails?, start? })` = `createDataImport` (`savedocs`, new Data Import)
+→ `attachImportFile` (`upload_file` attached to it, private → `savedocs` with `import_file`; the server parses the file here) → `get_preview_from_template` →
+`form_start_import`. `remapImportColumns(api, doc, changed)` = `saveColumnMapping` (`template_options.column_to_field_map`, keyed by FILE column index) + the preview
+requested again (`data_import.js:302-309`). `useImportStatus(api, name, { since })` polls `get_import_status` + the document; `importRunning` decides from the server's
+answers only (unchanged `modified` since Start → queued; mid-run Partial Success → running). Also `getImportLogs`, `downloadErroredRows`, `downloadImportLog`,
+`downloadImportTemplate`, `parseTemplateWarnings`.
+
+`<FrappeDataImport>` is what an app opens from `FrappeListView`'s `onImport` (whose default still routes to Desk). It needs `ThemeProvider` and a
+`QueryClientProvider` (no `FrappeProvider`; `api` is a prop):
+
+```tsx
+const [open, setOpen] = useState(false);
+<FrappeListView doctype="Sales Order" onImport={() => setOpen(true)} />
+<FrappeDataImport api={api} doctype="Sales Order" open={open} onOpenChange={setOpen}
+  onGoToList={() => setOpen(false)} docHref={(dt, name) => `/orders/${name}`} />
+```
+
+Steps: **Upload** (import type, Submit After Import for submittable DocTypes, Don't Send Emails, "Download Template" = the exporter dialog, a `.csv / .xls / .xlsx`
+file) → **Preview** (`FrappeImportPreview`: the server's columns with the field each is matched / mapped to, skipped columns marked, the first rows as returned, "Showing
+only first N rows out of M"; `FrappeImportWarnings`: template + preview warnings grouped by row / column; "Map Columns" → `FrappeColumnMapping`, a searchable picker per
+column with "Don't Import", the DocType's fields and child-table fields `<table>.<field>`) → **Import** ("Start Import" / "Retry" = `form_start_import`; Queued / In
+Progress from the poll) → **Result** (status, the headline from the server's counts, the import log with messages and traceback, Export Errored Rows on Partial Success,
+Export Import Log from 5000 rows, Retry, "Go to {DocType} List"). **Nothing is shown as imported before `get_import_status` reports the run finished**; a job stopped by
+template warnings returns to the preview with them. Refusals are the server's (`FrappeErrorState`): a 403 on the first save comes with the note that Frappe core grants
+Data Import `create` to System Manager only; a refused or empty file can be replaced on the same Data Import; 417 "Scheduler is inactive" on start.
+
+Props that matter: `bundle` (optional — else read with `api.getMetaBundle`), `importType`, `open` / `onOpenChange` (dialog; without them an inline panel), `pollIntervalMs`
+(default 2000), `subscribe` (optional `(event, handler) => unsubscribe` over the app's socket: Desk's `data_import_progress` line and an immediate re-poll on
+`data_import_refresh`; completion still comes from the poll), `onFinished`, `onGoToList`, `docHref`, `labels` (English and Arabic defaults, `DATA_IMPORT_LABELS_EN` /
+`_AR`; the package catalogue has no keys for them yet), `exportLabels`. State lives in the component: closing the dialog keeps the import and its poll; unmounting stops
+polling, never the server's job. Not reproduced: Google Sheets URL, "Report Error", changing the import type after the Data Import exists, frappe-datatable features,
+re-reading the preview after a run (imported rows are greyed only from a preview answer that carries the log). Parity rows: `docs/release/LISTVIEW-FRAPPE-PARITY.md` §2.
 
 ---
+
+### 6b. Report-view export (Phase 27) — SIMULATED only; on a site it writes an Access Log (BLOCKED)
+
+Desk's Report view → Export (`report_view.js:1646-1722`, dialog `report_utils.js:173-241`) over
+**`frappe.desk.reportview.export_query`**. The server runs the query, checks `can_export` (System Manager, the role's `export`, or `if_owner`
+export with every row's owner checked — `permissions.py:608-616`) and streams the file; **it writes an Access Log row first, on every call**
+(`reportview.py:410-415`). Desk offers the entry only when `frappe.model.can_export` — use `canExport(session.roles, levels[0])`.
+
+```tsx
+const f = useFrappeList({ doctype: "ToDo" });
+<FrappeReportExportDialog api={api} doctype="ToDo" open={open} onOpenChange={setOpen} {...f.reportExport!}
+  selectedNames={checked} offerTranslate={language !== "en"} />
+```
+
+- `downloadReportExport(api, { doctype, fields, filters, or_filters, order_by, fileFormat: "Excel" | "CSV", selectedItems?, title?, pageLength?,
+  csvDelimiter?, csvQuoting?, translateValues?, addTotalsRow?, background? })` → `api.download("frappe.desk.reportview.export_query", …)` with
+  Desk's fields, non-strings JSON-encoded as Desk's `open_url_post` does (`reportExportArgs`). `selected_items` makes the server REPLACE the filters
+  with `name in (…)`; `pageLength` = only the rows shown (Desk's "Export all N rows?" left unchecked).
+- Result: `{ kind: "file", file }` (hand it to the browser with `saveFile`) or, for `background`, `{ kind: "background", message }` — an `api.call`
+  as Desk's `frappe.call`; the server enqueues the job, e-mails the link and returns no file. A refusal rejects with the `FrappeError` (403 → `kind: "permission"`); no file.
+- The dialog: File Format (Excel default), Selected rows (n) / All matching rows, Export in Background, CSV Delimiter / CSV Quoting (CSV), "Export all N rows?"
+  (or "…matching rows?" when the count is off), "Translate values" (`offerTranslate`). English labels, `labels` override. No CSV Preview box.
+- `useFrappeList().reportExport` = `{ fields (visible columns' real fields, `name` first), filters, or_filters, order_by, shownCount, totalCount }`.
+- **Never a client-built file.** Not in `FrappeListView`'s menu yet.
 
 ## 7. Realtime refresh
 
@@ -228,11 +353,12 @@ Custom cells can use `useListActions().applyCondition(field, operator, value)` t
 
 ## 9. Known limitations (not reproduced)
 
-- Width-based column cap (4/6/10) when `total_fields` is unset; the default 90-day recency filter on large tables; List View Settings editing.
-- Nested-set filter operators; filters from the URL query; the group-by sidebar with server counts (`get_group_by_count`), tag stats (`get_sidebar_stats`) and "assigned to me" counters.
-- Other bulk actions (section 6: Print, Clear Assignment, Assignment Rule, Add Tags, workflow approval); Report view (incl. its `export_query` export), Kanban, Calendar and the other Desk views (the CRM keeps its own for those).
+- The width-based column cap and URL filters are opt-in options of `useFrappeList` / `FrappeListView` (`columnLimit`, `urlFilters`); the default 90-day recency filter on large tables; List View Settings editing.
+- Nested-set operators need the app to name tree Link targets the page has no meta for (`treeDoctypes`); they filter nothing in client mode. The group-by sidebar with server counts (`get_group_by_count`), tag stats (`get_sidebar_stats`) and "assigned to me" counters are not reproduced.
+- URL filters: the package keeps non-filter query parameters (Desk replaces the whole string); OR queries, search text and sort are not written.
+- Bulk actions are buttons in the selection bar, not Desk's Actions dropdown; Print's background completion (`task_complete`) needs a host `subscribeTask`, and its draft / cancelled filter needs the site's Print Settings from the host. The Report view itself, Kanban, Calendar and the other Desk views are not reproduced (the CRM keeps its own); report-view export (`export_query`) is available as `downloadReportExport` / `FrappeReportExportDialog`.
 - Import: the preview grid, column mapper and import-log table of Desk's Data Import form (functions only, section 6a); progress is polled, not realtime.
-- Export: the in-dialog filter editor and record-count message; Export hidden without the `export` right where Desk shows it to everyone.
+- Export: the in-dialog filter editor and record-count message.
 - Permlevel columns are dropped only when the session's roles are known; without them the header of an unreadable field is still offered (the server strips the values).
 - Saved filters cannot store OR conjunctions. Realtime is a full reload, not Desk's by-name refresh.
 - Owner columns resolve names through a `User` read; a site that hides the User list shows ids.

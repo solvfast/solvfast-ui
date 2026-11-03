@@ -117,7 +117,7 @@ await save.mutateAsync({ doc: { ...data!.doc, status: "Qualified" }, action: "Sa
 ## 5. Permissions: `usePermissions`
 
 ```ts
-const { levels, can, fieldStatus, displayStatus, workflow, workflowReadOnly } = usePermissions(bundle, doc, docinfo);
+const { levels, can, fieldStatus, displayStatus, workflow, workflowReadOnly, known } = usePermissions(bundle, doc, docinfo);
 ```
 
 - **Rights per permlevel** (`frm.perm`, perm.js `get_perm`): with `session.roles`, the DocPerm rows × roles; on a
@@ -132,12 +132,16 @@ const { levels, can, fieldStatus, displayStatus, workflow, workflowReadOnly } = 
   `false` (`permissionsKnown`): show "permissions unknown", not "forbidden" — and pass `session.roles`
   (`frappe.user_roles` in Desk, `frappe.auth.get_logged_user` + roles from boot in an SPA). Before dev.26 a new doc was
   optimistic (read / write / create) and permlevels > 0 were inferred.
-- **Administrator**: `session.user === "Administrator"` gets every right at every permlevel — the server never checks
-  further (permissions.py:107-109, 288-290, keyed on the user name). The "Administrator" *role* on another user is just a
-  role (its DocPerm rows; perm.js:62-64 only adds `read`). `canImport` still needs `allow_import`.
+- **Administrator** (verified in Frappe 15.110 source, `docs/release/PERMISSION-AUDIT.md` §6): `session.user ===
+  "Administrator"` gets every right at every permlevel, **with or without `session.roles`** — the server never checks
+  further (permissions.py:107-109, :273-275; document.py:756, :788) and its roles are every Role record
+  (`get_roles`, :506-507). The "Administrator" *role* on another user is just a role (its DocPerm rows; perm.js:59-61 only
+  adds `read`) — and the server never reports it for anyone else (automatic role, :37, :515). `canImport` /
+  `canExport` take the session too (`canImport(meta, session, levels[0])`): the Administrator imports when the DocType
+  has `allow_import` (model.js:435; Data Import refuses it otherwise, data_import.py:64) and always exports (:609).
 - **Workflow read-only** (`frappe.workflow.is_read_only`): a saved doc whose state's `allow_edit` roles the user lacks →
   rights shrink to read / cancel / share / print / email. Needs roles; without them a saved doc in a workflow is
-  read-only (rule 9; Administrator excepted).
+  read-only (rule 9; Administrator excepted) and, since dev.31, `known` is `false` there (the form shows "Read only").
 - **`fieldStatus(df, doc, parent?)`** = `frappe.perm.get_field_display_status`, step by step (docs 11 §2.5): permlevel
   rights (write and not disabled / virtual → Write, read → Read, else None) → `hidden` → `hidden_due_to_dependency`
   (set by whoever evaluates `depends_on`) → submitted demotes Write → `allow_on_submit` re-promotes on docstatus 1 →
@@ -146,6 +150,11 @@ const { levels, can, fieldStatus, displayStatus, workflow, workflowReadOnly } = 
 - **`displayStatus`** adds the form control's rules: a Write cell of a Read table is Read; a Read field with a blank value
   is hidden (except HTML / Image / Button / Geolocation). `isFetchLocked(df, doc)` tells whether a `fetch_from` field
   renders read-only.
+
+**Forms without permission information.** `FrappeFormView` without a `permissions` prop denies every right (since
+0.4.0-dev.31, P2-1): fields read-only, no Save / Submit / Update / Cancel / Amend, no Ctrl+S, the "Read only" notice
+(`data-permissions="unknown"`). Pass `usePermissions(...)` (as `FrappeForm` does) or your own `{ can, levels, known }`.
+"Cancel All" (linked submitted documents) is offered only when `canCancelAllLinked` answers `true` (P3-1).
 
 The server is the authority: these reproduce Desk's UX; nothing is skipped because the client checked it. The full
 action-by-action audit (which right gates what, what the server checks, how a refusal surfaces) is
@@ -288,7 +297,7 @@ requests and renders the right shapes — nothing about what a site accepts. Rep
 ## 12. Known limitations and UNVERIFIED points
 
 - Not run against a real site: every behaviour above is from source reading and simulated tests.
-- Permissions without `session.roles` are approximated (§5).
+- Permissions without `session.roles` deny what they cannot establish (rule 9, §5); pass the roles.
 - Queued submissions (`__queued`), `Company:x:y` currency options; the simulator's Version values imitate the
   server's `get_formatted` (formatters.py + `fmt_money`) but are not produced by it.
 - Translations need an app or boot dictionary (§7); the `ar` dictionary size per page load is not measured.

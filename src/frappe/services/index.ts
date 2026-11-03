@@ -4,7 +4,7 @@ export type { FormatContext, CurrencyInfo, RoundingMethod } from "./format";
 export { translateLabel, translateText, withTranslations } from "./translate";
 export type { TranslationDictionary } from "./translate";
 export { buildDocPermissions, rolePermissions, readOnlyPermissions, isWorkflowReadOnly, fieldDisplayStatus, controlDisplayStatus, isFetchLocked, isNullValue, PERM_TYPES, canImport, canExport, readableFields, permissionsKnown, isAdministrator } from "./permissions";
-export type { FrappeSession, BuildPermissionsInput, Level0Rights } from "./permissions";
+export type { FrappeSession, BuildPermissionsInput, Level0Rights, RolesOrSession } from "./permissions";
 export { applySavedDoc, applyDeletedDoc, applyRenamedDoc, applyDocInfoChange, applyRealtimeEvent, seedDocInfo } from "./cache";
 export { createSocketRealtime } from "./realtime";
 export type { SocketLike } from "./realtime";
