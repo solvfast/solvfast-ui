@@ -2,8 +2,7 @@
  * The only file in src/frappe/record that talks to the foundation. When A1's hooks (`useDocInfo`) land in feat/0.4.0-frappe,
  * `useRecordDocInfo` becomes a thin call to them; the components do not change.
  */
-import * as React from "react";
-import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { useFrappeClient } from "../FrappeProvider";
 import type { FrappeClient } from "../client";
 import { frappeKeys, type DocInfo, type DocumentApi, type MetaBundle, type RecordApi } from "../contract";
