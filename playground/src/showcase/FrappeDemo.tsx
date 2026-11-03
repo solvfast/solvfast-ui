@@ -24,7 +24,7 @@ const LABELS = {
 export function FrappeDemo({ variant = "default" }: { variant?: string }) {
   const [mock] = React.useState(() => {
     const m = createMockFrappe({ latencyMs: variant === "loading" ? 60_000 : 120 });
-    if (variant === "error") m.failNext(1, { status: 403, exc_type: "PermissionError", message: "You don't have permission to read ToDo" }, "frappe.client.get_list");
+    if (variant === "error") m.failNext(1, { status: 403, exc_type: "PermissionError", message: "You don't have permission to read ToDo" }, "frappe.desk.reportview.get");
     return m;
   });
   const [client] = React.useState(() => createFrappeClient({ transport: mock.transport }));

@@ -392,6 +392,140 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await page.getByRole("button", { name: T("Field Library", "مكتبة الحقول") }).first().click();
     await page.getByText(/currentPath: .*field_library/).waitFor();
   });
+  // Phase 26 — the Frappe layer group (simulated site). Each section: open, drive its main controls, read the outcome.
+  await check("frappe gallery: cards link to sections", async () => {
+    const sec = await go(page, "frappe-gallery");
+    if ((await sec.getByRole("link", { name: T("Open section", "فتح القسم") }).count()) < 15) throw new Error("gallery cards missing");
+    if (!(await sec.getByRole("note").first().isVisible())) throw new Error("status strip missing");
+  });
+  await check("frappe list view: scenarios, session, realtime event, bulk bar", async () => {
+    const sec = await go(page, "frappe-list-view");
+    await sec.locator("tbody tr").first().waitFor({ timeout: 10_000 });
+    await sec.getByRole("button", { name: T("Simulate server event (list_update)", "محاكاة حدث من الخادم (list_update)") }).click();
+    await sec.getByText(/realtime: list_update/).waitFor();
+    await page.waitForFunction(() => /Server event #1/.test(document.querySelector("#frappe-list-view-content tbody")?.textContent ?? ""), null, { timeout: 5000 });
+    await sec.getByRole("checkbox").nth(1).click();
+    await sec.getByRole("button", { name: T("Delete", "حذف") }).first().waitFor();          // bulk bar (System Manager)
+    await sec.getByRole("radio", { name: /Sales User/ }).click();
+    await sec.locator("tbody tr").first().waitFor({ timeout: 10_000 });
+    await sec.getByRole("checkbox").nth(1).click();
+    await page.waitForTimeout(300);
+    if (await sec.getByRole("button", { name: T("Delete", "حذف") }).count()) throw new Error("bulk Delete offered without the right");
+    const scenario = sec.locator(`[aria-label="${T("Scenario", "السيناريو")}"]`);
+    await scenario.getByRole("radio", { name: T("Empty", "فارغ"), exact: true }).click();
+    await sec.getByText(T("You haven't created a ToDo yet", "لم تُنشئ ToDo بعد")).first().waitFor({ timeout: 10_000 });
+    await scenario.getByRole("radio", { name: /403/ }).click();
+    await sec.getByText(T("Not permitted", "غير مسموح")).first().waitFor({ timeout: 10_000 });
+    await scenario.getByRole("radio", { name: T("Loading", "جارٍ التحميل") }).click();
+    await page.waitForTimeout(500);
+    const skeletonRows = await sec.locator("tbody tr").count();
+    if (!skeletonRows || (await sec.locator("tbody").innerText()).trim() !== "") throw new Error(`no loading skeleton (${skeletonRows} rows)`);
+  });
+  await check("frappe forms: new ToDo mandatory, Travel Request depends_on, 403, 417, read-only by role", async () => {
+    const sec = await go(page, "frappe-forms");
+    await sec.getByRole("button", { name: T("Save", "حفظ") }).first().waitFor({ timeout: 10_000 });
+    await sec.getByRole("radio", { name: /New ToDo|مهمة جديدة/ }).click();
+    await sec.getByRole("button", { name: T("Save", "حفظ") }).first().click();
+    await page.getByRole("dialog").waitFor({ timeout: 5000 });                                    // Missing Fields
+    await page.keyboard.press("Escape");
+    await sec.getByRole("radio", { name: /New Travel Request|طلب سفر جديد/ }).click();
+    const visa = sec.getByText(/^Visa country/);
+    await sec.getByText(/^Needs a visa/).waitFor({ timeout: 10_000 });
+    if (await visa.count()) throw new Error("depends_on field visible before its condition");
+    await sec.getByRole("checkbox", { name: /Needs a visa/ }).click();
+    await visa.first().waitFor({ timeout: 5000 });
+    await sec.getByRole("radio", { name: /403/ }).click();
+    await sec.getByText(T("Not permitted", "غير مسموح")).first().waitFor({ timeout: 10_000 });
+    await sec.getByRole("radio", { name: /417/ }).click();
+    const first = sec.getByRole("textbox", { name: /First Name/ }).first();
+    await first.waitFor({ timeout: 10_000 });
+    await first.fill("Sarah");
+    await first.press("Tab");
+    await sec.getByRole("button", { name: T("Save", "حفظ") }).first().click();
+    await sec.getByRole("button", { name: T("Reload", "إعادة التحميل") }).first().waitFor({ timeout: 10_000 });
+    await sec.getByRole("radio", { name: /Sales User/ }).click();
+    await sec.getByText("Riyadh offsite").first().waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(300);
+    if (await sec.getByRole("button", { name: T("Save", "حفظ") }).count()) throw new Error("Save offered without write");
+    if (await sec.getByText(/^Internal notes/).count()) throw new Error("permlevel-1 field shown to Sales User");
+  });
+  await check("frappe record: status chip, timeline, add a comment", async () => {
+    const sec = await go(page, "frappe-record");
+    await sec.getByRole("textbox").first().waitFor({ timeout: 15_000 });
+    await sec.getByText(/changed the value|غيّر/).first().waitFor({ timeout: 10_000 });          // a Version line
+    await sec.getByRole("textbox").first().fill("Smoke comment Q7");
+    await sec.getByRole("button", { name: T("Comment", "تعليق") }).first().click();
+    await sec.getByText("Smoke comment Q7").waitFor({ timeout: 10_000 });
+  });
+  await check("frappe workflow: stepper, Approve through the simulator, generic lifecycle", async () => {
+    const sec = await go(page, "frappe-workflow");
+    await sec.locator('li[aria-current="step"]').first().waitFor({ timeout: 15_000 });
+    await sec.getByRole("button", { name: T("Actions", "الإجراءات") }).first().click();
+    await page.getByRole("menuitem", { name: "Approve" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: T("Confirm", "تأكيد") }).click();
+    await sec.getByText(/onApplied: Approve → Approved/).waitFor({ timeout: 10_000 });
+    await sec.getByRole("button", { name: /Move to Proposal sent|نقل إلى أُرسل العرض/ }).click();
+    await sec.getByText("onAction: proposal").waitFor();
+  });
+  await check("frappe assign: add through the simulator, generic picker, composer mention", async () => {
+    const sec = await go(page, "frappe-assign");
+    const add = sec.getByRole("button", { name: T("Add assignment", "إضافة إسناد") }).nth(1);   // FrappeAssignTo, list variant (names as text)
+    await add.waitFor({ timeout: 10_000 });
+    await add.click();
+    const search = page.getByRole("combobox", { name: T("Search users…", "ابحث عن مستخدمين…") });
+    await search.fill("omar");
+    await page.getByRole("option", { name: /omar/i }).first().click();
+    await page.getByRole("button", { name: T("Add", "إضافة"), exact: true }).last().click();
+    await sec.getByText(/omar/i).first().waitFor({ timeout: 10_000 });
+    const box = sec.getByRole("textbox").last();
+    await box.fill("Ping @sar");
+    await page.getByRole("option", { name: /Sara Q/ }).first().click();
+    await box.press("Control+Enter");
+    await sec.getByText(/data-id="sara@example.com"/).waitFor({ timeout: 5000 });
+  });
+  await check("frappe permissions: role picker drives the rights and the form", async () => {
+    const sec = await go(page, "frappe-permissions");
+    await sec.getByText("canImport(meta, roles, level0)").waitFor({ timeout: 10_000 });
+    await sec.getByRole("radio", { name: /Sales User/ }).click();
+    await page.waitForTimeout(400);
+    if ((await sec.getByText(T("hidden", "مخفي")).count()) < 4) throw new Error("Sales User still sees the gated entries");
+    await sec.getByRole("radio", { name: T("Roles unknown", "أدوار غير معروفة") }).click();
+    await sec.locator('[data-permissions="unknown"]').waitFor({ timeout: 5000 });
+    await sec.getByRole("radio", { name: /Data Entry/ }).click();
+    await page.waitForTimeout(400);
+    if ((await sec.locator("text=canImport(meta, roles, level0)").locator("xpath=..").innerText()).includes(T("no", "لا"))) throw new Error("Data Entry cannot import");
+  });
+  await check("frappe import/export: gated menu, export dialog, recorded request, 403 in the dialog", async () => {
+    const sec = await go(page, "frappe-import-export");
+    await sec.locator("tbody tr").first().waitFor({ timeout: 10_000 });
+    await sec.getByTestId("sf-list-menu").click();
+    await page.getByRole("menuitem", { name: /Export/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /^Export$/ }).click();
+    await sec.getByText(/download frappe\.core\.doctype\.data_import\.data_import\.download_template/).waitFor({ timeout: 5000 });
+    await sec.getByRole("button", { name: /server refuses|الخادم يرفض/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /^Export$/ }).click();
+    await page.getByRole("dialog").getByText(/Not permitted|غير مسموح/).first().waitFor({ timeout: 5000 });
+    await page.keyboard.press("Escape");
+    await sec.getByRole("radio", { name: /Sales User/ }).click();
+    await sec.locator("tbody tr").first().waitFor({ timeout: 10_000 });
+    if (await sec.getByTestId("sf-list-menu").count()) throw new Error("menu offered to Sales User");
+  });
+  await check("frappe rtl: two panes with their own dir/lang; html keeps the page's", async () => {
+    const sec = await go(page, "frappe-rtl");
+    await sec.locator("tbody tr").first().waitFor({ timeout: 10_000 });
+    const panes = sec.locator("[data-sf-portal-host]").locator("xpath=..");
+    const dirs = await panes.evaluateAll((els) => els.map((e) => `${e.getAttribute("lang")}/${e.getAttribute("dir")}`));
+    if (dirs.join(",") !== "ar/rtl,en/ltr") throw new Error(`panes: ${dirs.join(",")}`);
+    if ((await page.evaluate(() => document.documentElement.dir)) !== (ar ? "rtl" : "ltr")) throw new Error("html dir changed");
+  });
+  await check("frappe themes: one light and one dark pane; html theme unchanged", async () => {
+    const sec = await go(page, "frappe-themes");
+    await sec.locator("tbody tr").first().waitFor({ timeout: 15_000 });
+    const panes = sec.locator("[data-sf-portal-host]").locator("xpath=..");
+    const themes = await panes.evaluateAll((els) => els.map((e) => e.getAttribute("data-theme")));
+    if (themes.join(",") !== "light,dark") throw new Error(`panes: ${themes.join(",")}`);
+    if ((await page.evaluate(() => document.documentElement.classList.contains("dark"))) !== (theme === "dark")) throw new Error("html theme changed");
+  });
   await check("theme + language toggles", async () => {
     await go(page, "button");
     await page.getByRole("button", { name: T("Toggle theme", "تبديل السمة") }).click();
@@ -411,7 +545,7 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
       await go(page, id);
       const over = await overflow(page);
       if (over > 0) fail(`phone-ar #${id}`, `horizontal overflow ${over}px`);
-      if (SHOTS && ["overview", "list-view", "frappe-list", "date-time-fields"].includes(id)) await page.screenshot({ path: `${SHOTS}/phone-ar-${id}.png` });
+      if (SHOTS && ["overview", "list-view", "frappe-list", "date-time-fields", "frappe-list-view", "frappe-forms", "frappe-rtl"].includes(id)) await page.screenshot({ path: `${SHOTS}/phone-ar-${id}.png` });
     } catch (e) { fail(`phone-ar #${id}`, e.message.split("\n")[0]); }
     for (const e of errors) fail(`phone-ar #${id}`, e);
   }

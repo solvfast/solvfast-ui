@@ -165,7 +165,7 @@ const client = createFrappeClient();          // same-origin, CSRF from window.c
           <FrappeDemo variant="default" />
         </Example>
       </Section>
-      <Section title={l("Server error", "خطأ من الخادم")} description={l("A 403 PermissionError from get_list, shown with Frappe's message and a retry.", "خطأ 403 ‏PermissionError من get_list، يُعرض برسالة فرابيه مع إعادة المحاولة.")}>
+      <Section title={l("Server error", "خطأ من الخادم")} description={l("A 403 PermissionError from reportview.get, shown with Frappe's message and no Retry (retrying cannot succeed).", "خطأ 403 ‏PermissionError من reportview.get، يُعرض برسالة فرابيه دون إعادة المحاولة (لن تنجح).")}>
         <Example className="p-0"><FrappeDemo variant="error" /></Example>
       </Section>
     </div>
