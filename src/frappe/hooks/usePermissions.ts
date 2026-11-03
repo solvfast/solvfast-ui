@@ -7,7 +7,7 @@ import * as React from "react";
 import type { DocInfo, DocPermissions, FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle, PermType, WorkflowInfo } from "../contract";
 import { workflowFromMeta } from "../client";
 import { useFrappeSettings } from "../FrappeProvider";
-import { buildDocPermissions, controlDisplayStatus, fieldDisplayStatus, isWorkflowReadOnly, permissionsKnown, readOnlyPermissions } from "../services/permissions";
+import { buildDocPermissions, controlDisplayStatus, fieldDisplayStatus, isAdministrator, isWorkflowReadOnly, permissionsKnown, readOnlyPermissions } from "../services/permissions";
 
 export interface PermissionsResult {
   /** Rights per permlevel, as Desk's `frm.perm` (shrunk to read / cancel / share / print / email when the workflow
@@ -30,7 +30,8 @@ export interface PermissionsResult {
    *  doc in a workflow is read-only — rule 9). */
   workflowReadOnly: boolean;
   /** False when the rights are the rule-9 denial for MISSING information (no `session.roles`, not Administrator, and no
-   *  server-evaluated `docinfo.permissions` for a saved doc) — show "permissions unknown", not "forbidden". */
+   *  server-evaluated `docinfo.permissions` for a saved doc; or a saved doc in a workflow without roles, whose read-only
+   *  state comes from the state's `allow_edit` roles that cannot be checked) — show "permissions unknown", not "forbidden". */
   known: boolean;
 }
 
@@ -40,7 +41,10 @@ export function usePermissions(bundle?: MetaBundle, doc?: FrappeDoc, docinfo?: D
     const workflow = workflowFromMeta(bundle?.meta);
     const base = buildDocPermissions({ meta: bundle?.meta, children: bundle?.children, doc, docinfo, session });
     const workflowReadOnly = isWorkflowReadOnly(workflow, doc, session?.roles, session?.user);
-    const known = permissionsKnown({ doc, docinfo, session });
+    // a saved workflow doc without roles is read-only for LACK of information (model/workflow.js:53-70 needs
+    // frappe.user_roles) — unknown, not forbidden (P2-3; the Administrator's roles are every Role, permissions.py:506-507)
+    const workflowUnknown = !!workflow && !!doc && !doc.__islocal && !session?.roles && !isAdministrator(session);
+    const known = permissionsKnown({ doc, docinfo, session }) && !workflowUnknown;
     const levels = workflowReadOnly ? readOnlyPermissions(base) : base;
     const withRowDocstatus = (row: FrappeDoc, parent?: FrappeDoc): FrappeDoc =>
       parent && row !== parent && row.docstatus === undefined ? { ...row, docstatus: parent.docstatus } : row;
