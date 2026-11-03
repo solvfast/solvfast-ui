@@ -1,0 +1,51 @@
+[
+ {
+  "email": "sfui-tester@example.com",
+  "first_name": "SFUI",
+  "last_name": "Tester",
+  "roles": [
+   "SFUI Tester"
+  ],
+  "language": "en"
+ },
+ {
+  "email": "sfui-reader@example.com",
+  "first_name": "SFUI",
+  "last_name": "Reader",
+  "roles": [
+   "SFUI Reader"
+  ],
+  "language": "en"
+ },
+ {
+  "email": "sfui-approver@example.com",
+  "first_name": "SFUI",
+  "last_name": "Approver",
+  "roles": [
+   "SFUI Approver"
+  ],
+  "language": "en"
+ },
+ {
+  "email": "sfui-limited@example.com",
+  "first_name": "SFUI",
+  "last_name": "Limited",
+  "roles": [
+   "SFUI Tester"
+  ],
+  "language": "en",
+  "user_permission": {
+   "allow": "SFUI Test Contact",
+   "for_value_index": 1
+  }
+ },
+ {
+  "email": "sfui-ar@example.com",
+  "first_name": "SFUI",
+  "last_name": "Arabic",
+  "roles": [
+   "SFUI Tester"
+  ],
+  "language": "ar"
+ }
+]

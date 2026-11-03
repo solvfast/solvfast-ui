@@ -10,6 +10,9 @@
 import type { FrappeTransport } from "./client";
 import type { FrappeFilter } from "./query";
 
+/** Formatting settings the app supplies (boot sysdefaults equivalents) — defined with `formatValue`. */
+export type { FormatContext } from "./services/format";
+
 export type Check = 0 | 1;
 
 // ---- Metadata (getdoctype → `docs`: the DocType first, then its child-table DocTypes) --------------------------------

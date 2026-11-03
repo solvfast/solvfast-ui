@@ -8,3 +8,5 @@ export type { FrappeSession, BuildPermissionsInput } from "./permissions";
 export { applySavedDoc, applyDeletedDoc, applyRenamedDoc, applyDocInfoChange, applyRealtimeEvent, seedDocInfo } from "./cache";
 export { createSocketRealtime } from "./realtime";
 export type { SocketLike } from "./realtime";
+export { resolveIndicator, colourTone, styleColour, styleTone, feedbackTone, toListTone, STYLE_COLOUR } from "./indicator";
+export type { IndicatorInput as ResolveIndicatorInput, IndicatorResult, IndicatorSource as ResolvedIndicatorSource, IndicatorToneName, IndicatorWord } from "./indicator";

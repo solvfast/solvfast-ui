@@ -1,0 +1,104 @@
+{
+ "doctype": "DocType",
+ "name": "SFUI Test Child",
+ "module": "SFUI Test",
+ "custom": 1,
+ "istable": 1,
+ "editable_grid": 1,
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Data",
+   "label": "Item Code",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "label": "Qty",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "contact",
+   "fieldtype": "Link",
+   "label": "Contact",
+   "options": "SFUI Test Contact",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "label": "Rate",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Kind",
+   "options": "\nNormal\nSpecial",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "special_note",
+   "fieldtype": "Data",
+   "label": "Special Note",
+   "depends_on": "eval:doc.kind=='Special'",
+   "mandatory_depends_on": "eval:parent.status=='Open' && doc.idx > 1"
+  },
+  {
+   "fieldname": "row_locked",
+   "fieldtype": "Data",
+   "label": "Row Locked",
+   "read_only_depends_on": "eval:parent.test_field=='Some Other Value'"
+  },
+  {
+   "fieldname": "ref_type",
+   "fieldtype": "Link",
+   "label": "Ref Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "ref_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Ref Name",
+   "options": "ref_type"
+  },
+  {
+   "fieldname": "note_1",
+   "fieldtype": "Data",
+   "label": "Note 1"
+  },
+  {
+   "fieldname": "note_2",
+   "fieldtype": "Data",
+   "label": "Note 2"
+  },
+  {
+   "fieldname": "note_3",
+   "fieldtype": "Data",
+   "label": "Note 3"
+  },
+  {
+   "fieldname": "note_4",
+   "fieldtype": "Data",
+   "label": "Note 4"
+  },
+  {
+   "fieldname": "note_5",
+   "fieldtype": "Data",
+   "label": "Note 5"
+  },
+  {
+   "fieldname": "note_6",
+   "fieldtype": "Data",
+   "label": "Note 6"
+  }
+ ],
+ "permissions": []
+}

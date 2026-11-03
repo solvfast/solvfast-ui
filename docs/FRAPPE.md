@@ -1,5 +1,10 @@
 # The Frappe layer — `@solvfast/ui/frappe`
 
+> **0.4.0 — simulated backend.** `@solvfast/ui/frappe/testing` (`createFixtureTransport`) answers the client's calls
+> from memory for demos and shape tests. It does **not** reproduce Frappe's naming, permissions, validation or child-row
+> rules; results obtained on it are "Simulated", never "verified against Frappe". See `docs/qa/simulator-caveats.md`.
+
+
 An optional entry point that runs the List View on a Frappe DocType with **stock Frappe APIs only** (no app-specific
 backend). The core package (`@solvfast/ui`) never imports it; `scripts/check-boundaries.mjs` enforces that on the
 source and on the built files.

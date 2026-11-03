@@ -1,0 +1,101 @@
+{
+ "workflow_states": [
+  {
+   "workflow_state_name": "SFUI Draft",
+   "style": "Primary",
+   "icon": "edit"
+  },
+  {
+   "workflow_state_name": "SFUI Pending",
+   "style": "Warning",
+   "icon": "time"
+  },
+  {
+   "workflow_state_name": "SFUI Approved",
+   "style": "Success",
+   "icon": "ok-sign"
+  },
+  {
+   "workflow_state_name": "SFUI Rejected",
+   "style": "Danger",
+   "icon": "remove"
+  }
+ ],
+ "workflow_actions": [
+  "SFUI Request Approval",
+  "SFUI Approve",
+  "SFUI Approve Large",
+  "SFUI Reject",
+  "SFUI Reopen"
+ ],
+ "workflow": {
+  "doctype": "Workflow",
+  "workflow_name": "SFUI Test Workflow Flow",
+  "document_type": "SFUI Test Workflow",
+  "is_active": 1,
+  "override_status": 0,
+  "send_email_alert": 0,
+  "workflow_state_field": "workflow_state",
+  "states": [
+   {
+    "state": "SFUI Draft",
+    "doc_status": "0",
+    "allow_edit": "SFUI Tester"
+   },
+   {
+    "state": "SFUI Pending",
+    "doc_status": "0",
+    "allow_edit": "SFUI Approver"
+   },
+   {
+    "state": "SFUI Approved",
+    "doc_status": "1",
+    "allow_edit": "SFUI Approver"
+   },
+   {
+    "state": "SFUI Rejected",
+    "doc_status": "0",
+    "allow_edit": "SFUI Tester"
+   }
+  ],
+  "transitions": [
+   {
+    "state": "SFUI Draft",
+    "action": "SFUI Request Approval",
+    "next_state": "SFUI Pending",
+    "allowed": "SFUI Tester",
+    "allow_self_approval": 1
+   },
+   {
+    "state": "SFUI Pending",
+    "action": "SFUI Approve",
+    "next_state": "SFUI Approved",
+    "allowed": "SFUI Approver",
+    "allow_self_approval": 0,
+    "condition": "doc.amount < 1000"
+   },
+   {
+    "state": "SFUI Pending",
+    "action": "SFUI Approve Large",
+    "next_state": "SFUI Approved",
+    "allowed": "SFUI Approver",
+    "allow_self_approval": 0,
+    "condition": "doc.amount >= 1000"
+   },
+   {
+    "state": "SFUI Pending",
+    "action": "SFUI Reject",
+    "next_state": "SFUI Rejected",
+    "allowed": "SFUI Approver",
+    "allow_self_approval": 1
+   },
+   {
+    "state": "SFUI Rejected",
+    "action": "SFUI Reopen",
+    "next_state": "SFUI Draft",
+    "allowed": "SFUI Tester",
+    "allow_self_approval": 1
+   }
+  ]
+ }
+}

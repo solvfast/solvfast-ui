@@ -1,0 +1,60 @@
+{
+ "contacts": {
+  "count": 61,
+  "name_pattern": "SFUI Contact {n:03d}",
+  "email_pattern": "sfui-contact-{n:03d}@example.com",
+  "status_cycle": [
+   "Active",
+   "Active",
+   "Inactive"
+  ],
+  "note": "61 rows crosses the 50-row search page and the 20/100 list page sizes"
+ },
+ "parents": [
+  {
+   "key": "draft_basic",
+   "title": "SFUI Draft Basic",
+   "status": "Draft",
+   "contact_index": 1,
+   "owner": "sfui-tester@example.com",
+   "items": 2
+  },
+  {
+   "key": "with_rows",
+   "title": "SFUI With Rows",
+   "status": "Open",
+   "contact_index": 2,
+   "owner": "sfui-tester@example.com",
+   "items": 12
+  },
+  {
+   "key": "submitted",
+   "title": "SFUI Submitted",
+   "status": "Closed",
+   "contact_index": 3,
+   "owner": "sfui-tester@example.com",
+   "items": 1,
+   "submit": true
+  }
+ ],
+ "workflow_docs": [
+  {
+   "key": "wf_small",
+   "subject": "SFUI Small Request",
+   "amount": 200,
+   "owner": "sfui-tester@example.com"
+  },
+  {
+   "key": "wf_large",
+   "subject": "SFUI Large Request",
+   "amount": 5000,
+   "owner": "sfui-tester@example.com"
+  },
+  {
+   "key": "wf_by_approver",
+   "subject": "SFUI Self Approval Probe",
+   "amount": 50,
+   "owner": "sfui-approver@example.com"
+  }
+ ]
+}
