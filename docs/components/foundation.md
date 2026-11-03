@@ -245,12 +245,44 @@ amend …) in Frappe's request / response **shapes**. Errors are built as Frappe
 `toFrappeError`. It keeps named documents with child rows, bumps and checks `modified`, checks static `reqd`, docstatus
 transitions, drops client-invented child rows like Frappe does, names documents like `model/naming.py`, derives
 assignees from ToDo docs, writes Version docs and Workflow comments. Options: `strict` (Link existence and Select
-options), `roles`, `handlers` (extra methods, `run_doc_method:<name>`), `listSettings`, `now`.
+options), `roles`, `permissions` (below), `handlers` (extra methods, `run_doc_method:<name>`), `listSettings`, `now`.
 
-**What it is NOT:** evidence of Frappe behaviour. It has no permission model (the session user may do everything), no
-format / length / unique validation, no server-side `fetch_from`, no workflow conditions or self-approval check, no
-files, no realtime. A green test on it says the component builds the right requests and renders the right shapes —
-nothing about what a site accepts. Report results on it as "Simulated". Read
+**Simulated permissions (opt-in, Phase 27).** Pass `permissions` and the simulator evaluates every call for that
+session, approximating the server (frappe/permissions.py, db_query.py, document.py, load.py — rules and lines in
+[the caveats §4](../qa/simulator-caveats.md#4-opt-in-permission-model-createfixturetransportbackend--permissions--phase-27)):
+
+```ts
+import { createFixtureTransport, simScenario } from "@solvfast/ui/frappe/testing";
+const transport = createFixtureTransport(backend, {
+  permissions: simScenario.userPermissions("omar@example.com", ["Data Entry"],
+    [{ allow: "User", for_value: "omar@example.com", applicable_for: "Travel Request" }],
+    { shares: [{ share_doctype: "Travel Request", share_name: "TR-0002", user: "omar@example.com", read: 1 }] }),
+});
+<FrappeProvider client={createFrappeClient({ transport, files: transport.files })} session={transport.store.session}>…
+```
+
+- Roles as `get_roles` gives them (assigned + All + Guest, + Desk User for a System User); the **Administrator** user
+  passes everything. DocPerm rows × roles at level 0 with `if_owner`; User Permissions (`allow`, `for_value`,
+  `applicable_for`, strict mode); DocShare rows (`shares`; `assign_to.add` adds a read share like Desk); controller hooks
+  you declare (`hooks`, built-in: ToDo).
+- `getdoctype` always loads; `getdoc` / lists / counts / `get_value` / `search_link` answer **403** without read and
+  return only the rows the session may read; `docinfo.permissions` = `get_doc_permissions`, `docinfo.shared` = the
+  doc's shares; permlevel > 0 values the roles cannot read are stripped from docs (absent in getdoc, null after a save)
+  and dropped from list columns; saves reset values of permlevels the roles cannot write.
+- `savedocs` (create / write / submit / cancel), `delete`, `delete_items`, `rename_doc`, `apply_workflow` (+ self-approval),
+  `assign_to.*`, comments and `transport.files.download` (`download_template` + `can_export`) refuse with the server's
+  error bodies (403 `_error_message` + check logs).
+- Seven named builders (`simScenario.*`): administrator, full-access role, read-only role, restricted DocType, restricted
+  fields (permlevel), User Permissions, unknown roles (the client gets no roles — rule 9 — while the server evaluates the
+  automatic roles, as `get_roles` always appends them). `transport.store.session` is the session to give the client.
+- Without `permissions` nothing changes (every right, as before).
+
+**What it is NOT:** evidence of Frappe behaviour. Without `permissions` it has no permission model (the session user may
+do everything); with it, the decisions are an approximation (no Custom DocPerm, no hooks other than declared / ToDo, no
+tree User Permissions …). No format / length / unique validation, no server-side `fetch_from`, no workflow conditions,
+no file storage (the `files` transport answers `download_template` with a text file labelled SIMULATED — labels and
+request echo, never data — and refuses uploads), no realtime. A green test on it says the component builds the right
+requests and renders the right shapes — nothing about what a site accepts. Report results on it as "Simulated". Read
 **[the simulator caveats](../qa/simulator-caveats.md)** (QA) before relying on it for anything else.
 
 ## 12. Known limitations and UNVERIFIED points

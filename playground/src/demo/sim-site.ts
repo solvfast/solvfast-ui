@@ -204,7 +204,7 @@ export function createSimSite(o: SimSiteOptions = {}): SimSite {
     if (method === "frappe.desk.form.load.getdoc" && r.docinfo) return { ...r, docinfo: { ...(r.docinfo as Record<string, unknown>), permissions: perms } };
     if (method === "frappe.desk.form.load.get_docinfo" && r.message) return { ...r, message: { ...(r.message as Record<string, unknown>), permissions: perms } };
     return r;
-  }, { store: base.store }) : base;
+  }, { store: base.store, files: base.files, permissions: base.permissions }) : base;
   const client = createFrappeClient({ transport, files: o.files ?? simulatedFiles("none") });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   let extra = 0;

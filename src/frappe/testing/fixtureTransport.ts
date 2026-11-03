@@ -16,8 +16,10 @@
  * comments, `_assign`, `_comments`, list user settings. Errors are built as Frappe's error bodies and passed through
  * the client's own parser (`toFrappeError`), exactly like the HTTP transport.
  */
-import { toFrappeError, type FrappeResponse, type FrappeTransport } from "../client";
-import type { DocTypeMeta, FixtureBackend, FrappeDoc, FrappeDocField, WorkflowInfo } from "../contract";
+import { toFrappeError, type DownloadedFile, type FrappeFilesTransport, type FrappeResponse, type FrappeTransport } from "../client";
+import type { DocTypeMeta, FixtureBackend, FrappeDoc, FrappeDocField, PermType, WorkflowInfo } from "../contract";
+import type { FrappeSession } from "../services/permissions";
+import { createPermissionEngine, permissionError, type PermissionEngine, type SimulatedPermissions } from "./permissions";
 import { fieldCurrency, formatDate, formatDatetime, formatDuration, formatNumber, formatTime, numberFormatPrecision, type FormatContext } from "../services/format";
 
 type Row = Record<string, unknown>;
@@ -27,8 +29,17 @@ export type FixtureHandler = (args: Record<string, unknown>, backend: FixtureSto
 export interface FixtureOptions {
   /** Extra or overriding methods (custom whitelisted methods, controller methods via "run_doc_method:<method>"). */
   handlers?: Record<string, FixtureHandler>;
-  /** The simulated user's roles (workflow transitions are filtered by them). Default: every role is allowed. */
+  /** The simulated user's roles (workflow transitions are filtered by them). Default: every role is allowed. Ignored
+   *  when `permissions` is given (the evaluated roles are used). */
   roles?: string[];
+  /**
+   * Opt-in SERVER-SIDE permission evaluation (SIMULATED approximation of frappe/permissions.py; see ./permissions.ts and
+   * docs/qa/simulator-caveats.md §4): the session user, its roles, User Permissions, DocShare rows, controller hooks.
+   * Every call is then evaluated from DocPerm rows × roles: getdoc / lists / saves / deletes / workflow / assignment /
+   * download_template answer 403 without the right, permlevel > 0 values the roles cannot read are stripped, and
+   * `docinfo.permissions` / `docinfo.shared` are computed. Without it the simulator behaves as before (every right).
+   */
+  permissions?: SimulatedPermissions;
   /** Fixed clock for `modified` / `creation` (tests). Default: the real clock. */
   now?: () => Date;
   /**
@@ -56,10 +67,25 @@ export interface FixtureStore {
   userSettings: Record<string, string>;
   user: string;
   calls: FixtureCall[];
+  /** With `options.permissions`: the session the CLIENT should be given (`FrappeProvider session`) — the evaluated
+   *  roles, or none when the scenario says the client does not know them. Undefined otherwise. */
+  session?: FrappeSession;
+  /** Messages the server would push over realtime instead of answering them (`msgprint(..., realtime=True)`), e.g.
+   *  delete_items' "Failed to delete …" (reportview.py:608-616). The simulator has no socket; they are kept here. */
+  published: { event: string; message: string; title?: string }[];
 }
 
-export type FixtureTransport = FrappeTransport & { store: FixtureStore };
+export type FixtureTransport = FrappeTransport & {
+  store: FixtureStore;
+  /** The SIMULATED file server for `createFrappeClient({ files })`: `download_template` answers a small text file that
+   *  says it is simulated (labels and the request echo — never data); uploads are refused (417). With
+   *  `options.permissions` the download is permission-checked first (data_import.py:188, exporter.py:116-126). */
+  files: FrappeFilesTransport;
+  /** The permission evaluator when `options.permissions` is given (tests / tooling), else null. */
+  permissions: PermissionEngine | null;
+};
 
+const DOWNLOAD_TEMPLATE = "frappe.core.doctype.data_import.data_import.download_template";
 const LAYOUT = new Set(["Section Break", "Column Break", "Tab Break", "HTML", "Heading", "Fold", "Button", "Image", "Page Break"]);
 const TABLES = new Set(["Table", "Table MultiSelect"]);
 const STANDARD = ["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx", "parent", "parentfield", "parenttype", "_assign", "_comments", "_liked_by", "_user_tags", "_seen"];
@@ -182,10 +208,10 @@ export const BUILTIN_FIXTURE_META: Record<string, DocTypeMeta[]> = {
 
 export function createFixtureTransport(backend: FixtureBackend, options: FixtureOptions = {}): FixtureTransport {
   const now = options.now ?? (() => new Date());
-  const user = backend.user ?? "Administrator";
+  const user = options.permissions?.user ?? backend.user ?? "Administrator";
   const store: FixtureStore = {
     docs: new Map(), meta: { ...clone(BUILTIN_FIXTURE_META), ...clone(backend.meta) }, workflows: clone(backend.workflows ?? {}), comments: new Map(), todos: new Map(),
-    userSettings: {}, user, calls: [],
+    userSettings: {}, user, calls: [], published: [],
   };
   store.docs.set("ToDo", store.todos as Map<string, FrappeDoc>);
   let lastTs = 0;
@@ -206,6 +232,19 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
   };
   const hash = () => { let s = ""; while (s.length < 10) s += Math.random().toString(36).slice(2); return s.slice(0, 10); };
   const tableFields = (meta: DocTypeMeta | undefined) => (meta?.fields ?? []).filter((f) => TABLES.has(f.fieldtype) && f.options);
+
+  /** The permission model (opt-in `options.permissions`); null = the historical "every right" simulator. */
+  const P: PermissionEngine | null = options.permissions ? createPermissionEngine({
+    config: options.permissions,
+    metaOf,
+    allMetas: () => Object.values(store.meta).flat(),
+    knownRoles: () => Object.values(store.workflows).flatMap((w) => [...w.transitions.map((t) => t.allowed), ...w.states.map((st) => st.allow_edit)]).filter((r): r is string => !!r),
+    userDoc: (u) => store.docs.get("User")?.get(u),
+    shares: () => [...(store.docs.get("DocShare")?.values() ?? [])],
+    stored: (doctype, name) => store.docs.get(doctype)?.get(name),
+  }) : null;
+  /** The doc as the session may see it (P on): unreadable permlevel values removed (`absent`) or nulled (`null`). */
+  const visible = (doc: FrappeDoc, mode: "absent" | "null" = "absent"): FrappeDoc => (P ? P.stripDoc(doc, mode) : doc);
   const permissions = (meta: DocTypeMeta) => ({
     select: 1, read: 1, write: 1, create: 1, delete: 1, report: 1, export: 1, import: 1, print: 1, email: 1, share: 1,
     submit: meta.is_submittable ? 1 : 0, cancel: meta.is_submittable ? 1 : 0, amend: meta.is_submittable ? 1 : 0,
@@ -335,14 +374,17 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     const doc = table(doctype).get(name);
     if (doc?.owner) users.add(String(doc.owner));
     if (doc?.modified_by) users.add(String(doc.modified_by));
+    // P on: `shared` = the doc's DocShare rows (share.py:132-152), `permissions` = get_doc_permissions (load.py:129-130)
+    const shared = doc && P ? P.docShares(doc) : [];
+    for (const s of shared) if (s.user) users.add(String(s.user)); // load.py:492
     return {
-      doctype, name, attachments: [], communications: [], automated_messages: [], views: [], shared: [], milestones: [],
+      doctype, name, attachments: [], communications: [], automated_messages: [], views: [], shared, milestones: [],
       versions: meta.track_changes ? [...table("Version").values()].filter((v) => v.ref_doctype === doctype && v.docname === name).slice(-10).reverse().map((v) => ({ name: v.name, owner: v.owner, creation: v.creation, data: v.data })) : [],
       energy_point_logs: [], additional_timeline_content: [], tags: "", document_email: null, is_document_followed: 0,
       comments: byType("Comment").map((c) => ({ name: c.name, content: c.content, owner: c.owner, creation: c.creation, comment_type: "Comment", comment_email: c.comment_email, comment_by: c.comment_by })),
       assignment_logs: byType("Assigned", "Assignment Completed"), attachment_logs: byType("Attachment", "Attachment Removed"),
       info_logs: byType("Info", "Edit", "Label"), like_logs: byType("Like"), workflow_logs: byType("Workflow"),
-      assignments, permissions: permissions(meta),
+      assignments, permissions: doc && P ? P.docPermissions(doc) : permissions(meta),
       user_info: Object.fromEntries([...users].filter(Boolean).map((u) => [u, userInfoFn(u)])),
     };
   }
@@ -392,23 +434,53 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     }
   }
 
-  function assign(doctype: string, name: string, users: string[], a: Row) {
-    get(doctype, name);
+  function assign(doctype: string, name: string, users: string[], a: Row, sharedWith: string[] = []) {
+    const target = get(doctype, name);
+    if (P) P.assertDoc(target, "read"); // assign_to.py:67-68 (check_permission, "read")
     const dup: string[] = [];
     for (const u of users) {
       if ([...store.todos.values()].some((t) => t.reference_type === doctype && t.reference_name === name && t.allocated_to === u && t.status === "Open")) { dup.push(u); continue; }
       const ts = stamp();
       const todo: Row = { doctype: "ToDo", name: hash(), allocated_to: u, reference_type: doctype, reference_name: name, description: a.description || `Assignment for ${doctype} ${name}`, priority: a.priority || "Medium", status: "Open", date: a.date || ymd(now()), assigned_by: user, owner: user, creation: ts, modified: ts, modified_by: user, docstatus: 0, idx: 0 };
+      // P on: an assignee without read is given a read share (assign_to.py:101-114 → share.add, which first checks that
+      // the ASSIGNER may share, share.py:216-244); sharing disabled → "Missing Permission". Checked before the ToDo is
+      // written: Frappe rolls the whole request back on these errors.
+      const needsShare = !!P && !P.hasPermission(doctype, "read", target, { user: u });
+      if (P && needsShare) {
+        if (P.config.disableSharing) fail(417, "ValidationError", `User <strong>${u}</strong> is not permitted to access this document.<br>As document sharing is disabled, please give them the required permissions before assigning.`);
+        if (!P.hasPermission(doctype, "share", target)) throw permissionError(undefined, [`No permission to share ${doctype} ${name}`], true);
+      }
       store.todos.set(String(todo.name), todo);
       todoComment(todo);
+      if (needsShare) { addShare({ share_doctype: doctype, share_name: name, user: u, read: 1 }); sharedWith.push(u); }
     }
     syncAssign(doctype, name);
     return dup;
   }
+  /** A DocShare row (share.py add_docshare :36-72: one row per user and document, updated in place). */
+  function addShare(s: { share_doctype: string; share_name: string; user?: string; everyone?: 0 | 1; read?: 0 | 1; write?: 0 | 1; submit?: 0 | 1; share?: 0 | 1; owner?: string; creation?: string; name?: string }) {
+    const t = table("DocShare");
+    const existing = [...t.values()].find((x) => x.share_doctype === s.share_doctype && x.share_name === s.share_name && (s.everyone ? Number(x.everyone) === 1 : x.user === s.user));
+    const ts = stamp();
+    const row = { doctype: "DocShare", name: existing?.name ?? s.name ?? hash(), owner: s.owner ?? user, creation: s.creation ?? ts, modified: ts, modified_by: user, docstatus: 0, idx: 0, everyone: 0, read: 1, write: 0, submit: 0, share: 0, ...(existing ?? {}), ...s } as unknown as FrappeDoc;
+    t.set(row.name, row);
+    return row;
+  }
+  /** `frappe.has_permission(doctype, doc=name, throw=True)` (__init__.py:1028-1073) for a named doc. */
+  function assertDocNamed(doctype: string, name: string, ptype: PermType) {
+    const doc = get(doctype, name);
+    const logs: string[] = [];
+    if (!P || P.hasPermission(doctype, ptype, doc, { logs })) return;
+    P.assertDoctype(doctype, ptype, { ignoreShare: true });
+    throw permissionError(`No permission for ${doctype} ${name}`, [logs.join("<br>")]);
+  }
 
   // ---- rows (get_list / reportview) -------------------------------------------------------------------------------
-  function rowsFor(doctype: string, a: Record<string, unknown>): Row[] {
+  /** Rows of a list query. P on: only the rows the session may read (`P.listFilter`, db_query.py:135, 993-1057; 403
+   *  without read). `reference_doctype` scopes User Permissions' `applicable_for` like Desk's link searches. */
+  function rowsFor(doctype: string, a: Record<string, unknown>, ignorePermissions = false): Row[] {
     const meta = requireMeta(doctype);
+    const allowed = P ? P.listFilter(doctype, { referenceDoctype: a.reference_doctype ? String(a.reference_doctype) : undefined, ignorePermissions }) : undefined;
     const known = new Set([...meta.fields.filter((f) => !LAYOUT.has(f.fieldtype)).map((f) => f.fieldname), ...STANDARD]);
     const t = now();
     const test = (doc: FrappeDoc, f: Filter) => {
@@ -424,7 +496,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     };
     const filters = toFilters(a.filters, doctype);
     const orFilters = toFilters(a.or_filters, doctype);
-    let rows = [...table(doctype).values()].filter((d) => filters.every((f) => test(d, f)) && (!orFilters.length || orFilters.some((f) => test(d, f))));
+    let rows = [...table(doctype).values()].filter((d) => filters.every((f) => test(d, f)) && (!orFilters.length || orFilters.some((f) => test(d, f))) && (!allowed || allowed(d)));
     const order = String(a.order_by ?? `${meta.sort_field || "modified"} ${meta.sort_order || "desc"}`);
     // "f desc", "`tabCRM Lead`.`modified` desc, `tabCRM Lead`.`name` desc" (DocType names may contain spaces)
     const parts = order.split(",").map((p) => p.trim()).filter(Boolean).map((p) => {
@@ -439,12 +511,18 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     const known = new Set([...meta.fields.filter((f) => !LAYOUT.has(f.fieldtype)).map((f) => f.fieldname), ...STANDARD]);
     const fields = (parse(fieldsRaw) as string[] | undefined) ?? ["name"];
     const list = fields.length ? fields : ["name"];
+    // P on: `apply_fieldlevel_read_permissions` (db_query.py:668-760) — columns of permlevels the roles cannot read are
+    // dropped from the select (so they are absent from the keys), `*` expands to the permitted ones only
+    const permitted = P ? P.permittedFields(doctype) : null;
+    const childPermitted = (dt: string) => (P ? P.permittedFields(dt, doctype) : null);
     const cols = list.flatMap((spec): { key: string; dt?: string; f: string }[] => {
       const s = String(spec).trim();
-      if (s === "*" || unquote(s) === `tab${doctype}.*`) return [...known].filter((k) => !k.startsWith("parent")).map((k) => ({ key: k, f: k }));
+      if (s === "*" || unquote(s) === `tab${doctype}.*`) return [...known].filter((k) => !k.startsWith("parent") && (!permitted || permitted.has(k))).map((k) => ({ key: k, f: k }));
       const alias = /\s+as\s+(.+)$/i.exec(s);
       const [dt, f] = splitField(alias ? s.slice(0, alias.index) : s);
       if ((dt ?? doctype) === doctype && !known.has(f)) fail(417, "DataError", `Field not permitted in query: ${f}`);
+      if ((dt ?? doctype) === doctype && permitted && !permitted.has(f)) return [];
+      if (dt && dt !== doctype) { const cp = childPermitted(dt); if (cp && !cp.has(f)) return []; }
       return [{ key: alias ? unquote(alias[1]) : f, dt, f }];
     });
     const out = rows.map((r) => {
@@ -472,6 +550,10 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     // Document.save: not new → load_doc_before_save raises DoesNotExistError for a name that is not stored
     const previous = isNew ? undefined : table(meta.name).get(String(raw.name)) ?? notFound(`${meta.name} ${String(raw.name)}`);
     const target = action === "Save" ? 0 : action === "Cancel" ? 2 : 1;
+    // P on: the POSTED doc is checked (frappe.get_doc(json), save.py:18) — `create` in insert (document.py:300; a new doc
+    // has no name yet, set_local_name save.py:75-84), `write` in _save (:404), both before the timestamp check
+    const posted = { ...raw, doctype: meta.name, name: isNew ? "" : raw.name, owner: isNew ? user : raw.owner ?? previous?.owner } as FrappeDoc;
+    if (P) P.assertDoc(posted, isNew ? "create" : "write");
     if (previous) {
       // check_if_latest compares always: a doc posted without `modified` is a mismatch too
       if (String(previous.modified ?? "") !== String(raw.modified ?? "")) {
@@ -483,6 +565,12 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       if (from === 0 && target === 2) fail(417, "DocstatusTransitionError", "Cannot change docstatus from 0 (Draft) to 2 (Cancelled)");
     }
     if (target === 1 && !meta.is_submittable) fail(417, "ValidationError", `${meta.name} is not submittable`);
+    // P on: check_docstatus_transition (document.py:880-915) — 0→1 and 1→1 (update after submit) need submit, 1→2 cancel
+    if (P) {
+      const from = previous ? Number(previous.docstatus ?? 0) : 0;
+      const need: PermType | null = target === 1 ? "submit" : target === 2 && from === 1 ? "cancel" : null;
+      if (need) P.assertDoc(posted, need);
+    }
     if (isNew && raw.amended_from && Number(table(meta.name).get(String(raw.amended_from))?.docstatus) !== 2) {
       // Document.validate_amended_from
       fail(417, "ValidationError", `${meta.name} ${String(raw.amended_from)} cannot be amended because it is not cancelled. Please cancel the document before creating an amendment.`, {});
@@ -493,6 +581,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     let doc: FrappeDoc;
     try {
       doc = prepare(meta, { ...raw, docstatus: target as 0 | 1 | 2 }, isNew, previous, dropped);
+      if (P) P.resetUnwritable(meta, doc, previous); // validate_higher_perm_levels (document.py:306, 412)
       if (options.strict && target !== 2) validateLinks(meta, doc);
       if (target !== 2) {
         const missing = missingMandatory(meta, doc);
@@ -675,12 +764,15 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     if (!wf) fail(417, "ValidationError", `No active workflow for ${doc.doctype}`);
     const state = doc[wf.workflow_state_field];
     if (!state) fail(417, "WorkflowStateError", "Workflow State not set");
-    // SIMULATED: `condition` is not evaluated; roles filter only when `options.roles` is given
-    return wf.transitions.filter((t) => t.state === state && (!options.roles || options.roles.includes(t.allowed)));
+    // SIMULATED: `condition` is not evaluated; roles filter only when `options.roles` is given — or, P on, by the
+    // evaluated roles (workflow.py:63-68; Administrator holds every role)
+    const roles = P ? P.rolesOf() : options.roles;
+    return wf.transitions.filter((t) => t.state === state && (!roles || roles.includes(t.allowed)));
   }
 
+  // send_updated_docs (save.py:62-70): apply_fieldlevel_read_permissions, then as_dict() — stripped keys come back null
   const docResponse = (doc: FrappeDoc, message: string, extra: Row = {}): FrappeResponse => ({
-    docs: [clone(doc)], docinfo: docinfo(doc.doctype, doc.name), _server_messages: sm({ message, indicator: message === "Cancelled" ? "red" : "green", alert: 1 }), ...extra,
+    docs: [clone(visible(doc, "null"))], docinfo: docinfo(doc.doctype, doc.name), _server_messages: sm({ message, indicator: message === "Cancelled" ? "red" : "green", alert: 1 }), ...extra,
   });
 
   const handlers: Record<string, FixtureHandler> = {
@@ -697,18 +789,39 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       }
       return { docs, user_settings: store.userSettings[doctype] ?? "{}" };
     },
+    // getdoctype (load.py:62-79) has no permission check: any logged-in user loads the meta, P on or off
     "frappe.desk.form.load.getdoc": (a) => {
       requireMeta(a.doctype);
-      const doc = table(String(a.doctype)).get(String(a.name));
-      return doc ? { docs: [clone(doc)], docinfo: docinfo(doc.doctype, doc.name), _link_titles: {} } : { docs: [] };
+      const doctype = String(a.doctype);
+      const doc = table(doctype).get(String(a.name));
+      if (P) {
+        // load.py:33-45: a missing doc answers [] after check_doctype_permission; an unreadable one 403 "Insufficient
+        // Permission for …" (check_doctype_permission first: "No permission for X" when the DocType itself is denied)
+        if (!doc) { P.assertDoctype(doctype, "read", { ignoreShare: true }); return { docs: [] }; }
+        const logs: string[] = [];
+        if (!P.hasPermission(doctype, "read", doc, { logs })) {
+          P.assertDoctype(doctype, "read", { ignoreShare: true });
+          throw permissionError(`Insufficient Permission for <strong>${doctype} ${doc.name}</strong>`, [logs.join("<br>")]);
+        }
+      }
+      return doc ? { docs: [clone(visible(doc))], docinfo: docinfo(doc.doctype, doc.name), _link_titles: {} } : { docs: [] };
     },
-    "frappe.desk.form.load.get_docinfo": (a) => { get(String(a.doctype), a.name); return { docinfo: docinfo(String(a.doctype), String(a.name)) }; },
+    "frappe.desk.form.load.get_docinfo": (a) => {
+      const doc = get(String(a.doctype), a.name);
+      if (P && !P.hasPermission(doc.doctype, "read", doc)) throw permissionError(undefined); // load.py:103-105: a bare PermissionError
+      return { docinfo: docinfo(String(a.doctype), String(a.name)) };
+    },
     "frappe.desk.form.load.get_communications": () => ({ message: [] }),
-    "frappe.client.get": (a) => ({ message: clone(get(String(a.doctype), a.name)) }),
+    // client.py:93-111: check_permission("read"), then apply_fieldlevel_read_permissions + as_dict()
+    "frappe.client.get": (a) => { const doc = get(String(a.doctype), a.name); if (P) P.assertDoc(doc, "read"); return { message: clone(visible(doc, "null")) }; },
     "frappe.client.get_value": (a) => {
-      const rows = rowsFor(String(a.doctype), { filters: a.filters ?? (a.name ? { name: a.name } : undefined) });
+      const doctype = String(a.doctype);
+      // client.py:125-126: DocType-level read (shares count), then get_list with the row filter and field stripping
+      if (P && !P.hasPermission(doctype, "read")) throw permissionError(undefined, [`No permission for ${doctype}`], true);
+      const rows = rowsFor(doctype, { filters: a.filters ?? (a.name ? { name: a.name } : undefined) });
       const fields = parse(a.fieldname);
-      const list = Array.isArray(fields) ? (fields as string[]) : [String(fields ?? "name")];
+      const permitted = P ? P.permittedFields(doctype) : null;
+      const list = (Array.isArray(fields) ? (fields as string[]) : [String(fields ?? "name")]).filter((f) => !permitted || permitted.has(f));
       return { message: rows[0] ? Object.fromEntries(list.map((f) => [f, rows[0][f] ?? null])) : {} };
     },
     "frappe.desk.form.save.savedocs": (a) => {
@@ -732,16 +845,34 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       return { message: clone(save({ ...cur, ...patch }, Number(cur.docstatus) === 1 ? "Update" : "Save")) };
     },
     "frappe.client.delete": (a) => {
-      if (a.doctype === "Comment") { if (!store.comments.delete(String(a.name))) notFound(`Comment ${String(a.name)}`); return {}; }
+      if (a.doctype === "Comment") {
+        const c = store.comments.get(String(a.name)) ?? notFound(`Comment ${String(a.name)}`);
+        // P on: the Comment DocType's rows (comment.json: System Manager / Website Manager delete), delete_doc.py:240-250
+        if (P && user !== "Administrator" && !P.hasPermission("Comment", "delete", { ...c, doctype: "Comment" } as FrappeDoc)) throw permissionError(undefined, [`User not allowed to delete Comment: ${String(a.name)}`], true);
+        store.comments.delete(String(a.name));
+        return {};
+      }
       get(String(a.doctype), a.name);
       const gone = table(String(a.doctype)).get(String(a.name))!;
+      // P on: check_permission_and_not_submitted (delete_doc.py:240-256) — the delete right first, then "submitted"
+      const logs: string[] = [];
+      if (P && user !== "Administrator" && !P.hasPermission(gone.doctype, "delete", gone, { logs })) throw permissionError(undefined, [logs.join("<br>"), `User not allowed to delete ${gone.doctype}: ${gone.name}`], true);
       if (Number(gone.docstatus) === 1) fail(417, "ValidationError", "Submitted Record cannot be deleted. You must Cancel it first.");
       table(String(a.doctype)).delete(String(a.name));
       if (a.doctype === "ToDo") syncAssign(String(gone.reference_type ?? ""), String(gone.reference_name ?? ""));
       return {};
     },
     "frappe.desk.reportview.delete_items": (a) => {
-      for (const n of (parse(a.items) as string[]) ?? []) handlers["frappe.client.delete"]({ doctype: a.doctype, name: n }, store);
+      const items = (parse(a.items) as string[]) ?? [];
+      if (!P) { for (const n of items) handlers["frappe.client.delete"]({ doctype: a.doctype, name: n }, store); return {}; }
+      // P on: delete_bulk (reportview.py:588-616) — each item on its own, failures retried once, then reported by a
+      // REALTIME msgprint (kept in store.published); the HTTP answer is empty either way
+      const attempt = (names: string[]) => names.filter((n) => { try { handlers["frappe.client.delete"]({ doctype: a.doctype, name: n }, store); return false; } catch { return true; } });
+      let failed = attempt([...items].sort().reverse());
+      if (failed.length && failed.length !== items.length) failed = attempt(failed);
+      store.published.push(failed.length
+        ? { event: "msgprint", title: "Bulk Operation Failed", message: `Failed to delete ${failed.length} documents: ${failed.join(", ")}` }
+        : { event: "msgprint", title: "Bulk Operation Successful", message: "Deleted all documents successfully" });
       return {};
     },
     "frappe.rename_doc": (a) => {
@@ -749,6 +880,9 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const cur = get(doctype, old);
       if (old === next) return { message: next };
       if (table(doctype).has(next) && !a.merge) fail(417, "ValidationError", `Another ${doctype} with name ${next} exists, select another name`);
+      // P on: rename_doc.py:378-388 — write on the old doc (and on the merge target)
+      if (P && !P.hasPermission(doctype, "write", cur)) fail(417, "ValidationError", `You need write permission on ${doctype} ${old} to rename`);
+      if (P && a.merge && table(doctype).has(next) && !P.hasPermission(doctype, "write", table(doctype).get(next))) fail(417, "ValidationError", `You need write permission on ${doctype} ${next} to merge`);
       table(doctype).delete(old);
       const renamed: FrappeDoc = { ...cur, name: next, modified: stamp() };
       for (const tf of tableFields(requireMeta(doctype))) renamed[tf.fieldname] = ((renamed[tf.fieldname] as Row[]) ?? []).map((r) => ({ ...r, parent: next }));
@@ -758,10 +892,26 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       return { message: next };
     },
     "frappe.client.validate_link": (a) => {
-      requireMeta(a.doctype);
-      const doc = [...table(String(a.doctype)).values()].find((d) => String(d.name).toLowerCase() === String(a.docname).toLowerCase());
+      const doctype = String(a.doctype);
+      const meta = requireMeta(doctype);
+      // P on: client.py:443-454 — select or read on the DocType, else 403
+      if (P && doctype !== "DocType") {
+        const parentDoctype = meta.istable ? String([...table(doctype).values()].find((d) => d.name === a.docname)?.parenttype ?? "") || undefined : undefined;
+        if (!(P.hasPermission(doctype, "select", undefined, { parentDoctype }) || P.hasPermission(doctype, "read", undefined, { parentDoctype }))) {
+          throw permissionError(undefined, [`You do not have Read or Select Permissions for <strong>${doctype}</strong>`], true);
+        }
+      }
+      const doc = [...table(doctype).values()].find((d) => String(d.name).toLowerCase() === String(a.docname).toLowerCase());
       if (!doc) return { message: { name: null } };
       const fields = (parse(a.fields) as string[] | undefined) ?? [];
+      if (P && fields.length) {
+        // client.py:470-483: the values come from get_value (DocType read, the row filter, field stripping); a
+        // PermissionError there becomes the "Cannot Fetch Values" message and only the name is answered
+        if (!P.hasPermission(doctype, "read")) return { message: { name: doc.name }, _server_messages: sm({ message: `You need <strong>Read</strong> permission to fetch values from <strong>${doctype}</strong> <strong>${doc.name}</strong>`, title: "Cannot Fetch Values", indicator: "orange" }) };
+        const row = rowsFor(doctype, { filters: { name: doc.name } })[0];
+        const permitted = P.permittedFields(doctype);
+        return { message: { name: doc.name, ...(row ? Object.fromEntries(fields.filter((f) => !permitted || permitted.has(f)).map((f) => [f, row[f] ?? null])) : {}) } };
+      }
       return { message: { name: doc.name, ...Object.fromEntries(fields.map((f) => [f, doc[f] ?? null])) } };
     },
     run_doc_method: (a) => {
@@ -798,12 +948,17 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     },
     // ---- cancel pre-flight and amend (form toolbar, docs 11 §5.4, §1.8) ----
     "frappe.desk.form.linked_with.get_submitted_linked_docs": (a) => {
+      if (P) assertDocNamed(String(a.doctype), String(a.name), "read"); // linked_with.py:45
       const docs = submittedLinkedDocs(String(a.doctype), String(a.name), (parse(a.ignore_doctypes_on_cancel_all) as string[] | undefined) ?? []);
       return { message: { docs, count: docs.length } };
     },
     "frappe.desk.form.linked_with.cancel_all_linked_docs": (a) => {
       const ignore = (parse(a.ignore_doctypes_on_cancel_all) as string[] | undefined) ?? [];
-      for (const d of (parse(a.docs) as { doctype: string; name: string }[] | undefined) ?? []) {
+      const targets = (parse(a.docs) as { doctype: string; name: string }[] | undefined) ?? [];
+      // P on: each doc.cancel() checks write + cancel (document.py:404, 909) and one failure aborts the request — the
+      // simulator checks them all first so nothing is half-cancelled
+      if (P) for (const d of targets) { const cur = store.docs.get(d.doctype)?.get(d.name); if (cur && Number(cur.docstatus) === 1 && !ignore.includes(d.doctype)) { P.assertDoc(cur, "write"); P.assertDoc(cur, "cancel"); } }
+      for (const d of targets) {
         const cur = store.docs.get(d.doctype)?.get(d.name);
         // validate_linked_doc: only submitted documents of DocTypes not exempted
         if (cur && Number(cur.docstatus) === 1 && !ignore.includes(d.doctype)) save({ ...cur }, "Cancel");
@@ -812,6 +967,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     },
     "frappe.client.is_document_amended": (a) => {
       requireMeta(a.doctype);
+      if (P && !P.hasPermission(String(a.doctype), "read")) return { message: false }; // client.py:425-432
       const hit = [...table(String(a.doctype)).values()].find((d) => d.amended_from === a.docname);
       // frappe.db.exists → the amending doc's name, or None (a None return leaves no `message` key)
       return hit ? { message: hit.name } : {};
@@ -828,7 +984,10 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const meta = requireMeta(doctype);
       const txt = String(a.txt ?? "").trim().toLowerCase();
       const searchFields = [meta.title_field, ...String(meta.search_fields ?? "").split(",").map((s) => s.trim())].filter((f): f is string => !!f && f !== "name");
-      let rows = rowsFor(doctype, { filters: a.filters, order_by: "idx desc, modified desc" });
+      // P on: search.py:185-204 — get_list with the row filter (User Permissions scoped by reference_doctype) unless
+      // ignore_user_permissions is set AND the user may read/select the DocType
+      const ignorePermissions = !!P && (doctype === "DocType" || (Number(a.ignore_user_permissions) === 1 && P.hasPermission(doctype, "read", undefined, { parentDoctype: a.reference_doctype ? String(a.reference_doctype) : undefined })));
+      let rows = rowsFor(doctype, { filters: a.filters, order_by: "idx desc, modified desc", reference_doctype: a.reference_doctype }, ignorePermissions);
       if (meta.fields.some((f) => f.fieldname === "enabled" && f.fieldtype === "Check")) rows = rows.filter((r) => Number(r.enabled) === 1);
       if (meta.fields.some((f) => f.fieldname === "disabled" && f.fieldtype === "Check")) rows = rows.filter((r) => Number(r.disabled) !== 1);
       if (txt) rows = rows.filter((r) => ["name", ...searchFields].some((f) => String(r[f] ?? "").toLowerCase().includes(txt)));
@@ -849,13 +1008,17 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     "frappe.model.workflow.get_transitions": (a) => {
       const posted = parse(a.doc) as FrappeDoc;
       const doc = table(posted.doctype).get(posted.name);
+      if (doc && P) P.assertDoc(doc, "read"); // workflow.py:52
       return { message: doc ? clone(transitionsFor(doc)) : [] };
     },
     "frappe.model.workflow.apply_workflow": (a) => {
       const posted = parse(a.doc) as FrappeDoc;
       const cur = get(posted.doctype, posted.name); // like Frappe: the posted edits are discarded (load_from_db)
       const wf = workflowOf(cur.doctype)!;
+      if (P) P.assertDoc(cur, "read");
       const t = transitionsFor(cur).find((x) => x.action === a.action) ?? fail(417, "WorkflowTransitionError", "Not a valid Workflow Action");
+      // P on: has_approval_access (workflow.py:116-117, 221-222)
+      if (P && !(user === "Administrator" || Number(t.allow_self_approval) === 1 || user !== cur.owner)) fail(417, "ValidationError", "Self approval is not allowed");
       const next = wf.states.find((s) => s.state === t.next_state) ?? fail(417, "ValidationError", `Unknown state ${t.next_state}`);
       const doc: FrappeDoc = { ...cur, [wf.workflow_state_field]: t.next_state, ...(next.update_field ? { [next.update_field]: next.update_value } : {}) };
       const from = Number(cur.docstatus ?? 0), to = Number(next.doc_status ?? 0);
@@ -869,31 +1032,43 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       return { message: !wf || !wf.transitions.some((t) => Number(wf.states.find((s) => s.state === t.next_state)?.doc_status) === 2) };
     },
     "frappe.desk.form.assign_to.add": (a) => {
-      const dup = assign(String(a.doctype), String(a.name), (parse(a.assign_to) as string[]) ?? [], a);
-      return { message: openAssignments(String(a.doctype), String(a.name)), ...(dup.length ? { _server_messages: sm({ message: `Already in the following Users ToDo list:${dup.join(", ")}` }) } : {}) };
+      const shared: string[] = [];
+      const dup = assign(String(a.doctype), String(a.name), (parse(a.assign_to) as string[]) ?? [], a, shared);
+      const msgs: Row[] = [];
+      if (shared.length) msgs.push({ message: `Shared with the following Users with Read access:<br><br>${shared.join("<br>")}` }); // assign_to.py:129-133
+      if (dup.length) msgs.push({ message: `Already in the following Users ToDo list:${dup.join(", ")}` });
+      return { message: openAssignments(String(a.doctype), String(a.name)), ...(msgs.length ? { _server_messages: sm(...msgs) } : {}) };
     },
     "frappe.desk.form.assign_to.add_multiple": (a) => {
-      for (const n of (parse(a.name) as string[]) ?? []) assign(String(a.doctype), n, (parse(a.assign_to) as string[]) ?? [], a);
+      const names = (parse(a.name) as string[]) ?? [];
+      // P on: add() checks each document (assign_to.py:67-68); one refusal fails the whole request — checked first
+      if (P) for (const n of names) P.assertDoc(get(String(a.doctype), n), "read");
+      for (const n of names) assign(String(a.doctype), n, (parse(a.assign_to) as string[]) ?? [], a, []);
       return {};
     },
     "frappe.desk.form.assign_to.remove": (a) => {
+      if (P) P.assertDoc(get(String(a.doctype), a.name), "read"); // set_status, assign_to.py:206-207
       for (const t of store.todos.values()) if (t.reference_type === a.doctype && t.reference_name === a.name && t.allocated_to === a.assign_to && t.status === "Open") { t.status = "Cancelled"; todoComment(t, "Open"); }
       syncAssign(String(a.doctype), String(a.name));
       return { message: openAssignments(String(a.doctype), String(a.name)) };
     },
     "frappe.desk.form.assign_to.close": (a) => {
+      if (P && a.assign_to !== user) fail(417, "ValidationError", "Only the assignee can complete this to-do."); // assign_to.py:197-198
+      if (P) P.assertDoc(get(String(a.doctype), a.name), "read");
       for (const t of store.todos.values()) if (t.reference_type === a.doctype && t.reference_name === a.name && t.allocated_to === a.assign_to && t.status === "Open") { t.status = "Closed"; todoComment(t, "Open"); }
       syncAssign(String(a.doctype), String(a.name));
       return { message: openAssignments(String(a.doctype), String(a.name)) };
     },
     "frappe.desk.form.utils.add_comment": (a) => {
-      get(String(a.reference_doctype), a.reference_name);
+      const ref = get(String(a.reference_doctype), a.reference_name);
+      if (P) P.assertDoc(ref, "read"); // desk/form/utils.py:31-32
       const c = addComment(String(a.reference_doctype), String(a.reference_name), "Comment", String(a.content ?? ""), { comment_email: a.comment_email || user, comment_by: a.comment_by || user });
       return { message: clone(c) };
     },
     "frappe.desk.form.utils.update_comment": (a) => {
       const c = store.comments.get(String(a.name)) ?? notFound(`Comment ${String(a.name)}`);
       if (c.owner !== user && user !== "Administrator") fail(403, "PermissionError", "Comment can only be edited by the owner");
+      if (P && c.reference_doctype && c.reference_name) P.assertDoc(get(String(c.reference_doctype), c.reference_name), "read"); // utils.py:59-63
       c.content = a.content;
       return {};
     },
@@ -934,6 +1109,53 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     const ts = stamp();
     table("User").set(user, { doctype: "User", name: user, email: user, first_name: user, full_name: user, user_type: "System User", enabled: 1, docstatus: 0, owner: "Administrator", creation: ts, modified: ts, modified_by: "Administrator" });
   }
+  // P on: the seeded DocShare rows, and the session the client should be given
+  for (const sh of options.permissions?.shares ?? []) addShare({ ...sh, everyone: sh.everyone ? 1 : 0, read: sh.read === undefined || sh.read ? 1 : 0, write: sh.write ? 1 : 0, submit: sh.submit ? 1 : 0, share: sh.share ? 1 : 0 });
+  if (P) store.session = P.clientSession();
+
+  /**
+   * The SIMULATED file server. `download_template` (data_import.py:178-202): P on → read on the DocType (:188, 403
+   * "No permission for X"), then — unless a blank template — `can_export` (exporter.py:116-126, permissions.py:608-616:
+   * System Manager or the export right; with export only through if_owner every exported row must be the user's).
+   * The answer is a small text file that says it is simulated: the request echo and the column LABELS, never document
+   * values. Every other download and every upload is refused (no file storage is simulated).
+   */
+  const files: FrappeFilesTransport = {
+    async download(method, args) {
+      store.calls.push({ method, args: clone(args) });
+      if (backend.latency) await new Promise((r) => setTimeout(r, backend.latency));
+      if (method !== DOWNLOAD_TEMPLATE) fail(404, "DoesNotExistError", `SIMULATED: the file server does not simulate ${method}`);
+      const doctype = String(args.doctype ?? "");
+      const meta = requireMeta(doctype);
+      if (P) {
+        P.assertDoctype(doctype, "read");
+        if (String(args.export_records ?? "") !== "blank_template" && !P.canExport(doctype)) {
+          const denied = toFrappeError(403, { exc_type: "PermissionError", exception: `frappe.exceptions.PermissionError: You are not allowed to export ${doctype} doctype` });
+          if (!P.canExport(doctype, true)) throw denied;
+          const rows = rowsFor(doctype, { filters: parse(args.export_filters) ?? undefined });
+          if (rows.some((r) => String(r.owner ?? "") !== user)) throw denied;
+        }
+      }
+      const exportFields = (parse(args.export_fields) as Record<string, string[]> | null) ?? {};
+      const labelOf = (dt: string, f: string) => (f === "name" ? "ID" : metaOf(dt)?.fields.find((x) => x.fieldname === f)?.label || f);
+      const columns = Object.entries(exportFields).flatMap(([dt, fs]) => (Array.isArray(fs) ? fs : []).map((f) => (dt === meta.name ? labelOf(dt, f) : `${labelOf(dt, f)} (${dt})`)));
+      const text = [
+        "SIMULATED — in-browser Frappe simulator (@solvfast/ui/frappe/testing).",
+        "NOT AN EXPORT: this file contains no document values, only the column labels and the request.",
+        `On a real site ${method} streams the ${String(args.file_type ?? "CSV")} built server-side (frappe/core/doctype/data_import/exporter.py).`,
+        `Session: ${user}${P ? " (permission decisions simulated)" : " (permissions not simulated)"}`,
+        `Columns (labels only): ${columns.join(" | ") || "—"}`,
+        `Request: ${JSON.stringify(args)}`,
+        "",
+      ].join("\n");
+      const file: DownloadedFile = { blob: new Blob([text], { type: "text/plain" }), filename: `SIMULATED-${meta.name.replace(/\s+/g, "-")}-not-an-export.txt`, contentType: "text/plain" };
+      return file;
+    },
+    async upload(_file, filename, opts) {
+      store.calls.push({ method: "upload_file", args: clone({ filename, ...opts }) });
+      throw toFrappeError(417, { exc_type: "ValidationError", _server_messages: sm({ message: "SIMULATED: uploads are not simulated (no file storage); an import would write to the site.", indicator: "red", raise_exception: 1 }) });
+    },
+  };
 
   const transport = (async (method: string, args: Record<string, unknown>) => {
     store.calls.push({ method, args: clone(args) });
@@ -943,6 +1165,8 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     return clone(await h(args, store));
   }) as FixtureTransport;
   transport.store = store;
+  transport.files = files;
+  transport.permissions = P;
   return transport;
 }
 
