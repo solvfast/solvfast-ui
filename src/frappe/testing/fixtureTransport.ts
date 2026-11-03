@@ -30,6 +30,12 @@ export interface FixtureOptions {
   roles?: string[];
   /** Fixed clock for `modified` / `creation` (tests). Default: the real clock. */
   now?: () => Date;
+  /**
+   * Opt-in extra validation on save (off by default): Link / Dynamic Link values must exist in the simulator (targets
+   * the simulator has no meta for are skipped), Select values must be one of the options — parent and child rows, in
+   * Frappe's order (links before mandatory, selects after). Still SIMULATED: no formats, lengths, permissions.
+   */
+  strict?: boolean;
   /** `frappe.desk.listview.get_list_settings` answers by DocType (List View Settings rows). Default: null. */
   listSettings?: Record<string, Record<string, unknown> | null>;
 }
@@ -42,6 +48,7 @@ export interface FixtureStore {
   meta: Record<string, DocTypeMeta[]>;
   workflows: Record<string, WorkflowInfo>;
   comments: Map<string, Row>;
+  /** The `ToDo` documents (the same Map as `docs.get("ToDo")`): open ToDos drive assignments and `_assign`. */
   todos: Map<string, Row>;
   userSettings: Record<string, string>;
   user: string;
@@ -177,7 +184,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     docs: new Map(), meta: { ...clone(BUILTIN_FIXTURE_META), ...clone(backend.meta) }, workflows: clone(backend.workflows ?? {}), comments: new Map(), todos: new Map(),
     userSettings: {}, user, calls: [],
   };
-  const versions: Row[] = [];
+  store.docs.set("ToDo", store.todos as Map<string, FrappeDoc>);
   let lastTs = 0;
   let seq = 0;
   const counters: Record<string, number> = {};
@@ -201,26 +208,60 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     submit: meta.is_submittable ? 1 : 0, cancel: meta.is_submittable ? 1 : 0, amend: meta.is_submittable ? 1 : 0,
   });
 
+  /** `getseries`: one counter per prefix, shared by every DocType (tabSeries is keyed by the prefix only). */
+  const nextNumber = (prefix: string, digits: number) => { counters[prefix] = (counters[prefix] ?? 0) + 1; return String(counters[prefix]).padStart(digits, "0"); };
+  /** `parse_naming_series` (model/naming.py): dot-separated parts; the first `#…` part is the counter for the text so far;
+   *  YY / MM / DD / YYYY / WW / timestamp are dates; `{field}` or a fieldname of the doc is its value; else literal. */
+  function parseSeries(parts: string[], doc: FrappeDoc): string {
+    let name = "";
+    let seriesSet = false;
+    const d = now();
+    for (const e of parts) {
+      if (!e) continue;
+      let part = "";
+      if (e.startsWith("#")) { if (!seriesSet) { part = nextNumber(name, e.length); seriesSet = true; } }
+      else if (e === "YY") part = String(d.getFullYear()).slice(2);
+      else if (e === "MM") part = String(d.getMonth() + 1).padStart(2, "0");
+      else if (e === "DD") part = String(d.getDate()).padStart(2, "0");
+      else if (e === "YYYY") part = String(d.getFullYear());
+      else if (e === "WW") { const jan1 = new Date(d.getFullYear(), 0, 1); part = String(Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7)).padStart(2, "0"); } // UNVERIFIED week rule
+      else if (e === "timestamp") part = stamp();
+      else if (e.startsWith("{") || Object.prototype.hasOwnProperty.call(doc, e)) part = String(doc[e.replace(/[{}]/g, "")] ?? "");
+      else part = e;
+      name += part;
+    }
+    return name;
+  }
+  /** Naming as `set_new_name` / `make_autoname` do for the common rules (SIMULATED subset): `__newname` (Prompt),
+   *  `field:x`, `naming_series:` (the doc's series), `format:` (each `{…}` parsed on its own — so `{#####}` counts on the
+   *  empty prefix, as `_format_autoname` does), a dotted series with `#`, `autoincrement`, else a 10-character hash. */
   function makeName(meta: DocTypeMeta, doc: FrappeDoc): string {
     const auto = String(meta.autoname ?? "").trim();
-    if (typeof doc.__newname === "string" && doc.__newname) return doc.__newname;
-    if (auto.startsWith("field:")) { const v = doc[auto.slice(6)]; if (v) return String(v); }
-    const series = auto.startsWith("naming_series:") ? String(doc.naming_series ?? "") : auto.startsWith("format:") ? auto.slice(7) : auto.includes("#") ? auto : "";
-    if (series) {
-      const d = now();
-      const prefix = series.replace(/\.YYYY\./g, String(d.getFullYear())).replace(/\.YY\./g, String(d.getFullYear()).slice(2)).replace(/\.MM\./g, String(d.getMonth() + 1).padStart(2, "0")).replace(/\{|\}/g, "");
-      const hashes = /#+/.exec(prefix);
-      const key = `${meta.name}:${prefix.replace(/#+/, "")}`;
-      counters[key] = (counters[key] ?? 0) + 1;
-      return hashes ? prefix.replace(/\.?#+/, String(counters[key]).padStart(hashes[0].length, "0")).replace(/\.$/, "") : `${prefix}${counters[key]}`;
+    const series = (key: string) => parseSeries((key.includes("#") ? key : `${key}.#####`).split("."), doc);
+    if (typeof doc.__newname === "string" && doc.__newname.trim()) return doc.__newname.trim();
+    if (auto.toLowerCase() === "prompt") return fail(417, "ValidationError", "Please set the document name"); // UNVERIFIED wording
+    if (auto.startsWith("field:")) { const v = doc[auto.slice(6).trim()]; if (v) return String(v).trim(); return fail(417, "ValidationError", `${auto.slice(6)} is required`); }
+    if (auto.startsWith("naming_series:")) {
+      const ns = String(doc.naming_series ?? "");
+      if (!ns) return fail(417, "ValidationError", "Naming Series mandatory");
+      return series(ns);
     }
+    if (auto.startsWith("format:")) return auto.slice(auto.indexOf(":") + 1).replace(/\{[\w | #]+\}/g, (m) => parseSeries([m.slice(1, -1)], doc));
+    if (auto === "autoincrement") return String(Number(nextNumber(`__autoincrement__${meta.name}`, 1)));
+    if (auto.includes("#")) return series(auto);
     let name = hash();
     while (table(meta.name).has(name)) name = hash();
     return name;
   }
 
-  /** Normalise a doc for storage: name, standard fields, child rows (names, parent links, idx, docstatus). */
-  function prepare(meta: DocTypeMeta, doc: FrappeDoc, isNew: boolean, previous?: FrappeDoc): FrappeDoc {
+  /**
+   * Normalise a doc for storage: name, standard fields, child rows (names, parent links, idx, docstatus).
+   * Child rows as `savedocs` + `update_child_table` treat them: on a NEW parent every row is inserted (set_local_name
+   * clears row names); on an existing parent a row is inserted when it has `__islocal` or no name, updated when its name
+   * is stored, and otherwise — a client-invented name without `__islocal` — UPDATEd against nothing, i.e. silently not
+   * saved (base_document.py db_update). Such rows are returned in `dropped` (the response still echoes them, as native).
+   */
+  function prepare(meta: DocTypeMeta, doc: FrappeDoc, isNew: boolean, previous?: FrappeDoc, dropped: FrappeDoc[] = []): FrappeDoc {
     const ts = stamp();
     const out: FrappeDoc = { ...doc, doctype: meta.name };
     for (const k of Object.keys(out)) if (k.startsWith("__")) delete out[k];
@@ -233,10 +274,12 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     for (const tf of tableFields(meta)) {
       const childMeta = metaOf(tf.options!);
       const rows = Array.isArray(out[tf.fieldname]) ? (out[tf.fieldname] as FrappeDoc[]) : [];
+      const stored = new Set(((previous?.[tf.fieldname] as FrappeDoc[] | undefined) ?? []).map((r) => String(r.name)));
       out[tf.fieldname] = rows.map((r, i) => {
         const row: FrappeDoc = { ...r };
         for (const k of Object.keys(row)) if (k.startsWith("__")) delete row[k];
-        if (r.__islocal || !r.name || String(r.name).startsWith("new-")) row.name = hash();
+        if (isNew || r.__islocal || !r.name) row.name = hash();
+        else if (previous && !stored.has(String(r.name))) dropped.push(row);
         Object.assign(row, { doctype: childMeta?.name ?? tf.options, parent: out.name, parentfield: tf.fieldname, parenttype: meta.name, idx: i + 1, docstatus: out.docstatus, modified: ts, modified_by: user });
         row.owner ??= user;
         row.creation ??= ts;
@@ -276,7 +319,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     if (doc?.modified_by) users.add(String(doc.modified_by));
     return {
       doctype, name, attachments: [], communications: [], automated_messages: [], views: [], shared: [], milestones: [],
-      versions: meta.track_changes ? versions.filter((v) => v.ref_doctype === doctype && v.docname === name).slice(-10).reverse().map(clone) : [],
+      versions: meta.track_changes ? [...table("Version").values()].filter((v) => v.ref_doctype === doctype && v.docname === name).slice(-10).reverse().map((v) => ({ name: v.name, owner: v.owner, creation: v.creation, data: v.data })) : [],
       energy_point_logs: [], additional_timeline_content: [], tags: "", document_email: null, is_document_followed: 0,
       comments: byType("Comment").map((c) => ({ name: c.name, content: c.content, owner: c.owner, creation: c.creation, comment_type: "Comment", comment_email: c.comment_email, comment_by: c.comment_by })),
       assignment_logs: byType("Assigned", "Assignment Completed"), attachment_logs: byType("Attachment", "Attachment Removed"),
@@ -300,8 +343,10 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     return c;
   }
 
+  /** `_assign` of the referenced doc = the users of its Open ToDos (ToDo.update_in_reference). */
   function syncAssign(doctype: string, name: string) {
-    const doc = table(doctype).get(name);
+    if (!doctype || !name) return;
+    const doc = store.docs.get(doctype)?.get(name);
     if (!doc) return;
     const users = [...store.todos.values()].filter((t) => t.reference_type === doctype && t.reference_name === name && t.status === "Open").map((t) => String(t.allocated_to));
     doc._assign = JSON.stringify(users);
@@ -313,7 +358,8 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     const dup: string[] = [];
     for (const u of users) {
       if ([...store.todos.values()].some((t) => t.reference_type === doctype && t.reference_name === name && t.allocated_to === u && t.status === "Open")) { dup.push(u); continue; }
-      const todo: Row = { doctype: "ToDo", name: hash(), allocated_to: u, reference_type: doctype, reference_name: name, description: a.description || `Assignment for ${doctype} ${name}`, priority: a.priority || "Medium", status: "Open", date: a.date || ymd(now()), assigned_by: user };
+      const ts = stamp();
+      const todo: Row = { doctype: "ToDo", name: hash(), allocated_to: u, reference_type: doctype, reference_name: name, description: a.description || `Assignment for ${doctype} ${name}`, priority: a.priority || "Medium", status: "Open", date: a.date || ymd(now()), assigned_by: user, owner: user, creation: ts, modified: ts, modified_by: user, docstatus: 0, idx: 0 };
       store.todos.set(String(todo.name), todo);
       addComment(doctype, name, "Assigned", `${user} assigned ${u}`);
     }
@@ -383,12 +429,14 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
   // ---- save path ----------------------------------------------------------------------------------------------------
   function save(raw: FrappeDoc, action: string): FrappeDoc {
     const meta = requireMeta(raw.doctype);
-    const isNew = !!raw.__islocal || !raw.name || !table(meta.name).has(String(raw.name));
-    const previous = isNew ? undefined : table(meta.name).get(String(raw.name));
+    const isNew = !!raw.__islocal || !raw.name;
+    // Document.save: not new → load_doc_before_save raises DoesNotExistError for a name that is not stored
+    const previous = isNew ? undefined : table(meta.name).get(String(raw.name)) ?? notFound(`${meta.name} ${String(raw.name)}`);
     const target = action === "Save" ? 0 : action === "Cancel" ? 2 : 1;
     if (previous) {
-      if (raw.modified && previous.modified !== raw.modified) {
-        fail(417, "TimestampMismatchError", `Error: Document has been modified after you have opened it (${String(previous.modified)}, ${String(raw.modified)}). Please refresh to get the latest document.`);
+      // check_if_latest compares always: a doc posted without `modified` is a mismatch too
+      if (String(previous.modified ?? "") !== String(raw.modified ?? "")) {
+        fail(417, "TimestampMismatchError", `Error: Document has been modified after you have opened it (${String(previous.modified)}, ${String(raw.modified ?? "")}). Please refresh to get the latest document.`);
       }
       const from = Number(previous.docstatus ?? 0);
       if (from === 2) fail(417, "ValidationError", "Cannot edit cancelled document");
@@ -397,50 +445,102 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     }
     if (target === 1 && !meta.is_submittable) fail(417, "ValidationError", `${meta.name} is not submittable`);
     const before = { ...counters }; // a failed insert rolls back, so a naming series number is not consumed
-    const doc = prepare(meta, { ...raw, docstatus: target as 0 | 1 | 2 }, isNew, previous);
-    if (target !== 2) {
-      const missing = missingMandatory(meta, doc);
-      if (missing.length) {
-        for (const k of Object.keys(counters)) if (!(k in before)) delete counters[k]; else counters[k] = before[k];
-        throw toFrappeError(417, { exc_type: "MandatoryError", _server_messages: sm(...missing.map((message) => ({ message }))) });
+    const rollback = () => { for (const k of Object.keys(counters)) if (!(k in before)) delete counters[k]; else counters[k] = before[k]; };
+    const dropped: FrappeDoc[] = [];
+    let doc: FrappeDoc;
+    try {
+      doc = prepare(meta, { ...raw, docstatus: target as 0 | 1 | 2 }, isNew, previous, dropped);
+      if (options.strict && target !== 2) validateLinks(meta, doc);
+      if (target !== 2) {
+        const missing = missingMandatory(meta, doc);
+        if (missing.length) throw toFrappeError(417, { exc_type: "MandatoryError", _server_messages: sm(...missing.map((message) => ({ message }))) });
       }
-    }
-    if (isNew && table(meta.name).has(doc.name)) fail(409, "DuplicateEntryError", `${meta.name} ${doc.name} already exists`);
+      if (options.strict && target !== 2) validateSelects(meta, doc);
+      if (isNew && table(meta.name).has(doc.name)) fail(409, "DuplicateEntryError", `${meta.name} ${doc.name} already exists`);
+    } catch (e) { rollback(); throw e; }
     for (const k of ["_assign", "_comments", "_liked_by", "_user_tags"]) if (previous && previous[k] !== undefined && doc[k] === undefined) doc[k] = previous[k];
-    if (previous && meta.track_changes) recordVersion(meta, previous, doc);
-    table(meta.name).set(doc.name, doc);
-    return doc;
+    const stored: FrappeDoc = dropped.length ? { ...doc } : doc;
+    if (dropped.length) for (const tf of tableFields(meta)) stored[tf.fieldname] = ((doc[tf.fieldname] as FrappeDoc[] | undefined) ?? []).filter((r) => !dropped.includes(r)).map((r, i) => ({ ...r, idx: i + 1 }));
+    if (previous && meta.track_changes) recordVersion(meta, previous, stored);
+    table(meta.name).set(stored.name, stored);
+    if (meta.name === "ToDo") { syncAssign(String(previous?.reference_type ?? ""), String(previous?.reference_name ?? "")); syncAssign(String(stored.reference_type ?? ""), String(stored.reference_name ?? "")); }
+    return doc; // the response echoes the posted rows, dropped ones included (send_updated_docs returns the in-memory doc)
   }
 
-  /** A `Version` row like Frappe's (`data` = JSON {changed, added, removed, row_changed}) — simplified diff (SIMULATED). */
+  const STRICT_SKIP = new Set(["DocType", "Workflow State"]);
+  /** strict: `_validate_links` — Link / Dynamic Link values must exist (case-insensitive; the stored value is canonicalised). */
+  function validateLinks(meta: DocTypeMeta, doc: FrappeDoc) {
+    const bad: string[] = [];
+    const check = (m: DocTypeMeta, d: FrappeDoc, prefix: string) => {
+      for (const f of m.fields) {
+        if (f.fieldtype !== "Link" && f.fieldtype !== "Dynamic Link") continue;
+        const v = d[f.fieldname];
+        if (v === null || v === undefined || v === "") continue;
+        const target = f.fieldtype === "Link" ? String(f.options ?? "") : String(d[String(f.options ?? "")] ?? "");
+        if (!target || STRICT_SKIP.has(target) || !metaOf(target)) continue; // unknown to the simulator: skipped
+        const hit = [...table(target).keys()].find((n) => n.toLowerCase() === String(v).toLowerCase());
+        if (hit) d[f.fieldname] = hit;
+        else bad.push(`${prefix}${f.label || f.fieldname}: ${String(v)}`);
+      }
+    };
+    check(meta, doc, "");
+    for (const tf of tableFields(meta)) { const cm = metaOf(tf.options!); if (cm) for (const r of (doc[tf.fieldname] as FrappeDoc[] | undefined) ?? []) check(cm, r, `Row #${r.idx}: `); }
+    if (bad.length) fail(417, "LinkValidationError", `Could not find ${bad.join(", ")}`);
+  }
+  /** strict: `_validate_selects` — a non-empty Select value must be one of its options (naming_series exempt). */
+  function validateSelects(meta: DocTypeMeta, doc: FrappeDoc) {
+    const check = (m: DocTypeMeta, d: FrappeDoc, prefix: string) => {
+      for (const f of m.fields) {
+        if (f.fieldtype !== "Select" || f.fieldname === "naming_series") continue;
+        const v = d[f.fieldname];
+        if (v === null || v === undefined || v === "") continue;
+        const opts = String(f.options ?? "").split("\n").map((o) => o.trim());
+        if (!opts.includes(String(v))) fail(417, "ValidationError", `${prefix}${f.label || f.fieldname} cannot be "${String(v)}". It should be one of "${opts.filter(Boolean).join('", "')}"`);
+      }
+    };
+    check(meta, doc, "");
+    for (const tf of tableFields(meta)) { const cm = metaOf(tf.options!); if (cm) for (const r of (doc[tf.fieldname] as FrappeDoc[] | undefined) ?? []) check(cm, r, `Row #${r.idx}: `); }
+  }
+
+  /**
+   * A `Version` document like `save_version` / `get_diff` (core/doctype/version/version.py) for `track_changes`
+   * DocTypes: data = JSON {changed: [[field, old, new]], added: [[table, row]], removed: [[table, row]],
+   * row_changed: [[table, rowIndex (0-based), rowName, [[field, old, new]]]], data_import, updater_reference}; name and
+   * docstatus changes are listed in `changed`. SIMULATED: values are the raw values (Frappe formats non-empty values
+   * with get_formatted); no Version on insert (Frappe writes one only for data imports).
+   */
   function recordVersion(meta: DocTypeMeta, before: FrappeDoc, after: FrappeDoc) {
-    const skip = new Set(["modified", "modified_by", "creation", "owner", "idx", "docstatus", "_assign", "_comments", "_liked_by", "_user_tags", "_seen"]);
-    const scalar = meta.fields.filter((f) => !LAYOUT.has(f.fieldtype) && !TABLES.has(f.fieldtype) && !skip.has(f.fieldname));
-    const same = (a: unknown, b: unknown) => (a ?? "") === (b ?? "") || String(a ?? "") === String(b ?? "");
-    const changed = scalar.filter((f) => !same(before[f.fieldname], after[f.fieldname])).map((f) => [f.fieldname, before[f.fieldname] ?? null, after[f.fieldname] ?? null]);
+    const valueFields = (m: DocTypeMeta | undefined) => (m?.fields ?? []).filter((f) => !LAYOUT.has(f.fieldtype) && !TABLES.has(f.fieldtype) && !f.is_virtual);
+    const norm = (f: FrappeDocField, v: unknown) => (f.fieldtype === "Link" || f.fieldtype === "Dynamic Link" ? (v == null ? "" : String(v)) : v ?? null);
+    const diff = (m: DocTypeMeta | undefined, o: FrappeDoc, n: FrappeDoc) =>
+      valueFields(m).filter((f) => JSON.stringify(norm(f, o[f.fieldname])) !== JSON.stringify(norm(f, n[f.fieldname]))).map((f) => [f.fieldname, o[f.fieldname] ?? null, n[f.fieldname] ?? null]);
+    const changed: unknown[] = diff(meta, before, after);
     const added: unknown[] = [], removed: unknown[] = [], rowChanged: unknown[] = [];
     for (const tf of tableFields(meta)) {
       const old = ((before[tf.fieldname] as FrappeDoc[] | undefined) ?? []);
-      const now_ = ((after[tf.fieldname] as FrappeDoc[] | undefined) ?? []);
+      const rows = ((after[tf.fieldname] as FrappeDoc[] | undefined) ?? []);
       const cm = metaOf(tf.options!);
-      for (const r of now_) {
+      rows.forEach((r, i) => {
         const o = old.find((x) => x.name === r.name);
-        if (!o) { added.push([tf.fieldname, r]); continue; }
-        const diff = (cm?.fields ?? []).filter((f) => !LAYOUT.has(f.fieldtype) && !same(o[f.fieldname], r[f.fieldname])).map((f) => [f.fieldname, o[f.fieldname] ?? null, r[f.fieldname] ?? null]);
-        if (diff.length) rowChanged.push([tf.fieldname, r.idx, r.name, diff]);
-      }
-      for (const o of old) if (!now_.some((r) => r.name === o.name)) removed.push([tf.fieldname, o]);
+        if (!o) { added.push([tf.fieldname, clone(r)]); return; }
+        const d = diff(cm, o, r);
+        if (d.length) rowChanged.push([tf.fieldname, i, r.name, d]);
+      });
+      for (const o of old) if (!rows.some((r) => r.name === o.name)) removed.push([tf.fieldname, clone(o)]);
     }
+    for (const k of ["name", "docstatus"] as const) if (before[k] !== after[k]) changed.push([k, before[k] ?? null, after[k] ?? null]);
     if (!changed.length && !added.length && !removed.length && !rowChanged.length) return;
-    versions.push({
-      doctype: "Version", name: hash(), ref_doctype: meta.name, docname: after.name, owner: user, creation: after.modified,
+    const v: FrappeDoc = {
+      doctype: "Version", name: hash(), ref_doctype: meta.name, docname: after.name, owner: user, creation: String(after.modified), modified: String(after.modified), modified_by: user, docstatus: 0,
       data: JSON.stringify({ changed, added, removed, row_changed: rowChanged, data_import: null, updater_reference: null }),
-    });
+    };
+    table("Version").set(v.name, v);
   }
 
   const userInfoFn = (u: string) => {
     const ud = store.docs.get("User")?.get(u);
-    return { fullname: String(ud?.full_name || u), image: (ud?.user_image as string | undefined) ?? null, name: u };
+    const composed = [ud?.first_name, ud?.middle_name, ud?.last_name].filter((x) => typeof x === "string" && x.trim()).join(" ");
+    return { fullname: String(ud?.full_name || composed || u), image: (ud?.user_image as string | undefined) ?? null, name: u };
   };
 
   function workflowOf(doctype: string): WorkflowInfo | undefined {
@@ -510,8 +610,10 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     "frappe.client.delete": (a) => {
       if (a.doctype === "Comment") { if (!store.comments.delete(String(a.name))) notFound(`Comment ${String(a.name)}`); return {}; }
       get(String(a.doctype), a.name);
-      if (Number(table(String(a.doctype)).get(String(a.name))!.docstatus) === 1) fail(417, "ValidationError", "Submitted Record cannot be deleted. You must Cancel it first.");
+      const gone = table(String(a.doctype)).get(String(a.name))!;
+      if (Number(gone.docstatus) === 1) fail(417, "ValidationError", "Submitted Record cannot be deleted. You must Cancel it first.");
       table(String(a.doctype)).delete(String(a.name));
+      if (a.doctype === "ToDo") syncAssign(String(gone.reference_type ?? ""), String(gone.reference_name ?? ""));
       return {};
     },
     "frappe.desk.reportview.delete_items": (a) => {
@@ -682,6 +784,8 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       table(doctype).set(doc.name, doc);
     }
   }
+  // seeded ToDos drive assignments: `_assign` of every referenced doc from its Open ToDos
+  for (const t of [...store.todos.values()]) syncAssign(String(t.reference_type ?? ""), String(t.reference_name ?? ""));
   // the session user exists as a User (assign picker, user_info) unless the backend authored its own users
   if (!store.docs.get("User")?.size) {
     const ts = stamp();

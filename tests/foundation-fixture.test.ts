@@ -13,7 +13,7 @@ import { reportviewCount, reportviewGet } from "../src/frappe/list/reportview";
 
 const meta = (x: unknown) => (x as { docs: DocTypeMeta[] }).docs;
 const DEAL: DocTypeMeta = {
-  name: "Deal", is_submittable: 1, autoname: "format:DEAL-.#####", title_field: "title", search_fields: "status",
+  name: "Deal", is_submittable: 1, autoname: "format:DEAL-{#####}", title_field: "title", search_fields: "status",
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: 1 },
     { fieldname: "status", fieldtype: "Select", options: "Open\nWon\nLost" },

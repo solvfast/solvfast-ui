@@ -1,0 +1,180 @@
+/**
+ * Foundation — simulator hardening (docs/qa/simulator-caveats.md, A6). SIMULATED backend: these pin that the simulator
+ * now reproduces the native rules listed below (cited from Frappe 15.110 source), so it stops masking those bug classes.
+ * Still not evidence of Frappe behaviour.
+ */
+import { describe, expect, it } from "vitest";
+import todoEn from "./fixtures/real-15.110/todo.en.json";
+import contactEn from "./fixtures/real-15.110/contact.en.json";
+import { createFrappeClient, type FrappeResponse } from "../src/frappe/client";
+import type { DocTypeMeta, FrappeDoc, WorkflowInfo } from "../src/frappe/contract";
+import { createFixtureTransport, type FixtureOptions } from "../src/frappe/testing";
+import { reportviewGet } from "../src/frappe/list/reportview";
+
+const docsOf = (x: unknown) => (x as { docs: DocTypeMeta[] }).docs;
+const NOW = () => new Date(2026, 10, 3, 9, 30, 0);
+const INVOICE: DocTypeMeta = {
+  name: "Sales Invoice", is_submittable: 1, track_changes: 1, autoname: "format:INV-{YYYY}-{MM}-{DD}-{customer}-{####}",
+  fields: [
+    { fieldname: "customer", fieldtype: "Link", label: "Customer", options: "Customer" },
+    { fieldname: "status", fieldtype: "Select", label: "Status", options: "\nDraft\nPaid" },
+    { fieldname: "amount", fieldtype: "Currency", label: "Amount" },
+    { fieldname: "items", fieldtype: "Table", label: "Items", options: "Sales Invoice Item" },
+  ],
+};
+const ITEM: DocTypeMeta = { name: "Sales Invoice Item", istable: 1, fields: [{ fieldname: "item", fieldtype: "Data", label: "Item" }, { fieldname: "qty", fieldtype: "Float", label: "Qty" }, { fieldname: "customer", fieldtype: "Link", label: "Customer", options: "Customer" }] };
+const CUSTOMER: DocTypeMeta = { name: "Customer", autoname: "field:customer_name", fields: [{ fieldname: "customer_name", fieldtype: "Data", label: "Customer Name" }] };
+const LEAD: DocTypeMeta = { name: "CRM Lead", autoname: "naming_series:", track_changes: 1, fields: [{ fieldname: "naming_series", fieldtype: "Select", options: "CRM-LEAD-.YYYY.-" }, { fieldname: "lead_name", fieldtype: "Data" }, { fieldname: "workflow_state", fieldtype: "Data" }] };
+const WF: WorkflowInfo = { name: "Lead Flow", document_type: "CRM Lead", workflow_state_field: "workflow_state", states: [{ state: "New", doc_status: "0" }, { state: "Qualified", doc_status: "0" }], transitions: [{ state: "New", action: "Qualify", next_state: "Qualified", allowed: "Sales User" }] };
+
+function setup(opts: FixtureOptions = {}) {
+  const transport = createFixtureTransport({
+    meta: { "Sales Invoice": [INVOICE, ITEM], Customer: [CUSTOMER], "CRM Lead": [LEAD], ToDo: docsOf(todoEn), Contact: docsOf(contactEn) },
+    docs: {
+      Customer: [{ doctype: "Customer", name: "ACME", customer_name: "ACME" }],
+      "Sales Invoice": [{ doctype: "Sales Invoice", name: "SI-1", customer: "ACME", status: "Draft", amount: 10, modified: "2026-11-01 10:00:00.000000", items: [{ doctype: "Sales Invoice Item", name: "row-1", item: "Pen", qty: 1 }] }],
+      "CRM Lead": [{ doctype: "CRM Lead", name: "L-1", lead_name: "Ann", workflow_state: "New", modified: "2026-11-01 10:00:00.000000" }],
+      ToDo: [
+        { doctype: "ToDo", name: "TD-A", allocated_to: "ann@x.com", reference_type: "CRM Lead", reference_name: "L-1", status: "Open", description: "Call" },
+        { doctype: "ToDo", name: "TD-B", allocated_to: "bob@x.com", reference_type: "CRM Lead", reference_name: "L-1", status: "Closed", description: "Old" },
+      ],
+      User: [
+        { doctype: "User", name: "ann@x.com", full_name: "Ann Smith", enabled: 1, user_type: "System User" },
+        { doctype: "User", name: "bob@x.com", first_name: "Bob", last_name: "Jones", enabled: 1, user_type: "System User" },
+      ],
+    },
+    workflows: { "CRM Lead": WF },
+  }, { now: NOW, ...opts });
+  return { transport, client: createFrappeClient({ transport, session: { user: "Administrator" } }) };
+}
+
+describe("(a) new vs existing documents and child rows (savedocs + update_child_table)", () => {
+  it("on an existing parent a row with a client-invented name and no __islocal is not saved; __islocal and nameless rows are", async () => {
+    const { client } = setup();
+    const { doc } = await client.getDoc("Sales Invoice", "SI-1");
+    const rows = [
+      ...(doc.items as FrappeDoc[]),
+      { doctype: "Sales Invoice Item", name: "client-made-1", item: "Lost" },
+      { doctype: "Sales Invoice Item", name: "new-sales-invoice-item-1", __islocal: 1, item: "Kept (local)" },
+      { doctype: "Sales Invoice Item", item: "Kept (no name)" } as unknown as FrappeDoc,
+    ];
+    const echoed = await client.saveDoc({ ...doc, items: rows }, "Save");
+    expect((echoed.items as FrappeDoc[]).map((r) => r.item)).toEqual(["Pen", "Lost", "Kept (local)", "Kept (no name)"]); // the response echoes the in-memory doc
+    const reloaded = (await client.getDoc("Sales Invoice", "SI-1")).doc;
+    expect((reloaded.items as FrappeDoc[]).map((r) => r.item)).toEqual(["Pen", "Kept (local)", "Kept (no name)"]);
+    expect((reloaded.items as FrappeDoc[]).map((r) => r.idx)).toEqual([1, 2, 3]);
+  });
+
+  it("a NEW parent inserts every row (set_local_name clears row names)", async () => {
+    const { client } = setup();
+    const saved = await client.saveDoc({ doctype: "Sales Invoice", name: "new-sales-invoice-1", __islocal: 1, customer: "ACME", items: [{ doctype: "Sales Invoice Item", name: "client-made", item: "A" }] }, "Save");
+    expect((await client.getDoc("Sales Invoice", saved.name)).doc.items).toEqual([expect.objectContaining({ item: "A", parent: saved.name })]);
+  });
+
+  it("a name that is not stored, without __islocal, is DoesNotExistError; a doc posted without `modified` is a timestamp mismatch", async () => {
+    const { client } = setup();
+    expect(await client.saveDoc({ doctype: "Sales Invoice", name: "SI-404", customer: "ACME" }, "Save").catch((e) => e.kind)).toBe("not_found");
+    const { doc } = await client.getDoc("Sales Invoice", "SI-1");
+    const { modified: _m, ...noModified } = doc;
+    void _m;
+    expect(await client.saveDoc(noModified as FrappeDoc, "Save").catch((e) => e.kind)).toBe("timestamp");
+  });
+});
+
+describe("(b) naming", () => {
+  it("format: expands {YYYY} {MM} {DD} {field} {#…}; each braced counter runs on the empty prefix, shared across DocTypes", async () => {
+    const { client, transport } = setup();
+    const a = await client.saveDoc({ doctype: "Sales Invoice", name: "new-1", __islocal: 1, customer: "ACME" }, "Save");
+    const b = await client.saveDoc({ doctype: "Sales Invoice", name: "new-2", __islocal: 1, customer: "ACME" }, "Save");
+    expect([a.name, b.name]).toEqual(["INV-2026-11-03-ACME-0001", "INV-2026-11-03-ACME-0002"]);
+    void transport;
+  });
+
+  it("naming_series: the doc's series, with ##### appended when it has none (NamingSeries)", async () => {
+    const { client } = setup();
+    const lead = await client.saveDoc({ doctype: "CRM Lead", name: "new-crm-lead-1", __islocal: 1, naming_series: "CRM-LEAD-.YYYY.-", lead_name: "Cy" }, "Save");
+    expect(lead.name).toBe("CRM-LEAD-2026-00001");
+    expect(await client.saveDoc({ doctype: "CRM Lead", name: "new-crm-lead-2", __islocal: 1, lead_name: "Dee" }, "Save").catch((e) => e.kind)).toBe("validation");
+  });
+});
+
+describe("(c) user_info", () => {
+  it("real full names (full_name, else first + last), else the user id", async () => {
+    const { client } = setup();
+    await client.addAssignment("CRM Lead", "L-1", ["bob@x.com", "zed@x.com"]);
+    const info = await client.getDocInfo("CRM Lead", "L-1");
+    expect(info.user_info["ann@x.com"].fullname).toBe("Ann Smith");
+    expect(info.user_info["bob@x.com"].fullname).toBe("Bob Jones");
+    expect(info.user_info["zed@x.com"].fullname).toBe("zed@x.com");
+    const rows = await reportviewGet(client, "CRM Lead", { fields: ["name", "_assign"] });
+    expect(rows.userInfo["ann@x.com"]).toMatchObject({ fullname: "Ann Smith" });
+  });
+});
+
+describe("(d) strict mode (opt-in)", () => {
+  it("off: unknown links and selects pass (shapes only)", async () => {
+    const { client } = setup();
+    expect((await client.saveDoc({ doctype: "Sales Invoice", name: "n", __islocal: 1, customer: "Nobody", status: "Weird" }, "Save")).customer).toBe("Nobody");
+  });
+  it("on: Link existence (parent and rows, canonical case) before mandatory, Select options after", async () => {
+    const { client } = setup({ strict: true });
+    const bad = await client.saveDoc({ doctype: "Sales Invoice", name: "n", __islocal: 1, customer: "Nobody" }, "Save").catch((e) => e);
+    expect(bad).toMatchObject({ kind: "link", excType: "LinkValidationError" });
+    expect(bad.message).toContain("Customer: Nobody");
+    const row = await client.saveDoc({ doctype: "Sales Invoice", name: "n", __islocal: 1, customer: "acme", items: [{ doctype: "Sales Invoice Item", item: "x", customer: "Ghost" }] }, "Save").catch((e) => e.message);
+    expect(row).toContain("Row #1: Customer: Ghost");
+    const sel = await client.saveDoc({ doctype: "Sales Invoice", name: "n", __islocal: 1, customer: "acme", status: "Weird" }, "Save").catch((e) => e);
+    expect(sel).toMatchObject({ kind: "validation" });
+    expect(sel.message).toContain('Status cannot be "Weird"');
+    const ok = await client.saveDoc({ doctype: "Sales Invoice", name: "n", __islocal: 1, customer: "acme", status: "Paid" }, "Save");
+    expect(ok.customer).toBe("ACME");
+  });
+});
+
+describe("item 2: seeded ToDos drive assignees; Version docs on save", () => {
+  it("docinfo.assignments and _assign come from Open ToDos; closing a ToDo by save updates _assign", async () => {
+    const { client } = setup();
+    const info = await client.getDocInfo("CRM Lead", "L-1");
+    expect(info.assignments).toEqual([expect.objectContaining({ name: "TD-A", owner: "ann@x.com", status: "Open" })]);
+    expect((await client.getDoc("CRM Lead", "L-1")).doc._assign).toBe('["ann@x.com"]');
+    const todo = (await client.getDoc("ToDo", "TD-A")).doc;
+    await client.saveDoc({ ...todo, status: "Closed" }, "Save");
+    expect((await client.getDoc("CRM Lead", "L-1")).doc._assign).toBe("[]");
+    expect((await client.getDocInfo("CRM Lead", "L-1")).assignments).toEqual([]);
+  });
+
+  it("Version on save (changed / added / removed / row_changed with 0-based index), docstatus change on submit, none on insert", async () => {
+    const { client, transport } = setup();
+    const { doc } = await client.getDoc("Sales Invoice", "SI-1");
+    const rows = doc.items as FrappeDoc[];
+    const saved = await client.saveDoc({ ...doc, amount: 20, items: [{ ...rows[0], qty: 3 }, { doctype: "Sales Invoice Item", __islocal: 1, name: "new-row", item: "Ink" }] }, "Save");
+    const v1 = JSON.parse((await client.getDocInfo("Sales Invoice", "SI-1")).versions[0].data);
+    expect(v1.changed).toEqual([["amount", 10, 20]]);
+    expect(v1.row_changed).toEqual([["items", 0, "row-1", [["qty", 1, 3]]]]);
+    expect(v1.added).toEqual([["items", expect.objectContaining({ item: "Ink" })]]);
+    expect(v1.removed).toEqual([]);
+    await client.saveDoc({ ...saved, items: [(saved.items as FrappeDoc[])[1]] }, "Submit");
+    const v2 = JSON.parse((await client.getDocInfo("Sales Invoice", "SI-1")).versions[0].data);
+    expect(v2.changed).toEqual([["docstatus", 0, 1]]);
+    expect(v2.removed).toEqual([["items", expect.objectContaining({ name: "row-1" })]]);
+    expect([...transport.store.docs.get("Version")!.values()].every((v) => v.ref_doctype === "Sales Invoice")).toBe(true);
+    await client.saveDoc({ doctype: "Sales Invoice", name: "new-x", __islocal: 1, customer: "ACME" }, "Save");
+    expect(transport.store.docs.get("Version")!.size).toBe(2);
+  });
+
+  it("a workflow transition leaves a Version (state change) and a Workflow comment", async () => {
+    const { client } = setup();
+    const { doc } = await client.getDoc("CRM Lead", "L-1");
+    await client.applyWorkflow(doc, "Qualify");
+    const info = await client.getDocInfo("CRM Lead", "L-1");
+    expect(JSON.parse(info.versions[0].data).changed).toEqual([["workflow_state", "New", "Qualified"]]);
+    expect(info.workflow_logs).toHaveLength(1);
+  });
+});
+
+describe("fixture still answers raw transport calls", () => {
+  it("getdoctype carries user_settings", async () => {
+    const { transport } = setup();
+    expect(((await transport("frappe.desk.form.load.getdoctype", { doctype: "Sales Invoice" })) as FrappeResponse).user_settings).toBe("{}");
+  });
+});
