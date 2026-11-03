@@ -1,0 +1,86 @@
+{
+ "doctype": "DocType",
+ "name": "SFUI Test Contact",
+ "module": "SFUI Test",
+ "custom": 1,
+ "autoname": "format:SFUI-CON-{####}",
+ "title_field": "contact_name",
+ "show_title_field_in_link": 1,
+ "search_fields": "email_id,status",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "quick_entry": 1,
+ "track_changes": 0,
+ "fields": [
+  {
+   "fieldname": "contact_name",
+   "fieldtype": "Data",
+   "label": "Contact Name",
+   "reqd": 1,
+   "in_list_view": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "email_id",
+   "fieldtype": "Data",
+   "label": "Email Id",
+   "options": "Email",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "1"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "SFUI Tester",
+   "permlevel": 0,
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1,
+   "select": 1
+  },
+  {
+   "role": "SFUI Reader",
+   "permlevel": 0,
+   "read": 1,
+   "select": 1,
+   "report": 1
+  },
+  {
+   "role": "SFUI Approver",
+   "permlevel": 0,
+   "read": 1,
+   "select": 1
+  }
+ ]
+}

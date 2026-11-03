@@ -1,0 +1,23 @@
+[
+ {
+  "doctype": "Role",
+  "role_name": "SFUI Tester",
+  "desk_access": 1,
+  "is_custom": 1,
+  "purpose": "CRUD, submit, permlevel 1 on SFUI Test DocTypes"
+ },
+ {
+  "doctype": "Role",
+  "role_name": "SFUI Reader",
+  "desk_access": 1,
+  "is_custom": 1,
+  "purpose": "read only"
+ },
+ {
+  "doctype": "Role",
+  "role_name": "SFUI Approver",
+  "desk_access": 1,
+  "is_custom": 1,
+  "purpose": "workflow approver"
+ }
+]

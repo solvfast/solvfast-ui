@@ -1,0 +1,19 @@
+{
+ "doctype": "DocType",
+ "name": "SFUI Test Tag Row",
+ "module": "SFUI Test",
+ "custom": 1,
+ "istable": 1,
+ "editable_grid": 1,
+ "fields": [
+  {
+   "fieldname": "contact",
+   "fieldtype": "Link",
+   "label": "Contact",
+   "options": "SFUI Test Contact",
+   "in_list_view": 1,
+   "reqd": 1
+  }
+ ],
+ "permissions": []
+}
