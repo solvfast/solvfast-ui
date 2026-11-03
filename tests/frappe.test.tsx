@@ -50,7 +50,11 @@ function setup(props: Props = {}, opts: { lang?: "en" | "ar"; mock?: MockFrappe;
   return { mock, qc, rerender: (p: Props) => utils.rerender(tree(p)) };
 }
 const calls = (mock: MockFrappe, method: string) => mock.calls.filter((c) => c.method === method);
-const lastList = (mock: MockFrappe) => calls(mock, "frappe.client.get_list").at(-1)!.args;
+const ROWS = "frappe.desk.reportview.get";
+const lastList = (mock: MockFrappe): Record<string, any> => { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const a = calls(mock, ROWS).at(-1)!.args as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  return { ...a, limit_start: a.start, limit_page_length: a.page_length };
+};
 const lastCount = (mock: MockFrappe) => calls(mock, "frappe.desk.reportview.get_count").at(-1)!.args;
 const bodyRows = () => [...document.querySelectorAll<HTMLElement>("tbody tr")].filter((tr) => !tr.hasAttribute("aria-hidden") && !tr.hasAttribute("data-group-header") && tr.querySelectorAll("td").length > 1);
 const loaded = async (n = 20) => waitFor(() => expect(bodyRows()).toHaveLength(n));
@@ -257,7 +261,7 @@ describe("request building", () => {
   });
 
   it("F6 sorts by the column's field; unknown or unsortable → the DocType's default order", () => {
-    expect(req({ sort: { key: "date", dir: "asc" } }).order_by).toBe("date asc");
+    expect(req({ sort: { key: "date", dir: "asc" } }).order_by).toBe("date asc, name asc");
     expect(req({ sort: { key: "badge", dir: "asc" } }).order_by).toBe("modified desc");
     const r = buildListRequest({ meta: META, columns: [{ key: "x", label: "X", field: "date", sortable: false }, ...cols] as ColumnDef<never>[], state: { ...STATE, sort: { key: "x", dir: "asc" } } });
     expect(r.order_by).toBe("modified desc");
@@ -304,9 +308,10 @@ describe("FrappeListView (F31 data mode)", () => {
     const { mock } = setup();
     await loaded();
     expect(calls(mock, "frappe.desk.form.load.getdoctype")).toHaveLength(1);
-    expect(calls(mock, "frappe.client.get_list")).toHaveLength(1); // no request from the placeholder shown while meta loads
-    expect(lastList(mock)).toMatchObject({ doctype: "ToDo", fields: ["name", "status", "priority", "date", "reference_type"], filters: [], or_filters: [], order_by: "modified desc", limit_start: 0, limit_page_length: 20 });
-    expect(lastCount(mock)).toEqual({ doctype: "ToDo", filters: [], or_filters: [] });
+    expect(calls(mock, ROWS)).toHaveLength(1); // no request from the placeholder shown while meta loads
+    // Desk's row source, with its standard row fields (docs 13 §1.2) and comment counts
+    expect(lastList(mock)).toMatchObject({ doctype: "ToDo", fields: ["name", "status", "priority", "date", "reference_type", "docstatus", "owner", "modified", "_assign", "_comments", "_liked_by", "_user_tags"], filters: [], or_filters: [], order_by: "modified desc", limit_start: 0, limit_page_length: 20, with_comment_count: 1, view: "List" });
+    expect(lastCount(mock)).toEqual({ doctype: "ToDo", filters: [], or_filters: [], fields: [], limit: 1001 }); // capped count (Desk's count_upper_bound)
     expect([...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim())).toEqual(["Status", "Priority", "Due Date", "Reference Type"]);
     for (const name of ["Status", "Priority", "Allocated To"]) expect(screen.getAllByLabelText(name).length).toBeGreaterThan(0); // in_standard_filter
     expect(screen.getByText("Total: 45")).toBeTruthy();
@@ -325,7 +330,7 @@ describe("FrappeListView (F31 data mode)", () => {
     await waitFor(() => expect(screen.getByText(`Total: ${total}`)).toBeTruthy());
     const countsBefore = calls(mock, "frappe.desk.reportview.get_count").length;
     fireEvent.click(within(document.querySelector("thead")!).getByRole("button", { name: /Due Date/ }));
-    await waitFor(() => expect(lastList(mock).order_by).toBe("date asc"));
+    await waitFor(() => expect(lastList(mock).order_by).toBe("date asc, name asc"));
     fireEvent.click(btn("Next page"));
     await waitFor(() => expect(lastList(mock).limit_start).toBe(20));
     expect(calls(mock, "frappe.desk.reportview.get_count")).toHaveLength(countsBefore); // same filters → cached count
@@ -334,11 +339,11 @@ describe("FrappeListView (F31 data mode)", () => {
   it("F12 search: one request per typing pause, across the DocType's search fields", async () => {
     const { mock } = setup();
     await loaded();
-    const before = calls(mock, "frappe.client.get_list").length;
+    const before = calls(mock, ROWS).length;
     const input = screen.getByPlaceholderText("Search…");
     for (const v of ["v", "vi", "vis", "visa"]) type(input, v);
     await pause();
-    await waitFor(() => expect(calls(mock, "frappe.client.get_list").length).toBe(before + 1));
+    await waitFor(() => expect(calls(mock, ROWS).length).toBe(before + 1));
     expect(lastList(mock).or_filters).toEqual(["description", "reference_type", "reference_name", "name"].map((f) => [f, "like", "%visa%"]));
     const hits = mock.rows.filter((r) => ["description", "reference_type", "reference_name", "name"].some((f) => /visa/i.test(String(r[f] ?? ""))));
     expect(hits.length).toBeGreaterThan(mock.rows.filter((r) => /visa/i.test(String(r.description))).length); // other fields count too
@@ -388,12 +393,12 @@ describe("FrappeListView (F31 data mode)", () => {
 
   it("F29 server errors are shown with Frappe's message; Retry reloads (403 and 500)", async () => {
     const mock = createMockFrappe();
-    mock.failNext(1, { status: 403, exc_type: "PermissionError", message: "No permission for ToDo" }, "frappe.client.get_list");
+    mock.failNext(1, { status: 403, exc_type: "PermissionError", message: "No permission for ToDo" }, ROWS);
     setup({}, { mock });
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("No permission for ToDo"));
     fireEvent.click(btn("Retry"));
     await loaded();
-    mock.failNext(1, { status: 500, exc_type: "Exception", message: "Server error" }, "frappe.client.get_list");
+    mock.failNext(1, { status: 500, exc_type: "Exception", message: "Server error" }, ROWS);
     fireEvent.click(btn("Next page"));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Server error"));
     fireEvent.click(btn("Retry"));
@@ -404,7 +409,7 @@ describe("FrappeListView (F31 data mode)", () => {
     const mock = createMockFrappe();
     setup({ doctype: "Nope" }, { mock });
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("DocType Nope not found"));
-    expect(calls(mock, "frappe.client.get_list")).toHaveLength(0);
+    expect(calls(mock, ROWS)).toHaveLength(0);
   });
 
   it("F11 in the UI: a saved filter on a field that no longer exists still loads (the field is dropped)", async () => {
@@ -483,14 +488,14 @@ describe("providers", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     setup({}, { queryClient: qc });
     await loaded();
-    expect(qc.getQueryCache().getAll().map((q) => q.queryKey[1])).toEqual(expect.arrayContaining(["meta", "list", "count"]));
+    expect(qc.getQueryCache().getAll().map((q) => q.queryKey[1])).toEqual(expect.arrayContaining(["list-meta", "list", "count"]));
   });
 
   it("FrappeListView works with no provider at all (it creates one)", async () => {
     const mock = createMockFrappe();
     render(<ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><FrappeListView doctype="ToDo" storage={null} client={createFrappeClient({ transport: mock.transport })} /></ThemeProvider>);
     await loaded();
-    expect(calls(mock, "frappe.client.get_list")).toHaveLength(1);
+    expect(calls(mock, ROWS)).toHaveLength(1);
   });
 
   it("the core entry exports nothing from the Frappe layer", () => {
