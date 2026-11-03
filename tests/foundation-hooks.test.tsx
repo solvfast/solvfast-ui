@@ -12,7 +12,7 @@ import todoAr from "./fixtures/real-15.110/todo.ar.json";
 import contactEn from "./fixtures/real-15.110/contact.en.json";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { FrappeError, createFrappeClient, toFrappeError, type FrappeResponse } from "../src/frappe/client";
-import { FrappeProvider } from "../src/frappe/FrappeProvider";
+import { FrappeProvider, useFrappeApi, useFrappeClient } from "../src/frappe/FrappeProvider";
 import { frappeKeys, type DocTypeMeta, type FrappeDoc, type FrappeDocField, type MetaBundle } from "../src/frappe/contract";
 import { useDoc, useDocAction, useMetaBundle, usePermissions, useSaveDoc } from "../src/frappe/hooks";
 import { buildDocPermissions, controlDisplayStatus, fieldDisplayStatus, formatValue, translateLabel } from "../src/frappe/services";
@@ -96,6 +96,23 @@ describe("useMetaBundle / useDoc", () => {
     expect(keys).toEqual(expect.arrayContaining([JSON.stringify(frappeKeys.docinfo("ToDo", "TD-9")), JSON.stringify(frappeKeys.list("ToDo")), JSON.stringify(frappeKeys.count("ToDo"))]));
     await act(() => result.current.act.remove.mutateAsync({ doctype: "ToDo", name: "TD-9" }));
     expect(qc.getQueryData(frappeKeys.doc("ToDo", "TD-9"))).toBeUndefined();
+  });
+});
+
+describe("provider", () => {
+  it("a 0.3-style custom client is upgraded once: hooks and the message host share the same FrappeApi", async () => {
+    const legacy = {
+      call: async () => ({ message: 1, _server_messages: sm({ message: "Hello from legacy", alert: 1 }) }),
+      getMeta: async () => ({ name: "X", fields: [] }), getList: async () => [], getCount: async () => 0, searchLink: async () => [],
+    };
+    const qc = new QueryClient();
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><QueryClientProvider client={qc}><FrappeProvider client={legacy}>{children}</FrappeProvider></QueryClientProvider></ThemeProvider>
+    );
+    const { result } = renderHook(() => ({ api: useFrappeApi(), client: useFrappeClient() }), { wrapper });
+    expect(result.current.api).toBe(result.current.client);
+    await act(() => result.current.api.deleteDoc("X", "1"));
+    expect(await screen.findByText("Hello from legacy")).toBeTruthy();
   });
 });
 

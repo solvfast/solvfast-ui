@@ -86,13 +86,15 @@ export interface FrappeProviderProps {
 export function FrappeProvider({ client, queryClient, session, translations, formatContext, serverMessages = "show", onAlert, children }: FrappeProviderProps) {
   const existing = React.useContext(QueryClientContext);
   const [own] = React.useState(() => queryClient ?? (existing ? undefined : createFrappeQueryClient()));
-  const value = React.useMemo(() => client ?? createFrappeClient(), [client]);
+  // one FrappeApi per client: hooks (useFrappeApi) and the server-message subscription then share the same object,
+  // also for a 0.3-style custom client (withFrappeApi wraps it once); it still implements FrappeClient
+  const value = React.useMemo(() => withFrappeApi(client ?? createFrappeClient()), [client]);
   const outer = React.useContext(SettingsContext);
   const settings = React.useMemo(
     () => ({ session: session ?? outer.session, translations: translations ?? outer.translations, formatContext: formatContext ?? outer.formatContext }),
     [session, translations, formatContext, outer],
   );
-  const source = React.useMemo(() => (serverMessages === "show" ? withFrappeApi(value) : undefined), [serverMessages, value]);
+  const source = serverMessages === "show" ? value : undefined;
   let inner = <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>;
   if (serverMessages) inner = <FrappeMessagesProvider source={source} onAlert={onAlert}>{inner}</FrappeMessagesProvider>;
   inner = <FrappeContext.Provider value={value}>{inner}</FrappeContext.Provider>;
