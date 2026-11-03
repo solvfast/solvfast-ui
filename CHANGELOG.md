@@ -6,6 +6,18 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+Work towards 0.4.0 (Frappe-integrated components) on branch `feat/0.4.0-frappe`; see docs/CONTRACT-0.4.md.
+
+### Already in the published 0.3.0 tarball but missing from this changelog (published content ≠ tag `v0.3.0`)
+- Column manager: PMO's design (`66af191`).
+- Date filters like Frappe's — timespans, `between` on dates (`63bbd1b`).
+
+### Added (in progress)
+- `@solvfast/ui/frappe`: the 0.4.0 integration contract (`contract.ts`): metadata bundles, documents and docinfo,
+  permissions, structured errors, client surface (documents, workflow, assignment, comments), query keys and
+  invalidation rules, realtime port, simulated-backend input.
+- Real Frappe 15.110 metadata fixtures (`tests/fixtures/real-15.110/`) and the read-only capture script.
+
 ## [0.3.0] — 2026-10-19
 
 Additive: every component in PMO's `components/ui` is now in the package, in the package's look, so PMO and new

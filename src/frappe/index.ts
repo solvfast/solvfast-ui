@@ -14,3 +14,5 @@ export { buildFrappeListMeta, columnsFromMeta, filterFieldsFromMeta, STANDARD_FI
 export type { FrappeListMeta } from "./meta";
 export { queryToFrappe, conditionToFrappe, buildListRequest } from "./query";
 export type { FrappeFilter, ListRequest, ListRequestInput, TranslatedQuery } from "./query";
+// 0.4.0 integration contract (types + query keys). docs/CONTRACT-0.4.md
+export * from "./contract";

@@ -155,6 +155,16 @@ const en = {
   strikethrough: "Strikethrough",
   bulletedList: "Bulleted list",
   numberedList: "Numbered list",
+  // ---- 0.4.0 message blocks: each agent adds keys ONLY under its own marker, in both `en` and `ar` ----
+  // ---- frappe:foundation ----
+
+  // ---- frappe:list ----
+
+  // ---- frappe:form ----
+
+  // ---- frappe:record ----
+
+  // ---- end of 0.4.0 blocks ----
 };
 
 export type Messages = typeof en;
@@ -309,6 +319,16 @@ const ar: Messages = {
   strikethrough: "يتوسطه خط",
   bulletedList: "قائمة نقطية",
   numberedList: "قائمة مرقّمة",
+  // ---- 0.4.0 message blocks: each agent adds keys ONLY under its own marker, in both `en` and `ar` ----
+  // ---- frappe:foundation ----
+
+  // ---- frappe:list ----
+
+  // ---- frappe:form ----
+
+  // ---- frappe:record ----
+
+  // ---- end of 0.4.0 blocks ----
 };
 
 export const defaultMessages: Record<Language, Messages> = { en, ar };

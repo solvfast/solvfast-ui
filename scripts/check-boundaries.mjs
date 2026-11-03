@@ -32,6 +32,9 @@ const RULES = {
   toast: { deny: [/^@tanstack/, /frappe/, /react-router/, /^\.\.\/(shell|list|frappe|cards|chart|form)/] },
   chart: { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^react-hook-form/, /^\.\.\/(shell|list|frappe|cards|toast|form)/] },
   form: { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^recharts/, /^\.\.\/(shell|list|frappe|cards|toast|chart)/] },
+  // 0.4.0: generic, Frappe-free controls and record pieces (core entry). They may use primitives, theme and lib only.
+  fields: { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^recharts/, /^react-hook-form/, /^\.\.\/(shell|list|frappe|toast|chart|form|cards|record)/] },
+  record: { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^recharts/, /^react-hook-form/, /^\.\.\/(shell|list|frappe|toast|chart|form|cards)/] },
   "index.ts": { deny: [/^@tanstack/, /^\.\/(frappe|toast|chart|form)/, /^sonner/, /^recharts/, /^react-hook-form/] },
 };
 for (const file of walk(path.join(root, "src")).filter((f) => /\.(ts|tsx)$/.test(f))) {
