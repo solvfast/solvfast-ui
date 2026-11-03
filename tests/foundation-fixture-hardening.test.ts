@@ -235,3 +235,20 @@ describe("cancel pre-flight and amend (A3 R1-F5 call sites)", () => {
     expect((await client.saveDoc({ doctype: "Sales Invoice", name: "new-si-2", __islocal: 1, customer: "ACME", amended_from: "SI-1-1" }, "Save")).name).toBe("SI-1-2");
   });
 });
+
+describe("autoincrement naming (A2 browser finding)", () => {
+  it("continues after the highest numeric name among seeded and stored docs (AUTO_INCREMENT)", async () => {
+    const DEAL: DocTypeMeta = { name: "Serve Fast Deal", autoname: "autoincrement", fields: [{ fieldname: "title", fieldtype: "Data" }] };
+    const transport = createFixtureTransport({
+      meta: { "Serve Fast Deal": [DEAL] },
+      docs: { "Serve Fast Deal": [1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ doctype: "Serve Fast Deal", name: String(i), title: `D${i}` })) },
+    }, { now: NOW });
+    const client = createFrappeClient({ transport });
+    const a = await client.saveDoc({ doctype: "Serve Fast Deal", name: "new-serve-fast-deal-1", __islocal: 1, title: "New" }, "Save");
+    expect(a.name).toBe("9");
+    const b = await client.saveDoc({ doctype: "Serve Fast Deal", name: "new-serve-fast-deal-2", __islocal: 1, title: "Next" }, "Save");
+    expect(b.name).toBe("10");
+    await client.deleteDoc("Serve Fast Deal", "10");
+    expect((await client.saveDoc({ doctype: "Serve Fast Deal", name: "new-3", __islocal: 1, title: "x" }, "Save")).name).toBe("11"); // a deleted number is not reused
+  });
+});

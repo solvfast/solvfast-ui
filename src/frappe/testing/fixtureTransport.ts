@@ -254,7 +254,15 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       return series(ns);
     }
     if (auto.startsWith("format:")) return auto.slice(auto.indexOf(":") + 1).replace(/\{[\w | #]+\}/g, (m) => parseSeries([m.slice(1, -1)], doc));
-    if (auto === "autoincrement") return String(Number(nextNumber(`__autoincrement__${meta.name}`, 1)));
+    if (auto === "autoincrement") {
+      // the table's AUTO_INCREMENT: after the highest numeric name stored (seeded docs included) and after every value
+      // already issued (a deleted row's number is not reused)
+      const key = `__autoincrement__${meta.name}`;
+      let max = counters[key] ?? 0;
+      for (const n of table(meta.name).keys()) if (/^\d+$/.test(n)) max = Math.max(max, Number(n));
+      counters[key] = max + 1;
+      return String(max + 1);
+    }
     if (auto.includes("#")) return series(auto);
     let name = hash();
     while (table(meta.name).has(name)) name = hash();
