@@ -137,7 +137,7 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
       emptyMessage={rest.emptyMessage ?? t("listEmptyNone").replace("{doctype}", doctype)}
       emptyFilteredMessage={rest.emptyFilteredMessage ?? t("listEmptyFilteredDoctype").replace("{doctype}", doctype)}
       emptyAction={rest.emptyAction ?? (onCreate ? { label: t("listCreateFirst").replace("{doctype}", doctype), onClick: onCreate } : undefined)}
-      selectable={rest.selectable ?? (bulk || showExport ? true : undefined)}
+      selectable={rest.selectable ?? (bulk ? true : undefined)}
       toolbarActions={menuNode || rest.toolbarActions ? <>{rest.toolbarActions}{menuNode}</> : undefined}
       renderBulkActions={renderBulk}
       onSelectionChange={(k) => { setSelectedCount(k.length); rest.onSelectionChange?.(k); }}

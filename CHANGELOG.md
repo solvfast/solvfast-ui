@@ -289,3 +289,15 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
 - `bulkMenu`: Assign To gated on `read` (server: `assign_to.py:67-68`), was `write`.
 - `permissionsKnown`, `isAdministrator` exported. `tests/parity/permissions-matrix.test.tsx` (31 tests, SIMULATED).
 - `docs/release/PERMISSION-AUDIT.md`.
+
+## 0.4.0-dev.28 (2026-11-03, Phase 26 C — list Import/Export)
+- `FrappeListView`: list menu with **Import** (only when `canImport`; `onImport` or navigation to Data Import) and
+  **Export** (only when `canExport`) → `FrappeExportDialog` → server `download_template` (Desk's Data Exporter request;
+  the file comes from the server, never from client data). Props `onImport`, `menu`, `ioLabels`. Row checkboxes stay
+  opt-in (`selectable` / `bulk`), unchanged from dev.27.
+- `startDataImport` and friends reproduce Desk's Data Import call sequence (`savedocs` → `upload_file` → `savedocs` →
+  `get_preview_from_template` → `form_start_import`), `useImportStatus` polls `get_import_status`. No preview grid / column
+  mapper yet (owner decision). **All verified against stubs only; nothing has run on a site.**
+- Columns of permlevel fields the user cannot read are dropped (`restrictMetaToReadable`) when the roles are known.
+- Bulk Delete outcome wording: "N requested — the server reports failures in its messages" (`delete_items` answers nothing).
+- `docs/release/LISTVIEW-FRAPPE-PARITY.md`: verdict **not Frappe-compatible yet** (missing list in §5).
