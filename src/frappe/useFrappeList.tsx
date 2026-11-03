@@ -8,7 +8,7 @@ import * as React from "react";
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { fieldOf, mergeColumns, type ColumnDef } from "../list/model/columns";
 import type { GroupByOption } from "../list/model/group";
-import type { FilterField, FiscalYear } from "../list/model/filters";
+import type { FilterField, FilterQuery, FiscalYear } from "../list/model/filters";
 import type { LoadOptions } from "../list/parts/FilterBuilder";
 import type { ListQueryState } from "../list/useListState";
 import { loc, type Localized } from "../lib/localized";
@@ -26,6 +26,7 @@ import { rolePermissions } from "./services/permissions";
 import { hasIndicator, indicatorFields, type IndicatorConfig, type IndicatorWorkflow } from "./list/indicator";
 import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser } from "./list/reportview";
 import { applyColumnSettings, capDefaultColumns, deskColumnLimit, fetchListSettings, listedFields } from "./list/settings";
+import { filtersToUrl, parseUrlFilters, type ParsedUrlFilters } from "./list/urlFilters";
 
 /**
  * Desk's width-based column limit (`list_view.js:433-444`: 4 at ≤ 1366 px, 10 at ≥ 1920 px, else 6), following the
@@ -138,6 +139,14 @@ export interface FrappeListOptions<T> {
   columnLimit?: boolean;
   /** With `columnLimit`: Desk's `listview_settings.hide_name_column` — no ID column after the capped ones (list_view.js:446-457). */
   hideNameColumn?: boolean;
+  /**
+   * Filters in the page URL, as Desk's list routes (`?status=Open&priority=["!=","Low"]`; `list/urlFilters.ts`). Opt-in.
+   * `read`: at mount, the URL's filters replace the restored ones (list_view.js:559-571, 2130-2183) — keys that are not
+   * fields of the DocType are ignored, never sent; `routeOptions` (Desk's `frappe.route_options`) is read when the query
+   * string is empty. `write`: the current filters are written back with `history.replaceState` (list_view.js:1664-1696),
+   * other query parameters kept. `true` = both. Never on the server (no `window`).
+   */
+  urlFilters?: boolean | { read: boolean; write: boolean; routeOptions?: Record<string, unknown> };
 }
 
 type Row = Record<string, unknown>;
@@ -223,6 +232,24 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   const filterFields = React.useMemo(() => (meta?.filterFields ?? []).map((f) => ({ ...f, label: label(f.name, f.label) })), [meta, label]);
 
   const [state, setState] = React.useState<ListQueryState | null>(null);
+
+  // URL filters (opt-in): read once the meta is known (validated against it), written back on every applied change
+  const urlCfg = o.urlFilters === true ? { read: true, write: true } : o.urlFilters || null;
+  const urlRead = React.useMemo<ParsedUrlFilters | undefined>(() => {
+    if (!urlCfg?.read || !meta || typeof window === "undefined") return undefined;
+    const search = window.location.search;
+    const source = search && search !== "?" ? search : urlCfg.routeOptions;
+    return source ? parseUrlFilters(source, meta) : undefined;
+  }, [meta]); // eslint-disable-line react-hooks/exhaustive-deps -- the URL at the time the list starts, not after our own write-back
+  const urlWrite = !!urlCfg?.write;
+  const appliedQuery = state?.query;
+  React.useEffect(() => {
+    if (!urlWrite || !meta || !appliedQuery || typeof window === "undefined") return;
+    const { pathname, search, hash } = window.location;
+    const next = filtersToUrl(appliedQuery, meta, search);
+    if (next === search || (next === "" && search === "?")) return;
+    window.history.replaceState(window.history.state, "", `${pathname}${next}${hash}`);
+  }, [urlWrite, meta, appliedQuery]);
   // Only the list built from the DocType reports state: the placeholder shown while the meta loads has no columns, and
   // its state would fetch rows with `name` only before the real request.
   const metaRef = React.useRef(meta);
@@ -323,7 +350,11 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     ready: !!meta,
     request: req,
     refetch: () => { if (m.error) void m.refetch(); else { void list.refetch(); void count.refetch(); } },
+    /** URL filters read at mount (`urlFilters`): what was applied and which keys were ignored. */
+    urlFilters: urlRead,
     listProps: {
+      // only when the URL had usable filters (Desk replaces the restored ones only then, list_view.js:565-570)
+      ...(urlRead?.query.conditions.length ? { initialQuery: urlRead.query as FilterQuery } : {}),
       mode: "server" as const,
       rows,
       total: count.data?.count ?? rows.length,

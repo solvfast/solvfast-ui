@@ -59,6 +59,8 @@ export interface UseListStateOptions<T> {
   viewKey?: string;
   /** Default: localStorage (`sf:list:<viewKey>:…`). `null` disables. */
   storage?: { prefs?: ListPrefsStorage | null; saved?: SavedFiltersStorage | null } | null;
+  /** The filter query to start with (e.g. filters from the URL). Wins over a query restored from `storage`. Read once, at mount. */
+  initialQuery?: FilterQuery;
   /** Server mode: called (debounced for typing) whenever what the app must fetch changes. */
   onStateChange?: (state: ListQueryState) => void;
   /** Server mode: anything else that scopes the result (e.g. the app's base filters, serialized). The selection is
@@ -117,7 +119,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   }, [columns, visibleKeys]);
 
   // ---- query state -----------------------------------------------------------------------------------------------------
-  const [query, setQueryState] = React.useState<FilterQuery>(() => (prefsStore?.persistQuery && initial.query ? initial.query : EMPTY_QUERY));
+  const [query, setQueryState] = React.useState<FilterQuery>(() => opts.initialQuery ?? (prefsStore?.persistQuery && initial.query ? initial.query : EMPTY_QUERY));
   const [search, setSearchState] = React.useState("");
   const [sort, setSortState] = React.useState<SortState>(initial.sort ?? opts.defaultSort ?? DEFAULT_SORT);
   const [groupBy, setGroupByState] = React.useState<string>(initial.groupBy ?? "none");

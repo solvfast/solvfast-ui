@@ -14,6 +14,7 @@ import { FilterBuilder, ListView, ThemeProvider, applyFilterQuery, operatorsFor,
 import { FrappeListView, FrappeProvider, buildFrappeListMeta, createFrappeClient, queryToFrappe, useFrappeList, type DocMeta, type FrappeTransport } from "../src/frappe";
 import type { FrappeListOptions } from "../src/frappe/useFrappeList";
 import { capDefaultColumns, deskColumnLimit } from "../src/frappe/list/settings";
+import { filtersToUrl, parseUrlFilters } from "../src/frappe/list/urlFilters";
 import { NESTED_SET_LABEL, NESTED_SET_OPERATORS, operatorLabel } from "../src/list/model/filters";
 import { queryToTuples, tuplesToQuery } from "../src/frappe/list/tuples";
 import { createFrappeSavedFilters } from "../src/frappe/list/storage";
@@ -287,6 +288,122 @@ describe("width-based column limit (list_view.js:375-457) — SIMULATED (jsdom w
     const SO = { ...DEAL, name: "Sales Order", is_submittable: 1, fields: [...(DEAL.fields as object[]).slice(0, 1), { fieldname: "status", label: "Status", fieldtype: "Select", options: "Draft\nTo Bill", in_list_view: 1 }, ...(DEAL.fields as object[]).slice(1)] } as unknown as DocMeta;
     mountHook(site(SO).transport, { doctype: "Sales Order", columnLimit: true });
     await waitFor(() => expect(headers()).toEqual(["Title", "Status", "FA", "ID"])); // Desk: Subject, (Tag), Status, FA + ID
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe("URL filters (list_view.js:2130-2183 read, :1664-1696 write) — SIMULATED (jsdom location / history)", () => {
+  const meta = buildFrappeListMeta(TASK, en);
+  const ORDER = { name: "Order", title_field: "title", fields: [{ fieldname: "title", label: "Title", fieldtype: "Data", in_list_view: 1 }, { fieldname: "status", label: "Status", fieldtype: "Select", options: "Open\nClosed" }, { fieldname: "items", label: "Items", fieldtype: "Table", options: "Order Item" }] } as unknown as DocMeta;
+  const ITEM = { name: "Order Item", fields: [{ fieldname: "item_code", label: "Item Code", fieldtype: "Data" }, { fieldname: "qty", label: "Qty", fieldtype: "Float" }] } as DocMeta;
+  const order = buildFrappeListMeta(ORDER, en, { "Order Item": ITEM });
+  afterEach(() => { window.history.replaceState(null, "", "/"); });
+
+  it("plain `field=value` is Equals; `[\"op\", value]` is JSON; a repeated key gives one filter per value", () => {
+    const p = parseUrlFilters('?status=Open&modified=[">","2026-01-01"]&status=Working&project=["in",["P1","P2"]]&parent_task=["descendants of (inclusive)","TASK-1"]&subject=["like","%visa%"]', meta);
+    expect(p.tuples).toEqual([
+      ["Task", "status", "=", "Open"], ["Task", "modified", ">", "2026-01-01"], ["Task", "status", "=", "Working"],
+      ["Task", "project", "in", ["P1", "P2"]], ["Task", "parent_task", "descendants of (inclusive)", "TASK-1"], ["Task", "subject", "like", "%visa%"],
+    ]);
+    expect(plain(p.query)).toEqual([
+      { field: "status", operator: "equals", value: "Open" }, { field: "modified", operator: "gt", value: "2026-01-01" }, { field: "status", operator: "equals", value: "Working" },
+      { field: "project", operator: "in", value: "P1,P2" }, { field: "parent_task", operator: "descendants_of_inclusive", value: "TASK-1" }, { field: "subject", operator: "like", value: "visa" },
+    ]);
+    expect(p.ignored).toEqual([]);
+  });
+
+  it("unknown fields are ignored and reported — never sent; injection-looking input stays a VALUE, never a fieldname", () => {
+    const search = "?" + new URLSearchParams([
+      ["bogus", "1"], ["name) or 1=1 --", "x"], ["tabUser.name", "Administrator"], ["__proto__", "x"], ["Other Child.qty", "1"],
+      ["subject", "' OR 1=1 --"], ["status", JSON.stringify(["=", 'Open"); DROP TABLE `tabTask`; --'])],
+      ["status", "[oops]"], ["status", '["!="]'], ["status", "[1,2]"], ["modified", '["previous","1 week"]'],
+    ]).toString();
+    const p = parseUrlFilters(search, meta);
+    expect(p.ignored).toEqual(["bogus", "name) or 1=1 --", "tabUser.name", "__proto__", "Other Child.qty", "status", "status", "status", "modified"]);
+    expect(p.tuples).toEqual([["Task", "subject", "=", "' OR 1=1 --"], ["Task", "status", "=", 'Open"); DROP TABLE `tabTask`; --']]);
+    // the request carries them as values of known fields only
+    expect(queryToFrappe(p.query, meta.known, meta.fieldtypes).filters).toEqual([["subject", "=", "' OR 1=1 --"], ["status", "=", 'Open"); DROP TABLE `tabTask`; --']]);
+  });
+
+  it("child tables: `Child.field`, or a bare child field resolved like get_doctype_for_field (meta.js:155-185)", () => {
+    const p = parseUrlFilters({ "Order Item.qty": '[">", 5]', item_code: "X-1", status: ["!=", "Closed"] }, order); // a route_options object
+    expect(p.tuples).toEqual([["Order Item", "qty", ">", 5], ["Order Item", "item_code", "=", "X-1"], ["Order", "status", "!=", "Closed"]]);
+    expect(queryToFrappe(p.query, order.known, order.fieldtypes, { childOf: order.childOf }).filters).toEqual([["Order Item", "qty", ">", 5], ["Order Item", "item_code", "=", "X-1"], ["status", "!=", "Closed"]]);
+    // route_options: an Array of JSON strings = several filters on one key (list_view.js:2142-2149)
+    expect(parseUrlFilters({ status: ['["!=","Closed"]', '["!=","Open"]'] }, order).tuples).toEqual([["Order", "status", "!=", "Closed"], ["Order", "status", "!=", "Open"]]);
+  });
+
+  it("filtersToUrl writes Desk's format (`=` raw, else JSON [op, value]; `Child.field`), keeps other parameters, and round-trips", () => {
+    const query = q([{ field: "status", operator: "equals", value: "Open" }, { field: "Order Item.qty", operator: "gte", value: "2" }, { field: "title", operator: "like", value: "a&b" }]);
+    const url = filtersToUrl(query, order, "?tab=items&status=Closed");
+    const params = new URLSearchParams(url.slice(1));
+    expect([...params.entries()]).toEqual([["tab", "items"], ["status", "Open"], ["Order Item.qty", '[">=",2]'], ["title", '["like","%a&b%"]']]);
+    expect(plain(parseUrlFilters(url, order).query)).toEqual(plain(query));
+    // OR cannot be written (Desk's URL is AND-only): the filter parameters are removed, the others stay
+    expect(filtersToUrl(q([{ field: "status", operator: "equals", value: "Open" }, { field: "title", operator: "equals", value: "x" }], "or"), order, "?tab=items&status=Closed")).toBe("?tab=items");
+    expect(filtersToUrl(q([]), order, "?status=Open")).toBe("");
+  });
+
+  it("read at mount: the URL's filters reach rows and count; ignored keys are not sent; then the URL follows the list (replaceState)", async () => {
+    window.history.replaceState(null, "", "/app/task?status=Open&bogus=1&subject=%27%20OR%201%3D1");
+    const before = window.history.length;
+    const s = site(TASK);
+    mountHook(s.transport, { doctype: "Task", urlFilters: true });
+    await waitFor(() => expect(s.last("frappe.desk.reportview.get")).toBeTruthy());
+    expect(JSON.parse(String(s.last("frappe.desk.reportview.get").args.filters))).toEqual([["status", "=", "Open"], ["subject", "=", "' OR 1=1"]]);
+    await waitFor(() => expect(s.last("frappe.desk.reportview.get_count")).toBeTruthy());
+    expect(JSON.parse(String(s.last("frappe.desk.reportview.get_count").args.filters))).toEqual([["status", "=", "Open"], ["subject", "=", "' OR 1=1"]]);
+    expect(JSON.stringify(s.calls.map((c) => c.args))).not.toContain("bogus");
+    // the filter popover shows them; clearing them rewrites the URL without a new history entry, keeping `bogus`
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: en("clearAll") }));
+    await waitFor(() => expect(window.location.search).toBe("?bogus=1"));
+    expect(window.location.pathname).toBe("/app/task");
+    expect(window.history.length).toBe(before);
+    await waitFor(() => expect(JSON.parse(String(s.last("frappe.desk.reportview.get").args.filters))).toEqual([]));
+  });
+
+  it("write-back after a change; `{ read: false, write: true }` ignores the URL's filters and replaces them; off by default", async () => {
+    window.history.replaceState(null, "", "/app/task?status=Open");
+    const s = site(TASK);
+    mountHook(s.transport, { doctype: "Task", urlFilters: { read: false, write: true } });
+    await waitFor(() => expect(s.last("frappe.desk.reportview.get")).toBeTruthy());
+    expect(JSON.parse(String(s.last("frappe.desk.reportview.get").args.filters))).toEqual([]);
+    await waitFor(() => expect(window.location.search).toBe(""));
+    cleanup();
+    window.history.replaceState(null, "", "/app/task?status=Open");
+    const s2 = site(TASK);
+    mountHook(s2.transport, { doctype: "Task" });
+    await waitFor(() => expect(s2.last("frappe.desk.reportview.get")).toBeTruthy());
+    expect(JSON.parse(String(s2.last("frappe.desk.reportview.get").args.filters))).toEqual([]);
+    await pause();
+    expect(window.location.search).toBe("?status=Open"); // untouched
+    cleanup();
+    // read only: applied, URL never rewritten
+    window.history.replaceState(null, "", "/app/task?status=Open&priority=x");
+    const s3 = site(TASK);
+    mountHook(s3.transport, { doctype: "Task", urlFilters: { read: true, write: false } });
+    await waitFor(() => expect(JSON.parse(String(s3.last("frappe.desk.reportview.get")?.args.filters ?? "null"))).toEqual([["status", "=", "Open"]]));
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: en("clearAll") }));
+    await waitFor(() => expect(JSON.parse(String(s3.last("frappe.desk.reportview.get").args.filters))).toEqual([]));
+    expect(window.location.search).toBe("?status=Open&priority=x");
+  });
+
+  it("routeOptions (Desk's frappe.route_options) are read only when the query string is empty", async () => {
+    window.history.replaceState(null, "", "/app/task");
+    const s = site(TASK);
+    mountHook(s.transport, { doctype: "Task", urlFilters: { read: true, write: false, routeOptions: { status: "Working" } } });
+    await waitFor(() => expect(JSON.parse(String(s.last("frappe.desk.reportview.get")?.args.filters ?? "null"))).toEqual([["status", "=", "Working"]]));
+  });
+
+  it("initialQuery wins over a restored query (Desk: the route's filters replace the saved ones, list_view.js:559-571)", () => {
+    const prefs = { persistQuery: true, load: () => ({ query: q([{ field: "status", operator: "equals", value: "Working" }]) }), save: () => {} };
+    const cols = [{ key: "status", label: "Status", type: "text" }] as ColumnDef<{ id: string }>[];
+    const restored = renderHook(() => useListState({ rows: [], columns: cols, rowKey: (r) => r.id, viewKey: "Task", storage: { prefs, saved: null } }));
+    expect(plain(restored.result.current.query)).toEqual([{ field: "status", operator: "equals", value: "Working" }]);
+    const fromUrl = renderHook(() => useListState({ rows: [], columns: cols, rowKey: (r) => r.id, viewKey: "Task", storage: { prefs, saved: null }, initialQuery: q([{ field: "status", operator: "equals", value: "Open" }]) }));
+    expect(plain(fromUrl.result.current.query)).toEqual([{ field: "status", operator: "equals", value: "Open" }]);
   });
 });
 
