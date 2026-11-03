@@ -1,0 +1,14 @@
+/** `fmt("{0} changed {1}", a, b)` — positional placeholders for the message catalogue. */
+export const fmt = (template: string, ...args: Array<string | number>): string =>
+  template.replace(/\{(\d+)\}/g, (_, i) => String(args[Number(i)] ?? ""));
+
+export const initials = (name: string): string => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return (parts.length === 1 ? parts[0].slice(0, 2) : parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+export const errorText = (e: unknown): string => (e instanceof Error ? e.message : typeof e === "string" ? e : "");
+
+const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+export const escapeHtml = (s: string): string => s.replace(/[&<>"']/g, (c) => ESC[c]);

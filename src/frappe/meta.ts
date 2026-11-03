@@ -27,14 +27,32 @@ const SKIP = new Set([
 ]);
 /** Columns every DocType has; Frappe's filter validation accepts them without a DocField. */
 export const STANDARD_FIELDNAMES = ["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx"];
+/** Optional std columns of list rows (the server drops them silently when the table lacks them); not offered as filters or sort. */
+export const ROW_OPTIONAL_FIELDNAMES = ["_assign", "_comments", "_liked_by", "_user_tags"];
 const STANDARD: { name: string; key: keyof Messages; type: FieldType; fieldtype: string }[] = [
   { name: "name", key: "fieldId", type: "text", fieldtype: "Data" },
   { name: "creation", key: "fieldCreated", type: "date", fieldtype: "Datetime" },
   { name: "modified", key: "fieldModified", type: "date", fieldtype: "Datetime" },
 ];
 
+/** What the list reads beyond `DocMeta` (getdoctype sends these on the DocType). */
+export type ListDocMeta = DocMeta & { is_submittable?: number; is_large_table?: number; states?: { title: string; color?: string }[]; track_seen?: number };
+
+/** A filter field that lives on a child table: composite name `<Child DocType>.<fieldname>`. */
+export interface ChildFieldRef { doctype: string; fieldname: string; table: string }
+
 export interface FrappeListMeta {
   doctype: string;
+  isSubmittable: boolean;
+  isLargeTable: boolean;
+  /** `meta.states` (DocType State rows: title + colour), for the indicator. */
+  states: { title: string; color?: string }[];
+  /** Composite filter-field name → child table field. */
+  childOf: Map<string, ChildFieldRef>;
+  /** Fields a bulk Edit may set (value types, not read-only / hidden / virtual). */
+  editable: { name: string; label: string; type: FieldType; fieldtype: string; options?: { value: string; label: string }[] }[];
+  /** True for DocFields (or standard columns) of this DocType. */
+  hasField: (fieldname: string) => boolean;
   titleField: string;
   /** `title_field` + the DocType's `search_fields` + `name`, de-duplicated. */
   searchFields: string[];
@@ -63,12 +81,39 @@ function toFilterField(df: DocField): FilterField | null {
 }
 
 /** Filter fields for a DocType: its usable fields, then ID / Created On / Last Updated in the UI language. */
-export function filterFieldsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string): FilterField[] {
+export function filterFieldsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}): FilterField[] {
   const usable = (meta.fields || []).filter((df) => !SKIP.has(df.fieldtype) && !df.hidden);
+  const submittable = !!(meta as ListDocMeta).is_submittable;
+  const extra: FilterField[] = [
+    { name: "owner", label: t("listOwner"), type: "link", fieldtype: "Link", link_doctype: "User" },
+    { name: "modified_by", label: t("listModifiedBy"), type: "link", fieldtype: "Link", link_doctype: "User" },
+    ...(submittable ? [{ name: "docstatus", label: t("listIndicator"), type: "select" as const, fieldtype: "Int",
+      options: [{ value: "0", label: t("listDraft") }, { value: "1", label: t("listSubmitted") }, { value: "2", label: t("listCancelled") }] }] : []),
+  ];
   return [
     ...usable.map(toFilterField).filter((f): f is FilterField => !!f),
     ...STANDARD.map((s) => ({ name: s.name, label: t(s.key), type: s.type, fieldtype: s.fieldtype })),
+    ...extra.filter((e) => !usable.some((df) => df.fieldname === e.name)),
+    ...childFilterFields(meta, children, t).map((c) => c.field),
   ];
+}
+
+/** Fields of the DocType's child tables as filter fields (Desk's field_select lists them, labelled with the table). */
+export function childFilterFields(meta: DocMeta, children: Record<string, DocMeta>, t: (k: keyof Messages) => string): { field: FilterField; ref: ChildFieldRef }[] {
+  const out: { field: FilterField; ref: ChildFieldRef }[] = [];
+  for (const table of (meta.fields || []).filter((df) => df.fieldtype === "Table" && !df.hidden && df.options && children[df.options])) {
+    const child = children[table.options!];
+    for (const df of (child.fields || []).filter((d) => !SKIP.has(d.fieldtype) && !d.hidden)) {
+      const f = toFilterField(df);
+      if (!f) continue;
+      const composite = `${child.name}.${df.fieldname}`;
+      out.push({
+        field: { ...f, name: composite, label: t("listChildTable").replace("{field}", f.label).replace("{table}", table.label || table.fieldname) },
+        ref: { doctype: child.name, fieldname: df.fieldname, table: table.fieldname },
+      });
+    }
+  }
+  return out;
 }
 
 /** Columns for a DocType (`in_list_view` fields visible; others offered in the column manager). */
@@ -88,20 +133,26 @@ export function columnsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string)
 const titleOf = (meta: DocMeta, fields: FilterField[]) =>
   meta.title_field || fields.find((f) => f.type === "text" && f.name !== "name")?.name || "name";
 
-export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => string): FrappeListMeta {
-  const filterFields = filterFieldsFromMeta(meta, t);
-  const known = new Set([...(meta.fields || []).filter((df) => !SKIP.has(df.fieldtype)).map((df) => df.fieldname), ...STANDARD_FIELDNAMES]);
+export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}): FrappeListMeta {
+  const filterFields = filterFieldsFromMeta(meta, t, children);
+  const childFields = childFilterFields(meta, children, t);
+  const known = new Set([...(meta.fields || []).filter((df) => !SKIP.has(df.fieldtype)).map((df) => df.fieldname), ...STANDARD_FIELDNAMES, ...ROW_OPTIONAL_FIELDNAMES]);
   const fieldtypes = new Map<string, string>([
     ...(meta.fields || []).map((df) => [df.fieldname, df.fieldtype] as [string, string]),
     ["name", "Data"], ["owner", "Link"], ["creation", "Datetime"], ["modified", "Datetime"], ["modified_by", "Link"], ["docstatus", "Int"], ["idx", "Int"],
   ]);
+  for (const c of childFields) { known.add(c.field.name); fieldtypes.set(c.field.name, c.field.fieldtype ?? "Data"); }
   const titleField = titleOf(meta, filterFields);
   const searchFields = [titleField, ...(meta.search_fields || "").split(",").map((s) => s.trim()), "name"]
     .filter((f, i, a) => !!f && a.indexOf(f) === i && known.has(f));
   const sortField = meta.sort_field && known.has(meta.sort_field) ? meta.sort_field : "modified";
   const sortOrder = (meta.sort_order || "desc").toLowerCase() === "asc" ? "asc" : "desc";
   return {
-    doctype: meta.name, titleField, searchFields, defaultOrderBy: `${sortField} ${sortOrder}`, filterFields,
+    doctype: meta.name, isSubmittable: !!(meta as ListDocMeta).is_submittable, isLargeTable: !!(meta as ListDocMeta).is_large_table,
+    states: (meta as ListDocMeta).states ?? [], childOf: new Map(childFields.map((c) => [c.field.name, c.ref])),
+    editable: filterFields.filter((f) => !f.name.includes(".") && (meta.fields || []).some((df) => df.fieldname === f.name && !df.hidden && !(df as { read_only?: number }).read_only && !(df as { is_virtual?: number }).is_virtual && df.fieldtype !== "Read Only"))
+      .map((f) => ({ name: f.name, label: f.label, type: f.type, fieldtype: f.fieldtype ?? "Data", options: f.options })),
+    hasField: (f: string) => known.has(f) && !f.includes("."), titleField, searchFields, defaultOrderBy: `${sortField} ${sortOrder}`, filterFields,
     columns: columnsFromMeta(meta, t),
     quickFilterFields: (meta.fields || []).filter((df) => df.in_standard_filter && !df.hidden && TYPE_MAP[df.fieldtype]).map((df) => df.fieldname),
     known, fieldtypes,

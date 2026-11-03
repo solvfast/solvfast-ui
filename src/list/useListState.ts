@@ -107,7 +107,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   }, [columns, visibleKeys]);
 
   // ---- query state -----------------------------------------------------------------------------------------------------
-  const [query, setQueryState] = React.useState<FilterQuery>(EMPTY_QUERY);
+  const [query, setQueryState] = React.useState<FilterQuery>(() => (prefsStore?.persistQuery && initial.query ? initial.query : EMPTY_QUERY));
   const [search, setSearchState] = React.useState("");
   const [sort, setSortState] = React.useState<SortState>(initial.sort ?? opts.defaultSort ?? DEFAULT_SORT);
   const [groupBy, setGroupByState] = React.useState<string>(initial.groupBy ?? "none");
@@ -175,7 +175,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   }, [viewKey, savedStore]);
 
   // ---- API ---------------------------------------------------------------------------------------------------------
-  const setQuery = (q: FilterQuery) => { setQueryState(q); setPage(0); };
+  const setQuery = (q: FilterQuery) => { setQueryState(q); setPage(0); if (prefsStore?.persistQuery) persist({ query: q }); };
   const setSearch = (v: string) => { setSearchState(v); setPage(0); };
   const setSort = (s: SortState) => { setSortState(s); persist({ sort: s }); };
   const toggleSort = (key: string) => setSort(sort.key === key ? { key, dir: sort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" });

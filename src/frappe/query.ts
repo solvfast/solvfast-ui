@@ -69,20 +69,23 @@ export function conditionToFrappe(c: FilterCondition, fieldtype?: string, opts: 
 export interface TranslatedQuery { filters: FrappeFilter[]; or_filters: FrappeFilter[]; /** Fields dropped as unknown. */ dropped: string[]; }
 
 /** A FilterQuery as Frappe filters: AND → `filters`; OR with 2+ conditions → `or_filters`. */
-export function queryToFrappe(query: FilterQuery | undefined, known: Set<string>, fieldtypes: Map<string, string>, opts: { fiscalYears?: FiscalYear[] } = {}): TranslatedQuery {
+export function queryToFrappe(query: FilterQuery | undefined, known: Set<string>, fieldtypes: Map<string, string>, opts: { fiscalYears?: FiscalYear[]; childOf?: Map<string, { doctype: string; fieldname: string }> } = {}): TranslatedQuery {
   const out: FrappeFilter[] = []; const dropped: string[] = [];
   for (const c of query?.conditions ?? []) {
     if (!c.field) continue;
     if (!known.has(c.field)) { dropped.push(c.field); continue; }
     const f = conditionToFrappe(c, fieldtypes.get(c.field), opts);
-    if (f) out.push(f);
+    if (!f) continue;
+    // child-table field: Frappe takes [child doctype, fieldname, op, value] and joins the child table
+    const child = opts.childOf?.get(c.field);
+    out.push(child ? ([child.doctype, child.fieldname, f[1], f[2]] as FrappeFilter) : f);
   }
   if (query?.conjunction === "or" && out.length > 1) return { filters: [], or_filters: out, dropped };
   return { filters: out, or_filters: [], dropped };
 }
 
 export interface ListRequestInput {
-  meta: { titleField: string; searchFields: string[]; defaultOrderBy: string; known: Set<string>; fieldtypes: Map<string, string> };
+  meta: { doctype?: string; childOf?: Map<string, { doctype: string; fieldname: string }>; titleField: string; searchFields: string[]; defaultOrderBy: string; known: Set<string>; fieldtypes: Map<string, string> };
   columns: ColumnDef<never>[] | ColumnDef<Record<string, unknown>>[];
   state: { search: string; query: FilterQuery; sort: SortState; page: number; pageSize: number; groupBy: string; visible: string[] };
   baseFilters?: FrappeFilter[];
@@ -92,6 +95,15 @@ export interface ListRequestInput {
   chunkSize?: number;
   /** For "Fiscal Year" conditions. */
   fiscalYears?: FiscalYear[];
+  /** Also request Desk's standard row fields (`_assign`, `_comments`, `_liked_by`, `_user_tags`, `docstatus`, `owner`, `modified`). */
+  rowFields?: boolean;
+  /** More row fields to request (e.g. what the indicator reads). */
+  extraFields?: string[];
+}
+
+/** Desk's SortSelector tie-break (sort_selector.js:198-208): a secondary `name` sort unless the field is name/creation/modified. */
+export function orderByWithTieBreak(field: string, dir: string): string {
+  return ["name", "creation", "modified"].includes(field) ? `${field} ${dir}` : `${field} ${dir}, name ${dir}`;
 }
 
 export interface ListRequest {
@@ -103,12 +115,15 @@ export interface ListRequest {
   limit_start: number;
   limit_page_length: number;
   grouped: boolean;
+  /** A filter targets a child table: the request joins it (fields fully quoted, `group_by` parent name, distinct count). */
+  joinsChild: boolean;
+  group_by?: string;
   /** Search was narrowed to the title field because the filters use `or_filters` (rule C2). */
   searchNarrowed: boolean;
   dropped: string[];
 }
 
-export function buildListRequest({ meta, columns, state, baseFilters = [], searchFields, chunkSize = 200, fiscalYears }: ListRequestInput): ListRequest {
+export function buildListRequest({ meta, columns, state, baseFilters = [], searchFields, chunkSize = 200, fiscalYears, rowFields, extraFields }: ListRequestInput): ListRequest {
   const cols = columns as ColumnDef<unknown>[];
   const byKey = new Map(cols.map((c) => [c.key, c]));
   const real = (f: string | undefined) => (f && meta.known.has(f) ? f : undefined);
@@ -121,16 +136,22 @@ export function buildListRequest({ meta, columns, state, baseFilters = [], searc
     const f = real(fieldOf(c)); if (f) fields.add(f);
     for (const m of c.metaFields ?? []) { const mf = real(m); if (mf) fields.add(mf); }
   }
+  for (const f of extraFields ?? []) if (meta.known.has(f)) fields.add(f);
+  if (rowFields) for (const f of ["docstatus", "owner", "modified", "_assign", "_comments", "_liked_by", "_user_tags"]) if (meta.known.has(f)) fields.add(f);
   const grouped = state.groupBy !== "none" && !!real(state.groupBy);
   if (grouped) fields.add(state.groupBy);
 
   // F6: sort by the column's field when it is real and sortable; otherwise the DocType's default order
   const sc = state.sort.key ? byKey.get(state.sort.key) : undefined;
   const sortField = sc && sc.sortable !== false ? real(fieldOf(sc)) : undefined;
-  const order_by = sortField ? `${sortField} ${state.sort.dir}` : meta.defaultOrderBy;
+  const [dField, dDir = "desc"] = meta.defaultOrderBy.split(/\s+/);
+  const order_by = sortField ? orderByWithTieBreak(sortField, state.sort.dir) : orderByWithTieBreak(dField, dDir);
 
   // F11 + F32
-  const q = queryToFrappe(state.query, meta.known, meta.fieldtypes, { fiscalYears });
+  const q = queryToFrappe(state.query, meta.known, meta.fieldtypes, { fiscalYears, childOf: meta.childOf });
+  // a filter on a child table joins it: Desk then groups by the parent name and counts distinct parents (docs 13 §1.3-1.4)
+  const joinsChild = [...baseFilters, ...q.filters, ...q.or_filters].some((f) => f.length === 4);
+  const parentTable = meta.doctype ? `\`tab${meta.doctype}\`` : "";
   const filters: FrappeFilter[] = [...baseFilters, ...q.filters];
   let or_filters = q.or_filters;
 
@@ -147,7 +168,10 @@ export function buildListRequest({ meta, columns, state, baseFilters = [], searc
   }
 
   return {
-    fields: [...fields], filters, or_filters, order_by,
+    // joined tables make a bare `name` ambiguous: Desk then sends fully quoted names
+    fields: joinsChild && parentTable ? [...fields].map((f) => `${parentTable}.\`${f}\``) : [...fields], filters, or_filters,
+    order_by: joinsChild && parentTable ? order_by.split(",").map((p) => `${parentTable}.\`${p.trim().split(/\s+/)[0]}\` ${p.trim().split(/\s+/)[1] ?? "asc"}`).join(", ") : order_by,
+    joinsChild, group_by: joinsChild && parentTable ? `${parentTable}.\`name\`` : undefined,
     limit_start: grouped ? 0 : state.page * state.pageSize,
     limit_page_length: grouped ? chunkSize : state.pageSize,
     grouped, searchNarrowed, dropped: q.dropped,

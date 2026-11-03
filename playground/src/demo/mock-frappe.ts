@@ -62,7 +62,7 @@ export function todoRows() {
 
 type Row = Record<string, unknown>;
 type Filter = [string, string, unknown] | [string, string, string, unknown];
-const STANDARD = new Set(["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx"]);
+const STANDARD = new Set(["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx", "_assign", "_comments", "_liked_by", "_user_tags"]);
 
 class MockError extends Error {
   constructor(public status: number, public body: Record<string, unknown>) { super(String(body.exc_type)); }
@@ -110,7 +110,8 @@ export interface MockFrappe {
   failNext: (n: number, error: { status: number; exc_type: string; message: string }, method?: string) => void;
 }
 
-export function createMockFrappe(opts: { latencyMs?: number; rows?: Row[] } = {}): MockFrappe {
+export function createMockFrappe(opts: { latencyMs?: number; rows?: Row[]; listSettings?: Record<string, unknown> | null } = {}): MockFrappe {
+  const listSettings = opts.listSettings ?? null;
   const rows: Row[] = opts.rows ?? todoRows();
   const known = new Set([...TODO_META.fields.map((f) => f.fieldname), ...STANDARD]);
   const calls: MockFrappe["calls"] = [];
@@ -139,8 +140,32 @@ export function createMockFrappe(opts: { latencyMs?: number; rows?: Row[] } = {}
         const start = Number(args.limit_start ?? 0), len = Number(args.limit_page_length ?? 20);
         return { message: sorted.slice(start, start + len).map((r) => Object.fromEntries(fields.map((f) => [f, r[f] ?? null]))) };
       }
-      case "frappe.desk.reportview.get_count":
-        return { message: select(args).length };
+      case "frappe.desk.reportview.get": {
+        // compressed like reportview.compress: { keys, values, user_info }, or [] when there are no rows
+        const fields = (parse(args.fields) as string[]).map((f) => f.replace(/^`tab[^`]+`\.`([^`]+)`$/, "$1"));
+        check(fields);
+        const [ofield, odir = "desc"] = String(args.order_by ?? "modified desc").split(",")[0].replace(/`/g, "").replace(/^tab[^.]+\./, "").trim().split(/\s+/);
+        check([ofield]);
+        const sorted = [...select(args)].sort((a, b) => cmp(a[ofield], b[ofield]) * (odir.toLowerCase() === "asc" ? 1 : -1));
+        const start = Number(args.start ?? 0), len = Number(args.page_length ?? 20);
+        const page = sorted.slice(start, start + len);
+        if (!page.length) return { message: [] };
+        const keys = [...fields];
+        const wantCount = Number(args.with_comment_count) === 1 && fields.includes("_comments");
+        if (wantCount) keys.push("_comment_count");
+        const user_info: Record<string, unknown> = {};
+        const values = page.map((r) => {
+          for (const u of JSON.parse(String(r._assign ?? "[]")) as string[]) user_info[u] = { fullname: u.split("@")[0], image: null };
+          return keys.map((k) => (k === "_comment_count" ? (JSON.parse(String(r._comments ?? "[]")) as unknown[]).length : r[k] ?? null));
+        });
+        return { message: { keys, values, user_info } };
+      }
+      case "frappe.desk.listview.get_list_settings":
+        return { message: listSettings };
+      case "frappe.desk.reportview.get_count": {
+        const n = select(args).length, limit = Number(args.limit ?? 0);
+        return { message: limit ? Math.min(n, limit) : n };
+      }
       case "frappe.desk.search.search_link": {
         const txt = String(args.txt ?? "").toLowerCase();
         const pool: Record<string, string[]> = { User: USERS, DocType: ["Field Preset", "Project", "Task", "ToDo"], Role: ["System Manager", "Travel Agent"] };
