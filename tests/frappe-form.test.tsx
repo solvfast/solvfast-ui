@@ -16,10 +16,10 @@ import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { defaultMessages } from "../src/theme/messages";
 import { createFrappeClient } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
-import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle } from "../src/frappe/contract";
-import { createFixtureTransport } from "../src/frappe/testing";
+import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle, WorkflowInfo } from "../src/frappe/contract";
+import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
 import {
-  FrappeDynamicLinkField, FrappeField, FrappeForm, FrappeFormServices, FrappeTableMultiSelect, mergeLinkFilters, parseLinkFilters,
+  FrappeDynamicLinkField, FrappeField, FrappeForm, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
   type FormEventsConfig, type FormServices,
 } from "../src/frappe/form";
 
@@ -40,12 +40,33 @@ const SUBM: DocTypeMeta = {
     { fieldname: "kind", fieldtype: "Select", label: "Kind", options: "A\nB" },
     { fieldname: "note", fieldtype: "Data", label: "Note", mandatory_depends_on: "eval:doc.kind == 'B'" },
     { fieldname: "secret", fieldtype: "Data", label: "Secret", depends_on: "eval:frappe.user.has_role('X')" },
+    { fieldname: "amended_from", fieldtype: "Link", label: "Amended From", options: "Sales Memo", read_only: 1, no_copy: 1 },
+  ],
+};
+const APPROVAL: DocTypeMeta = {
+  name: "Approval Memo", is_submittable: 1, autoname: "hash", title_field: "title",
+  fields: [
+    { fieldname: "title", fieldtype: "Data", label: "Title", reqd: 1 },
+    { fieldname: "workflow_state", fieldtype: "Link", label: "Workflow State", options: "Workflow State", hidden: 1 },
+  ],
+};
+const APPROVAL_WF: WorkflowInfo = {
+  name: "Approval Flow", document_type: "Approval Memo", workflow_state_field: "workflow_state",
+  states: [
+    { state: "Draft", doc_status: "0", allow_edit: "System Manager", style: "Warning" },
+    { state: "Approved", doc_status: "1", allow_edit: "System Manager", style: "Success" },
+    { state: "Voided", doc_status: "2", allow_edit: "System Manager", style: "Danger" },
+  ],
+  transitions: [
+    { state: "Draft", action: "Approve", next_state: "Approved", allowed: "System Manager" },
+    { state: "Approved", action: "Void", next_state: "Voided", allowed: "System Manager" },
   ],
 };
 
-function setup(ui: React.ReactElement, opts: { docs?: FixtureBackend["docs"]; lang?: "en" | "ar"; services?: Partial<FormServices> } = {}) {
+function setup(ui: React.ReactElement, opts: { docs?: FixtureBackend["docs"]; lang?: "en" | "ar"; services?: Partial<FormServices>; handlers?: Record<string, FixtureHandler> } = {}) {
   const transport = createFixtureTransport({
-    meta: { ToDo: docsOf(todoEn), User: docsOf(userEn), Contact: docsOf(contactEn), Note: docsOf(noteEn), Event: docsOf(eventEn), "Sales Memo": [SUBM] },
+    meta: { ToDo: docsOf(todoEn), User: docsOf(userEn), Contact: docsOf(contactEn), Note: docsOf(noteEn), Event: docsOf(eventEn), "Sales Memo": [SUBM], "Approval Memo": [APPROVAL] },
+    workflows: { "Approval Memo": APPROVAL_WF },
     docs: {
       User: [
         { doctype: "User", name: "ann@x.com", full_name: "Ann Xu", first_name: "Ann", email: "ann@x.com", enabled: 1 },
@@ -54,7 +75,7 @@ function setup(ui: React.ReactElement, opts: { docs?: FixtureBackend["docs"]; la
       ToDo: [{ doctype: "ToDo", name: "TD-1", description: "Call Ann", status: "Open", priority: "High", modified: "2026-11-01 10:00:00.000000", owner: "Administrator" }],
       ...opts.docs,
     },
-  });
+  }, { handlers: opts.handlers });
   const client = createFrappeClient({ transport });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrap = (node: React.ReactElement) => (
@@ -183,7 +204,11 @@ describe("submit / cancel and the action matrix (docs 11 §5.2, §7)", () => {
     const order: string[] = [];
     const { calls } = setup(
       <FrappeForm doctype="Sales Memo" name="SM-1" events={{ before_submit: () => { order.push("before_submit"); }, validate: () => { order.push("validate"); }, on_submit: () => { order.push("on_submit"); } }} />,
-      { docs: { "Sales Memo": [{ doctype: "Sales Memo", name: "SM-1", title: "T", kind: "A", docstatus: 0, modified: "2026-11-01 10:00:00.000000", owner: "Administrator" }] } },
+      {
+        docs: { "Sales Memo": [{ doctype: "Sales Memo", name: "SM-1", title: "T", kind: "A", docstatus: 0, modified: "2026-11-01 10:00:00.000000", owner: "Administrator" }] },
+        // the simulated backend has no linked_with methods yet (requested from A1): an empty pre-flight
+        handlers: { "frappe.desk.form.linked_with.get_submitted_linked_docs": () => ({ message: { docs: [], count: 0 } }) },
+      },
     );
     fireEvent.click(await screen.findByRole("button", { name: en.formSubmit }));
     const confirmBox = await screen.findByRole("alertdialog");
@@ -335,5 +360,78 @@ describe("Table MultiSelect (docs 12 §11) and the field dispatcher", () => {
     setup(<FrappeForm doctype="ToDo" name="TD-1" />, { lang: "ar" });
     expect(await screen.findByRole("button", { name: defaultMessages.ar.formSave })).toBeTruthy();
     expect(document.querySelector('[dir="rtl"]')).toBeTruthy();
+  });
+});
+
+describe("review R1 items: reload after a conflict, cancel pre-flight, amend, workflow state (docs 11 §1.7, §1.8, §5.4, §7)", () => {
+  const memo = (o: Record<string, unknown> = {}): FrappeDoc => ({ doctype: "Sales Memo", name: "SM-1", title: "T", kind: "A", docstatus: 1, modified: "2026-11-01 10:00:00.000000", owner: "Administrator", ...o });
+
+  it("R1-F4: a 417 timestamp conflict keeps the edits and offers Reload, which loads the server's version", async () => {
+    const { transport } = setup(<FrappeForm doctype="ToDo" name="TD-1" />);
+    typeInto(await screen.findByRole("textbox", { name: /Description/ }), "Mine");
+    const row = transport.store.docs.get("ToDo")!.get("TD-1")!;
+    row.modified = "2026-11-02 00:00:00.000000";
+    row.description = "Theirs";
+    fireEvent.click(btn(en.formSave));
+    const alert = await screen.findByRole("alert");
+    expect(screen.getByRole("textbox", { name: /Description/ }).textContent).toContain("Mine");
+    fireEvent.click(within(alert).getByRole("button", { name: defaultMessages.en.retry }));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: /Description/ }).textContent).toContain("Theirs"));
+    expect(screen.queryByText(en.formNotSaved)).toBeNull();
+  });
+
+  it("R1-F5: Cancel lists submitted linked documents; Cancel All cancels them, reloads and cancels the document", async () => {
+    const order: string[] = [];
+    const handlers: Record<string, FixtureHandler> = {
+      "frappe.desk.form.linked_with.get_submitted_linked_docs": () => { order.push("preflight"); return { message: { docs: [{ doctype: "Sales Memo", name: "SM-9", docstatus: 1 }], count: 1 } }; },
+      "frappe.desk.form.linked_with.cancel_all_linked_docs": (a) => { order.push(`cancel_all:${JSON.parse(String(a.docs))[0].name}`); return { message: null }; },
+    };
+    const { calls } = setup(<FrappeForm doctype="Sales Memo" name="SM-1" />, { docs: { "Sales Memo": [memo()] }, handlers });
+    fireEvent.click(await screen.findByRole("button", { name: en.formCancelDoc }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/SM-9/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: en.formCancelAll }));
+    await waitFor(() => expect(calls("frappe.desk.form.save.cancel")).toHaveLength(1));
+    expect(order).toEqual(["preflight", "cancel_all:SM-9"]);
+    expect((await screen.findAllByText(en.formCancelled)).length).toBeGreaterThan(0);
+  });
+
+  it("R1-F5: Amend makes a local copy with amended_from (no app callback needed); disabled when already amended", async () => {
+    const amendedFlag = { v: false };
+    const handlers: Record<string, FixtureHandler> = { "frappe.client.is_document_amended": () => ({ message: amendedFlag.v }) };
+    setup(<FrappeForm doctype="Sales Memo" name="SM-1" />, { docs: { "Sales Memo": [memo({ docstatus: 2 })] }, handlers });
+    fireEvent.click(await screen.findByRole("button", { name: en.formAmend }));
+    expect(await screen.findByText("New Sales Memo")).toBeTruthy();
+    expect(screen.getByText(en.formNotSaved)).toBeTruthy();
+    cleanup();
+    amendedFlag.v = true;
+    setup(<FrappeForm doctype="Sales Memo" name="SM-1" />, { docs: { "Sales Memo": [memo({ docstatus: 2 })] }, handlers });
+    const b = await screen.findByRole("button", { name: en.formAmend });
+    await waitFor(() => expect((b as HTMLButtonElement).disabled).toBe(true));
+  });
+
+  it("R1-F7: the header shows the workflow state; Cancel is hidden when a transition leads to a cancelled state", async () => {
+    setup(<FrappeForm doctype="Approval Memo" name="AM-1" />, {
+      docs: { "Approval Memo": [{ doctype: "Approval Memo", name: "AM-1", title: "Budget", docstatus: 1, workflow_state: "Approved", modified: "2026-11-01 10:00:00.000000", owner: "Administrator" }] },
+    });
+    expect(await screen.findByText("Approved")).toBeTruthy();
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(screen.queryByRole("button", { name: en.formCancelDoc })).toBeNull();
+  });
+
+  it("copy_doc / amend_doc: skipped keys, no_copy except when amending, child rows as new rows", () => {
+    const b: MetaBundle = { doctype: "P", meta: { name: "P", fields: [{ fieldname: "a", fieldtype: "Data" }, { fieldname: "n", fieldtype: "Data", no_copy: 1 }, { fieldname: "pw", fieldtype: "Password" }, { fieldname: "amended_from", fieldtype: "Link", options: "P" }, { fieldname: "items", fieldtype: "Table", options: "P Item" }] },
+      children: { "P Item": { name: "P Item", istable: 1, fields: [{ fieldname: "q", fieldtype: "Int" }] } } };
+    const src: FrappeDoc = { doctype: "P", name: "P-1", docstatus: 2, a: "x", n: "y", pw: "***", owner: "o", modified: "m", __onload: {}, items: [{ doctype: "P Item", name: "r1", idx: 1, q: 2, parent: "P-1" }] };
+    const dup = copyDoc(b, src);
+    expect(dup).toMatchObject({ a: "x", docstatus: 0, __islocal: 1 });
+    expect(dup.n).toBeUndefined();
+    expect(dup.pw).toBeUndefined();
+    expect(dup.owner).toBeUndefined();
+    expect((dup.items as FrappeDoc[])[0]).toMatchObject({ q: 2, __islocal: 1, parent: dup.name, parentfield: "items", idx: 1 });
+    expect((dup.items as FrappeDoc[])[0].name).toMatch(/^new-p-item-/);
+    const am = amendDoc(b, src);
+    expect(am).toMatchObject({ a: "x", n: "y", amended_from: "P-1", docstatus: 0 });
+    expect(() => amendDoc({ ...b, meta: { name: "P", fields: [] } }, src)).toThrow(/amended_from/);
   });
 });
