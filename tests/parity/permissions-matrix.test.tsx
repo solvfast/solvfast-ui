@@ -342,6 +342,14 @@ describe("SIMULATED Administrator vs normal user", () => {
     expect(canImport(meta(1), ["Administrator"], viaRows)).toBe(true);
     expect(canExport(["Administrator"], viaRows)).toBe(true);
   });
+  it("the 'Administrator' ROLE on another user is just a role: its DocPerm rows, no blanket grant (permissions.py:107 is keyed on the user name; role.py:92-95)", () => {
+    const l = buildDocPermissions({ meta: meta(1), doc: saved(), docinfo: docinfo({ read: 1, write: 1, create: 1, delete: 1 }), session: { user: "u@x", roles: ["Administrator"] } });
+    expect(l[0]).toMatchObject({ read: true, write: true, create: true, delete: true, import: true, export: true });
+    expect(l[0].submit).toBeFalsy(); // no row grants it
+    expect(l[1]).toEqual({}); // no permlevel-1 row for the role
+    expect(buildDocPermissions({ doc: saved(), session: { user: "u@x", roles: ["Administrator"] } })).toEqual([{ read: true }]); // no meta: perm.js:62-64
+  });
+
   it("a normal user with no matching role gets nothing: no action, no field, no menu entry", () => {
     const { wrapper } = harness(noop, { user: "u@x", roles: ["All", "Desk User", "Unrelated Role"] });
     const { result } = renderHook(() => usePermissions(bundleOf(meta(1)), saved(), docinfo({ read: 0 })), { wrapper });

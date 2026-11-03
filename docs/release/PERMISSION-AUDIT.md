@@ -68,7 +68,8 @@ answers: `useSaveDoc` / `useDocAction` update the cache in `onSuccess` only (`sr
 - P1-1 `buildDocPermissions` without `session.roles` granted read / write / create to a NEW doc and inferred permlevel > 0
   readability from the doc's keys (`permissions.ts`, old :80-95). Violates rule 9. **Fixed**: nothing is granted beyond the
   server's `docinfo.permissions` (+ `shared` row) for a saved doc; a new doc is denied; `usePermissions().known === false`
-  and `FrappeFormView` shows the read-only notice (`FrappeFormView.tsx:586`). Administrator user → everything (server rule).
+  and `FrappeFormView` shows the read-only notice (`FrappeFormView.tsx:586`). Administrator USER → everything (server rule,
+  keyed on the user name — the "Administrator" role on another user gets only its DocPerm rows, `role.py:92-95`).
   Tests: matrix §2, `display-status`, `foundation-hooks`. Release note: `docs/RELEASE-0.4.0.md` "Behaviour change".
 - P1-2 `isWorkflowReadOnly` answered false without roles (`permissions.ts:150`). **Fixed**: read-only without roles
   (Administrator excepted).
@@ -98,6 +99,9 @@ answers: `useSaveDoc` / `useDocAction` update the cache in `onSuccess` only (`sr
 - P3-3 `bulkMenu` Edit requires `write` while Desk offers Edit without a right check (`list_view.js:2088-2090`); the package
   hides what the server would refuse (rule D.1). Intentional.
 - P3-4 `FrappeProvider.tsx:69` doc comment still says permissions are "approximated" without roles — not this agent's file.
+- P3-6 `FrappeForm.tsx:40-50` has its own `isAdministrator` that also fires on the "Administrator" ROLE and answers
+  `canCancelDoctype` true for it — the over-grant shape removed from `services/permissions.ts` here; harmless (Cancel All
+  is refused by the server) but should use `isAdministrator(session)` from `services/permissions` once exported.
 - P3-5 `docs/release/COMPONENT-COMPLETION-MATRIX.md` row 7 (a) is resolved by P1-1; (b) by the Lead's `canImport` /
   `canExport`; (c) is now asserted (matrix §1). Row not edited here (Lead's file).
 

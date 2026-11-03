@@ -60,9 +60,11 @@ export interface BuildPermissionsInput {
   session?: FrappeSession;
 }
 
-/** The server grants the Administrator everything, unconditionally (permissions.py:107-109 `has_permission`,
- *  :288-290 `allow_everything`); Desk lists every role in `frappe.user_roles` for it (perm.js:62-64 sets read). */
-export const isAdministrator = (session: FrappeSession | undefined) => session?.user === "Administrator" || !!session?.roles?.includes("Administrator");
+/** The server grants the Administrator USER everything, unconditionally (permissions.py:107-109 `has_permission`,
+ *  :288-290 `allow_everything` — keyed on the user name; role.py:92-95 resolves the "Administrator" role to that user).
+ *  A session that merely lists the "Administrator" ROLE gets the DocPerm rows for it, like any role (perm.js:62-64 sets
+ *  only `read` for it and then reads the rows). */
+export const isAdministrator = (session: FrappeSession | undefined) => session?.user === "Administrator";
 
 /** The server's `docinfo.shared` row of this user adds read / write / submit / share (perm.js:88-96; share.py:155). */
 function applyShared(base: Partial<Record<PermType, boolean>>, docinfo: DocInfo | undefined, user: string | undefined) {
@@ -91,7 +93,8 @@ export function permissionsKnown({ doc, docinfo, session }: Pick<BuildPermission
  *    non-owner the level-0 rights granted ONLY by `if_owner` rows are removed, then the user's `docinfo.shared` row
  *    adds read / write / submit / share (Desk also sets email / print from boot `can_email` / `can_print` — not
  *    available here, left as they are).
- *  - Administrator: every right at every permlevel (the server never checks further, permissions.py:107-109).
+ *  - the Administrator USER: every right at every permlevel (the server never checks further, permissions.py:107-109);
+ *    the "Administrator" ROLE on another user is just a role (its DocPerm rows).
  *  - No meta → read for the Administrator only (perm.js:62-70; boot `can_read` is not available here).
  * RULE 9 (Phase 26 D: missing information DENIES) without `session.roles` and not Administrator:
  *  - a saved doc: level 0 = exactly the server-evaluated `docinfo.permissions` (ownership, user permissions and
@@ -105,7 +108,7 @@ export function buildDocPermissions({ meta, children, doc, docinfo, session }: B
   const roles = session?.roles;
   const saved = !!doc && !doc.__islocal;
   const admin = isAdministrator(session);
-  if (!meta) return [{ read: admin }];
+  if (!meta) return [{ read: admin || !!roles?.includes("Administrator") }]; // perm.js:62-64
 
   if (admin) {
     const levels: DocPermissions = [];
@@ -145,11 +148,12 @@ export function readOnlyPermissions(levels: DocPermissions): DocPermissions {
  * `frappe.workflow.is_read_only` (model/workflow.js:53-70): a saved doc in a workflow is read-only when the user has none
  * of the roles in `allow_edit` of the doc's current state (state field, else the default state for its docstatus).
  * Needs the roles. Without them → read-only (rule 9: missing information denies; before dev.26 this answered false),
- * except for the Administrator (`user`), who holds every role (perm.js:62-64). The server validates transitions anyway.
+ * except for the Administrator USER, whom the server never restricts (permissions.py:107-109). The server validates
+ * transitions anyway.
  */
 export function isWorkflowReadOnly(workflow: WorkflowInfo | null | undefined, doc: FrappeDoc | undefined, roles: string[] | undefined, user?: string): boolean {
   if (!workflow || !doc || doc.__islocal) return false;
-  if (user === "Administrator" || roles?.includes("Administrator")) return false;
+  if (user === "Administrator") return false;
   if (!roles) return true;
   const state = (doc[workflow.workflow_state_field] as string | undefined) || workflow.states.find((s) => Number(s.doc_status) === Number(doc.docstatus ?? 0))?.state;
   if (!state) return false;

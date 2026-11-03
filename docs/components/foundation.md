@@ -132,9 +132,9 @@ const { levels, can, fieldStatus, displayStatus, workflow, workflowReadOnly } = 
   `false` (`permissionsKnown`): show "permissions unknown", not "forbidden" — and pass `session.roles`
   (`frappe.user_roles` in Desk, `frappe.auth.get_logged_user` + roles from boot in an SPA). Before dev.26 a new doc was
   optimistic (read / write / create) and permlevels > 0 were inferred.
-- **Administrator**: `session.user === "Administrator"` (or the "Administrator" role) gets every right at every permlevel —
-  the server never checks further (permissions.py:107-109, 288-290); Desk lists every role for it. `canImport` still needs
-  `allow_import`.
+- **Administrator**: `session.user === "Administrator"` gets every right at every permlevel — the server never checks
+  further (permissions.py:107-109, 288-290, keyed on the user name). The "Administrator" *role* on another user is just a
+  role (its DocPerm rows; perm.js:62-64 only adds `read`). `canImport` still needs `allow_import`.
 - **Workflow read-only** (`frappe.workflow.is_read_only`): a saved doc whose state's `allow_edit` roles the user lacks →
   rights shrink to read / cancel / share / print / email. Needs roles; without them a saved doc in a workflow is
   read-only (rule 9; Administrator excepted).
