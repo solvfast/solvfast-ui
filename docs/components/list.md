@@ -44,7 +44,7 @@ Works without a provider too (it creates one with the default same-origin client
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
 | `realtime` / `realtimeDebounceMs` | Reload on `list_update` (section 7). |
-| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right) and **Export** (when `canExport`). `onImport` replaces the default navigation to Desk's Data Import (`/app/data-import/new?reference_doctype=…`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
+| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right, as Desk's `list_view.js:1703`) and **Export** (always, as Desk — the server refuses without the right). `onImport` replaces the default navigation to Desk's Data Import **list** filtered on the DocType (`/app/data-import?reference_doctype=…`, Desk's `set_route("list","data-import",{reference_doctype})`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
 | `onCreate` | Offers "Create your first {DocType}" in the empty list. Empty states follow Desk (`list_view.js:497-537`): "You haven't created a {DocType} yet" (+ the create action) when nothing exists; "No {DocType} found with matching filters" (+ Clear filters) when filters or search hide everything. |
 | `belowToolbar` | A node between the toolbar and the table (e.g. state chips). |
 | `rowKey`, `client`, `fiscalYears`, `storage`, … | `rowKey` default `row.name`. `storage` (explicit) wins over `serverStorage`. |
@@ -175,10 +175,13 @@ Functions: `bulkMenu`, `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`; c
 
 Full parity table and verdict: `docs/release/LISTVIEW-FRAPPE-PARITY.md`. Nothing here has run against a site (Import writes; Export is an unapproved read).
 
-**Gates** (`services/permissions.ts`, Desk's `model.js:434-450`): `canImport(meta, roles, levels[0])` — `allow_import` AND (System Manager OR level-0 `import`);
-`canExport(roles, levels[0])` — System Manager OR level-0 `export`. Both need `session.roles`; without them nothing is offered. Import is a DocType-level right:
-never read it off a document's `docinfo` (the server forces it to 0). **Departure from Desk:** Desk's list shows Export to everyone (`list_view.js:2092`) and
-lets the server refuse; the package hides it (Phase 26 rule D.1). The server decides either way (`exporter.py:116-126`, `data_import.py:59-75`).
+**Gates.** Import: `canImport(meta, roles, levels[0])` (`services/permissions.ts`, Desk's `model.js:434-442`) — `allow_import` AND (System Manager OR
+level-0 `import`); needs `session.roles` (without them Import is not offered). Import is a DocType-level right: never read it off a document's `docinfo`
+(the server forces it to 0). **Export has no client gate** — Desk pushes it unconditionally (`list_view.js:2075-2092`) and so does the package (Phase 27
+owner decision #1, reversing Phase 26 rule D.1). A user without the right can open the dialog; the server refuses (`exporter.py:116-126` `can_export`) and
+the dialog shows the refusal as `FrappeErrorState` (kind permission) — no file, no success. `canExport(roles, levels[0])` (System Manager OR level-0
+`export`) stays exported for an app that prefers to hide the entry: `menu={{ export: canExport(roles, levels[0]) }}`. The server decides either way
+(`exporter.py:116-126`, `data_import.py:59-75`).
 
 **Export** (`list/export.ts`, `list/FrappeExportDialog.tsx`): Desk's Data Exporter dialog (`data_exporter.js`) — file type Excel / CSV, export type All /
 Filtered (the list's current filters) / Selected (`[doctype, "name", "in", names]` from the selection bar, `bulk_operations.js:463-474`) / 5 records / Blank

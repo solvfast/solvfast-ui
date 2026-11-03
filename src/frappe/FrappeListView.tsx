@@ -20,7 +20,7 @@ import { Button } from "../primitives/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/dropdown-menu";
 import { useFrappeSettings } from "./FrappeProvider";
 import { withFrappeApi } from "./client";
-import { canExport, canImport } from "./services/permissions";
+import { canImport } from "./services/permissions";
 import { FrappeExportDialog, type ExportDialogLabels } from "./list/FrappeExportDialog";
 
 type Managed = "rows" | "columns" | "rowKey" | "mode" | "total" | "onStateChange" | "loading" | "error" | "onRetry" | "onLoadMore"
@@ -47,16 +47,26 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
   serverStorage?: boolean | { user?: string; savedFilters?: boolean; userSettings?: boolean; global?: boolean };
   /**
    * The list menu's "Import" (Desk `list_view.js:1703-1712`), offered only when `canImport` (DocType `allow_import` and
-   * System Manager or the level-0 `import` right — needs `session.roles`). Default: open Desk's Data Import tool for the
-   * DocType (`/app/data-import/new?reference_doctype=…`; Desk itself routes to the Data Import LIST, `:1706-1708`).
-   * `onImport` replaces the navigation (e.g. your own dialog over `startDataImport`).
+   * System Manager or the level-0 `import` right — needs `session.roles`), as Desk gates it. Default: Desk's Data Import
+   * LIST filtered on the DocType, `/app/data-import?reference_doctype=…` — Desk's `set_route("list", "data-import",
+   * {reference_doctype})` keeps the object in `frappe.route_options` and pushes `/app/data-import` (`router.js:431-440`,
+   * `:466-472`); from outside Desk the same options travel as the query string, which Desk reads back into
+   * `route_options` (`router.js:548-566`). `onImport` replaces the navigation (e.g. your own dialog over `startDataImport`).
    */
   onImport?: () => void;
-  /** Turn the menu entries off: `{ import: false }`, `{ export: false }`, or `false` for both. Default: both, gated by permissions. */
+  /**
+   * Turn the menu entries off: `{ import: false }`, `{ export: false }`, or `false` for both. Default: Import gated by
+   * `canImport`; Export ALWAYS offered, as Desk does (`list_view.js:2075-2092`, owner decision Phase 27 #1) — the server
+   * refuses a user without the right (`exporter.py:116-126`) and the dialog shows that refusal. An app that prefers to
+   * hide it can pass `menu={{ export: canExport(roles, levels[0]) }}`.
+   */
   menu?: boolean | { import?: boolean; export?: boolean };
   /** Labels of the Import / Export entries and the Export dialog (English by default). */
   ioLabels?: Partial<ExportDialogLabels & { importEntry: string; exportEntry: string; moreActions: string }>;
 }
+
+/** Desk's Import route as a URL: the Data Import list with `reference_doctype` as a route option (`router.js:548-566`). */
+export const dataImportListUrl = (doctype: string) => `/app/data-import?reference_doctype=${encodeURIComponent(doctype)}`;
 
 export function FrappeListView<T = Record<string, unknown>>(props: FrappeListViewProps<T>) {
   const hasQueryClient = React.useContext(QueryClientContext);
@@ -79,16 +89,19 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   const [bulkMessage, setBulkMessage] = React.useState("");
   useListRealtime({ port: realtime, doctype, enabled: !f.settings?.disable_auto_refresh, isLargeTable: f.meta?.isLargeTable, suppressed: selectedCount > 0 || bulkBusy, debounceMs: realtimeDebounceMs });
 
-  // Import / Export (docs/release/LISTVIEW-FRAPPE-PARITY.md). Gates are Desk's client checks (model.js:434-450) from the
-  // session roles + the DocType's DocPerm rows; the server decides anyway (data_import.py:59-75, exporter.py:116-126).
-  // Desk shows Export to everyone (list_view.js:2092) — the package hides it without the right (Phase 26 rule D.1).
+  // Import / Export (docs/release/LISTVIEW-FRAPPE-PARITY.md). Import keeps Desk's client gate (model.js:434-442 via
+  // list_view.js:1703); the server decides anyway (data_import.py:59-75). Export is offered to everyone, exactly as Desk
+  // pushes it unconditionally (list_view.js:2075-2092) — owner decision Phase 27 #1, reversing the Phase 26 rule D.1
+  // gate: the server is the authority (exporter.py:116-126 `can_export`) and FrappeExportDialog shows its refusal as a
+  // permission error (FrappeErrorState), with no file and no success.
   const { session } = useFrappeSettings();
   const menuOn = menu === false ? { import: false, export: false } : { import: true, export: true, ...(typeof menu === "object" ? menu : {}) };
   const showImport = menuOn.import !== false && canImport(f.bundle?.meta, session?.roles, perms.levels[0]);
-  const showExport = menuOn.export !== false && !!f.bundle && canExport(session?.roles, perms.levels[0]);
+  const showExport = menuOn.export !== false && !!f.bundle;
   const [exporting, setExporting] = React.useState<{ names?: string[] } | null>(null);
   const L = { importEntry: "Import", exportEntry: "Export", moreActions: "More actions", ...ioLabels };
-  const doImport = onImport ?? (() => { if (typeof location !== "undefined") location.assign(`/app/data-import/new?reference_doctype=${encodeURIComponent(doctype)}`); });
+  // Desk: frappe.set_route("list", "data-import", { reference_doctype }) — the Data Import LIST (list_view.js:1703-1712)
+  const doImport = onImport ?? (() => { if (typeof location !== "undefined") location.assign(dataImportListUrl(doctype)); });
   const menuNode = showImport || showExport ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
