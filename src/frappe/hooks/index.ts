@@ -4,3 +4,4 @@ export { useSaveDoc, useDocAction } from "./useDocMutations";
 export type { SaveDocVars, DocActions, CancelVars, RemoveVars, RenameVars, RunMethodVars, WorkflowVars, AssignVars, UnassignVars, AddCommentVars, CommentVars } from "./useDocMutations";
 export { usePermissions } from "./usePermissions";
 export type { PermissionsResult } from "./usePermissions";
+export { useRealtimeInvalidation } from "./useRealtime";
