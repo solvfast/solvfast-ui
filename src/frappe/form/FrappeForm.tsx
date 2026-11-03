@@ -4,6 +4,10 @@
  * `useSaveDoc` (savedocs; cache rules), `useDocAction().cancel` (desk.form.save.cancel).
  * Without `name` (or with a `new-…` name) it opens a new document with Desk's defaults (session user from the
  * FrappeProvider). Loading → skeleton; failure → FrappeErrorState with retry.
+ * Workflow (A4's record layer): the state badge, `canCancelDocument`, and — for a saved clean document with
+ * transitions for the user — FrappeWorkflowActions in the toolbar replacing Save / Submit / Cancel (toolbar.js:593,
+ * 668-699). Cancel posts the workflow state field and its current value (save.js:48-52). Cancel pre-flight:
+ * `get_submitted_linked_docs` / `cancel_all_linked_docs`; Amend is disabled when `is_document_amended`.
  */
 import * as React from "react";
 import { Skeleton } from "../../primitives/skeleton";
@@ -13,8 +17,11 @@ import { useDoc, useMetaBundle } from "../hooks/useDoc";
 import { useDocAction, useSaveDoc } from "../hooks/useDocMutations";
 import { usePermissions } from "../hooks/usePermissions";
 import { FrappeErrorState } from "../feedback/FrappeErrorState";
+import { useFrappeApi } from "../FrappeProvider";
+import { useWorkflow } from "../record/useWorkflow";
+import { FrappeWorkflowActions } from "../record/FrappeWorkflowActions";
 import { newDoc, type DefaultsContext } from "./model/defaults";
-import { FrappeFormView, type FrappeFormViewProps } from "./FrappeFormView";
+import { FrappeFormView, type FrappeFormViewProps, type LinkedDoc } from "./FrappeFormView";
 
 export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "doc" | "docinfo" | "permissions" | "onSave" | "onCancelDoc"> {
   doctype: string;
@@ -54,6 +61,18 @@ export function FrappeForm({ doctype, name, newDocDefaults, ...rest }: FrappeFor
   const [saved, setSaved] = React.useState<FrappeDoc | null>(null);
   const doc = saved && (!loaded.data || saved.modified !== loaded.data.doc.modified) ? saved : loaded.data?.doc ?? fresh;
   const permissions = usePermissions(bundle, doc ?? undefined, loaded.data?.docinfo);
+  const api = useFrappeApi();
+  const wf = useWorkflow({ doc: doc ?? undefined, user: session?.user ?? "", roles: session?.roles, enabled: !!doc });
+  const [amended, setAmended] = React.useState(false);
+  React.useEffect(() => {
+    let live = true;
+    setAmended(false);
+    if (doc && doc.docstatus === 2 && !doc.__islocal) {
+      void api.call("frappe.client.is_document_amended", { doctype, docname: doc.name })
+        .then((r) => { if (live) setAmended(!!r.message); }, () => {});
+    }
+    return () => { live = false; };
+  }, [api, doctype, doc?.name, doc?.docstatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (meta.isError) return <FrappeErrorState error={meta.error} onRetry={() => void meta.refetch()} />;
   if (!creating && loaded.isError) return <FrappeErrorState error={loaded.error} onRetry={() => void loaded.refetch()} />;
@@ -69,11 +88,35 @@ export function FrappeForm({ doctype, name, newDocDefaults, ...rest }: FrappeFor
       defaults={{ user: session?.user, ...rest.defaults }}
       onSave={async (d, action) => { const r = await save.mutateAsync({ doc: d, action }); setSaved(r); return r; }}
       onCancelDoc={async (d) => {
-        const wf = permissions.workflow;
-        const r = await cancel.mutateAsync({ doctype, name: d.name, ...(wf ? { workflowStateField: wf.workflow_state_field } : {}) });
+        const w = permissions.workflow;
+        const state = w ? d[w.workflow_state_field] : undefined;
+        const r = await cancel.mutateAsync({ doctype, name: d.name, ...(w ? { workflowStateField: w.workflow_state_field, ...(typeof state === "string" && state ? { workflowState: state } : {}) } : {}) });
         setSaved(r);
         return r;
       }}
+      onReload={creating ? undefined : async () => {
+        const r = await loaded.refetch();
+        const data = r.data as unknown as (FrappeDoc & { doc?: FrappeDoc }) | undefined;
+        setSaved(null);
+        return data?.doc ?? data;
+      }}
+      getSubmittedLinkedDocs={async (d) => {
+        const r = await api.call("frappe.desk.form.linked_with.get_submitted_linked_docs", { doctype, name: d.name });
+        const m = (r.message ?? {}) as { docs?: LinkedDoc[]; count?: number };
+        return { docs: m.docs ?? [], count: Number(m.count) || 0 };
+      }}
+      cancelAllLinkedDocs={async (docs) => { await api.call("frappe.desk.form.linked_with.cancel_all_linked_docs", { docs: JSON.stringify(docs) }); }}
+      canCancelWithWorkflow={rest.canCancelWithWorkflow ?? (wf.workflow ? wf.standardActions.showCancel : undefined)}
+      workflowActionsShown={rest.workflowActionsShown ?? (!doc.__unsaved && wf.transitions.length > 0)}
+      alreadyAmended={rest.alreadyAmended ?? amended}
+      toolbarExtra={(
+        <>
+          {wf.workflow && !doc.__islocal && session?.user && (
+            <FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} onApplied={(d) => setSaved(d)} />
+          )}
+          {rest.toolbarExtra}
+        </>
+      )}
     />
   );
 }

@@ -15,9 +15,17 @@
  *    `after_save` → `refresh` (→ `on_submit`). Ctrl/⌘+S saves (or updates). Leaving the page while dirty asks first.
  *  - server errors: `FrappeErrorState` (the foundation's single rendering of FrappeError).
  *  - formEvents (D-24) instead of Desk Client Scripts.
- * Not implemented here (reported): cancel pre-flight for submitted linked documents (`get_submitted_linked_docs`),
- * Amend's local copy (the app's `onAmend`), realtime "modified after you opened it", undo, connections, workflow
- * actions (A4's record layer renders them; pass `workflowActionsShown`).
+ *  - header indicator: `resolveIndicator` (frappe.get_indicator precedence: Not Saved → workflow state with its style
+ *    colour → Draft / Cancelled → meta.states → Submitted → status → enabled);
+ *  - with a workflow: Cancel only when no transition leads to a cancelled state (`canCancelDocument`), unless given;
+ *  - a 417 TimestampMismatchError keeps the user's edits on screen and offers Reload (Desk's refresh banner);
+ *  - Cancel pre-flight (`getSubmittedLinkedDocs`): submitted linked documents are listed with "Cancel All"
+ *    (`cancelAllLinkedDocs`, then the document is reloaded and cancelled); UNVERIFIED: Desk hides "Cancel All" when the
+ *    user cannot cancel every linked document — here the server decides;
+ *  - Amend: the app's `onAmend`, else a local copy (`amendDoc`: from_amend copy + `amended_from`), disabled when
+ *    `alreadyAmended` (`is_document_amended`).
+ * Not implemented here (reported): realtime "modified after you opened it", undo, connections. Workflow action buttons
+ * come from A4's record layer (FrappeForm renders them; FrappeFormView takes `workflowActionsShown`).
  */
 import * as React from "react";
 import { ChevronDown } from "lucide-react";
@@ -33,6 +41,10 @@ import {
 import { interpolate } from "../../fields/FieldShell";
 import type { DocInfo, DocPermissions, FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle, PermType, ValidateLinkResult } from "../contract";
 import { FrappeErrorState } from "../feedback/FrappeErrorState";
+import { FrappeError } from "../client";
+import { resolveIndicator } from "../services/indicator";
+import { canCancelDocument, workflowFromMeta } from "../record/workflow";
+import { amendDoc, canAmend } from "./model/copy";
 import { createDocStore, type DocStore, type FieldChange } from "./model/docStore";
 import { analyzeDependencies, resolveFields, sectionCollapsed, type DependsIssue, type EffectiveField, type FieldOverrides } from "./model/depends";
 import { buildFetchMap, fetchUpdates, isReadOnlyByFetch, type FetchEntry } from "./model/fetch";
@@ -57,6 +69,8 @@ export interface FormPermissions {
 }
 
 export type SaveAction = "Save" | "Submit" | "Update";
+/** A submitted document linked to the one being cancelled (get_submitted_linked_docs). */
+export interface LinkedDoc { doctype: string; name: string; docstatus?: number; [key: string]: unknown }
 
 export interface FrappeFormViewProps extends FormEventsConfig {
   bundle: MetaBundle;
@@ -69,8 +83,16 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   onSave: (doc: FrappeDoc, action: SaveAction) => Promise<FrappeDoc>;
   /** desk.form.save.cancel. */
   onCancelDoc?: (doc: FrappeDoc) => Promise<FrappeDoc>;
-  /** Amend a cancelled document (the app makes the copy; Desk copies locally and routes to it). */
+  /** Amend a cancelled document. Default: a local copy (`amendDoc`) replaces the form's document — then `onAmended`. */
   onAmend?: (doc: FrappeDoc) => void;
+  /** The local amendment was created (route to it if the app routes by name). */
+  onAmended?: (doc: FrappeDoc) => void;
+  /** Re-read the document from the server (Reload after a timestamp conflict, after "Cancel All"). */
+  onReload?: () => Promise<FrappeDoc | undefined>;
+  /** Cancel pre-flight: `frappe.desk.form.linked_with.get_submitted_linked_docs` → `{ docs, count }`. */
+  getSubmittedLinkedDocs?: (doc: FrappeDoc) => Promise<{ docs: LinkedDoc[]; count: number }>;
+  /** `frappe.desk.form.linked_with.cancel_all_linked_docs`. */
+  cancelAllLinkedDocs?: (docs: LinkedDoc[]) => Promise<void>;
   onSaved?: (doc: FrappeDoc, action: SaveAction | "Cancel") => void;
   onDirtyChange?: (dirty: boolean) => void;
   /** Defaults for new child rows (session user, user defaults). */
@@ -97,7 +119,7 @@ type Overrides = Record<string, FieldOverrides>;
 const asList = (f: string | string[]) => (Array.isArray(f) ? f : [f]);
 
 export function FrappeFormView(props: FrappeFormViewProps) {
-  const { bundle, doc: docProp, permissions, onSave, onCancelDoc, onAmend, className } = props;
+  const { bundle, doc: docProp, permissions, onSave, onCancelDoc, className } = props;
   const { t, isRTL } = useLocale();
   const s = useFormServices();
   const meta = bundle.meta;
@@ -105,8 +127,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const doc = React.useSyncExternalStore(store.subscribe, store.getDoc, store.getDoc);
   const [overrides, setOverrides] = React.useState<Overrides>({});
   const queries = React.useRef<Record<string, LinkQuery>>({});
-  const [issues, setIssues] = React.useState<DependsIssue[]>(() => analyzeDependencies(bundle, s.evaluator));
-  const seenIssues = React.useRef(new Set<string>());
+  const issueKey = (i: DependsIssue) => `${i.doctype}.${i.fieldname}.${i.property}.${i.kind}`;
+  const [initialIssues] = React.useState<DependsIssue[]>(() => analyzeDependencies(bundle, s.evaluator));
+  const [issues, setIssues] = React.useState<DependsIssue[]>(initialIssues);
+  const seenIssues = React.useRef(new Set<string>(initialIssues.map(issueKey)));
   const [activeTab, setActiveTab] = React.useState<string | null>(null);
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const [saving, setSaving] = React.useState<FormAction | null>(null);
@@ -114,6 +138,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [missing, setMissing] = React.useState<MandatoryResult | null>(null);
   const [confirm, setConfirm] = React.useState<"Submit" | "Cancel" | null>(null);
+  const [linked, setLinked] = React.useState<LinkedDoc[] | null>(null);
   const [version, setVersion] = React.useState(0);
   const savingRef = React.useRef(false);
   const latestProps = React.useRef(props);
@@ -121,7 +146,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
 
   // ---- evaluator with issue collection ----
   const onIssue = React.useCallback((i: DependsIssue) => {
-    const key = `${i.doctype}.${i.fieldname}.${i.property}.${i.kind}`;
+    const key = issueKey(i);
     if (seenIssues.current.has(key)) return;
     seenIssues.current.add(key);
     queueMicrotask(() => setIssues((list) => [...list, i]));
@@ -332,11 +357,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   }
 
   // ---- actions ----
+  const recWorkflow = React.useMemo(() => workflowFromMeta(meta as never), [meta]);
   const can = (p: PermType) => (permissions?.can ? permissions.can(p, 0) : p === "submit" || p === "cancel" || p === "amend" ? !!meta.is_submittable : true);
   const actions = formActions({
     docstatus: (doc.docstatus ?? 0) as 0 | 1 | 2, isNew: !!doc.__islocal, dirty: !!doc.__unsaved, isSubmittable: !!meta.is_submittable,
     perms: { write: can("write"), create: can("create"), submit: can("submit"), cancel: can("cancel"), amend: can("amend") },
-    hasWorkflow: !!permissions?.workflow, canCancelWithWorkflow: props.canCancelWithWorkflow, saveDisabled: props.saveDisabled,
+    hasWorkflow: !!(permissions?.workflow ?? recWorkflow),
+    canCancelWithWorkflow: props.canCancelWithWorkflow ?? (recWorkflow ? canCancelDocument(recWorkflow) : undefined),
+    saveDisabled: props.saveDisabled,
     workflowActionsShown: props.workflowActionsShown, alreadyAmended: props.alreadyAmended,
   });
 
@@ -399,9 +427,53 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     }
   };
 
+  const reload = async () => {
+    const fresh = await latestProps.current.onReload?.();
+    if (!fresh) return;
+    store.replace(fresh);
+    setVersion((v) => v + 1);
+    setError(null);
+  };
+  const startCancel = async () => {
+    const pre = latestProps.current.getSubmittedLinkedDocs;
+    if (!pre) { setConfirm("Cancel"); return; }
+    setSaving("Cancel");
+    setError(null);
+    try {
+      const r = await pre(store.getDoc());
+      if (r.count > 0 && r.docs.length) setLinked(r.docs); else setConfirm("Cancel");
+    } catch (e) {
+      setError(e);
+    } finally {
+      setSaving(null);
+    }
+  };
+  const cancelAll = async (docs: LinkedDoc[]) => {
+    setLinked(null);
+    setSaving("Cancel");
+    try {
+      await latestProps.current.cancelAllLinkedDocs?.(docs);
+      await reload();
+    } catch (e) {
+      setError(e);
+      setSaving(null);
+      return;
+    }
+    setSaving(null);
+    await cancelDoc();
+  };
+  const amend = () => {
+    const p = latestProps.current;
+    if (p.onAmend) { p.onAmend(store.getDoc()); return; }
+    const copy = amendDoc(bundle, store.getDoc(), { user: p.defaults?.user });
+    store.replace(copy);
+    setVersion((v) => v + 1);
+    p.onAmended?.(copy);
+  };
+
   const runPrimary = (a: FormAction) => {
     if (a === "Save" || a === "Update" || a === "Submit") void save(a);
-    else if (a === "Amend") onAmend?.(store.getDoc());
+    else if (a === "Amend") amend();
   };
   const onKeyDown = (e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
@@ -416,10 +488,19 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const titleField = meta.title_field ? doc[meta.title_field] : undefined;
   const docLabel = s.translate(bundle, meta.name);
   const title = props.title ?? (doc.__islocal ? interpolate(t("formNewDoc"), { doctype: docLabel }) : String(titleField || doc.name));
-  const indicator = doc.__unsaved ? { text: t("formNotSaved"), variant: "warning" as const }
-    : doc.docstatus === 2 ? { text: t("formCancelled"), variant: "destructive" as const }
-    : doc.docstatus === 1 ? { text: t("formSubmitted"), variant: "info" as const }
-    : meta.is_submittable ? { text: t("formDraft"), variant: "outline" as const } : null;
+  const ind = resolveIndicator({
+    doc, isSubmittable: !!meta.is_submittable, hasField: (f) => fieldsByName.has(f),
+    states: meta.states as { title: string; color?: string }[] | undefined,
+    workflow: recWorkflow ? {
+      stateField: recWorkflow.workflow_state_field,
+      styleOf: (st) => recWorkflow.states.find((x) => x.state === st)?.style,
+      overrideStatus: !!recWorkflow.override_status,
+      avoidStatusOverride: (st) => !!recWorkflow.states.find((x) => x.state === st)?.avoid_status_override,
+    } : null,
+  });
+  const BUILTIN: Record<string, string> = { notSaved: t("formNotSaved"), draft: t("formDraft"), cancelled: t("formCancelled"), submitted: t("formSubmitted") };
+  const TONE_VARIANT = { success: "success", warning: "warning", danger: "destructive", info: "info", brand: "brand", neutral: "outline" } as const;
+  const indicator = ind ? { text: (ind.builtin && BUILTIN[ind.builtin]) || s.translate(bundle, ind.label), variant: TONE_VARIANT[ind.tone] } : null;
   const actionLabel = (a: FormAction) => t(a === "Save" ? "formSave" : a === "Submit" ? "formSubmit" : a === "Update" ? "formUpdate" : a === "Cancel" ? "formCancelDoc" : "formAmend");
 
   const renderField = (df: FrappeDocField) => {
@@ -490,10 +571,11 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
           {props.toolbarExtra}
           {actions.secondary && onCancelDoc && (
-            <Button type="button" variant="outline" disabled={!!saving} loading={saving === "Cancel"} onClick={() => setConfirm("Cancel")}>{actionLabel("Cancel")}</Button>
+            <Button type="button" variant="outline" disabled={!!saving} loading={saving === "Cancel"} onClick={() => void startCancel()}>{actionLabel("Cancel")}</Button>
           )}
           {actions.primary && (
-            <Button type="button" disabled={!!saving || actions.primaryDisabled || (actions.primary === "Amend" && !onAmend)} loading={saving === actions.primary}
+            <Button type="button" disabled={!!saving || actions.primaryDisabled || (actions.primary === "Amend" && !props.onAmend && !canAmend(meta))}
+              title={actions.primaryDisabled ? t("formAlreadyAmended") : undefined} loading={saving === actions.primary}
               onClick={() => runPrimary(actions.primary!)}>
               {actionLabel(actions.primary)}
             </Button>
@@ -501,7 +583,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </div>
       )}
 
-      {error != null && <FrappeErrorState error={error} compact />}
+      {error != null && (
+        <FrappeErrorState error={error} compact
+          onRetry={error instanceof FrappeError && error.kind === "timestamp" && props.onReload ? () => void reload() : undefined} />
+      )}
 
       {issues.length > 0 && (
         <div role="note" className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
@@ -533,6 +618,22 @@ export function FrappeFormView(props: FrappeFormViewProps) {
             <DialogDescription>{t("formMissingIntro")}</DialogDescription>
           </DialogHeader>
           <ul className="list-disc space-y-1 ps-5 text-sm">{missing?.lines.map((l, i) => <li key={i}>{lineText(l)}</li>)}</ul>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!linked} onOpenChange={(o) => { if (!o) setLinked(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("formLinkedTitle")}</DialogTitle>
+            <DialogDescription>{interpolate(t("formLinkedIntro"), { name: doc.name })}</DialogDescription>
+          </DialogHeader>
+          <ul className="max-h-64 list-disc space-y-1 overflow-y-auto ps-5 text-sm">
+            {linked?.map((l) => <li key={`${l.doctype}:${l.name}`}>{s.translate(bundle, l.doctype)}: {l.name}</li>)}
+          </ul>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setLinked(null)}>{t("formDismiss")}</Button>
+            {props.cancelAllLinkedDocs && <Button type="button" variant="destructive" onClick={() => void cancelAll(linked ?? [])}>{t("formCancelAll")}</Button>}
+          </div>
         </DialogContent>
       </Dialog>
 
