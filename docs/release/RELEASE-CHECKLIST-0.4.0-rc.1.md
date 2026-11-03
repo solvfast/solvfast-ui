@@ -44,8 +44,9 @@ made in this phase. Status words: **DONE (evidence)** · **PENDING — owner** �
 
 On the integration branch, from a clean tree, by the Lead when the owner says go:
 
-1. `package.json`: `"version": "0.4.0-rc.1"` (one line; `package-lock.json` follows via `npm install --package-lock-only`
-   if the lock carries the version — no dependency change).
+1. `npm version 0.4.0-rc.1 --no-git-tag-version` — offline; updates `package.json` and `package-lock.json` only. The
+   flag is load-bearing: plain `npm version` would commit **and tag**, which "no tag until approval" rules out. (Do not
+   use `npm install --package-lock-only`: it may contact the registry.)
 2. `CHANGELOG.md`: `[Unreleased]` → `## [0.4.0-rc.1] — <date>` (item 13).
 3. `docs/LIMITATIONS.md` title and Frappe section (item 6); `docs/RELEASING.md` status table row for 0.4.0-rc.1.
 4. `npm run typecheck && npm run build && npm test && npm pack --dry-run` — compare with `ARTIFACT-INSPECTION.md`

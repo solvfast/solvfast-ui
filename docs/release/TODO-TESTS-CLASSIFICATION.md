@@ -36,11 +36,11 @@ seeded first and a second doctype (`Note`) proving that a `ToDo` rule never blee
 
 | # | Todo | Implementation | Test now asserts |
 |---|---|---|---|
-| K1 | save/submit/update/cancel/amend/rename/workflow action: set doc, invalidate docinfo, list, count; rename removes the old doc key | `applySavedDoc` (`cache.ts:23-33`), `applyRenamedDoc` (`cache.ts:43-56`) | doc **set** (not invalidated); docinfo/list/count invalidated; `previousName` keys removed (new-doc naming); `__queued` → doc invalidated instead of set; rename moves the cached doc to the new name, removes old keys, re-reads |
-| K2 | delete: remove doc + docinfo, invalidate list and count | `applyDeletedDoc` (`cache.ts:36-40`) | both keys removed, list + count invalidated |
-| K3 | comment/assignment/attachment/share/follow: invalidate docinfo and list | `applyDocInfoChange` (`cache.ts:59-64`) | docinfo + list invalidated; doc and count untouched |
-| K4 | realtime `doc_update` newer than cached `modified` → invalidate doc + docinfo; older or equal → no-op | `applyRealtimeEvent` (`cache.ts:74-88`) | older: no-op; equal: no-op; newer: doc + docinfo invalidated, list untouched; `docinfo_update` → docinfo only |
-| K5 | realtime `list_update`: invalidate list + count, debounced 2 s (15 s large tables), never while rows are selected | cache half `cache.ts:75`; debounce half `list/realtime.ts` | cache rule immediate; hook with fake timers: two events 1 s apart reload once 2 s after the last; large table 15 s; `suppressed` drops the event with no later reload |
+| K1 | save/submit/update/cancel/amend/rename/workflow action: set doc, invalidate docinfo, list, count; rename removes the old doc key | `applySavedDoc` (`cache.ts:22-31`), `applyRenamedDoc` (`cache.ts:41-53`) | doc **set** (not invalidated); docinfo/list/count invalidated; `previousName` keys removed (new-doc naming); `__queued` → doc invalidated instead of set; rename moves the cached doc to the new name, removes old keys, re-reads doc + docinfo under the new name |
+| K2 | delete: remove doc + docinfo, invalidate list and count | `applyDeletedDoc` (`cache.ts:34-38`) | both keys removed, list + count invalidated |
+| K3 | comment/assignment/attachment/share/follow: invalidate docinfo and list | `applyDocInfoChange` (`cache.ts:56-61`) | docinfo + list invalidated; doc and count untouched |
+| K4 | realtime `doc_update` newer than cached `modified` → invalidate doc + docinfo; older or equal → no-op | `applyRealtimeEvent` (`cache.ts:73-88`) | older: no-op; equal: no-op; newer: doc + docinfo invalidated, list untouched; `docinfo_update` → docinfo only |
+| K5 | realtime `list_update`: invalidate list + count, debounced 2 s (15 s large tables), never while rows are selected | cache half `cache.ts:75`; debounce half `list/realtime.ts:12-13,28-33` | cache rule immediate; hook with fake timers: two events 1 s apart reload once 2 s after the last; large table 15 s; `suppressed` drops the event with no later reload |
 
 Caveat kept from the source comment (`list/realtime.ts:4-5`, UNVERIFIED): Desk re-requests only the changed names and
 leaves the count alone; the package refetches the list query and the count. The test asserts the package's rule.
@@ -53,11 +53,11 @@ status fallback (`client.ts:77-93`), with codes that match `apps/frappe/frappe/e
 
 | # | Todo | `exceptions.py` | Package mapping (`client.ts`) | Class |
 |---|---|---|---|---|
-| E1 | `NameError` 409 (not `DuplicateEntryError`) | `:50-51` 409; `DuplicateEntryError(NameError)` `:96` | `NameError → "validation"` (`:64`); `DuplicateEntryError → "duplicate"` (`:60`); status 409 → `validation` (`:86`) | Safe to defer |
-| E2 | `RateLimitExceededError` / `TooManyRequestsError` 429 | `:79-80` 429; `:128-129` 429 (ValidationError subclass) | both → `"rate_limited"` (`:66`); 429 → `rate_limited` (`:89`) | Safe to defer |
-| E3 | `InReadOnlyMode` / `QueueOverloaded` / `SessionStopped` 503 | `:252-253`, `:260-261`, `:58-59` all 503 | all → `"unavailable"` (`:67`); 503 → `unavailable` (`:90`) | Safe to defer |
-| E4 | `LinkExpired` 410 | `:301-302` 410 (ValidationError subclass) | → `"not_found"` (`:65`); 410 → `not_found` (`:85`) | Safe to defer |
-| E5 | `InvalidAuthorizationHeader` / `Prefix` / `Token` (CSRFTokenError subclasses, 400, API-key auth) | `:75-76` 400; `:273-282` subclasses | all four → `"csrf"` (`:69`) | Safe to defer |
+| E1 | `NameError` 409 (not `DuplicateEntryError`) | `:50-51` 409; `DuplicateEntryError(NameError)` `:96` | `NameError → "validation"` (`:63`); `DuplicateEntryError → "duplicate"` (`:60`); status 409 → `validation` (`:86`) | Safe to defer |
+| E2 | `RateLimitExceededError` / `TooManyRequestsError` 429 | `:79-80` 429; `:128-129` 429 (ValidationError subclass) | both → `"rate_limited"` (`:65`); 429 → `rate_limited` (`:89`) | Safe to defer |
+| E3 | `InReadOnlyMode` / `QueueOverloaded` / `SessionStopped` 503 | `:252-253`, `:260-261`, `:58-59` all 503 | all → `"unavailable"` (`:66`); 503 → `unavailable` (`:90`) | Safe to defer |
+| E4 | `LinkExpired` 410 | `:301-302` 410 (ValidationError subclass) | → `"not_found"` (`:64`); 410 → `not_found` (`:85`) | Safe to defer |
+| E5 | `InvalidAuthorizationHeader` / `Prefix` / `Token` (CSRFTokenError subclasses, 400, API-key auth) | `:75-76` 400; `:273-282` subclasses | all four → `"csrf"` (`:68`) | Safe to defer |
 
 Why deferred and not converted: `errors.test.ts` is outside this agent's edit scope, and the parent's guidance is that
 these rows want real server status codes. What a later phase can do **without a site**: add the five as rows of the

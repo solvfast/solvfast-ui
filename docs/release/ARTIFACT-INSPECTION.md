@@ -93,10 +93,10 @@ the folder list on every build.
 |---|---|---|
 | `.js.map` files | 166 | 166 |
 | carrying a `sourcesContent` key | (not counted) | 166 |
-| with non-empty source text | 160 | 160 (6 maps are empty re-export modules) |
+| with non-empty source text | 160 | 160 — the 6 with `sources: []` are the entry modules `dist/index.js.map`, `dist/frappe/index.js.map`, `dist/frappe/testing/index.js.map`, `dist/toast/index.js.map`, `dist/chart/index.js.map`, `dist/form/index.js.map` (re-export files; vite emits no mapping for them) |
 | source text shipped | — | 993,593 characters of TypeScript (comments included) |
 | bytes of maps | — | 1,524,625 B = 50.6 % of the unpacked size |
-| `sources` paths | relative `../../src/…`, no absolute paths | same: 0 absolute paths, every entry under `../…/src/` |
+| `sources` paths | relative `../../src/…`, no absolute paths | same: every `sources` entry of all 166 maps matches `^(\.\./)+src/` (checked programmatically); 0 absolute paths |
 
 The maps ship the full TypeScript source of the package to anyone who can install it (private GitHub Packages scope;
 the licence is proprietary). Options — the owner decides, nothing changed here:
@@ -163,6 +163,7 @@ token checks on every build.
 2. `docs/components/` (4 files, 90,775 B) is now packed — finding 2 resolved.
 3. `dist/frappe` 1,302,172 → 1,322,777 B; `dist/list` 268,611 → 269,558 B; root 56,699 → 57,534 B (CHANGELOG / docs text).
 4. Source maps: 166 / 160 non-empty unchanged; this inspection adds the byte count (1,524,625 B) and the two config options.
-5. Finding 3 of §1.1 (`docs/FRAPPE.md` recommends the broken `window.csrf_token` template) — **not re-checked here**;
-   remains for the Lead (PENDING in the checklist).
+5. Finding 3 of §1.1 (`docs/FRAPPE.md` recommended the broken `{{ frappe.session.csrf_token }}` template) —
+   **resolved**: `docs/FRAPPE.md:29` now says "Do not use" it and points to `frappe.sessions.get_csrf_token()` /
+   `readFrappeBoot` (checklist item 14).
 6. Tests: 780 (dev.23) → 807 → **812 passed**, 16 → **11 todo**.

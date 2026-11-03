@@ -117,12 +117,13 @@ describe("invalidation rules (contract.ts comment) — services/cache.ts + list/
 
     // rename (frappe.rename_doc): old keys removed, the cached doc moves to the new name and is re-read
     const qc4 = seeded();
+    qc4.setQueryData(K.docinfo("TD-9"), docinfo); // a stale docinfo under the new name (e.g. from an earlier visit) is re-read too
     await applyRenamedDoc(qc4, "ToDo", "TD-1", "TD-9");
     expect(qc4.getQueryData(K.doc("TD-1"))).toBeUndefined();
     expect(qc4.getQueryData(K.docinfo("TD-1"))).toBeUndefined();
     expect(qc4.getQueryData(K.doc("TD-9"))).toMatchObject({ name: "TD-9", description: "x" });
     expect(invalidated(qc4, K.doc("TD-9"))).toBe(true);
-    expect(invalidated(qc4, K.docinfo("TD-9"))).not.toBe(false); // never cached under the new name: absent (undefined), or invalidated
+    expect(invalidated(qc4, K.docinfo("TD-9"))).toBe(true);
     expect(invalidated(qc4, K.list)).toBe(true);
     expect(invalidated(qc4, K.count)).toBe(true);
     untouched(qc4);
