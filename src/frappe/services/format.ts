@@ -104,6 +104,11 @@ function formatInfo(format: string) {
   return { dec, group, precision };
 }
 
+/** Digits after the decimal separator of a Frappe number format ("#,###.##" → 2, "#,###" → 0). */
+export function numberFormatPrecision(format: string = defaultFormatContext.numberFormat): number {
+  return formatInfo(format).precision;
+}
+
 /** Round like Frappe's `flt` with the given method (number_format.js `_round`, described in docs 12 §8.1). */
 export function roundNumber(num: number, precision: number, method: RoundingMethod = "Banker's Rounding (legacy)"): number {
   const negative = num < 0;

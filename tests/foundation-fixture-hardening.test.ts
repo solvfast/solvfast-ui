@@ -149,8 +149,8 @@ describe("item 2: seeded ToDos drive assignees; Version docs on save", () => {
     const rows = doc.items as FrappeDoc[];
     const saved = await client.saveDoc({ ...doc, amount: 20, items: [{ ...rows[0], qty: 3 }, { doctype: "Sales Invoice Item", __islocal: 1, name: "new-row", item: "Ink" }] }, "Save");
     const v1 = JSON.parse((await client.getDocInfo("Sales Invoice", "SI-1")).versions[0].data);
-    expect(v1.changed).toEqual([["amount", 10, 20]]);
-    expect(v1.row_changed).toEqual([["items", 0, "row-1", [["qty", 1, 3]]]]);
+    expect(v1.changed).toEqual([["amount", "USD 10.00", "USD 20.00"]]); // get_formatted (fmt_money), version.py:181-183
+    expect(v1.row_changed).toEqual([["items", 0, "row-1", [["qty", "1", "3"]]]]); // Float without decimals → precision 0
     expect(v1.added).toEqual([["items", expect.objectContaining({ item: "Ink" })]]);
     expect(v1.removed).toEqual([]);
     await client.saveDoc({ ...saved, items: [(saved.items as FrappeDoc[])[1]] }, "Submit");
@@ -250,5 +250,64 @@ describe("autoincrement naming (A2 browser finding)", () => {
     expect(b.name).toBe("10");
     await client.deleteDoc("Serve Fast Deal", "10");
     expect((await client.saveDoc({ doctype: "Serve Fast Deal", name: "new-3", __islocal: 1, title: "x" }, "Save")).name).toBe("11"); // a deleted number is not reused
+  });
+});
+
+describe("server-side text in the timeline (A4 trace): assignment comments and Version values", () => {
+  const NOTE: DocTypeMeta = {
+    name: "Deal Note", track_changes: 1,
+    fields: [
+      { fieldname: "closing", fieldtype: "Date", label: "Closing" },
+      { fieldname: "met_at", fieldtype: "Datetime", label: "Met at" },
+      { fieldname: "share", fieldtype: "Percent", label: "Share" },
+      { fieldname: "weight", fieldtype: "Float", label: "Weight", precision: "3" },
+      { fieldname: "done", fieldtype: "Check", label: "Done" },
+      { fieldname: "count", fieldtype: "Int", label: "Count" },
+      { fieldname: "body", fieldtype: "Text Editor", label: "Body" },
+      { fieldname: "notes", fieldtype: "Small Text", label: "Notes" },
+      { fieldname: "stage", fieldtype: "Select", label: "Stage", options: "Open\nWon" },
+    ],
+  };
+  function setupNote() {
+    const transport = createFixtureTransport({
+      meta: { "Deal Note": [NOTE], ToDo: docsOf(todoEn) },
+      docs: {
+        "Deal Note": [{ doctype: "Deal Note", name: "DN-1", closing: "2026-11-01", met_at: "2026-11-01 09:00:00", share: 12, weight: 1, done: 0, count: 1, body: "<p>a</p>", notes: "x", stage: "Open", modified: "2026-11-01 10:00:00.000000" }],
+        User: [{ doctype: "User", name: "ann@x.com", full_name: "Ann Smith" }, { doctype: "User", name: "Administrator", full_name: "Administrator" }],
+      },
+    }, { now: NOW, formatContext: { dateFormat: "dd-mm-yyyy", timeFormat: "HH:mm", timeZone: { system: "UTC", user: "Asia/Riyadh" }, translate: (t) => (t === "Won" ? "ربح" : t) } });
+    return { transport, client: createFrappeClient({ transport }) };
+  }
+
+  it("Version values go through the server's formatting; blacklisted (Text Editor) and falsy values stay raw", async () => {
+    const { client } = setupNote();
+    const { doc } = await client.getDoc("Deal Note", "DN-1");
+    await client.saveDoc({ ...doc, closing: "2026-11-05", met_at: "2026-11-05 18:30:00", share: 12.5, weight: 1234.5, done: 1, count: 2, body: "<p>b</p>", notes: "line1\nline2", stage: "Won" }, "Save");
+    const changed = JSON.parse((await client.getDocInfo("Deal Note", "DN-1")).versions[0].data).changed as unknown[][];
+    expect(Object.fromEntries(changed.map(([f, a, b]) => [f as string, [a, b]]))).toEqual({
+      closing: ["01-11-2026", "05-11-2026"],
+      met_at: ["01-11-2026 09:00", "05-11-2026 18:30"], // server format_datetime: no time-zone conversion
+      share: ["12.0%", "12.5%"], // f"{flt(v, 2)}%"
+      weight: ["1", "1,234.50"], // fmt_money: integral → 0 decimals; precision 3 narrowed to the format's 2
+      done: [0, 1], // falsy stays raw; Check is not formatted by format_value
+      count: [1, 2], // Int unchanged
+      body: ["<p>a</p>", "<p>b</p>"], // Text Editor is blacklisted (version.py:120)
+      notes: ["x", "line1<br>line2"],
+      stage: ["Open", "ربح"], // Select translated
+    });
+  });
+
+  it("assignment comments carry full names, as todo.py validate writes them", async () => {
+    const { client } = setupNote();
+    await client.addAssignment("Deal Note", "DN-1", ["ann@x.com", "Administrator"], { description: "Call back" });
+    await client.removeAssignment("Deal Note", "DN-1", "ann@x.com");
+    await client.removeAssignment("Deal Note", "DN-1", "Administrator");
+    const logs = (await client.getDocInfo("Deal Note", "DN-1")).assignment_logs as { comment_type: string; content: string }[];
+    expect(logs.map((l) => [l.comment_type, l.content])).toEqual([
+      ["Assigned", "Administrator assigned Ann Smith: Call back"],
+      ["Assigned", "Administrator self assigned this task: Call back"],
+      ["Assignment Completed", "Assignment of Ann Smith removed by Administrator"],
+      ["Assignment Completed", "Administrator removed their assignment."],
+    ]);
   });
 });
