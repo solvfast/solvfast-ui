@@ -9,10 +9,15 @@
 import type { DocInfo, FrappeDoc, VersionInfo } from "../contract";
 import type { TimelineChange, TimelineItem } from "../../record/types";
 import type { Messages } from "../../theme/messages";
-import { fmt } from "../../record/format";
+import { isolate, fmt } from "../../record/format";
 import { htmlToText } from "../../record/sanitize";
 
 export type MessageKey = keyof Messages;
+
+/** `fmt` that wraps every interpolated token in Unicode bidi isolates when `ctx.isolate` (RTL): English field labels, values and user
+ *  names inside an Arabic sentence then keep their own direction and the sentence keeps its word order. */
+const f = (ctx: { isolate?: boolean }, template: string, ...args: Array<string | number>) =>
+  fmt(template, ...(ctx.isolate ? args.map((a) => isolate(String(a))) : args));
 
 export interface TimelineContext {
   /** The signed-in user id. */
@@ -30,6 +35,8 @@ export interface TimelineContext {
   milestoneLabel?: (fieldname: string) => string;
   /** "all" = every kind; "communications" = only communications, comments and created/modified (Desk's switch off). Default "all". */
   activity?: "all" | "communications";
+  /** Wrap interpolated tokens (names, labels, values) in Unicode bidi isolates. Set for RTL languages. */
+  isolate?: boolean;
   /** Display name for a user id (default: docinfo.user_info fullname, else the id). */
   userName?: (id: string) => string;
 }
@@ -72,17 +79,17 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
     const parts: string[] = []; const detail: TimelineChange[] = [];
     for (const [field, oldV, newV] of data.changed) {
       if (field === "docstatus") {
-        if (newV === 1) out.push({ summary: fmt(t("recSubmittedThis"), who), kind: "state" });
-        else if (newV === 2) out.push({ summary: fmt(t("recCancelledThis"), who), kind: "state" });
+        if (newV === 1) out.push({ summary: f(ctx, t("recSubmittedThis"), who), kind: "state" });
+        else if (newV === 2) out.push({ summary: f(ctx, t("recCancelledThis"), who), kind: "state" });
       } else {
         const label = ctx.fieldLabel(field);
         if (label != null) {
           detail.push({ label, before: formatTimelineValue(oldV), after: formatTimelineValue(newV) });
-          if (parts.length < 3) parts.push(fmt(t("recFromTo"), label, formatTimelineValue(oldV), formatTimelineValue(newV)));
+          if (parts.length < 3) parts.push(f(ctx, t("recFromTo"), label, formatTimelineValue(oldV), formatTimelineValue(newV)));
         }
       }
     }
-    if (parts.length) out.push({ summary: fmt(t("recChangedValue"), who, parts.join(", ")), changes: detail, kind: "change" });
+    if (parts.length) out.push({ summary: f(ctx, t("recChangedValue"), who, parts.join(", ")), changes: detail, kind: "change" });
   }
 
   if (data.row_changed?.length) {
@@ -92,10 +99,10 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
         const label = ctx.fieldLabel(field, table);
         if (label == null) continue;
         detail.push({ label, before: formatTimelineValue(oldV), after: formatTimelineValue(newV), row: idx });
-        if (parts.length < 3) parts.push(fmt(t("recFromToRow"), label, formatTimelineValue(oldV), formatTimelineValue(newV), idx + 1));
+        if (parts.length < 3) parts.push(f(ctx, t("recFromToRow"), label, formatTimelineValue(oldV), formatTimelineValue(newV), idx + 1));
       }
     }
-    if (parts.length) out.push({ summary: fmt(t("recChangedValues"), who, parts.join(", ")), changes: detail, kind: "change" });
+    if (parts.length) out.push({ summary: f(ctx, t("recChangedValues"), who, parts.join(", ")), changes: detail, kind: "change" });
   }
 
   for (const key of ["added", "removed"] as const) {
@@ -107,8 +114,8 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
     const msgs: string[] = []; let first = true;
     for (const [label, n] of counts) {
       const add = key === "added";
-      if (first) msgs.push(n > 1 ? fmt(t(add ? "recAddedRows" : "recRemovedRows"), who, n, label) : fmt(t(add ? "recAddedRow" : "recRemovedRow"), who, label));
-      else msgs.push(n > 1 ? fmt(t(add ? "recAddedRowsMore" : "recRemovedRowsMore"), n, label) : fmt(t(add ? "recAddedRowMore" : "recRemovedRowMore"), label));
+      if (first) msgs.push(n > 1 ? f(ctx, t(add ? "recAddedRows" : "recRemovedRows"), who, n, label) : f(ctx, t(add ? "recAddedRow" : "recRemovedRow"), who, label));
+      else msgs.push(n > 1 ? f(ctx, t(add ? "recAddedRowsMore" : "recRemovedRowsMore"), n, label) : f(ctx, t(add ? "recAddedRowMore" : "recRemovedRowMore"), label));
       first = false;
     }
     out.push({ summary: commaAnd(msgs, t("recAnd")), kind: "change" });
@@ -131,8 +138,8 @@ export function buildTimelineItems(doc: FrappeDoc, docinfo: DocInfo, ctx: Timeli
   const items: TimelineItem[] = [];
   const full = (ctx.activity ?? "all") === "all";
 
-  if (doc.creation) items.push({ id: "created", kind: "created", at: parseFrappeTime(doc.creation), actorId: doc.owner, actor: nameOf(s(doc.owner)), summary: fmt(t("recCreatedThis"), nameOf(s(doc.owner))) });
-  if (doc.modified && doc.modified !== doc.creation) items.push({ id: "modified", kind: "modified", at: parseFrappeTime(doc.modified), actorId: doc.modified_by, actor: nameOf(s(doc.modified_by)), summary: fmt(t("recModifiedThis"), nameOf(s(doc.modified_by))) });
+  if (doc.creation) items.push({ id: "created", kind: "created", at: parseFrappeTime(doc.creation), actorId: doc.owner, actor: nameOf(s(doc.owner)), summary: f(ctx, t("recCreatedThis"), nameOf(s(doc.owner))) });
+  if (doc.modified && doc.modified !== doc.creation) items.push({ id: "modified", kind: "modified", at: parseFrappeTime(doc.modified), actorId: doc.modified_by, actor: nameOf(s(doc.modified_by)), summary: f(ctx, t("recModifiedThis"), nameOf(s(doc.modified_by))) });
 
   for (const c of [...(docinfo.communications ?? []), ...((docinfo.automated_messages as unknown[] | undefined) ?? [])] as Row[]) {
     const sender = s(c.sender_full_name || c.sender);
@@ -161,23 +168,23 @@ export function buildTimelineItems(doc: FrappeDoc, docinfo: DocInfo, ctx: Timeli
     }
     for (const a of (docinfo.attachment_logs ?? []) as Row[]) {
       const added = a.comment_type === "Attachment"; const who = nameOf(s(a.owner));
-      items.push({ id: `attachment-${s(a.name)}`, kind: "attachment", at: parseFrappeTime(s(a.creation)), actorId: s(a.owner), actor: who, summary: fmt(t(added ? "recAttached" : "recRemovedAttachment"), who, htmlToText(s(a.content))) });
+      items.push({ id: `attachment-${s(a.name)}`, kind: "attachment", at: parseFrappeTime(s(a.creation)), actorId: s(a.owner), actor: who, summary: f(ctx, t(added ? "recAttached" : "recRemovedAttachment"), who, htmlToText(s(a.content))) });
     }
     for (const a of (docinfo.info_logs ?? []) as Row[]) {
       items.push({ id: `info-${s(a.name)}`, kind: "info", at: parseFrappeTime(s(a.creation)), actorId: s(a.owner), actor: nameOf(s(a.owner)), summary: `${nameOf(s(a.owner))} ${htmlToText(s(a.content))}` });
     }
     for (const a of (docinfo.like_logs ?? []) as Row[]) {
-      items.push({ id: `like-${s(a.name)}`, kind: "like", at: parseFrappeTime(s(a.creation)), actorId: s(a.owner), actor: nameOf(s(a.owner)), summary: fmt(t("recLiked"), nameOf(s(a.owner))) });
+      items.push({ id: `like-${s(a.name)}`, kind: "like", at: parseFrappeTime(s(a.creation)), actorId: s(a.owner), actor: nameOf(s(a.owner)), summary: f(ctx, t("recLiked"), nameOf(s(a.owner))) });
     }
     for (const a of (docinfo.workflow_logs ?? []) as Row[]) {
       items.push({ id: `workflow-${s(a.name)}`, kind: "state", at: parseFrappeTime(s(a.creation)), actorId: s(a.owner), actor: nameOf(s(a.owner)), summary: `${nameOf(s(a.owner))} ${htmlToText(s(a.content))}` });
     }
     for (const m of (docinfo.milestones ?? []) as Row[]) {
       const who = nameOf(s(m.owner));
-      items.push({ id: `milestone-${s(m.name)}`, kind: "info", at: parseFrappeTime(s(m.creation)), actorId: s(m.owner), actor: who, summary: fmt(t("recChangedMilestone"), who, ctx.milestoneLabel?.(s(m.track_field)) ?? s(m.track_field), s(m.value)) });
+      items.push({ id: `milestone-${s(m.name)}`, kind: "info", at: parseFrappeTime(s(m.creation)), actorId: s(m.owner), actor: who, summary: f(ctx, t("recChangedMilestone"), who, ctx.milestoneLabel?.(s(m.track_field)) ?? s(m.track_field), s(m.value)) });
     }
     for (const v of (docinfo.views ?? []) as Row[]) {
-      items.push({ id: `view-${s(v.name)}`, kind: "info", at: parseFrappeTime(s(v.creation)), actorId: s(v.owner), actor: nameOf(s(v.owner)), summary: fmt(t("recViewed"), nameOf(s(v.owner))) });
+      items.push({ id: `view-${s(v.name)}`, kind: "info", at: parseFrappeTime(s(v.creation)), actorId: s(v.owner), actor: nameOf(s(v.owner)), summary: f(ctx, t("recViewed"), nameOf(s(v.owner))) });
     }
   }
   return items;

@@ -37,7 +37,7 @@ export interface FrappeTimelineProps extends Pick<TimelineProps, "order" | "show
 export function FrappeTimeline({
   doc, user, docinfo, bundle, activity = "all", canComment = true, isSystemManager, canDeleteComment, canSeeField, translate = (s) => s, searchMentions, error, ...rest
 }: FrappeTimelineProps) {
-  const { t } = useLocale();
+  const { t, isRTL } = useLocale();
   const c = useRecordApi();
   const actions = useDocAction();
   const q = useRecordDocInfo(doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
@@ -65,12 +65,12 @@ export function FrappeTimeline({
   const items: TimelineItem[] = React.useMemo(() => {
     if (!info) return [];
     const ctx: TimelineContext = {
-      user, t, isSystemManager, canDeleteComment, fieldLabel, activity,
+      user, t, isSystemManager, canDeleteComment, fieldLabel, activity, isolate: isRTL,
       milestoneLabel: (f) => fieldLabel(f) ?? f,
     };
     return buildTimelineItems(doc, { ...info, communications: comms }, ctx);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info, comms, doc.modified, user, isSystemManager, canDeleteComment, fieldLabel, activity, t]);
+  }, [info, comms, doc.modified, user, isSystemManager, canDeleteComment, fieldLabel, activity, t, isRTL]);
 
   const mentionSearch = React.useCallback(
     searchMentions ?? (async (term: string): Promise<MentionOption[]> => {

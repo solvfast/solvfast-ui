@@ -236,6 +236,7 @@ Updated, Deleted, Bot, Relinked are not in docinfo at all.
   joined as "{user} changed the value of …", **at most 3 parts**. Values have HTML stripped and are cut to 40 characters (empty → `""`).
 - `row_changed`: "{label} from {old} to {new} in row #{n}" (1-based) parts, max 3, as "changed the values for …".
 - `added` / `removed`: aggregated per table label: "added 2 rows to Items", several tables joined with "and".
+- In RTL languages every interpolated token (user, field label, values) is wrapped in Unicode first-strong isolates (`TimelineContext.isolate`, set by `FrappeTimeline` from `isRTL`), and `Timeline` renders actors and change lines in `<bdi>`, so English names inside an Arabic sentence keep the sentence's word order.
 - Expanding an entry lists **all** visible changed fields, which is a superset of Desk's 3-part summary.
 
 **Field visibility (permlevel):** a changed field is skipped when it is hidden (unless `show_on_timeline`) or when its display status

@@ -77,7 +77,7 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
       <li id={`comment-${item.id}`} className="rounded-lg border border-border bg-card p-3" data-kind="comment">
         <div className="mb-1 flex items-center gap-1.5">
           <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
-          <span className="text-sm font-medium text-foreground">{item.actor}</span><span aria-hidden className="text-muted-foreground">·</span>{when}
+          <bdi className="text-sm font-medium text-foreground">{item.actor}</bdi><span aria-hidden className="text-muted-foreground">·</span>{when}
           {!editing && (item.canEdit || item.canDelete) ? (
             <span className="ms-auto flex items-center gap-1">
               {item.canEdit && onEdit ? <button type="button" onClick={() => setEditing(true)} aria-label={L.edit} title={L.edit} className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Pencil className="h-3 w-3" aria-hidden /></button> : null}
@@ -121,7 +121,7 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
         {multi && open ? (
           <ul className="mt-1 space-y-0.5 ps-3 text-[13px] text-muted-foreground">
             {item.changes!.map((c, i) => (
-              <li key={i}>{c.label}{c.row != null ? ` #${c.row + 1}` : ""}: <span className="text-foreground">{c.before || "—"}</span> <span aria-hidden>→</span> <span className="text-foreground">{c.after || "—"}</span></li>
+              <li key={i}><bdi>{c.label}</bdi>{c.row != null ? ` #${c.row + 1}` : ""}: <bdi className="text-foreground">{c.before || "—"}</bdi> <span aria-hidden>{isRTL ? "←" : "→"}</span> <bdi className="text-foreground">{c.after || "—"}</bdi></li>
             ))}
           </ul>
         ) : null}
