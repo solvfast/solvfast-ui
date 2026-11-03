@@ -66,7 +66,8 @@ import { FrappeProvider, FrappeForm } from "@solvfast/ui/frappe";
 
 `FrappeForm` connects `FrappeFormView` to the foundation hooks (`useMetaBundle`, `useDoc`, `usePermissions`, `useSaveDoc`, `useDocAction`) and to A4's workflow layer.
 - Without `name`, or with a `new-…` name, it opens a new document using Desk's defaults.
-- While loading it shows a skeleton. On failure it shows `FrappeErrorState` with Retry.
+- While loading it shows a skeleton, with a "Loading…" text after 300 ms. On failure it shows `FrappeErrorState` with Retry.
+- The title is the title field's value with any HTML stripped (as Desk does), else the name.
 
 `FrappeFormView` is the same form without data fetching. You give it `bundle`, `doc`, `permissions`, `onSave`, and optionally `onCancelDoc`, `onReload`, `getSubmittedLinkedDocs` and `cancelAllLinkedDocs`.
 
@@ -128,14 +129,14 @@ The chosen action is then checked again against its own right: Save needs write 
   3. The rest follows the Save steps, then `on_submit` runs.
 - **Update** skips `validate` and `before_save`.
 - **Cancel**:
-  1. The pre-flight call `get_submitted_linked_docs` runs. If submitted linked documents exist, they are listed with **Cancel All**, which calls `cancel_all_linked_docs`, then reloads the document and cancels it.
+  1. The pre-flight call `get_submitted_linked_docs` runs. If submitted linked documents exist, they are listed with **Cancel All**, which calls `cancel_all_linked_docs`, then reloads the document and cancels it. When the user cannot cancel every linked DocType (`canCancelAllLinked`, from the session's roles), Desk's explanation replaces the button.
   2. Otherwise a confirmation asks "Permanently Cancel {name}?".
   3. The `before_cancel` event runs.
   4. `desk.form.save.cancel` is called, with the workflow state field and its current value.
   5. The `after_cancel` event runs.
 - **Amend**:
   1. The app's `onAmend` runs if given.
-  2. Otherwise the view makes a local copy (`amendDoc`: a `copy_doc` that ignores `no_copy`, gets new child rows and sets `amended_from`), which needs an `amended_from` field.
+  2. Otherwise the view makes a local copy (`amendDoc`: a `copy_doc` of the keys that have a DocField, ignoring `no_copy`, with new child rows, `amended_from` and today's `amendment_date` when that field exists), which needs an `amended_from` field.
 
 **Errors.**
 - Server errors are shown with `FrappeErrorState` (one rendering per error kind), and the form stays dirty.
@@ -369,7 +370,7 @@ The `frm` controller offers:
 
 **UNVERIFIED** (exact Desk behaviour not confirmed):
 - The exact wording and punctuation of the "Missing Fields" lines and the "Cancel All" dialog.
-- Whether Desk hides "Cancel All" when the user cannot cancel every linked document. Here the server decides.
+- `ignore_doctypes_on_cancel_all` (set by Desk client scripts) is not sent.
 - Datetime zone conversion while editing.
 - `show_title_field_in_link` titles: without boot data, a label shows only once the field has seen one.
 - The legacy Banker's rounding tie-breaking epsilon.

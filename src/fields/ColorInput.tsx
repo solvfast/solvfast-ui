@@ -40,7 +40,7 @@ export const ColorInput = React.forwardRef<HTMLInputElement, ColorInputProps>(fu
   const isInvalid = !!invalid || bad;
   const swatch = value && isHexColor(value) ? value : undefined;
   return (
-    <div className={cn("sf-field-fill flex h-9 w-full items-center gap-2 rounded-md ps-1.5 focus-within:ring-2 focus-within:ring-ring", isInvalid && FIELD_INVALID, disabled && "opacity-50", className)}>
+    <div className={cn("sf-field-fill flex h-9 w-full items-center gap-2 rounded-md ps-1.5 focus-within:ring-2 focus-within:ring-ring/60", isInvalid && FIELD_INVALID, disabled && "opacity-50", className)}>
       <label className={cn("relative size-6 shrink-0 overflow-hidden rounded border border-border", !disabled && !readOnly && "cursor-pointer")} style={swatch ? { backgroundColor: swatch } : undefined}>
         <span className="sr-only">{t("formPickColor")}</span>
         <input
@@ -61,7 +61,7 @@ export const ColorInput = React.forwardRef<HTMLInputElement, ColorInputProps>(fu
         disabled={disabled}
         readOnly={readOnly}
         aria-invalid={isInvalid || undefined}
-        className="h-full min-w-0 flex-1 bg-transparent pe-3 text-base uppercase outline-none placeholder:normal-case placeholder:text-muted-foreground disabled:cursor-not-allowed md:text-sm"
+        className="h-full min-w-0 flex-1 bg-transparent pe-3 text-base uppercase outline-none focus-visible:outline-none placeholder:normal-case placeholder:text-muted-foreground disabled:cursor-not-allowed md:text-sm"
         value={draft ?? value ?? ""}
         onFocus={() => setDraft(value ?? "")}
         onChange={(e) => setDraft(e.target.value)}

@@ -1,16 +1,19 @@
 /**
  * `frappe.model.copy_doc` (create_new.js:281; docs `11` §1.8) — Duplicate and Amend are client-side copies; nothing is
  * persisted until Save.
- *  - Skipped keys: `name`, `amended_from`, `amendment_date`, `cancel_reason`, every internal `__*` key, `no_copy`
- *    fields (not when amending: `from_amend` ignores no_copy), Password fields; `docstatus`, `owner`, `creation`,
- *    `modified`, `modified_by` are reset.
+ *  - Only keys that have a DocField are copied (create_new.js:303-308: `_assign`, `_comments`, `_liked_by`,
+ *    `_user_tags` and other non-fields stay behind); skipped: `name`, `amended_from`, `amendment_date`,
+ *    `cancel_reason`, `no_copy` fields (not when amending: `from_amend` ignores no_copy), Password fields;
+ *    `docstatus`, `owner`, `creation`, `modified`, `modified_by` are reset.
  *  - Child rows are copied as NEW rows (`__islocal`, `new-…` names, the copy as parent).
  *  - Amend (`amend_doc`, form.js:1011) needs an `amended_from` field, copies with `from_amend` and sets
- *    `amended_from` = the cancelled document's name; Desk first asks `frappe.client.is_document_amended` (the caller
+ *    `amended_from` = the cancelled document's name and `amendment_date` = today when the field exists
+ *    (form.js:1021-1023); Desk first asks `frappe.client.is_document_amended` (the caller
  *    disables Amend when it answers true). The server checks the source is cancelled on insert.
  */
 import type { DocTypeMeta, FrappeDoc, MetaBundle } from "../../contract";
 import { TABLE_TYPES, newLocalName } from "./fieldtypes";
+import { todayString } from "./defaults";
 
 const SKIP = new Set(["name", "amended_from", "amendment_date", "cancel_reason", "docstatus", "owner", "creation", "modified", "modified_by", "idx"]);
 const CHILD_SKIP = new Set([...SKIP, "parent", "parenttype", "parentfield"]);
@@ -21,9 +24,10 @@ function copyValues(meta: DocTypeMeta, src: FrappeDoc, fromAmend: boolean, skip:
   for (const [k, v] of Object.entries(src)) {
     if (skip.has(k) || k.startsWith("__")) continue;
     const df = fields.get(k);
-    if (df && !fromAmend && df.no_copy) continue;
-    if (df?.fieldtype === "Password") continue;
-    if (df && TABLE_TYPES.has(df.fieldtype)) continue;
+    if (!df) continue;
+    if (!fromAmend && df.no_copy) continue;
+    if (df.fieldtype === "Password") continue;
+    if (TABLE_TYPES.has(df.fieldtype)) continue;
     out[k] = v;
   }
   return out;
@@ -66,5 +70,6 @@ export const canAmend = (meta: DocTypeMeta) => (meta.fields ?? []).some((f) => f
 /** The local amendment of a cancelled document. Throws when the DocType has no `amended_from` field. */
 export function amendDoc(bundle: MetaBundle, doc: FrappeDoc, opts: { user?: string } = {}): FrappeDoc {
   if (!canAmend(bundle.meta)) throw new Error(`${bundle.meta.name} has no "amended_from" field`);
-  return { ...copyDoc(bundle, doc, { fromAmend: true, user: opts.user }), amended_from: doc.name };
+  const hasDate = (bundle.meta.fields ?? []).some((f) => f.fieldname === "amendment_date");
+  return { ...copyDoc(bundle, doc, { fromAmend: true, user: opts.user }), amended_from: doc.name, ...(hasDate ? { amendment_date: todayString() } : {}) };
 }

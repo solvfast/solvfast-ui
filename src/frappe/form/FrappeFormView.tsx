@@ -20,8 +20,8 @@
  *  - with a workflow: Cancel only when no transition leads to a cancelled state (`canCancelDocument`), unless given;
  *  - a 417 TimestampMismatchError keeps the user's edits on screen and offers Reload (Desk's refresh banner);
  *  - Cancel pre-flight (`getSubmittedLinkedDocs`): submitted linked documents are listed with "Cancel All"
- *    (`cancelAllLinkedDocs`, then the document is reloaded and cancelled); UNVERIFIED: Desk hides "Cancel All" when the
- *    user cannot cancel every linked document — here the server decides;
+ *    (`cancelAllLinkedDocs`, then the document is reloaded and cancelled); when `canCancelAllLinked` says the user
+ *    cannot cancel every linked DocType, Desk's explanation replaces the button (form.js:925-931);
  *  - Amend: the app's `onAmend`, else a local copy (`amendDoc`: from_amend copy + `amended_from`), disabled when
  *    `alreadyAmended` (`is_document_amended`).
  * Not implemented here (reported): realtime "modified after you opened it", undo, connections. Workflow action buttons
@@ -41,6 +41,7 @@ import {
 import { interpolate } from "../../fields/FieldShell";
 import type { DocInfo, DocPermissions, FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle, PermType, ValidateLinkResult } from "../contract";
 import { FrappeErrorState } from "../feedback/FrappeErrorState";
+import { htmlToText } from "../feedback/ServerHtml";
 import { FrappeError } from "../client";
 import { resolveIndicator } from "../services/indicator";
 import { canCancelDocument, workflowFromMeta } from "../record/workflow";
@@ -93,6 +94,9 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   getSubmittedLinkedDocs?: (doc: FrappeDoc) => Promise<{ docs: LinkedDoc[]; count: number }>;
   /** `frappe.desk.form.linked_with.cancel_all_linked_docs`. */
   cancelAllLinkedDocs?: (docs: LinkedDoc[]) => Promise<void>;
+  /** Whether the user may cancel every linked DocType (Desk `frappe.model.can_cancel`, form.js:925-931). When it
+   *  answers false, "Cancel All" is replaced by Desk's explanation; undefined (unknown) offers it (the server decides). */
+  canCancelAllLinked?: (docs: LinkedDoc[]) => Promise<boolean | undefined> | boolean | undefined;
   onSaved?: (doc: FrappeDoc, action: SaveAction | "Cancel") => void;
   onDirtyChange?: (dirty: boolean) => void;
   /** Defaults for new child rows (session user, user defaults). */
@@ -139,6 +143,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const [missing, setMissing] = React.useState<MandatoryResult | null>(null);
   const [confirm, setConfirm] = React.useState<"Submit" | "Cancel" | null>(null);
   const [linked, setLinked] = React.useState<LinkedDoc[] | null>(null);
+  const [linkedCancellable, setLinkedCancellable] = React.useState<boolean | undefined>(undefined);
   const [version, setVersion] = React.useState(0);
   const savingRef = React.useRef(false);
   const latestProps = React.useRef(props);
@@ -441,7 +446,12 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     setError(null);
     try {
       const r = await pre(store.getDoc());
-      if (r.count > 0 && r.docs.length) setLinked(r.docs); else setConfirm("Cancel");
+      if (r.count > 0 && r.docs.length) {
+        let ok: boolean | undefined;
+        try { ok = await latestProps.current.canCancelAllLinked?.(r.docs); } catch { ok = undefined; }
+        setLinkedCancellable(ok);
+        setLinked(r.docs);
+      } else setConfirm("Cancel");
     } catch (e) {
       setError(e);
     } finally {
@@ -487,7 +497,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   // ---- rendering ----
   const titleField = meta.title_field ? doc[meta.title_field] : undefined;
   const docLabel = s.translate(bundle, meta.name);
-  const title = props.title ?? (doc.__islocal ? interpolate(t("formNewDoc"), { doctype: docLabel }) : String(titleField || doc.name));
+  // toolbar.js:44-67: the title field's HTML is stripped (a Text Editor title shows as text)
+  const title = props.title ?? (doc.__islocal ? interpolate(t("formNewDoc"), { doctype: docLabel }) : htmlToText(String(titleField || "")) || doc.name);
   const ind = resolveIndicator({
     doc, isSubmittable: !!meta.is_submittable, hasField: (f) => fieldsByName.has(f),
     states: meta.states as { title: string; color?: string }[] | undefined,
@@ -630,9 +641,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           <ul className="max-h-64 list-disc space-y-1 overflow-y-auto ps-5 text-sm">
             {linked?.map((l) => <li key={`${l.doctype}:${l.name}`}>{s.translate(bundle, l.doctype)}: {l.name}</li>)}
           </ul>
+          {linkedCancellable === false && <p role="status" className="text-sm text-muted-foreground">{t("formNoCancelAllPermission")}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setLinked(null)}>{t("formDismiss")}</Button>
-            {props.cancelAllLinkedDocs && <Button type="button" variant="destructive" onClick={() => void cancelAll(linked ?? [])}>{t("formCancelAll")}</Button>}
+            {props.cancelAllLinkedDocs && linkedCancellable !== false && <Button type="button" variant="destructive" onClick={() => void cancelAll(linked ?? [])}>{t("formCancelAll")}</Button>}
           </div>
         </DialogContent>
       </Dialog>

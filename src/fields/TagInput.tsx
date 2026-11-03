@@ -89,7 +89,7 @@ export function TagInput({
       className={className}
       anchor={
         <div
-          className={cn("sf-field-fill flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md px-1.5 py-1 focus-within:ring-2 focus-within:ring-ring", invalid && FIELD_INVALID, disabled && "opacity-50")}
+          className={cn("sf-field-fill flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md px-1.5 py-1 focus-within:ring-2 focus-within:ring-ring/60", invalid && FIELD_INVALID, disabled && "opacity-50")}
           onClick={() => inputRef.current?.focus()}
         >
           {value.map((v) => {
@@ -129,7 +129,7 @@ export function TagInput({
               aria-busy={busy || undefined}
               {...aria}
               placeholder={value.length ? undefined : placeholder}
-              className="h-7 min-w-[6rem] flex-1 bg-transparent px-1.5 text-base outline-none placeholder:text-muted-foreground md:text-sm"
+              className="h-7 min-w-[6rem] flex-1 bg-transparent px-1.5 text-base outline-none focus-visible:outline-none placeholder:text-muted-foreground md:text-sm"
               value={text}
               onFocus={() => { if (search && !text) sugg.query("", true); }}
               onChange={(e) => {

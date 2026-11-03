@@ -55,7 +55,7 @@ export const TimeInput = React.forwardRef<HTMLInputElement, TimeInputProps>(func
   const errorId = rest.id ? `${rest.id}-error` : undefined;
 
   return (
-    <div className={cn("sf-field-fill flex h-9 w-full items-center rounded-md focus-within:ring-2 focus-within:ring-ring", isInvalid && FIELD_INVALID, disabled && "opacity-50", className)}>
+    <div className={cn("sf-field-fill flex h-9 w-full items-center rounded-md focus-within:ring-2 focus-within:ring-ring/60", isInvalid && FIELD_INVALID, disabled && "opacity-50", className)}>
       <input
         ref={ref}
         type="text"
@@ -68,7 +68,7 @@ export const TimeInput = React.forwardRef<HTMLInputElement, TimeInputProps>(func
         readOnly={readOnly}
         aria-invalid={isInvalid || undefined}
         aria-describedby={bad && errorId ? errorId : rest["aria-describedby"]}
-        className="h-full min-w-0 flex-1 bg-transparent px-3 text-start text-base tabular-nums outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed md:text-sm"
+        className="h-full min-w-0 flex-1 bg-transparent px-3 text-start text-base tabular-nums outline-none focus-visible:outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed md:text-sm"
         value={draft ?? shownOf(value)}
         onFocus={(e) => { setDraft(shownOf(value)); onFocus?.(e); }}
         onChange={(e) => setDraft(e.target.value)}
