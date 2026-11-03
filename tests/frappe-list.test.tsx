@@ -546,3 +546,28 @@ describe("permissions from usePermissions; cells from formatValue", () => {
     expect(seen.at(-1)).toContain("currency"); // the currency companion field is requested
   });
 });
+
+describe("User links show full names; number and date cells never wrap", () => {
+  it("allocated_to: full name from the User lookup, id as title and fallback; assignee column from user_info", async () => {
+    const mock = createMockFrappe();
+    const transport: FrappeTransport = async (m, a) => {
+      if (m === "frappe.client.get_list" && a.doctype === "User") {
+        return { message: [{ name: "sara@example.com", full_name: "Sara Ali" }, { name: "omar@example.com", full_name: "Omar Hassan" }] };
+      }
+      return mock.transport(m, a);
+    };
+    mount(transport, { columns: [{ key: "allocated_to", label: "Assignee", type: "link", fieldtype: "Link" }] });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    await waitFor(() => expect(document.body.textContent).toContain("Sara Ali"));
+    expect(document.body.textContent).toContain("Omar Hassan");
+    expect(document.body.textContent).toContain("khaled@example.com"); // not returned by the lookup → the id
+    expect(document.querySelector('[title="sara@example.com"]')?.textContent).toBe("Sara Ali");
+  });
+  it("date / number cells are nowrap", async () => {
+    const mock = createMockFrappe();
+    mount(mock.transport);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    const dateCell = [...document.querySelectorAll("tbody td span[dir=ltr]")][0];
+    expect(dateCell?.className).toContain("whitespace-nowrap");
+  });
+});
