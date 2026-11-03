@@ -64,7 +64,9 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    * refuses a user without the right (`exporter.py:116-126`) and the dialog shows that refusal. An app that prefers to
    * hide it can pass `menu={{ export: canExport(roles, levels[0]) }}`.
    */
-  menu?: boolean | { import?: boolean; export?: boolean };
+  /** `reportExport: true` adds "Export as report" (Report-view `export_query`, gated by `canExport` as Desk's report view,
+   *  report_view.js:1646). Off by default: Desk's List View has no such entry (Phase 27.5 decision review). */
+  menu?: boolean | { import?: boolean; export?: boolean; reportExport?: boolean };
   /** Labels of the Import / Export entries (default: the message catalogue) and of the Export dialog (English by default). */
   ioLabels?: Partial<ExportDialogLabels & { importEntry: string; exportEntry: string; moreActions: string; reportExportEntry: string }>;
 }
@@ -119,11 +121,11 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   // gate: the server is the authority (exporter.py:116-126 `can_export`) and FrappeExportDialog shows its refusal as a
   // permission error (FrappeErrorState), with no file and no success.
   const { session } = useFrappeSettings();
-  const menuOn = menu === false ? { import: false, export: false } : { import: true, export: true, ...(typeof menu === "object" ? menu : {}) };
+  const menuOn = menu === false ? { import: false, export: false, reportExport: false } : { import: true, export: true, reportExport: false, ...(typeof menu === "object" ? menu : {}) };
   const showImport = menuOn.import !== false && canImport(f.bundle?.meta, session, perms.levels[0]);
   const showExport = menuOn.export !== false && !!f.bundle;
   // Report-view export (export_query): Desk's report view offers it only with `frappe.model.can_export` (report_view.js:1646)
-  const showReportExport = menuOn.export !== false && !!f.bundle && !!f.reportExport && canExport(session, perms.levels[0]);
+  const showReportExport = menuOn.reportExport === true && !!f.bundle && !!f.reportExport && canExport(session, perms.levels[0]);
   const [exporting, setExporting] = React.useState<{ names?: string[] } | null>(null);
   const [reportExporting, setReportExporting] = React.useState(false);
   const L = { importEntry: t("listMenuImport"), exportEntry: t("listBulkExport"), moreActions: t("listMenuMore"), reportExportEntry: t("listMenuReportExport"), ...ioLabels };

@@ -477,7 +477,7 @@ describe("Bulk outcomes (FrappeBulkActions)", () => {
 describe("FrappeListView wiring (Phase 27 Lead): report-view export entry and the default width cap", () => {
   it("'Export as report' is offered only with the export right (report_view.js:1646 can_export) and posts export_query through the server", async () => {
     const { seen, files } = dl(async () => ({ blob: new Blob(["server"]), filename: "ToDo.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
-    mountList(["Exporter"], META(), {}, undefined, files);
+    mountList(["Exporter"], META(), { menu: { reportExport: true } }, undefined, files);
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     fireEvent.click(screen.getByRole("menuitem", { name: /Export as report/ }));
@@ -486,15 +486,22 @@ describe("FrappeListView wiring (Phase 27 Lead): report-view export entry and th
     await waitFor(() => expect(seen.map((s) => s.method)).toEqual(["frappe.desk.reportview.export_query"]));
     expect(seen[0].args.doctype).toBe("ToDo");
   });
+  it("opt-in only (Phase 27.5): without menu.reportExport even a System Manager has no 'Export as report' — Desk's List View has none", async () => {
+    mountList(["System Manager"], META());
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    openMenu("More actions");
+    expect(screen.queryByRole("menuitem", { name: /Export as report/ })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
+  });
   it("a role without the export right sees Desk's list Export but not the report-view export", async () => {
-    mountList(["Importer"], META());
+    mountList(["Importer"], META(), { menu: { reportExport: true } });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: /Export as report/ })).toBeNull();
   });
   it("roles unknown: no report-view export (rule 9), Desk's list Export still offered (the server decides)", async () => {
-    mountList(undefined, META());
+    mountList(undefined, META(), { menu: { reportExport: true } });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     openMenu("More actions");
     expect(screen.queryByRole("menuitem", { name: /Export as report/ })).toBeNull();
