@@ -201,7 +201,7 @@ export function FrappeChildTable({ df, bundle, childMeta: metaProp, parent, rows
                 return (
                   <div key={sec.key} className="space-y-3">
                     {sec.df?.label && <h4 className="text-sm font-semibold">{s.translate(bundle, sec.df.label)}</h4>}
-                    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.max(1, sec.columns.length)}, minmax(0, 1fr))` }}>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(var(--sf-cols),minmax(0,1fr))]" style={{ "--sf-cols": Math.max(1, sec.columns.length) } as React.CSSProperties}>
                       {sec.columns.map((c) => (
                         <div key={c.key} className="min-w-0 space-y-4">
                           {c.fields.map((f) => {

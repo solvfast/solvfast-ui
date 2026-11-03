@@ -130,6 +130,21 @@ describe("CommentComposer", () => {
     await waitFor(() => expect(submit).toHaveBeenCalled());
     expect(submit.mock.calls[0][0]).toContain('data-id="bob@x"');
   });
+  it("uses the DS field and the DS popover for mentions; Escape closes the list, not the editor (p275)", async () => {
+    const search = vi.fn().mockResolvedValue([{ id: "ann@x", label: "Ann" }]);
+    const cancel = vi.fn();
+    wrap(<CommentComposer onSubmit={vi.fn()} searchMentions={search} onCancel={cancel} />);
+    const ta = screen.getByRole("textbox");
+    expect(ta.className).toContain("sf-field-fill");
+    ta.focus();
+    fireEvent.change(ta, { target: { value: "hey @A" } });
+    const opt = await screen.findByRole("option", { name: "@Ann" }, { timeout: 1500 });
+    expect(opt.closest(".sf-popper")).not.toBeNull();
+    expect(document.activeElement).toBe(ta);
+    fireEvent.keyDown(ta, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+    expect(cancel).not.toHaveBeenCalled();
+  });
   it("hides Comment until there is text and keeps the text when submit fails", async () => {
     const submit = vi.fn().mockRejectedValue(new Error("nope"));
     wrap(<CommentComposer onSubmit={submit} />);

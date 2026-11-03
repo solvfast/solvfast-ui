@@ -19,7 +19,7 @@ export function IndicatorCell({ row, config }: { row: Record<string, unknown>; c
   if (!ind.filter || !actions) return badge;
   const [field, value] = ind.filter;
   // filter-on-click, as Desk's pill (it must not open the row)
-  return <button type="button" onClick={(e) => { e.stopPropagation(); actions.applyCondition(field, "equals", String(value)); }}>{badge}</button>;
+  return <button type="button" className="rounded-md transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={(e) => { e.stopPropagation(); actions.applyCondition(field, "equals", String(value)); }}>{badge}</button>;
 }
 
 export function AssigneesCell({ value, userInfo }: { value: unknown; userInfo: Record<string, ReportviewUser> }) {

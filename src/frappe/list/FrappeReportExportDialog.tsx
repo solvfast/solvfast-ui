@@ -20,6 +20,7 @@ import { Button } from "../../primitives/button";
 import { Checkbox } from "../../primitives/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../primitives/dialog";
 import { Input } from "../../primitives/input";
+import { Label } from "../../primitives/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import type { FrappeApi } from "../client";
 import { FrappeErrorState } from "../feedback/FrappeErrorState";
@@ -132,7 +133,7 @@ export function FrappeReportExportDialog({ api, doctype, open, onOpenChange, fie
           )}
           <div className="flex items-center gap-2">
             <Checkbox id="sf-report-export-bg" checked={background} onCheckedChange={(v) => setBackground(v === true)} />
-            <label htmlFor="sf-report-export-bg">{L.background}</label>
+            <Label className="font-normal" htmlFor="sf-report-export-bg">{L.background}</Label>
           </div>
           {format === "CSV" && (
             <fieldset className="space-y-2 rounded-md border p-3" data-testid="sf-report-export-csv">
@@ -156,13 +157,13 @@ export function FrappeReportExportDialog({ api, doctype, open, onOpenChange, fie
           {askAll && (
             <div className="flex items-center gap-2">
               <Checkbox id="sf-report-export-all" checked={allRows} onCheckedChange={(v) => setAllRows(v === true)} />
-              <label htmlFor="sf-report-export-all">{totalCount === null ? L.exportAllMatching : L.exportAllRows.replace("{0}", String(totalCount))}</label>
+              <Label className="font-normal" htmlFor="sf-report-export-all">{totalCount === null ? L.exportAllMatching : L.exportAllRows.replace("{0}", String(totalCount))}</Label>
             </div>
           )}
           {offerTranslate && (
             <div className="flex items-center gap-2">
               <Checkbox id="sf-report-export-translate" checked={translate} onCheckedChange={(v) => setTranslate(v === true)} />
-              <label htmlFor="sf-report-export-translate">{L.translateValues}</label>
+              <Label className="font-normal" htmlFor="sf-report-export-translate">{L.translateValues}</Label>
             </div>
           )}
         </div>

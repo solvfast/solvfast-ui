@@ -1,6 +1,8 @@
 import * as React from "react";
 import { Button } from "../primitives/button";
+import { Popover, PopoverAnchor, PopoverContent } from "../primitives/popover";
 import { Skeleton } from "../primitives/skeleton";
+import { Textarea } from "../primitives/textarea";
 import { cn } from "../lib/cn";
 import { useLocale } from "../theme/ThemeProvider";
 import { errorText, escapeHtml } from "./format";
@@ -70,6 +72,7 @@ export function CommentComposer({ onSubmit, searchMentions, initialHtml, onCance
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const ref = React.useRef<HTMLTextAreaElement>(null);
+  const anchorRef = React.useRef<HTMLDivElement>(null);
   const listId = React.useId();
   const { options, loading, error: searchError } = useAsyncOptions(searchMentions, query ?? "", query !== null && !!searchMentions, 300);
   React.useEffect(() => setActive(0), [options]);
@@ -108,26 +111,35 @@ export function CommentComposer({ onSubmit, searchMentions, initialHtml, onCance
 
   return (
     <div className={cn("rounded-xl border border-border bg-card p-3", className)}>
-      <div className="relative">
-        <textarea
-          ref={ref} value={text} rows={rows} autoFocus={autoFocus} disabled={disabled || busy} onChange={(e) => change(e.target.value)} onKeyDown={onKey}
-          placeholder={L.placeholder} aria-label={L.label} title={disabled ? disabledReason : undefined}
-          role={showList ? "combobox" : undefined} aria-expanded={showList || undefined} aria-controls={showList ? listId : undefined} aria-autocomplete={showList ? "list" : undefined}
-          aria-activedescendant={showList && options[active] ? `${listId}-${active}` : undefined}
-          className="w-full resize-y rounded-lg border border-input bg-background p-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-        />
-        {showList ? (
-          <div id={listId} role="listbox" className="absolute start-0 z-20 mt-1 max-h-48 w-60 overflow-auto rounded-lg border border-border bg-popover p-1 shadow-md">
+      {/* the mention list is the package's Popover (solid in light, glass in dark), anchored to the box; focus stays in the box */}
+      <Popover open={showList} onOpenChange={(o) => { if (!o) setQuery(null); }}>
+        <PopoverAnchor asChild>
+          <div ref={anchorRef}>
+            <Textarea
+              ref={ref} value={text} rows={rows} autoFocus={autoFocus} disabled={disabled || busy} onChange={(e) => change(e.target.value)} onKeyDown={onKey}
+              placeholder={L.placeholder} aria-label={L.label} title={disabled ? disabledReason : undefined}
+              role={showList ? "combobox" : undefined} aria-expanded={showList || undefined} aria-controls={showList ? listId : undefined} aria-autocomplete={showList ? "list" : undefined}
+              aria-activedescendant={showList && options[active] ? `${listId}-${active}` : undefined}
+              className="resize-y"
+            />
+          </div>
+        </PopoverAnchor>
+        <PopoverContent
+          align="start" className="w-60 p-1"
+          onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}
+          onInteractOutside={(e) => { if (anchorRef.current?.contains(e.target as Node)) e.preventDefault(); }}
+        >
+          <div id={listId} role="listbox" className="max-h-48 overflow-y-auto">
             {loading ? <Skeleton className="h-7 w-full" /> : null}
             {!loading && searchError ? <p role="alert" className="px-2 py-1.5 text-xs text-destructive">{searchError}</p> : null}
             {!loading && !searchError && options.length === 0 ? <p className="px-2 py-1.5 text-xs text-muted-foreground">{L.noMatches}</p> : null}
             {!loading && options.map((o, i) => (
               <div key={o.id} id={`${listId}-${i}`} role="option" aria-selected={i === active} onMouseDown={(e) => { e.preventDefault(); pick(o); }} onMouseEnter={() => setActive(i)}
-                className={cn("cursor-pointer rounded-md px-2 py-1.5 text-sm", i === active && "bg-accent")}>@{o.label}{o.isGroup ? " ·" : ""}</div>
+                className={cn("cursor-pointer rounded-md px-2 py-1.5 text-sm", i === active && "bg-accent text-accent-foreground")}>@{o.label}{o.isGroup ? " ·" : ""}</div>
             ))}
           </div>
-        ) : null}
-      </div>
+        </PopoverContent>
+      </Popover>
       {error ? <p role="alert" className="mt-2 text-xs text-destructive">{error}</p> : null}
       <div className="mt-2 flex justify-end gap-2">
         {onCancel ? <Button type="button" size="sm" variant="ghost" onClick={onCancel}>{L.cancel}</Button> : null}
