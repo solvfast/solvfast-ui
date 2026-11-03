@@ -239,6 +239,17 @@ describe("read-only role (Sales User: read / report / print / email / select)", 
   });
 });
 
+describe("the built-in User / List Filter metas carry their native rows", () => {
+  it("a read-only session keeps its saved filters (List Filter: Desk User) and searches users (User: Desk User select)", async () => {
+    const t = createFixtureTransport({ meta: { "Travel Request": [TRAVEL, COMPANION] }, docs: { User: users } }, { permissions: SCENARIOS.readOnly });
+    await t("frappe.client.insert", { doc: JSON.stringify({ doctype: "List Filter", filter_name: "Mine", reference_doctype: "Travel Request", for_user: "lina@example.com", filters: "[]" }) });
+    const rows = (await t("frappe.client.get_list", { doctype: "List Filter", fields: JSON.stringify(["name", "filter_name"]), filters: JSON.stringify({ for_user: "lina@example.com" }) })).message as FrappeDoc[];
+    expect(rows.map((r) => r.filter_name)).toEqual(["Mine"]);
+    const found = (await t("frappe.desk.search.search_link", { doctype: "User", txt: "sara" })).message as { value: string }[];
+    expect(found.map((x) => x.value)).toEqual(["sara@example.com"]);
+  });
+});
+
 describe("restricted DocType permissions (a role with no row on Travel Request)", () => {
   it("meta still loads (load.py:62-79); getdoc, lists and counts answer 403 'No permission for Travel Request'", async () => {
     const t = site(SCENARIOS.restrictedDoctype);

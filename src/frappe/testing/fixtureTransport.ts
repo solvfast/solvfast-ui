@@ -181,11 +181,18 @@ function splitField(field: string): [string | undefined, string] {
 /**
  * Minimal metas the package's own components need even when an app's fixture does not ship them (SIMULATED, a subset of
  * the real DocTypes' fields): `User` (assign picker: search_link with user_type / enabled) and `List Filter` (saved
- * filters: get_list / insert / delete). A backend that provides its own meta for them wins.
+ * filters: get_list / insert / delete). A backend that provides its own meta for them wins. Their DocPerm rows are the
+ * native ones (core/doctype/user/user.json, desk/doctype/list_filter/list_filter.json), so the opt-in permission model
+ * lets every Desk User search users (select) and keep saved filters.
  */
 export const BUILTIN_FIXTURE_META: Record<string, DocTypeMeta[]> = {
   User: [{
     name: "User", autoname: "field:email", title_field: "full_name", search_fields: "full_name", show_title_field_in_link: 0,
+    permissions: [
+      { role: "System Manager", permlevel: 0, read: 1, write: 1, create: 1, delete: 1, email: 1, export: 1, import: 1, print: 1, report: 1, share: 1 },
+      { role: "System Manager", permlevel: 1, read: 1, write: 1 },
+      { role: "Desk User", permlevel: 0, select: 1 },
+    ],
     fields: [
       { fieldname: "email", fieldtype: "Data", label: "Email", options: "Email", reqd: 1 },
       { fieldname: "first_name", fieldtype: "Data", label: "First Name" },
@@ -197,6 +204,7 @@ export const BUILTIN_FIXTURE_META: Record<string, DocTypeMeta[]> = {
   }],
   "List Filter": [{
     name: "List Filter", autoname: "hash",
+    permissions: [{ role: "Desk User", permlevel: 0, read: 1, write: 1, create: 1, delete: 1, email: 1, export: 1, print: 1, report: 1, share: 1 }],
     fields: [
       { fieldname: "filter_name", fieldtype: "Data", label: "Filter Name" },
       { fieldname: "reference_doctype", fieldtype: "Link", label: "Reference Document Type", options: "DocType" },
