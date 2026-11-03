@@ -4,8 +4,8 @@
  */
 export { createFrappeClient, FrappeError, toFrappeError } from "./client";
 export type { FrappeClient, FrappeClientOptions, FrappeTransport, FrappeResponse, DocField, DocMeta, GetListArgs } from "./client";
-export { FrappeProvider, useFrappeClient, createFrappeQueryClient, frappeRetry } from "./FrappeProvider";
-export type { FrappeProviderProps } from "./FrappeProvider";
+export { FrappeProvider, useFrappeClient, useFrappeApi, useFrappeSettings, useFormatContext, createFrappeQueryClient, frappeRetry } from "./FrappeProvider";
+export type { FrappeProviderProps, FrappeSettings } from "./FrappeProvider";
 export { useFrappeMeta, useFrappeList, frappeLinkSearch, invalidateFrappeList } from "./useFrappeList";
 export type { FrappeListOptions } from "./useFrappeList";
 export { FrappeListView } from "./FrappeListView";
