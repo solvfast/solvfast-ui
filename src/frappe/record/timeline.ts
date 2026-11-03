@@ -84,8 +84,9 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
       } else {
         const label = ctx.fieldLabel(field);
         if (label != null) {
-          detail.push({ label, before: formatTimelineValue(oldV), after: formatTimelineValue(newV) });
-          if (parts.length < 3) parts.push(f(ctx, t("recFromTo"), label, formatTimelineValue(oldV), formatTimelineValue(newV)));
+          const o = formatTimelineValue(oldV); const n = formatTimelineValue(newV);
+          detail.push({ label, before: o, after: n });
+          if (parts.length < 3) parts.push(f(ctx, t("recFromTo"), label, o, n));
         }
       }
     }
@@ -98,8 +99,9 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
       for (const [field, oldV, newV] of cols) {
         const label = ctx.fieldLabel(field, table);
         if (label == null) continue;
-        detail.push({ label, before: formatTimelineValue(oldV), after: formatTimelineValue(newV), row: idx });
-        if (parts.length < 3) parts.push(f(ctx, t("recFromToRow"), label, formatTimelineValue(oldV), formatTimelineValue(newV), idx + 1));
+        const o = formatTimelineValue(oldV); const n = formatTimelineValue(newV);
+        detail.push({ label, before: o, after: n, row: idx });
+        if (parts.length < 3) parts.push(f(ctx, t("recFromToRow"), label, o, n, idx + 1));
       }
     }
     if (parts.length) out.push({ summary: f(ctx, t("recChangedValues"), who, parts.join(", ")), changes: detail, kind: "change" });

@@ -9,7 +9,7 @@ import {
 } from "../primitives/alert-dialog";
 import { useLocale } from "../theme/ThemeProvider";
 import { CommentComposer, type CommentComposerLabels } from "./CommentComposer";
-import { errorText } from "./format";
+import { errorText, stripIsolates } from "./format";
 import { sanitizeCommentHtml } from "./sanitize";
 import type { MentionOption, TimelineItem, TimelineKind } from "./types";
 
@@ -48,6 +48,27 @@ const ICON: Record<TimelineKind, React.ComponentType<{ className?: string }>> = 
   comment: MessageSquare, change: PencilLine, assignment: UserCheck, attachment: Paperclip, state: GitBranch, created: FilePlus2, modified: Pencil,
   info: Info, like: Heart, communication: MessageSquare, custom: Activity,
 };
+
+/**
+ * Summaries carry U+2068 ... U+2069 around interpolated tokens (RTL word order). Rendered text turns each isolated span into a `<bdi>`
+ * (no invisible characters in the DOM, so copied text and search stay clean); plain-text uses call `stripIsolates`.
+ */
+export function renderIsolated(text: string): React.ReactNode {
+  if (!/[\u2068\u2069]/.test(text)) return text;
+  let i = 0;
+  const parse = (): React.ReactNode[] => {
+    const out: React.ReactNode[] = []; let buf = "";
+    while (i < text.length) {
+      const c = text[i++];
+      if (c === "\u2068") { if (buf) { out.push(buf); buf = ""; } const kids = parse(); out.push(<bdi key={out.length}>{kids}</bdi>); }
+      else if (c === "\u2069") break;
+      else buf += c;
+    }
+    if (buf) out.push(buf);
+    return out;
+  };
+  return <>{parse()}</>;
+}
 
 export function filterItems(items: TimelineItem[], filter: TimelineFilter, hidden: TimelineKind[] = []): TimelineItem[] {
   return items.filter((i) => !hidden.includes(i.kind) && (filter === "all" || (filter === "comments" ? i.kind === "comment" : i.kind !== "comment")));
@@ -109,10 +130,10 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1">
-          {item.href ? <a href={item.href} className="text-foreground underline-offset-2 hover:underline">{item.summary}</a> : <span className="text-muted-foreground">{item.summary}</span>}
+          {item.href ? <a href={item.href} className="text-foreground underline-offset-2 hover:underline">{renderIsolated(item.summary ?? "")}</a> : <span className="text-muted-foreground">{renderIsolated(item.summary ?? "")}</span>}
           <span aria-hidden className="text-muted-foreground">·</span>{when}
           {multi ? (
-            <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} aria-label={item.summary}
+            <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} aria-label={stripIsolates(item.summary ?? "")}
               className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} aria-hidden />
             </button>

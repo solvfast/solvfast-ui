@@ -147,6 +147,17 @@ describe("FrappeAssignTo", () => {
   });
 });
 
+describe("FrappeTimeline renders the server's stored text", () => {
+  const b2: MetaBundle = { doctype: "Deal", meta: { name: "Deal", fields: [{ fieldname: "amount", fieldtype: "Currency", label: "Amount" }], permissions: [{ role: "Sales User", permlevel: 0, read: 1, write: 1 }] } as never, children: {} };
+  it("shows version values and assignment text verbatim", async () => {
+    const ver = { name: "V2", owner: "bob@x", creation: "2026-11-02 10:00:00", data: JSON.stringify({ changed: [["amount", "USD 111,000.00", "USD 222,000.00"]] }) };
+    stub({ getDocInfo: vi.fn(async () => ({ ...info, comments: [], versions: [ver], assignment_logs: [{ name: "A9", owner: "bob@x", creation: "2026-11-02 11:00:00", content: "Bob Ray assigned Cy Lo: call" }] })) as never });
+    mount(<FrappeTimeline doc={doc} user="me@x" bundle={b2} canComment={false} />);
+    expect((await screen.findByText(/changed the value of/)).textContent).toContain("Amount from USD 111,000.00 to USD 222,000.00");
+    expect((await screen.findByText(/assigned/, { selector: "span" })).textContent).toBe("Bob Ray assigned Cy Lo: call");
+  });
+});
+
 describe("FrappeTimeline field visibility", () => {
   const fields = [
     { fieldname: "title", fieldtype: "Data", label: "Title" },

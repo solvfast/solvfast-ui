@@ -186,3 +186,22 @@ describe("R2-V8 bidi isolation of interpolated tokens in Arabic version lines", 
     expect(iso.replace(/[⁨⁩]/g, "")).toBe(plain);
   });
 });
+
+describe("stored text is rendered verbatim (as Desk does)", () => {
+  // Evidence: version.py get_diff stores get_formatted() values (blacklisted types raw); version_timeline_content_builder.js
+  // format_content_for_timeline only strips HTML, truncates to 40 and escapes; todo.py writes assignment texts with get_fullname().
+  const mk = (changed: unknown[]) => ({ owner: "bob@x", data: JSON.stringify({ changed, row_changed: [["items", 0, "r1", [["qty", 1, 2]]]] }) });
+  it("shows version values exactly as stored: server-formatted strings and raw values alike, no client formatting", () => {
+    const lines = formatVersion(mk([["amount", "USD 111,000.00", 222000]]), ctx(), "Bob");
+    expect(lines[0].summary).toContain("Amount from USD 111,000.00 to 222000");
+    expect(lines[1].summary).toContain("Qty from 1 to 2 in row #1");
+  });
+  it("shows assignment texts exactly as the server wrote them, ids included", () => {
+    const info = { attachments: [], communications: [], comments: [], versions: [], shared: [], views: [], assignments: [], permissions: {},
+      assignment_logs: [{ name: "A1", owner: "bob@x", creation: "2026-11-02 10:00:00", content: "Admin User assigned Sara Nasr: call" }, { name: "A2", owner: "bob@x", creation: "2026-11-02 11:00:00", content: "bob@x assigned cy@x: call" }],
+      user_info: { "bob@x": { fullname: "Bob Ray" }, "cy@x": { fullname: "Cy Lo" } } } as unknown as DocInfo;
+    const items = buildTimelineItems({ doctype: "Deal", name: "D1" }, info, ctx());
+    expect(items.find((i) => i.id === "assignment-A1")!.summary).toBe("Admin User assigned Sara Nasr: call");
+    expect(items.find((i) => i.id === "assignment-A2")!.summary).toBe("bob@x assigned cy@x: call");
+  });
+});
