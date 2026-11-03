@@ -111,7 +111,7 @@ import { FrappeProvider, FrappeForm } from "@solvfast/ui/frappe";
 | 4 | **Cancel** | docstatus 1, cancel right. Shown as the secondary button. With a workflow, only when no transition leads to a cancelled state. |
 | 5 | **Amend** | docstatus 2, amend right. Disabled when `is_document_amended` returns true. |
 
-The chosen action is then checked again against its own right: Save needs write (or create on a new document), Submit and Update need submit. When there are workflow actions for a clean, saved document, A4's `FrappeWorkflowActions` replaces these buttons.
+The chosen action is then checked again against its own right: Save needs write (or create on a new document), Submit and Update need submit. When there are workflow actions for a clean, saved document, A4's `FrappeWorkflowActions` replaces these buttons. For a DocType with a workflow, Save and Cancel stay hidden until both the workflow definition and the user's transitions have loaded, so they never flash.
 
 **How each action runs:**
 - **Save**:
@@ -129,7 +129,7 @@ The chosen action is then checked again against its own right: Save needs write 
   3. The rest follows the Save steps, then `on_submit` runs.
 - **Update** skips `validate` and `before_save`.
 - **Cancel**:
-  1. The pre-flight call `get_submitted_linked_docs` runs. If submitted linked documents exist, they are listed with **Cancel All**, which calls `cancel_all_linked_docs`, then reloads the document and cancels it. When the user cannot cancel every linked DocType (`canCancelAllLinked`, from the session's roles), Desk's explanation replaces the button.
+  1. The pre-flight call `get_submitted_linked_docs` runs. If submitted linked documents exist, they are listed with **Cancel All**, which calls `cancel_all_linked_docs`, then reloads the document and cancels it. When the user cannot cancel every linked DocType, Desk's explanation replaces the button. This is `canCancelAllLinked`, mirroring Desk's `can_cancel`: Administrator can cancel every DocType; anyone else needs a cancel right at permlevel 0 from their roles.
   2. Otherwise a confirmation asks "Permanently Cancel {name}?".
   3. The `before_cancel` event runs.
   4. `desk.form.save.cancel` is called, with the workflow state field and its current value.

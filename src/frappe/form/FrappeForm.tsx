@@ -13,7 +13,7 @@ import * as React from "react";
 import { Skeleton } from "../../primitives/skeleton";
 import { useLocale } from "../../theme/ThemeProvider";
 import { rolePermissions } from "../services/permissions";
-import type { FrappeDoc } from "../contract";
+import type { DocTypeMeta, FrappeDoc } from "../contract";
 import { useFrappeSettings } from "../FrappeProvider";
 import { useDoc, useMetaBundle } from "../hooks/useDoc";
 import { useDocAction, useSaveDoc } from "../hooks/useDocMutations";
@@ -34,6 +34,20 @@ export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "d
 }
 
 const isNewName = (name?: string) => !name || name.startsWith("new-");
+
+type SessionLike = { user?: string; roles?: string[] } | undefined;
+const isAdministrator = (session: SessionLike) => session?.user === "Administrator" || !!session?.roles?.includes("Administrator");
+
+/**
+ * Desk `frappe.model.can_cancel(doctype)` (model.js:366-460): the DocType is in boot `can_cancel`, which the server
+ * builds from the user's roles × the DocType's permission rows (a cancel right at permlevel 0); Administrator holds every
+ * role, so every DocType (R3-F1). Without roles the answer is unknown (undefined).
+ */
+export function canCancelDoctype(meta: DocTypeMeta, session: SessionLike): boolean | undefined {
+  if (isAdministrator(session)) return true;
+  if (!session?.roles) return undefined;
+  return !!rolePermissions(meta.permissions, session.roles).levels[0]?.cancel;
+}
 
 /** Loading: skeleton blocks (with a foreground tint so they read in dark themes too) and, after 300 ms, a text
  *  status (CONTRACT §3: never a loader without text for more than 300 ms). */
@@ -115,15 +129,19 @@ export function FrappeForm({ doctype, name, newDocDefaults, ...rest }: FrappeFor
         return { docs: m.docs ?? [], count: Number(m.count) || 0 };
       }}
       cancelAllLinkedDocs={async (docs) => { await api.call("frappe.desk.form.linked_with.cancel_all_linked_docs", { docs: JSON.stringify(docs) }); }}
-      canCancelAllLinked={session?.roles ? async (docs) => {
-        // Desk `frappe.model.can_cancel(doctype)` = a cancel right from the user's roles (boot can_cancel)
+      canCancelAllLinked={session?.roles || isAdministrator(session) ? async (docs) => {
         const dts = [...new Set(docs.map((d) => d.doctype))];
+        if (isAdministrator(session)) return true;
         const metas = await Promise.all(dts.map((dt) => api.getMetaBundle(dt)));
-        return metas.every((b) => !!rolePermissions(b.meta.permissions, session.roles!).levels[0]?.cancel);
+        return metas.every((b) => canCancelDoctype(b.meta, session));
       } : undefined}
       canCancelWithWorkflow={rest.canCancelWithWorkflow ?? (wf.workflow ? wf.standardActions.showCancel : undefined)}
-      // R2-F4: while the transitions of a saved, clean workflow document load, keep Save / Cancel hidden (no flicker)
-      workflowActionsShown={rest.workflowActionsShown ?? (!doc.__unsaved && !doc.__islocal && !!wf.workflow && (wf.isLoading || wf.transitions.length > 0))}
+      // R2-F4 / R3-F2: for a saved, clean document of a DocType that HAS a workflow (known from its meta at once), keep
+      // Save / Cancel hidden until both the workflow definition and the user's transitions are known — no flash. A failed
+      // load gives the standard buttons back.
+      workflowActionsShown={rest.workflowActionsShown ?? (
+        !doc.__unsaved && !doc.__islocal && !!permissions.workflow && !wf.error && (wf.isLoading || !wf.workflow || wf.transitions.length > 0)
+      )}
       alreadyAmended={rest.alreadyAmended ?? amended}
       toolbarExtra={(
         <>
