@@ -8,6 +8,7 @@ import react from "@vitejs/plugin-react";
 
 const entries: Record<string, string> = { index: path.resolve(__dirname, "src/index.ts") };
 if (fs.existsSync(path.resolve(__dirname, "src/frappe/index.ts"))) entries["frappe/index"] = path.resolve(__dirname, "src/frappe/index.ts");
+if (fs.existsSync(path.resolve(__dirname, "src/frappe/testing/index.ts"))) entries["frappe/testing/index"] = path.resolve(__dirname, "src/frappe/testing/index.ts");
 if (fs.existsSync(path.resolve(__dirname, "src/toast/index.ts"))) entries["toast/index"] = path.resolve(__dirname, "src/toast/index.ts");
 for (const e of ["chart", "form"]) if (fs.existsSync(path.resolve(__dirname, `src/${e}/index.ts`))) entries[`${e}/index`] = path.resolve(__dirname, `src/${e}/index.ts`);
 
