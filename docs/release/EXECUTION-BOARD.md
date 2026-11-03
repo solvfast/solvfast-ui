@@ -27,18 +27,23 @@ That file's last entry is Round 24 (2026-11-03 15:28 UTC, before Phase 26)._
 | 26 B (showcase) | `6fbb959` | dev.28 | Frappe-layer showcase, 10 sections, smoke 61 × 4 | 866 |
 | 26 cosmetics | `c1746f4` | dev.29 | light-mode popups solid white | 866 |
 | 27 E (artifact) | `b177315` | dev.30 | source maps without TypeScript source + package audit | 866 |
+| 27 B query | `7c044f4`, `51a4440` | dev.31 | nested-set operators, width cap, URL filters, report-view export | 900 |
+| 27 A perm + B actions + C import | `aaeabac`, `b33c11e`, `fa73dee` | dev.32 | form/workflow/Administrator permission fixes; Desk's Actions menu; Export for everyone; Import → Data Import list; `FrappeDataImport` (preview + mapping); Lead wiring (width cap default on, report export entry) | 1023 |
+| 27 D sim | `556b8d4` | dev.33 | simulator permission evaluation + seven scenarios; handlers for the new methods; showcase role-limited documents; simulated files without counts | 1066 + 11 todo |
 
-## Phase 27 workstreams (started 2026-11-03)
+## Phase 27 workstreams (2026-11-03) — all merged into `feat/0.4.0-frappe`
 
-| Workstream | Owner / branch | Scope | State |
+| Workstream | Owner / branch (head) | Result | Evidence class |
 |---|---|---|---|
-| A permissions | perm27 · `feat/0.4.0/p27-perm` | form without permission info, workflow with unknown roles, Administrator without role list | running |
-| B list actions | actions27 · `feat/0.4.0/p27-actions` | Print, Clear Assignment, Assignment Rule, Add Tags, workflow bulk approval; Export visible like Desk; Import → Data Import list | running |
-| B list query | query27 · `feat/0.4.0/p27-query` | width-based column cap, nested-set filters, URL filters, report-view export | running |
-| C import | import27 · `feat/0.4.0/p27-import` | import preview + column mapping, server-confirmed completion | running |
-| D simulator | sim27 · `feat/0.4.0/p27-sim` | explicit permission scenarios, showcase role-limited documents | running |
-| E artifact | Lead | maps without source (done `b177315`), final pack + inspection | in progress |
-| F docs | Lead | matrix, parity, audit, checklist, adoption plan, this board | in progress |
+| A permissions | perm27 · `feat/0.4.0/p27-perm` (`15bc165`) | P2-1, P2-3, P2-4, P3-1, P3-6 closed; 60 tests | test doubles; Administrator replayed from recorded real responses |
+| B list actions | actions27 · `feat/0.4.0/p27-actions` (`983aec5`) | Print, Clear Assignment, Assignment Rule, Add Tags, workflow bulk; Export for everyone; Import → Data Import list; 26 tests | test doubles |
+| B list query | query27 · `feat/0.4.0/p27-query` (`6025c15`) | width cap, nested-set operators, URL filters, report-view export; 34 tests | test doubles |
+| C import | import27 · `feat/0.4.0/p27-import` (`35718ca`) | `FrappeDataImport`: preview, column mapping, server-confirmed result; 30 tests | test doubles |
+| D simulator | sim27 · `feat/0.4.0/p27-sim` (`5c4c396`) | server-side permission evaluation, seven scenarios, showcase; 43 tests | simulator |
+| E artifact | Lead (`b177315`, final pack at `556b8d4`) | maps without source; dev.33 tarball inspected | local pack only |
+| F docs | Lead | matrix, parity, audit, checklist, adoption plan, this board | — |
+
+Nothing in Phase 27 is verified against an authenticated real session or with actual writes.
 
 Operational blockers carried over unchanged: no authenticated real-site route; no restricted test user (none may be created);
 D-06 CRM DocTypes not created; D-25 boot not deployed; no build window; backups unverified and backup cron failing.

@@ -84,7 +84,7 @@ answers: `useSaveDoc` / `useDocAction` update the cache in `onSuccess` only (`sr
 - P2-1 `FrappeFormView.tsx:369`: with no `permissions` prop the standalone view assumes every right (`can` → true). It is the
   presentational component and has no permission source; `FrappeForm` always passes one. Document "pass `permissions`";
   consider denying by default in 0.5.
-  **Status: FIXED (Phase 27, `abb6a72`, refined in `08d8721`).** No `permissions` → no right
+  **Status: FIXED (Phase 27, `abb6a72`, refined in `15bc165`).** No `permissions` → no right
   (`FrappeFormView.tsx:383`: `can` reads `permissions.can` or `permissions.levels[0]`, else false), fields Write → Read
   before the control rules so blank fields hide as in Desk (`:199`), child tables read-only (no Add Row), no `__newname`
   prompt (`:296`), the "Read only" notice with `data-permissions="unknown"` (`:384`, `:601`), Ctrl+S inert (`:510`). Fields
@@ -206,7 +206,7 @@ session, no writes.
 
 | Issue | Implemented | Tested with simulator or test doubles | Replayed from recorded real responses | Verified against an authenticated real session | Verified with actual writes |
 |---|---|---|---|---|---|
-| P2-1 form without permissions | `abb6a72`, `08d8721` | permissions-p27 §2, §3 | none | none | none |
+| P2-1 form without permissions | `abb6a72`, `15bc165` | permissions-p27 §2, §3 | none | none | none |
 | P2-3 workflow without roles | `064ce46` | permissions-p27 §5, §6; record-frappe | none | none | none |
 | P2-4 Administrator without roles | `2b4a8ed`, `064ce46` | permissions-p27 §1, §4, §5 | permissions-p27 §7 (roles list, `get_doc_permissions`, import / export) | none | none |
 | P3-1 Cancel All unknown | `abb6a72` | permissions-p27 §4 | none | none | none |
