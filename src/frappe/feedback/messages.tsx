@@ -76,7 +76,7 @@ export function FrappeMessagesProvider({ source, onAlert, children }: FrappeMess
   React.useEffect(() => source?.subscribeMessages((messages) => api.show(messages, { replace: true })), [source, api]);
 
   const title = [...dialog].reverse().find((m) => m.title)?.title ?? t("feMessage");
-  const tone = indicatorTone(dialog.at(-1)?.indicator);
+  const tone = indicatorTone(dialog[dialog.length - 1]?.indicator);
   return (
     <MessagesContext.Provider value={api}>
       {children}
