@@ -24,12 +24,14 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../../src/theme/ThemeProvider";
 import { defaultMessages } from "../../src/theme/messages";
-import { createFrappeClient, FrappeError, type FrappeTransport } from "../../src/frappe/client";
+import { createFrappeClient, FrappeError, normalizeDocInfo, toMetaBundle, type FrappeResponse, type FrappeTransport } from "../../src/frappe/client";
+import realSada from "../fixtures/real-15.110-sada/sada-real-responses.json";
 import { FrappeProvider } from "../../src/frappe/FrappeProvider";
 import { frappeKeys, type DocInfo, type DocPerm, type DocTypeMeta, type FrappeDoc, type MetaBundle, type WorkflowInfo, type WorkflowTransition } from "../../src/frappe/contract";
 import { useDocAction, usePermissions } from "../../src/frappe/hooks";
 import { FrappeForm, canCancelDoctype } from "../../src/frappe/form/FrappeForm";
 import { FrappeFormView, type FormPermissions, type LinkedDoc } from "../../src/frappe/form/FrappeFormView";
+import { formActions } from "../../src/frappe/form/model/actions";
 import { createFixtureTransport, type FixtureHandler } from "../../src/frappe/testing";
 import {
   PERM_TYPES, buildDocPermissions, canExport, canImport, isAdministrator, isWorkflowReadOnly, permissionsKnown, type FrappeSession,
@@ -552,4 +554,57 @@ describe("SIMULATED direct invocation of hidden actions: the server refuses, the
     const client = createFrappeClient({ transport: deny(["frappe.desk.reportview.delete_items"]) });
     await expect(bulkDelete(client, "Memo", ["M-1", "M-2"])).rejects.toMatchObject({ kind: "permission" });
   });
+});
+
+// ---- 7. replayed from recorded REAL responses (Administrator) -----------------------------------------------------------
+
+/**
+ * REPLAYED — recorded real Frappe 15.110 responses (tests/fixtures/real-15.110-sada/, captured in-process as Administrator
+ * inside one READ ONLY transaction; see tests/real/sada-real.test.tsx). Not a live session, no writes. What they show:
+ * the server's `get_roles("Administrator")` list (it holds "System Manager" and "Administrator"), the server's
+ * `get_doc_permissions` for the Administrator (every right; `submit` 0 and `import` 0 on these non-submittable,
+ * allow_import 0 DocTypes — permissions.py:217-221), and a second full-rights user whose roles do NOT include
+ * "Administrator" (permissions.py:515).
+ */
+describe("REPLAYED recorded real responses: the Administrator as the 15.110 server reported it (P2-4, P3-6)", () => {
+  type Holder = { user: string; roles: string[]; doc_permissions: Record<string, Record<string, unknown>> };
+  const R = realSada as unknown as Record<string, FrappeResponse>;
+  const holders = R["permissions::sada-role-holders"] as unknown as Holder[];
+  const admin = holders.find((h) => h.user === "Administrator")!;
+  const other = holders.find((h) => h.user !== "Administrator")!;
+  const bundle = toMetaBundle("Sada Post Type", R["getdoctype::Sada Post Type"]);
+  const recordedDoc = (R["getdoc::Sada Post Type::post Type1"].docs as FrappeDoc[])[0];
+  const recordedInfo = normalizeDocInfo(R["getdoc::Sada Post Type::post Type1"].docinfo);
+
+  it("the recorded get_roles('Administrator') holds System Manager and Administrator; another full-rights user's roles never hold 'Administrator'", () => {
+    expect(admin.roles).toContain("System Manager");
+    expect(admin.roles).toContain("Administrator");
+    expect(other.roles).toContain("System Manager");
+    expect(other.roles).not.toContain("Administrator"); // automatic role, never read from Has Role (permissions.py:37, :515)
+  });
+
+  it("canImport / canExport: the session alone answers what the recorded role list answers", () => {
+    const level0 = buildDocPermissions({ meta: bundle.meta, session: { user: "Administrator" } })[0];
+    expect(canExport({ user: "Administrator" }, level0)).toBe(canExport(admin.roles, level0));
+    expect(canExport({ user: "Administrator" }, level0)).toBe(true);
+    expect(canImport(bundle.meta, { user: "Administrator" }, level0)).toBe(canImport(bundle.meta, admin.roles, level0));
+    expect(canImport(bundle.meta, { user: "Administrator" }, level0)).toBe(false); // allow_import 0 on this DocType; recorded import: 0 agrees
+  });
+
+  for (const roles of [undefined, "recorded"] as const) {
+    it(`usePermissions for the Administrator (${roles ? "recorded role list" : "no role list"}) grants every right the server granted; submit / import (0 on the server) lead to no action`, () => {
+      const server = admin.doc_permissions["Sada Post Type"];
+      const { wrapper } = harness(noop, { user: "Administrator", roles: roles ? admin.roles : undefined });
+      const { result } = renderHook(() => usePermissions(bundle, recordedDoc, recordedInfo), { wrapper });
+      for (const [right, v] of Object.entries(server)) if (v === 1) expect(result.current.can(right as never), right).toBe(true);
+      expect(server.submit).toBe(0); expect(server.import).toBe(0);
+      // the package grants by has_permission (:107-109), not by this docinfo; every action that uses submit / import also
+      // checks is_submittable / allow_import, so nothing more is offered than the server's own answer allows
+      const acts = formActions({ docstatus: 0, isNew: false, dirty: false, isSubmittable: !!bundle.meta.is_submittable, perms: { write: result.current.can("write"), create: result.current.can("create"), submit: result.current.can("submit"), cancel: result.current.can("cancel"), amend: result.current.can("amend") } });
+      expect(acts.primary).not.toBe("Submit");
+      expect(bulkMenu({ permissions: (p) => result.current.can(p), isSubmittable: !!bundle.meta.is_submittable, hasWorkflow: false, allowEdit: false, hasEditableFields: true })).not.toContain("submit");
+      expect(canImport(bundle.meta, { user: "Administrator" }, result.current.levels[0])).toBe(false);
+      expect(result.current.known).toBe(true);
+    });
+  }
 });
