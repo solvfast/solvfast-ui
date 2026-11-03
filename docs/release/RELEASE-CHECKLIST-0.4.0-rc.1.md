@@ -9,6 +9,30 @@ string `0.4.0-rc.1`, the registry (GitHub Packages, private) and the dist-tag `n
 made in this phase. **Status refreshed by the Lead at `0.4.0-dev.33` (Phase 27).** Status words: **DONE (evidence)** · **PENDING — owner** · **PENDING — agent <name>** ·
 **PENDING — Lead**.
 
+## 0. RC readiness verdict (0.4.0-dev.33, 2026-11-03): **NOT READY FOR RC**
+
+**The bar used** (the owner has not defined one for RC; this is the Lead's reading of the owner's own Phase 26–27 rules):
+permission correctness is a **release blocker**, and the permission tests "are test scenarios, not a replacement for
+Frappe's actual permission model" (Phase 26 D); evidence classes may not be upgraded without evidence (Phase 27 F); the
+CRM adoption gates require an owner-approved authenticated route before any real-site screen.
+
+**Package-side work: complete for the release scope.** Every Phase 27 workstream (A–E) is implemented and merged;
+1066 tests pass; the artifact is clean (no TypeScript in maps, no secrets, no local paths, no repo-only files).
+
+**The gate that fails is evidence, not code:**
+- the package has **never made an authenticated request** to a Frappe server;
+- **no write path** (save, submit, workflow, assignment, comments, bulk actions, Print, Data Import, exports) has run
+  against a real site — every Phase 27 feature has stub / simulator evidence only;
+- permission behaviour for **restricted users** (the release blocker) is verified only against test doubles and the
+  simulator; no restricted real user exists or may be created.
+
+**Either of these flips the verdict to READY FOR RC:**
+1. **Real evidence:** one authenticated, read-only session against a real site exercising list, form and permission paths
+   (doc 62 §5 options — owner-approved route), **plus** a write smoke (save, workflow, bulk, import, export) on a
+   **disposable** site, never the shared one; or
+2. **Owner acceptance:** the owner explicitly accepts an rc.1 whose permission and write behaviour carry simulated-only
+   evidence, stated as such in the release notes (§4) — the RC consumers then provide the real evidence.
+
 ## 1. What this release is
 
 - A **release candidate** of the Frappe-integrated package, offered to consumers under `next`; `latest` stays

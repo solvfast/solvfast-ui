@@ -45,5 +45,9 @@ That file's last entry is Round 24 (2026-11-03 15:28 UTC, before Phase 26)._
 
 Nothing in Phase 27 is verified against an authenticated real session or with actual writes.
 
+**RC verdict (dev.33): NOT READY FOR RC** — package-side scope complete; the failing gate is evidence (no authenticated
+session, no verified write, restricted-user permissions simulated only). Conditions that flip it:
+`RELEASE-CHECKLIST-0.4.0-rc.1.md` §0.
+
 Operational blockers carried over unchanged: no authenticated real-site route; no restricted test user (none may be created);
 D-06 CRM DocTypes not created; D-25 boot not deployed; no build window; backups unverified and backup cron failing.
