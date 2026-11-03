@@ -186,3 +186,25 @@ describe("R2-V8 bidi isolation of interpolated tokens in Arabic version lines", 
     expect(iso.replace(/[⁨⁩]/g, "")).toBe(plain);
   });
 });
+
+import { namesForIds, looksRaw } from "../src/frappe/record/timeline";
+describe("assignment names and version value display", () => {
+  it("replaces user ids in an assignment text with full names, leaving names and unknown ids alone", () => {
+    const ui = { "Administrator": { fullname: "Admin User" }, "sara@rihlat.travel": { fullname: "Sara Nasr" } };
+    expect(namesForIds("Administrator assigned sara@rihlat.travel: call", ui)).toBe("Admin User assigned Sara Nasr: call");
+    expect(namesForIds("Sara Nasr removed their assignment.", ui)).toBe("Sara Nasr removed their assignment.");
+    expect(namesForIds("x@y.com assigned z", ui)).toBe("x@y.com assigned z");
+    expect(namesForIds("not-Administrator-ish", ui)).toBe("not-Administrator-ish");
+  });
+  it("looksRaw tells database values from server-formatted strings", () => {
+    for (const v of [111000, "111000", "12.5", "2026-11-01", "2026-11-01 10:00:00.123456"]) expect(looksRaw(v), String(v)).toBe(true);
+    for (const v of ["₹ 111,000.00", "111,000.00", "01-11-2026", "Open", ""]) expect(looksRaw(v), String(v)).toBe(false);
+  });
+  it("formats raw values through ctx.formatValue only; server-formatted ones stay as stored", () => {
+    const c = ctx({ formatValue: (_f, v) => `<${String(v)}>` });
+    const mk = (a: unknown, b: unknown) => ({ owner: "bob@x", data: JSON.stringify({ changed: [["amount", a, b]], row_changed: [["items", 0, "r1", [["qty", 1, 2]]]] }) });
+    const lines = formatVersion(mk(111000, "₹ 222,000.00"), c, "Bob");
+    expect(lines[0].summary).toContain("Amount from <111000> to ₹ 222,000.00");
+    expect(lines[1].summary).toContain("Qty from <1> to <2> in row #1");
+  });
+});

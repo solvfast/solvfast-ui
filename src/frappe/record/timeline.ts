@@ -35,6 +35,12 @@ export interface TimelineContext {
   milestoneLabel?: (fieldname: string) => string;
   /** "all" = every kind; "communications" = only communications, comments and created/modified (Desk's switch off). Default "all". */
   activity?: "all" | "communications";
+  /**
+   * Display text for a value of a version line, or `undefined` to keep the stored value. Desk stores the VALUES already formatted by the
+   * server (`version.py get_diff` -> `get_formatted`) and the client only strips HTML and truncates, so formatting here applies to
+   * RAW-looking values only (see `looksRaw`); a server-formatted string such as "₹ 111,000.00" must stay as it is.
+   */
+  formatValue?: (fieldname: string, value: unknown, table?: string) => string | undefined;
   /** Wrap interpolated tokens (names, labels, values) in Unicode bidi isolates. Set for RTL languages. */
   isolate?: boolean;
   /** Display name for a user id (default: docinfo.user_info fullname, else the id). */
@@ -54,6 +60,14 @@ export function formatTimelineValue(v: unknown): string {
   const text = ellipsis(htmlToText(v == null ? "" : String(v)).trim());
   return text || '""';
 }
+
+/** A value of the shape the DATABASE holds (number, ISO date / datetime, plain decimal) as opposed to a server-formatted string. */
+export function looksRaw(value: unknown): boolean {
+  if (typeof value === "number") return true;
+  return typeof value === "string" && /^(-?\d+(\.\d+)?|\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?)$/.test(value);
+}
+const shown = (ctx: TimelineContext, field: string, v: unknown, table?: string): string =>
+  formatTimelineValue((v != null && v !== "" && looksRaw(v) ? ctx.formatValue?.(field, v, table) : undefined) ?? v);
 
 interface VersionData {
   comment?: string;
@@ -84,8 +98,9 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
       } else {
         const label = ctx.fieldLabel(field);
         if (label != null) {
-          detail.push({ label, before: formatTimelineValue(oldV), after: formatTimelineValue(newV) });
-          if (parts.length < 3) parts.push(f(ctx, t("recFromTo"), label, formatTimelineValue(oldV), formatTimelineValue(newV)));
+          const o = shown(ctx, field, oldV); const n = shown(ctx, field, newV);
+          detail.push({ label, before: o, after: n });
+          if (parts.length < 3) parts.push(f(ctx, t("recFromTo"), label, o, n));
         }
       }
     }
@@ -98,8 +113,9 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
       for (const [field, oldV, newV] of cols) {
         const label = ctx.fieldLabel(field, table);
         if (label == null) continue;
-        detail.push({ label, before: formatTimelineValue(oldV), after: formatTimelineValue(newV), row: idx });
-        if (parts.length < 3) parts.push(f(ctx, t("recFromToRow"), label, formatTimelineValue(oldV), formatTimelineValue(newV), idx + 1));
+        const o = shown(ctx, field, oldV, table); const n = shown(ctx, field, newV, table);
+        detail.push({ label, before: o, after: n, row: idx });
+        if (parts.length < 3) parts.push(f(ctx, t("recFromToRow"), label, o, n, idx + 1));
       }
     }
     if (parts.length) out.push({ summary: f(ctx, t("recChangedValues"), who, parts.join(", ")), changes: detail, kind: "change" });
@@ -131,6 +147,21 @@ export function commaAnd(list: string[], and: string): string {
 
 type Row = Record<string, unknown>;
 const s = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : String(v));
+
+/**
+ * The server writes assignment texts with full names (`todo.py`: get_fullname). A text that still carries user ids (a backend that
+ * does not resolve them) gets the full name from `docinfo.user_info`; unknown ids stay as they are.
+ */
+export function namesForIds(text: string, info: DocInfo["user_info"] | undefined): string {
+  let out = text;
+  for (const id of Object.keys(info ?? {}).sort((a, b) => b.length - a.length)) {
+    const name = info![id]?.fullname;
+    if (!name || name === id) continue;
+    const esc = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`(?<![\\w.@-])${esc}(?![\\w.@-])`, "g"), name);
+  }
+  return out;
+}
 
 export function buildTimelineItems(doc: FrappeDoc, docinfo: DocInfo, ctx: TimelineContext): TimelineItem[] {
   const t = ctx.t;
@@ -164,7 +195,7 @@ export function buildTimelineItems(doc: FrappeDoc, docinfo: DocInfo, ctx: Timeli
       formatVersion(v, ctx, who).forEach((l, n) => items.push({ id: `version-${v.name}-${n}`, kind: l.kind, at: parseFrappeTime(v.creation), actorId: v.owner, actor: who, summary: l.summary, changes: l.changes && l.changes.length > 1 ? l.changes : undefined }));
     }
     for (const a of (docinfo.assignment_logs ?? []) as Row[]) {
-      items.push({ id: `assignment-${s(a.name)}`, kind: "assignment", at: parseFrappeTime(s(a.creation)), actorId: s(a.owner), actor: nameOf(s(a.owner)), summary: htmlToText(s(a.content)) });
+      items.push({ id: `assignment-${s(a.name)}`, kind: "assignment", at: parseFrappeTime(s(a.creation)), actorId: s(a.owner), actor: nameOf(s(a.owner)), summary: namesForIds(htmlToText(s(a.content)), docinfo.user_info) });
     }
     for (const a of (docinfo.attachment_logs ?? []) as Row[]) {
       const added = a.comment_type === "Attachment"; const who = nameOf(s(a.owner));

@@ -237,6 +237,8 @@ Updated, Deleted, Bot, Relinked are not in docinfo at all.
 - `row_changed`: "{label} from {old} to {new} in row #{n}" (1-based) parts, max 3, as "changed the values for …".
 - `added` / `removed`: aggregated per table label: "added 2 rows to Items", several tables joined with "and".
 - In RTL languages every interpolated token (user, field label, values) is wrapped in Unicode first-strong isolates (`TimelineContext.isolate`, set by `FrappeTimeline` from `isRTL`), and `Timeline` renders actors and change lines in `<bdi>`, so English names inside an Arabic sentence keep the sentence's word order.
+- **Value display.** Native stores version VALUES already formatted by the server (`version.py get_diff` calls `get_formatted`, skipping Markdown/Text Editor/Code/HTML Editor) and the client only strips HTML and truncates (`format_content_for_timeline`); it never formats. So stored strings are shown as they are. Values that still look like database values (numbers, ISO dates; `looksRaw`) are formatted with `formatValue` and the field's DocField, because a backend that stores raw values (the simulated one) would otherwise show `111000`. Formatted strings (`USD 111,000.00`) are never re-formatted.
+- **Names in assignment lines.** The server writes `ToDo` assignment texts with full names (`todo.py`: `get_fullname`); ids that remain in a text are replaced by the full name from `docinfo.user_info` (`namesForIds`).
 - Expanding an entry lists **all** visible changed fields, which is a superset of Desk's 3-part summary.
 
 **Field visibility (permlevel):** a changed field is skipped when it is hidden (unless `show_on_timeline`) or when its display status
