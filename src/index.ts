@@ -165,3 +165,5 @@ export * from "./fields";
 
 // 0.4.0 — list actions context (A2)
 export { ListActionsContext, useListActions } from "./list/ListActionsContext";
+// Plain-text use of timeline summaries (aria-label, copy, export): strip the bidi isolates.
+export { stripIsolates } from "./record/format";
