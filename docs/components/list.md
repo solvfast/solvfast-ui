@@ -47,18 +47,18 @@ Works without a provider too (it creates one with the default same-origin client
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
 | `realtime` / `realtimeDebounceMs` | Reload on `list_update` (section 7). |
-| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right, as Desk's `list_view.js:1703`) and **Export** (always, as Desk — the server refuses without the right). `onImport` replaces the default navigation to Desk's Data Import **list** filtered on the DocType (`/app/data-import?reference_doctype=…`, Desk's `set_route("list","data-import",{reference_doctype})`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
+| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right, as Desk's `list_view.js:1703`) and **Export** (always, as Desk — the server refuses without the right). `onImport` replaces the default navigation to Desk's Data Import **list** filtered on the DocType (`/app/data-import?reference_doctype=…`, Desk's `set_route("list","data-import",{reference_doctype})`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `menu={{ reportExport: true }}` adds the opt-in "Export as report" (`export_query`, gated by `canExport` — Desk's List View has no such entry, Phase 27.5); `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
 | `onCreate` | Offers "Create your first {DocType}" in the empty list. Empty states follow Desk (`list_view.js:497-537`): "You haven't created a {DocType} yet" (+ the create action) when nothing exists; "No {DocType} found with matching filters" (+ Clear filters) when filters or search hide everything. |
 | `belowToolbar` | A node between the toolbar and the table (e.g. state chips). |
-| `rowKey`, `client`, `fiscalYears`, `storage`, … | `rowKey` default `row.name`. `storage` (explicit) wins over `serverStorage`. |
+| `rowKey`, `client`, `fiscalYears`, `storage`, … | `rowKey` default `row.name`. It is the UI identity (selection, kept across pages); every server request (bulk actions, Export, workflow) uses the document `name`, resolved through `documentNamesForKeys` (0.4.0-dev.34). `storage` (explicit) wins over `serverStorage`. |
 
 **Errors.** A failed request renders `FrappeErrorState` in the table area: the server's own message and one action per error kind. Retry only for network, server, rate-limited and unavailable errors; a 403 (permission), not found, validation, duplicate, mandatory, link or too-large error has no action, because retrying cannot succeed. *Changed from 0.3.0, which offered Retry on every error (its F29 test now expects none on a 403).*
 
 **Subject first.** Without curated `columns`, the title field (else the ID) is always the first, visible column, as in Desk. Curated columns keep full control.
 
-*Phase 27:* `columnLimit`, `hideNameColumn`, `treeDoctypes` and `urlFilters` are `useFrappeList` options. On `FrappeListView` they take
-effect once the component forwards them to `useFrappeList` (Phase 27 integration); until then they are accepted and ignored there.
-The Report-view export (section 6b) is a dialog + functions for the host (`useFrappeList().reportExport` carries its list props).
+*Phase 27:* `columnLimit` (default **on** in `FrappeListView`, as Desk; `columnLimit={false}` opts out), `hideNameColumn`,
+`treeDoctypes` and `urlFilters` are `useFrappeList` options that `FrappeListView` forwards. The Report-view export (section 6b) is
+a dialog + functions; `FrappeListView` shows it only with `menu={{ reportExport: true }}`.
 
 **Cells.** Int, Float, Percent, Currency, Date, Datetime and Time cells without a custom `render` go through `formatValue` (docs 12 §9), never wrapping
 (`whitespace-nowrap`, tabular numerals). A Currency column's currency field (its `options`) is requested with the rows. User columns (`owner`,
@@ -320,7 +320,7 @@ const f = useFrappeList({ doctype: "ToDo" });
 - The dialog: File Format (Excel default), Selected rows (n) / All matching rows, Export in Background, CSV Delimiter / CSV Quoting (CSV), "Export all N rows?"
   (or "…matching rows?" when the count is off), "Translate values" (`offerTranslate`). English labels, `labels` override. No CSV Preview box.
 - `useFrappeList().reportExport` = `{ fields (visible columns' real fields, `name` first), filters, or_filters, order_by, shownCount, totalCount }`.
-- **Never a client-built file.** Not in `FrappeListView`'s menu yet.
+- **Never a client-built file.** In `FrappeListView`'s ⋯ menu only with `menu={{ reportExport: true }}` (opt-in since dev.34).
 
 ## 7. Realtime refresh
 

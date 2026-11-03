@@ -96,9 +96,10 @@ plus the picker props below. Without `onAssign` there is no add button. `onRemov
 
 `AssignPicker` props: `searchUsers(query) → UserOption[]`, `onAssign(users, { description?, date?, priority? })`, `exclude` (already
 assigned: shown ticked and not selectable, because the server would report them as duplicates), `me` (enables "Assign to me"), `single`,
-`withDetails` (comment, "Complete by" date and priority as in Desk's dialog), `trigger`, `disabled`, `disabledReason`, `labels`.
+`withDetails` (comment, "Complete by" date and priority as in Desk's dialog — DS `Textarea`, `DateField` and `Select` with visible labels and
+hints; left empty, nothing is sent and the server uses today and Medium, `assign_to.py:73-90`), `trigger`, `disabled`, `disabledReason`, `labels`.
 Search is debounced (250 ms) and keyboard driven (combobox/listbox, arrows + Enter). `labels`: `assignedTo, none, add, search, toMe,
-confirm, description, due, priority, low, medium, high, remove ("Remove {0}"), noMatches, cancel`.
+confirm, description, due, priority, low, medium, high, remove ("Remove {0}"), noMatches, cancel, dueHint, priorityHint, priorityDefault, clearDate`.
 
 ### 2.5 `LifecycleBar`, `ActionBar`, `StatusBadge`
 

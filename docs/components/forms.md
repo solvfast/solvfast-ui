@@ -174,6 +174,7 @@ Data fields with options Email, Phone or URL are checked softly: the field is fl
 | Int, Long Int, Float, Currency, Percent | supported | `NumberInput`. Precision: `df.precision` → `currency_precision` / number-format precision (Currency) or `float_precision` (Float, Percent). Number format and rounding come from `FormatContext`. |
 | Check, Select | supported | Select options are newline-separated; a blank line is an empty option; labels are translated. |
 | Date, Time, Duration, Rating (0…1 fraction), Color | supported | — |
+| Date (display) | supported | Editable and read-only both show the site's `date_format` (`formatContext` / boot), as Desk; the DS `DateField` gets it through `formatDisplay` (display only — the value stays `YYYY-MM-DD`, no time-zone conversion). Since 0.4.0-dev.34. |
 | Datetime | partial | Edited in the browser's time zone; seconds are stored as `:00`. Converting between the system and user zones while editing is UNVERIFIED. The read-only display converts zones through `formatValue`. |
 | Text Editor | partial | Stored as sanitized plain HTML. Desk wraps it in a `ql-editor` div, which is a convention, not a contract. No mentions and no image upload. |
 | Link, Dynamic Link | supported | §4, §5. |
