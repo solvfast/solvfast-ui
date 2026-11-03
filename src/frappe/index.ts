@@ -4,8 +4,8 @@
  */
 export { createFrappeClient, FrappeError, toFrappeError } from "./client";
 export type { FrappeClient, FrappeClientOptions, FrappeTransport, FrappeResponse, DocField, DocMeta, GetListArgs } from "./client";
-export { FrappeProvider, useFrappeClient, createFrappeQueryClient, frappeRetry } from "./FrappeProvider";
-export type { FrappeProviderProps } from "./FrappeProvider";
+export { FrappeProvider, useFrappeClient, useFrappeApi, useFrappeSettings, useFormatContext, createFrappeQueryClient, frappeRetry } from "./FrappeProvider";
+export type { FrappeProviderProps, FrappeSettings } from "./FrappeProvider";
 export { useFrappeMeta, useFrappeList, frappeLinkSearch, invalidateFrappeList } from "./useFrappeList";
 export type { FrappeListOptions } from "./useFrappeList";
 export { FrappeListView } from "./FrappeListView";
@@ -45,3 +45,7 @@ export type { Indicator as RecordIndicator } from "./record/indicator";
 export * from "./hooks";
 export * from "./services";
 export * from "./feedback";
+
+// 0.4.0 — client extras (A1). The simulated backend is NOT exported here: import it from "@solvfast/ui/frappe/testing".
+export { withFrappeApi, createDocumentApis, toMetaBundle, normalizeDocInfo, workflowFromMeta as workflowInfoFromMeta, frappeErrorKind, parseServerMessages, toFrappeMessage, visibleMessages } from "./client";
+export type { FrappeApi, SessionUser, ServerMessagesListener } from "./client";

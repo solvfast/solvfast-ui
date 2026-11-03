@@ -9,6 +9,7 @@ import type { ColumnDef } from "../list/model/columns";
 import type { FieldType, FilterField } from "../list/model/filters";
 import type { Messages } from "../theme/messages";
 import type { DocField, DocMeta } from "./client";
+import type { FrappeDocField } from "./contract";
 
 const TYPE_MAP: Record<string, FieldType> = {
   Data: "text", "Small Text": "text", Text: "text", "Long Text": "text", "Text Editor": "text",
@@ -51,6 +52,8 @@ export interface FrappeListMeta {
   childOf: Map<string, ChildFieldRef>;
   /** Fields a bulk Edit may set (value types, not read-only / hidden / virtual). */
   editable: { name: string; label: string; type: FieldType; fieldtype: string; options?: { value: string; label: string }[] }[];
+  /** The DocType's fields (and creation / modified) as `formatValue` wants them, by fieldname. */
+  fieldDefs: Record<string, FrappeDocField>;
   /** True for DocFields (or standard columns) of this DocType. */
   hasField: (fieldname: string) => boolean;
   titleField: string;
@@ -152,6 +155,10 @@ export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => str
     states: (meta as ListDocMeta).states ?? [], childOf: new Map(childFields.map((c) => [c.field.name, c.ref])),
     editable: filterFields.filter((f) => !f.name.includes(".") && (meta.fields || []).some((df) => df.fieldname === f.name && !df.hidden && !(df as { read_only?: number }).read_only && !(df as { is_virtual?: number }).is_virtual && df.fieldtype !== "Read Only"))
       .map((f) => ({ name: f.name, label: f.label, type: f.type, fieldtype: f.fieldtype ?? "Data", options: f.options })),
+    fieldDefs: {
+      ...Object.fromEntries((meta.fields || []).map((df) => [df.fieldname, df as unknown as FrappeDocField])),
+      creation: { fieldname: "creation", fieldtype: "Datetime" }, modified: { fieldname: "modified", fieldtype: "Datetime" },
+    },
     hasField: (f: string) => known.has(f) && !f.includes("."), titleField, searchFields, defaultOrderBy: `${sortField} ${sortOrder}`, filterFields,
     columns: columnsFromMeta(meta, t),
     quickFilterFields: (meta.fields || []).filter((df) => df.in_standard_filter && !df.hidden && TYPE_MAP[df.fieldtype]).map((df) => df.fieldname),
