@@ -3,7 +3,7 @@
  * (tests/fixtures/real-15.110). Semantics pinned to docs `11` / `12`. Nothing here ran against a site: Simulated &
  * tested only.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import type { DocTypeMeta, FrappeDoc, MetaBundle } from "../src/frappe/contract";
@@ -60,6 +60,42 @@ describe("expression interpreter (D-23)", () => {
     const c = compileExpression("doc.items.filter(r => r.qty > 1).length", "function");
     expect(c.ok && c.run({ doc: { items: [{ qty: 2 }, { qty: 1 }] }, parent: {} })).toBe(1);
     expect(compileExpression("doc.items.filter(r => r.qty > 1).length").ok).toBe(false);
+  });
+});
+
+describe("D-23 ratified policy: interpreter by default, unsupported expressions reported and never evaluated", () => {
+  const unsupported = [
+    "[1, 2].some(x => doc.spy(x))", // arrow function
+    "doc.a | doc.b", "doc.a & 1", "~doc.a", "doc.a << 1", "doc.a ^ 1", // bitwise operators
+    "frappe.boot.sysdefaults.currency == 'USD'", "frappe.user.has_role('X')", // frappe globals
+    "cur_frm.doc.x", "window.x", "document.title", "$('#x').length", // page / DOM access
+    "doc.a = 1", "new Date()", "(function () { return 1; })()", "`${doc.a}`",
+  ];
+  it("the default compile mode is the interpreter: every construct outside the subset is refused at compile time", () => {
+    for (const e of unsupported) expect(compileExpression(e), e).toMatchObject({ ok: false });
+    expect(compileExpression("doc.a | doc.b", "function").ok).toBe(true); // Desk's semantics only when asked for
+  });
+  it("evaluateDepends in default mode reports an unsupported expression as `unsupported` and never runs any of it", () => {
+    const spy = vi.fn(() => true);
+    for (const e of unsupported) {
+      const issues: DependsIssue[] = [];
+      const d = { doctype: "T", name: "t", a: 1, b: 2, spy };
+      const v = evaluateDepends(`eval:${e}`, d, d, { onIssue: (i) => issues.push(i) });
+      expect(v, e).toBe(false);
+      expect(issues, e).toEqual([expect.objectContaining({ kind: "unsupported", expression: `eval:${e}` })]);
+    }
+    expect(spy).not.toHaveBeenCalled();
+    // and at meta load
+    const b: MetaBundle = { doctype: "T", children: {}, meta: { name: "T", fields: [{ fieldname: "x", fieldtype: "Data", depends_on: "eval:[1].some(x => x)" }] } };
+    expect(analyzeDependencies(b)).toEqual([expect.objectContaining({ fieldname: "x", kind: "unsupported" })]);
+  });
+  it("the function mode is an explicit opt-in (EvaluatorOptions.mode) and only then runs full JavaScript", () => {
+    const spy = vi.fn((x: number) => x > 1);
+    const d = { doctype: "T", name: "t", spy };
+    expect(evaluateDepends("eval:[1, 2].some(x => doc.spy(x))", d, d)).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+    expect(evaluateDepends("eval:[1, 2].some(x => doc.spy(x))", d, d, { mode: "function" })).toBe(true);
+    expect(spy).toHaveBeenCalled();
   });
 });
 
