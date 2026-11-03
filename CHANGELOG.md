@@ -345,3 +345,18 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
   Without the option the simulator behaves as before. Handlers for the dev.32 methods (Print, tags, assignment, workflow
   bulk, report export, Data Import). Files it returns are labelled SIMULATED and carry labels and the request only — no
   document values, no counts. The production `./frappe` entry never imports it (`check:boundaries`).
+
+## 0.4.0-dev.34 (2026-11-03, Phase 27.5 — handoff fixes and polish)
+- **Fix — custom `rowKey`:** bulk actions, the selection-bar Export and the workflow menu sent the list's UI row keys as
+  Frappe document names. `FrappeListView` now resolves the selection through a key → `name` map of every row it has
+  shown (selection across pages included) — `documentNamesForKeys`; an unresolvable key withholds the actions.
+- **Date display:** an editable Frappe Date field shows the site's `date_format`, like its read-only display
+  (`DateField` gained an optional display-only `formatDisplay`; the value stays `YYYY-MM-DD`).
+- **Assign To dialog:** DS `DateField` ("Complete by", with its purpose), DS `Select` (Priority; "Default (Medium)" sends
+  nothing, as before), DS `Checkbox` / `Input` / `Textarea`, visible labels and hints; payload unchanged.
+- **Dark mode:** Saved Filters, Columns and the filter builder's popovers use the DS glass (they were near-black);
+  light mode unchanged.
+- **"Export as report"** is opt-in (`menu={{ reportExport: true }}`): Desk's List View has no such entry.
+- **Polish:** CommentComposer uses the DS Textarea and a DS Popover for @mentions; focus rings and `type="button"` on
+  plain buttons (sort headers, group toggles, total, indicator pills, section headers, alert dismiss); translated DS
+  file picker in `FrappeDataImport`; checkbox labels dim with their checkbox; form section columns stack on phones.

@@ -93,7 +93,7 @@ puts a UI over the Phase 26 sequence. Every row below is SIMULATED only (`tests/
 | User settings | `list_view.js:620-623, 1658-1668` `save_view_user_settings` (`frappe.model.user_settings.save`) | `createFrappeUserSettings` (`list/storage.ts`) | — | frappe-list | IMPLEMENTED — BLOCKED (site write) for live |
 | Realtime | `list_view.js:1476-1599` (`list_update`, debounced; skipped while rows are checked; `avoid_realtime_update :1588`) | `useListRealtime` (`list/realtime.ts`): 2 s / 15 s debounce, suppressed with a selection or a running bulk action | Full reload, not Desk's by-name refresh (UNVERIFIED) | frappe-list (realtime) | IMPLEMENTED |
 
-## 5. Verdict (0.4.0-dev.32)
+## 5. Verdict (0.4.0-dev.32; Phase 27.5 fixes at dev.34: custom `rowKey` requests use `name`, dark-mode list popovers use the DS glass)
 
 **Evidence class of everything in this document: implemented and tested with stubs / the simulator.** No List View
 behaviour has been verified against an authenticated real Frappe session, and none with actual writes. Read paths
@@ -118,7 +118,7 @@ Remaining differences, by design or not reproduced:
    re-reading the preview after a run. `FrappeListView` navigates to the Data Import list by default; the app opens
    `FrappeDataImport` from `onImport`.
 3. **Export**: "Filtered Records" uses the list's current filters instead of an in-dialog FilterGroup; no record-count
-   message. Report-view export is in the list's ⋯ menu as "Export as report" (gated by `canExport`, as Desk's report view).
+   message. Report-view export is an opt-in ⋯ menu entry, "Export as report" (`menu={{ reportExport: true }}`, dev.34 — Desk's List View has none), gated by `canExport` as Desk's report view.
 4. **Actions**: buttons in the selection bar, not Desk's Actions dropdown. Print's background completion
    (`task_complete:<id>`) needs a host `subscribeTask` (`RealtimePort` has no task events); its draft / cancelled filter
    needs the site's Print Settings from the host (System Manager-only read).

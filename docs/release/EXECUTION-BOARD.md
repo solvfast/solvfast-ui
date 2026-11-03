@@ -29,6 +29,7 @@ That file's last entry is Round 24 (2026-11-03 15:28 UTC, before Phase 26)._
 | 27 E (artifact) | `b177315` | dev.30 | source maps without TypeScript source + package audit | 866 |
 | 27 B query | `7c044f4`, `51a4440` | dev.31 | nested-set operators, width cap, URL filters, report-view export | 900 |
 | 27 A perm + B actions + C import | `aaeabac`, `b33c11e`, `fa73dee` | dev.32 | form/workflow/Administrator permission fixes; Desk's Actions menu; Export for everyone; Import → Data Import list; `FrappeDataImport` (preview + mapping); Lead wiring (width cap default on, report export entry) | 1023 |
+| 27.5 handoff | see below | dev.34 | custom `rowKey` fix, date display, Assign To dialog on DS controls, dark-glass list popovers, report export opt-in, UI polish (agent polish275), decisions review, architecture check, CRM handoff | see Phase 27.5 |
 | 27 D sim | `556b8d4` | dev.33 | simulator permission evaluation + seven scenarios; handlers for the new methods; showcase role-limited documents; simulated files without counts | 1066 + 11 todo |
 
 ## Phase 27 workstreams (2026-11-03) — all merged into `feat/0.4.0-frappe`
@@ -51,3 +52,17 @@ session, no verified write, restricted-user permissions simulated only). Conditi
 
 Operational blockers carried over unchanged: no authenticated real-site route; no restricted test user (none may be created);
 D-06 CRM DocTypes not created; D-25 boot not deployed; no build window; backups unverified and backup cron failing.
+
+## Phase 27.5 — handoff fixes and polish (2026-11-03)
+
+| Item | Commit | Tests | Evidence class |
+|---|---|---|---|
+| Custom `rowKey` → document names | `e5db331` | `tests/rowkey` 7 (5 fail without the fix) | test doubles |
+| Date display (site `date_format` in both states) | `8c3dd59` | `tests/date-display` 6 | test doubles |
+| Assign To dialog on DS controls, labels, hints | `3bc0b1d` | `tests/assign-dialog` 5 | test doubles |
+| Dark-glass list popovers (light unchanged) | `eecab48` | computed styles in Chromium, light/dark × en/ar | local browser, showcase |
+| Decisions review (report export opt-in) | `2e2bc92` | `list-io` opt-in test | test doubles |
+| UI polish (polish275) | merge of `feat/0.4.0/p275-polish` | +4 tests, smoke PASS | test doubles, local browser |
+| CRM handoff | `5d6a7ac` | — | — |
+
+Still NOT READY FOR RC (`RELEASE-CHECKLIST-0.4.0-rc.1.md` §0): no authenticated session, no verified write.

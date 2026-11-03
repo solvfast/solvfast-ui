@@ -12,7 +12,7 @@ Evidence for everything that *was* verified is in docs/VALIDATION.md.
 | Frappe layer — simulated requests | **Passed**: exact request shapes, filters, search, counts, errors, link search, grouping, against a recording transport and a simulated Frappe site (docs/VALIDATION.md, 5.4) |
 | Frappe layer — a real Frappe site | **Deferred — not done.** It will be validated when the package is first integrated into a real project. Until then nothing here claims it works against a live site. A prepared, never-run procedure is in `e2e/frappe-site/` |
 
-## Frappe layer 0.4.0 — status (updated at 0.4.0-dev.33)
+## Frappe layer 0.4.0 — status (updated at 0.4.0-dev.34)
 
 - **Evidence.** Read paths (metadata, list rows, counts, link search/validation, document load, 403/417 error envelopes)
   were replayed from **recorded real Frappe 15.110 responses** and anonymous HTTP (`tests/real/sada-real.test.tsx`).
@@ -24,8 +24,8 @@ Evidence for everything that *was* verified is in docs/VALIDATION.md.
   (`usePermissions().known` false); workflow actions are the server's `get_transitions` answer. The Administrator user is
   treated as Frappe 15.110 does (every role). The server is the authority. Restricted users were never tested on a real site.
 - **List View.** Desk's Actions (Edit, Export, Assign To, Clear Assignment, Apply Assignment Rule, Add Tags, Print, Submit,
-  Cancel, Delete, workflow bulk approval), Export offered to everyone as Desk (the server refuses), report-view export
-  (with the export right), Import → the Data Import list, the width-based column cap (default on; `columnLimit={false}`),
+  Cancel, Delete, workflow bulk approval), Export offered to everyone as Desk (the server refuses), an opt-in report-view export
+  (`menu.reportExport`, with the export right), Import → the Data Import list, the width-based column cap (default on; `columnLimit={false}`),
   nested-set operators and opt-in URL filters are implemented with Desk's request shapes. **The List View is not declared
   Frappe-compatible**: no behaviour has been exercised against a real session. Not reproduced: actions as Desk's dropdown
   (they are selection-bar buttons), Print's background completion without a host task subscriber, URL write-back of OR
@@ -35,6 +35,7 @@ Evidence for everything that *was* verified is in docs/VALIDATION.md.
   server-confirmed result, the import log and errored rows. Not reproduced: Google Sheets, "Report Error", changing the
   import type after creation. The package never builds an export file from client data and never reports an import
   before the server confirms it.
+- **Dates:** Frappe Date fields show the site's `date_format` in both states; Datetime editing keeps the DS display.
 - **Realtime** is a skeleton (full reload on an event; a fake socket only in tests).
 - **Client Scripts** are not executed (`formEvents` instead, documented boundary); 18 of 947 installed-app `depends_on`
   expressions are unsupported by decision.
