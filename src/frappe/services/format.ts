@@ -17,6 +17,8 @@
  *    no zone conversion. Unparseable → "".
  *  - Select: translated value; Link: the link title when known, else the name; Dynamic Link: Link to doc[df.options].
  *  - Check: Desk draws a disabled checkbox — here `ctx.checkLabels` ("Yes" / "No").
+ *  - Duration (seconds): "1d 2h 3m 4s", empty / 0 → "0s"; `hide_days` folds days into hours, `hide_seconds` rounds the
+ *    seconds into the minutes (utils.js get_formatted_duration / seconds_to_duration).
  *  - Anything else: Data (null → "", IBAN grouped by 4).
  * Deliberate difference: `undefined` (a field the user cannot read is ABSENT from the doc) is "" for every type; Desk's
  * Float/Percent/Currency would print 0 for it.
@@ -66,6 +68,8 @@ export interface FormatContext {
   translate?: (text: string) => string;
   /** Text for Check values. Default { yes: "Yes", no: "No" } — pass the UI language's words. */
   checkLabels?: { yes: string; no: string };
+  /** Duration unit suffixes (Desk translates "d" / "h" / "m" / "s" with a Duration context). Default d, h, m, s. */
+  durationUnits?: { d: string; h: string; m: string; s: string };
 }
 
 export const defaultFormatContext: Required<Omit<FormatContext, "floatPrecision" | "currencyPrecision" | "timeZone" | "linkTitles" | "translate" | "currencies">> = {
@@ -77,6 +81,7 @@ export const defaultFormatContext: Required<Omit<FormatContext, "floatPrecision"
   useNumberFormatFromCurrency: false,
   roundingMethod: "Banker's Rounding (legacy)",
   checkLabels: { yes: "Yes", no: "No" },
+  durationUnits: { d: "d", h: "h", m: "m", s: "s" },
 };
 
 // ---- numbers -----------------------------------------------------------------------------------------------------------
@@ -265,6 +270,32 @@ export function formatTime(value: unknown, ctx: FormatContext = {}): string {
   return p ? applyPattern(ctx.timeFormat || defaultFormatContext.timeFormat, p) : "";
 }
 
+// ---- durations ---------------------------------------------------------------------------------------------------------
+
+/** `seconds_to_duration`: floor toward zero (ceil for negatives); `hide_days` puts everything in hours; `hide_seconds`
+ *  adds round(seconds / 60) to the minutes (which can reach 60 — native does not carry). */
+export function secondsToDuration(seconds: number, opts: { hideDays?: boolean; hideSeconds?: boolean } = {}) {
+  const floor = seconds > 0 ? Math.floor : Math.ceil;
+  const out = { days: floor(seconds / 86400), hours: floor((seconds % 86400) / 3600), minutes: floor((seconds % 3600) / 60), seconds: floor(seconds % 60) };
+  if (opts.hideDays) { out.hours = floor(seconds / 3600); out.days = 0; }
+  if (opts.hideSeconds) { out.minutes += Math.round(out.seconds / 60); out.seconds = 0; }
+  return out;
+}
+
+/** Desk's Duration formatter: "1d 2h 3m 4s"; zero parts omitted; nothing to show → "0s". */
+export function formatDuration(value: unknown, df: Record<string, unknown> = {}, ctx: FormatContext = {}): string {
+  const u = ctx.durationUnits ?? { d: "d", h: "h", m: "m", s: "s" };
+  const n = Number(value);
+  if (!value || Number.isNaN(n) || !n) return `0${u.s}`;
+  const d = secondsToDuration(n, { hideDays: !!cint(df.hide_days), hideSeconds: !!cint(df.hide_seconds) });
+  const parts: string[] = [];
+  if (d.days && cint(df.hide_days) !== 1) parts.push(`${d.days}${u.d}`);
+  if (d.hours) parts.push(`${d.hours}${u.h}`);
+  if (d.minutes) parts.push(`${d.minutes}${u.m}`);
+  if (d.seconds && cint(df.hide_seconds) !== 1) parts.push(`${d.seconds}${u.s}`);
+  return parts.join(" ") || `0${u.s}`;
+}
+
 // ---- formatValue -------------------------------------------------------------------------------------------------------
 
 const str = (v: unknown) => (v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
@@ -335,6 +366,8 @@ export function formatValue(value: unknown, df: FrappeDocField, doc?: FrappeDoc,
       return formatDatetime(value, ctx);
     case "Time":
       return formatTime(value, ctx);
+    case "Duration":
+      return formatDuration(value, df, ctx);
     case "Link":
     case "Dynamic Link": {
       if (!value) return "";

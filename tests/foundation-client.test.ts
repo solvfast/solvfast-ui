@@ -34,7 +34,13 @@ describe("FrappeError: kind mapping (contract.ts)", () => {
     ["CSRFTokenError", 400, "csrf"],
     ["AuthenticationError", 401, "session_expired"],
     ["QueryDeadlockError", 500, "server"],
-    ["NameError", 409, "server"],
+    ["NameError", 409, "validation"],
+    ["LinkExpired", 410, "not_found"],
+    ["TooManyRequestsError", 429, "rate_limited"],
+    ["RateLimitExceededError", 429, "rate_limited"],
+    ["InReadOnlyMode", 503, "unavailable"],
+    ["QueueOverloaded", 503, "unavailable"],
+    ["SessionStopped", 503, "unavailable"],
   ] as const)("%s (%i) → %s", (exc, status, kind) => {
     expect(toFrappeError(status, { exc_type: exc }).kind).toBe(kind);
   });
@@ -44,6 +50,11 @@ describe("FrappeError: kind mapping (contract.ts)", () => {
     expect(new FrappeError("x", 403).kind).toBe("permission");
     expect(new FrappeError("x", 413).kind).toBe("too_large");
     expect(new FrappeError("x", 502).kind).toBe("server");
+    expect(new FrappeError("x", 409).kind).toBe("validation");
+    expect(new FrappeError("x", 410).kind).toBe("not_found");
+    expect(new FrappeError("x", 429).kind).toBe("rate_limited");
+    expect(new FrappeError("x", 503).kind).toBe("unavailable");
+    expect(frappeRetry(0, new FrappeError("x", 429))).toBe(false);
     expect(new FrappeError("x", 417, "ValidationError")).toMatchObject({ kind: "validation", messages: [], exception: undefined });
     expect(frappeErrorKind(200, undefined, { session_expired: 1 })).toBe("session_expired");
   });

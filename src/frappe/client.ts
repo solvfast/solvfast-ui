@@ -60,14 +60,19 @@ const KIND_BY_EXC: Record<string, FrappeErrorKind> = {
   TimestampMismatchError: "timestamp",
   MandatoryError: "mandatory",
   LinkValidationError: "link", CancelledLinkError: "link", LinkExistsError: "link",
+  NameError: "validation", // exceptions.py:50 (409); its subclass DuplicateEntryError is listed above
+  LinkExpired: "not_found", // exceptions.py:301 (410)
+  TooManyRequestsError: "rate_limited", RateLimitExceededError: "rate_limited", // 429 (the latter a ValidationError subclass)
+  InReadOnlyMode: "unavailable", QueueOverloaded: "unavailable", SessionStopped: "unavailable", // 503
   // CSRFTokenError and its subclasses (exceptions.py:273-283, bad Authorization headers) — all HTTP 400
   CSRFTokenError: "csrf", InvalidAuthorizationHeader: "csrf", InvalidAuthorizationPrefix: "csrf", InvalidAuthorizationToken: "csrf",
 };
 
 /**
  * The contract's classification. Exception class first; then the status: 0 network · 401 session_expired · 403
- * permission · 404 not_found · 413 too_large (Werkzeug's HTML page, no exc_type) · 417 validation (every other
- * ValidationError subclass, and FrappeTypeError) · anything else (5xx, 409 NameError, 429, unparseable) server.
+ * permission · 404 / 410 not_found · 409 validation (NameError family; DuplicateEntryError is matched by class) ·
+ * 413 too_large (Werkzeug's HTML page, no exc_type) · 417 validation (every other ValidationError subclass, and
+ * FrappeTypeError) · 429 rate_limited · 503 unavailable · anything else (5xx, unparseable) server.
  */
 export function frappeErrorKind(status: number, excType?: string, body?: Record<string, unknown>): FrappeErrorKind {
   if (body?.session_expired) return "session_expired";
@@ -77,9 +82,12 @@ export function frappeErrorKind(status: number, excType?: string, body?: Record<
     case 0: return "network";
     case 401: return "session_expired";
     case 403: return "permission";
-    case 404: return "not_found";
+    case 404: case 410: return "not_found";
+    case 409: return "validation";
     case 413: return "too_large";
     case 417: return "validation";
+    case 429: return "rate_limited";
+    case 503: return "unavailable";
     default: return "server";
   }
 }

@@ -1,5 +1,5 @@
 /** Foundation services (pure functions). The Lead re-exports these from src/frappe/index.ts. */
-export { formatValue, formatNumber, formatCurrency, formatDate, formatDatetime, formatTime, roundNumber, fieldCurrency, convertZone, defaultFormatContext } from "./format";
+export { formatValue, formatNumber, formatCurrency, formatDate, formatDatetime, formatTime, formatDuration, secondsToDuration, roundNumber, fieldCurrency, convertZone, defaultFormatContext } from "./format";
 export type { FormatContext, CurrencyInfo, RoundingMethod } from "./format";
 export { translateLabel, translateText, withTranslations } from "./translate";
 export type { TranslationDictionary } from "./translate";
