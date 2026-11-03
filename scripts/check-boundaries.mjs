@@ -125,6 +125,7 @@ if (fs.existsSync(path.join(dist, "index.js"))) {
           if (spec.startsWith(".")) fq.push(path.resolve(path.dirname(f), spec)); else npm.add(spec.split("/").slice(0, spec.startsWith("@") ? 2 : 1).join("/"));
         }
         if (path.relative(dist, f).split(path.sep)[0] === "shell") problems.push(`dist: the Frappe entry reaches the shell (${path.relative(dist, f)})`);
+        if (path.relative(dist, f).split(path.sep).slice(0, 2).join("/") === "frappe/testing") problems.push(`dist: the Frappe entry reaches the simulated backend (${path.relative(dist, f)}) — it ships only as @solvfast/ui/frappe/testing`);
       }
       console.log(`  frappe entry reaches ${fseen.size} modules; npm imports: ${[...npm].sort().join(", ")}`);
     }

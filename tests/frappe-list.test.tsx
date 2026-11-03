@@ -415,7 +415,7 @@ describe("bulk bar in the list", () => {
     expect(await screen.findByText("2 succeeded, 0 failed")).toBeTruthy();
   });
 
-  it("assign: asks for a user and calls add_multiple", async () => {
+  it("assign: AssignPicker over the user search, then add_multiple", async () => {
     const mock = createMockFrappe();
     const seen: Record<string, unknown>[] = [];
     const transport: FrappeTransport = async (method, args) => {
@@ -426,8 +426,9 @@ describe("bulk bar in the list", () => {
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     fireEvent.click(await screen.findByRole("button", { name: en("listBulkAssign") }));
-    fireEvent.change(await screen.findByLabelText(en("listBulkAssignee")), { target: { value: "omar@example.com" } });
-    fireEvent.click(screen.getByRole("button", { name: en("listBulkApply") }));
+    // the package's AssignPicker; its user search is the Desk link search
+    fireEvent.click(await screen.findByRole("option", { name: /omar@example.com/ }));
+    fireEvent.click(screen.getByRole("button", { name: defaultMessages.en.recAssignConfirm }));
     await waitFor(() => expect(seen).toHaveLength(1));
     expect(seen[0]).toMatchObject({ doctype: "ToDo", assign_to: '["omar@example.com"]', bulk_assign: true });
   });
@@ -480,5 +481,68 @@ describe("realtime refresh", () => {
     mount(mock.transport, { realtime: rt.p, realtimeDebounceMs: 50 });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     await waitFor(() => expect(rt.count()).toBe(0));
+  });
+});
+
+// ---- usePermissions gates and formatValue cells -----------------------------------------------------------------------
+describe("permissions from usePermissions; cells from formatValue", () => {
+  const META = { ...TODO_META, permissions: [{ role: "System Manager", permlevel: 0, read: 1, write: 1, delete: 1 }, { role: "Guest", permlevel: 0, read: 1 }] };
+  function mountWith(roles: string[], props: Partial<React.ComponentProps<typeof FrappeListView>>, formatContext?: React.ComponentProps<typeof FrappeProvider>["formatContext"]) {
+    const mock = createMockFrappe();
+    const transport: FrappeTransport = async (m, a) => (m === "frappe.desk.form.load.getdoctype" ? { docs: [META], user_settings: "{}" } : mock.transport(m, a));
+    const client = createFrappeClient({ transport });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
+        <QueryClientProvider client={qc}><FrappeProvider client={client} session={{ user: "u@x.com", roles }} formatContext={formatContext}><FrappeListView doctype="ToDo" storage={null} {...props} /></FrappeProvider></QueryClientProvider>
+      </ThemeProvider>,
+    );
+  }
+
+  it("bulk actions follow the DocType's role rights; the `permissions` prop overrides", async () => {
+    const { unmount } = mountWith(["Guest"], { bulk: {} });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    expect(screen.queryByRole("button", { name: en("listBulkDelete") })).toBeNull();
+    unmount();
+    const second = mountWith(["System Manager"], { bulk: {} });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    expect(await screen.findByRole("button", { name: en("listBulkDelete") })).toBeTruthy();
+    second.unmount();
+    mountWith(["System Manager"], { bulk: { permissions: { read: true } } });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    expect(screen.queryByRole("button", { name: en("listBulkDelete") })).toBeNull();
+  });
+
+  it("numbers, currency and dates use the site's formats (formatValue)", async () => {
+    const DEAL = { name: "Deal", title_field: "title", fields: [
+      { fieldname: "title", label: "Title", fieldtype: "Data", in_list_view: 1 },
+      { fieldname: "value", label: "Value", fieldtype: "Currency", options: "currency", in_list_view: 1 },
+      { fieldname: "currency", label: "Currency", fieldtype: "Link", options: "Currency" },
+      { fieldname: "due", label: "Due", fieldtype: "Date", in_list_view: 1 },
+    ] };
+    const seen: string[][] = [];
+    const transport: FrappeTransport = async (method, args) => {
+      if (method === "frappe.desk.form.load.getdoctype") return { docs: [DEAL], user_settings: "{}" };
+      if (method === "frappe.desk.listview.get_list_settings") return { message: null };
+      if (method === "frappe.desk.reportview.get") { const f = JSON.parse(String(args.fields)) as string[]; seen.push(f); return { message: { keys: f, values: [f.map((k) => ({ name: "D1", title: "T", value: 1234567.5, currency: "SAR", due: "2026-10-15" } as Record<string, unknown>)[k] ?? null)], user_info: {} } }; }
+      if (method === "frappe.desk.reportview.get_count") return { message: 1 };
+      throw new Error(method);
+    };
+    const client = createFrappeClient({ transport });
+    render(
+      <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <FrappeProvider client={client} formatContext={{ numberFormat: "#.###,##", dateFormat: "dd-mm-yyyy" }}><FrappeListView doctype="Deal" storage={null} /></FrappeProvider>
+        </QueryClientProvider>
+      </ThemeProvider>,
+    );
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    const text = bodyRows()[0].textContent ?? "";
+    expect(text).toContain("1.234.567,50");
+    expect(text).toContain("15-10-2026");
+    expect(seen.at(-1)).toContain("currency"); // the currency companion field is requested
   });
 });

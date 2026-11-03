@@ -1,6 +1,6 @@
 {
   "name": "@solvfast/ui",
-  "version": "0.4.0-dev.5",
+  "version": "0.4.0-dev.7",
   "description": "SOLV FAST product UI kit — Sear's design: primitives, app shell (Navbar, Sidebar) and List View, with an optional Frappe layer.",
   "license": "UNLICENSED",
   "repository": {
@@ -31,6 +31,10 @@
     "./frappe": {
       "types": "./dist/frappe/index.d.ts",
       "import": "./dist/frappe/index.js"
+    },
+    "./frappe/testing": {
+      "types": "./dist/frappe/testing/index.d.ts",
+      "import": "./dist/frappe/testing/index.js"
     },
     "./toast": {
       "types": "./dist/toast/index.d.ts",
