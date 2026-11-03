@@ -75,17 +75,34 @@ export interface FrappeListMeta {
 const selectOptions = (df: DocField) =>
   (df.options || "").split("\n").map((o) => o.trim()).filter(Boolean).map((o) => ({ value: o, label: o }));
 
-function toFilterField(df: DocField): FilterField | null {
+/** DocTypes known to be trees (nested set). Desk's list: `frappe.boot.nested_set_doctypes`. */
+export type TreeDoctypes = ReadonlySet<string> | readonly string[];
+const isTreeTarget = (trees: TreeDoctypes | undefined, doctype: string | undefined) =>
+  !!doctype && !!trees && (Array.isArray(trees) ? (trees as readonly string[]).includes(doctype) : (trees as ReadonlySet<string>).has(doctype));
+
+/**
+ * Of the metas at hand (the DocType and its child tables), those that are trees by Desk's own rule: boot's
+ * `nested_set_doctypes` are the parents of every DocField named `lft` (`frappe/boot.py:70-72`); `is_tree` (the DocType
+ * flag of the Tree view, `JS/model/model.js:424-427`) counts too. Link targets the page has no meta for are unknown:
+ * the app names them (`treeDoctypes`).
+ */
+export function treeDoctypesOf(metas: DocMeta[]): string[] {
+  return metas.filter((m) => !!(m as { is_tree?: unknown }).is_tree || (m.fields || []).some((df) => df.fieldname === "lft")).map((m) => m.name);
+}
+
+function toFilterField(df: DocField, trees?: TreeDoctypes): FilterField | null {
   const type = TYPE_MAP[df.fieldtype];
   if (!type) return null;
   const f: FilterField = { name: df.fieldname, label: df.label || df.fieldname, type, fieldtype: df.fieldtype };
   if (type === "select") f.options = selectOptions(df);
   if (df.fieldtype === "Link") f.link_doctype = df.options;
+  // Desk offers the nested-set operators on a Link whose target is a nested-set DocType (filter.js:440-446)
+  if (df.fieldtype === "Link" && isTreeTarget(trees, df.options)) f.tree = true;
   return f;
 }
 
 /** Filter fields for a DocType: its usable fields, then ID / Created On / Last Updated in the UI language. */
-export function filterFieldsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}): FilterField[] {
+export function filterFieldsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}, trees?: TreeDoctypes): FilterField[] {
   const usable = (meta.fields || []).filter((df) => !SKIP.has(df.fieldtype) && !df.hidden);
   const submittable = !!(meta as ListDocMeta).is_submittable;
   const extra: FilterField[] = [
@@ -95,20 +112,20 @@ export function filterFieldsFromMeta(meta: DocMeta, t: (k: keyof Messages) => st
       options: [{ value: "0", label: t("listDraft") }, { value: "1", label: t("listSubmitted") }, { value: "2", label: t("listCancelled") }] }] : []),
   ];
   return [
-    ...usable.map(toFilterField).filter((f): f is FilterField => !!f),
+    ...usable.map((df) => toFilterField(df, trees)).filter((f): f is FilterField => !!f),
     ...STANDARD.map((s) => ({ name: s.name, label: t(s.key), type: s.type, fieldtype: s.fieldtype })),
     ...extra.filter((e) => !usable.some((df) => df.fieldname === e.name)),
-    ...childFilterFields(meta, children, t).map((c) => c.field),
+    ...childFilterFields(meta, children, t, trees).map((c) => c.field),
   ];
 }
 
 /** Fields of the DocType's child tables as filter fields (Desk's field_select lists them, labelled with the table). */
-export function childFilterFields(meta: DocMeta, children: Record<string, DocMeta>, t: (k: keyof Messages) => string): { field: FilterField; ref: ChildFieldRef }[] {
+export function childFilterFields(meta: DocMeta, children: Record<string, DocMeta>, t: (k: keyof Messages) => string, trees?: TreeDoctypes): { field: FilterField; ref: ChildFieldRef }[] {
   const out: { field: FilterField; ref: ChildFieldRef }[] = [];
   for (const table of (meta.fields || []).filter((df) => df.fieldtype === "Table" && !df.hidden && df.options && children[df.options])) {
     const child = children[table.options!];
     for (const df of (child.fields || []).filter((d) => !SKIP.has(d.fieldtype) && !d.hidden)) {
-      const f = toFilterField(df);
+      const f = toFilterField(df, trees);
       if (!f) continue;
       const composite = `${child.name}.${df.fieldname}`;
       out.push({
@@ -153,9 +170,14 @@ export function restrictMetaToReadable<M extends DocMeta>(meta: M, children: Rec
   };
 }
 
-export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}): FrappeListMeta {
-  const filterFields = filterFieldsFromMeta(meta, t, children);
-  const childFields = childFilterFields(meta, children, t);
+/**
+ * `opts.treeDoctypes`: Link targets that are trees (Desk: `frappe.boot.nested_set_doctypes`), added to the ones the
+ * metas at hand reveal (`treeDoctypesOf`); their Link fields get `tree: true` and the nested-set operators.
+ */
+export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}, opts: { treeDoctypes?: readonly string[] } = {}): FrappeListMeta {
+  const trees = new Set([...treeDoctypesOf([meta, ...Object.values(children)]), ...(opts.treeDoctypes ?? [])]);
+  const filterFields = filterFieldsFromMeta(meta, t, children, trees);
+  const childFields = childFilterFields(meta, children, t, trees);
   const known = new Set([...(meta.fields || []).filter((df) => !SKIP.has(df.fieldtype)).map((df) => df.fieldname), ...STANDARD_FIELDNAMES, ...ROW_OPTIONAL_FIELDNAMES]);
   const fieldtypes = new Map<string, string>([
     ...(meta.fields || []).map((df) => [df.fieldname, df.fieldtype] as [string, string]),

@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { cn } from "../../lib/cn";
 import { useLocale } from "../../theme/ThemeProvider";
 import {
-  TIMESPANS, TIMESPAN_LABEL, VALUELESS_OPERATORS, defaultOperator, joinRange, newCondition, operatorLabelKey, operatorsFor,
+  TIMESPANS, TIMESPAN_LABEL, VALUELESS_OPERATORS, defaultOperator, joinRange, newCondition, operatorLabel, operatorsFor,
   splitRange, type FilterField, type FilterQuery, type FiscalYear, type Operator,
 } from "../model/filters";
 
@@ -47,7 +47,7 @@ const valueKind = (op: Operator) =>
   VALUELESS_OPERATORS.includes(op) ? "none" : op === "between" || op === "timespan" || op === "fiscal_year" ? op : op === "in" || op === "not_in" ? "list" : "one";
 
 export function FilterBuilder({ fields, query, onChange, activeCount, loadOptions, fiscalYears: given, loadFiscalYears }: FilterBuilderProps) {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
   const [loaded, setLoaded] = React.useState<FiscalYear[]>();
   const fiscalYears = given ?? loaded;
   const onOpenChange = (open: boolean) => {
@@ -114,7 +114,7 @@ export function FilterBuilder({ fields, query, onChange, activeCount, loadOption
                 <Select value={shownOp} onValueChange={(v) => patch(c.id, { operator: v as Operator })}>
                   <SelectTrigger className="h-8 w-28" aria-label={t("operator")}><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {listed.map((op) => <SelectItem key={op} value={op}>{t(operatorLabelKey(op, field))}</SelectItem>)}
+                    {listed.map((op) => <SelectItem key={op} value={op}>{operatorLabel(op, field, t, language)}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <div className="min-w-0 flex-1">

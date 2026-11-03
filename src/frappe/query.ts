@@ -11,13 +11,22 @@
  * - Fields / order_by only ever name real fields: column keys are mapped through `field`, unknown ones dropped.
  */
 import { fieldOf, type ColumnDef } from "../list/model/columns";
-import { TIMESPANS, VALUELESS_OPERATORS, splitRange, type FilterCondition, type FilterQuery, type FiscalYear, type Operator } from "../list/model/filters";
+import { TIMESPANS, VALUELESS_OPERATORS, isNestedSetOperator, splitRange, type FilterCondition, type FilterQuery, type FiscalYear, type NestedSetOperator, type Operator } from "../list/model/filters";
 import type { SortState } from "../list/model/sort";
 
 /** `[fieldname, operator, value]` (or `[doctype, fieldname, operator, value]`, passed through). */
 export type FrappeFilter = [string, string, unknown] | [string, string, string, unknown];
 
 const OP: Partial<Record<Operator, string>> = { equals: "=", not_equals: "!=", gt: ">", lt: "<", gte: ">=", lte: "<=" };
+/**
+ * The nested-set operators as Frappe spells them (`database/utils.py:21-27` NestedSetHierarchy; `filter.js:32-36`). Sent
+ * UNCHANGED: `get_filter` accepts them (`utils/data.py:1926-1950`) and `DatabaseQuery.prepare_filter_condition` looks up
+ * the node's `lft` / `rgt` and rewrites them to `in` / `not in` over the matching names (`model/db_query.py:794-842`).
+ */
+export const NESTED_SET_FRAPPE_OP: Record<NestedSetOperator, string> = {
+  descendants_of: "descendants of", descendants_of_inclusive: "descendants of (inclusive)", not_descendants_of: "not descendants of",
+  ancestors_of: "ancestors of", not_ancestors_of: "not ancestors of",
+};
 const NUMERIC = new Set(["Int", "Float", "Currency", "Percent"]);
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const END_OF_DAY = " 23:59:59.999999";
@@ -51,6 +60,7 @@ export function conditionToFrappe(c: FilterCondition, fieldtype?: string, opts: 
     return items.length ? [c.field, c.operator === "in" ? "in" : "not in", items] : null;
   }
   if (!c.value && !VALUELESS_OPERATORS.includes(c.operator)) return null; // half-built condition
+  if (isNestedSetOperator(c.operator)) return [c.field, NESTED_SET_FRAPPE_OP[c.operator], c.value]; // one node name, as Desk's Link input sends it
   if (c.operator === "like") return [c.field, "like", `%${c.value}%`];
   if (c.operator === "not_like") return [c.field, "not like", `%${c.value}%`];
   const op = OP[c.operator];

@@ -38,7 +38,7 @@ export async function loadDocTypeBundle(client: FrappeClient, doctype: string): 
   return { meta, children: Object.fromEntries(docs.filter((d) => d && d.name !== doctype).map((d) => [d.name, d as DocMeta])), userSettings };
 }
 
-export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient } = {}) {
+export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient; /** Desk's `frappe.boot.nested_set_doctypes` (Link targets that are trees). */ treeDoctypes?: readonly string[] } = {}) {
   const fallback = useFrappeClient();
   const client = opts.client ?? fallback;
   const { t } = useLocale();
@@ -51,7 +51,8 @@ export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient } =
     const levels = roles && perms ? rolePermissions(perms, roles).levels : undefined;
     return restrictMetaToReadable(q.data.meta, q.data.children, levels);
   }, [q.data, roles]);
-  const meta = React.useMemo(() => (readable ? buildFrappeListMeta(readable.meta, t, readable.children) : undefined), [readable, t]);
+  const treeKey = (opts.treeDoctypes ?? []).join("\u0000");
+  const meta = React.useMemo(() => (readable ? buildFrappeListMeta(readable.meta, t, readable.children, { treeDoctypes: treeKey ? treeKey.split("\u0000") : [] }) : undefined), [readable, t, treeKey]);
   // plain types only: React Query's own types live in @tanstack/query-core, which consumers may not be able to resolve
   const refetch = React.useCallback(async (): Promise<void> => { await q.refetch(); }, [q]);
   const bundle = React.useMemo<MetaBundle | undefined>(() => (q.data ? ({ doctype, meta: q.data.meta, children: q.data.children } as unknown as MetaBundle) : undefined), [q.data, doctype]);
@@ -107,6 +108,12 @@ export interface FrappeListOptions<T> {
   listSettings?: boolean;
   /** Site / user formats for `formatValue` (number format, currency, date format …). Default: the provider's `formatContext`. */
   formatContext?: FormatContext;
+  /**
+   * Link targets that are trees (nested set): their Link fields offer Descendants Of / Ancestors Of … (Desk reads
+   * `frappe.boot.nested_set_doctypes`, `filter.js:440-446`; a React page has no boot). The DocType itself and its child
+   * tables are detected from their metas (an `lft` field or `is_tree`).
+   */
+  treeDoctypes?: string[];
 }
 
 type Row = Record<string, unknown>;
@@ -116,7 +123,7 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   const fallback = useFrappeClient();
   const client = o.client ?? fallback;
   const { t, language } = useLocale();
-  const m = useFrappeMeta(o.doctype, { client });
+  const m = useFrappeMeta(o.doctype, { client, treeDoctypes: o.treeDoctypes });
   const meta = m.meta;
   const settingsQ = useQuery({ queryKey: ["sf-frappe", "list-settings", o.doctype], queryFn: () => fetchListSettings(client, o.doctype), enabled: o.listSettings !== false, staleTime: 5 * 60_000 });
   const settings = settingsQ.data ?? null;
