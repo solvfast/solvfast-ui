@@ -168,7 +168,11 @@ describe("item 2: seeded ToDos drive assignees; Version docs on save", () => {
     await client.applyWorkflow(doc, "Qualify");
     const info = await client.getDocInfo("CRM Lead", "L-1");
     expect(JSON.parse(info.versions[0].data).changed).toEqual([["workflow_state", "New", "Qualified"]]);
-    expect(info.workflow_logs).toHaveLength(1);
+    // model/workflow.py: doc.add_comment("Workflow", next state) → docinfo.workflow_logs (owner = session user, creation = now)
+    expect(info.workflow_logs).toEqual([expect.objectContaining({ comment_type: "Workflow", content: "Qualified", owner: "Administrator", reference_doctype: "CRM Lead", reference_name: "L-1" })]);
+    const log = info.workflow_logs![0] as { creation: string };
+    expect(log.creation.startsWith("2026-11-03 09:30:")).toBe(true);
+    expect(log.creation > String(doc.modified)).toBe(true);
   });
 });
 
