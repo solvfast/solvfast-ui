@@ -188,12 +188,40 @@ Unselect All; fields the user cannot read (permlevel) are not offered. The file 
 browser (`saveFile`). A refusal is shown in the dialog (`FrappeErrorState`); there is no success toast and never a client-built file.
 Functions: `downloadExportTemplate`, `exportPickerGroups`, `mandatorySelection`, `selectedNamesFilter`, `saveFile`.
 
-**Import** (`list/import.ts`): the Data Import tool's client sequence (`data_import.js`, `attach.js:137-144`) as functions — `startDataImport(api, {
-referenceDoctype, importType, file, filename, submitAfterImport?, start? })`: `savedocs` (new Data Import) → `upload_file` (attached to it, private) →
-`savedocs` with `import_file` (the server parses the template here) → `get_preview_from_template` → `form_start_import`. Then `useImportStatus(api, name)`
-polls `get_import_status` (+ the document for `template_warnings`) until the job leaves Pending; `getImportLogs`, `downloadErroredRows`, `downloadImportLog`,
-`downloadImportTemplate` (= blank template). **No preview grid, no column mapper, no log table** — the host builds them or routes to Desk (`onImport` default).
-Note: the Data Import DocType grants `create` to System Manager only; a role with `import` but not System Manager is refused at the first save (as in Desk).
+**Import** (`list/import.ts`, `list/FrappeDataImport.tsx`, `list/ImportPreview.tsx`, `list/ColumnMapping.tsx`, `list/importMapping.ts`; Phase 27 UI) —
+SIMULATED only; every step is a write on a site (BLOCKED). The functions reproduce the Data Import tool's client sequence (`data_import.js`, `attach.js:137-144`):
+`startDataImport(api, { referenceDoctype, importType, file, filename, submitAfterImport?, muteEmails?, start? })` = `createDataImport` (`savedocs`, new Data Import)
+→ `attachImportFile` (`upload_file` attached to it, private → `savedocs` with `import_file`; the server parses the file here) → `get_preview_from_template` →
+`form_start_import`. `remapImportColumns(api, doc, changed)` = `saveColumnMapping` (`template_options.column_to_field_map`, keyed by FILE column index) + the preview
+requested again (`data_import.js:302-309`). `useImportStatus(api, name, { since })` polls `get_import_status` + the document; `importRunning` decides from the server's
+answers only (unchanged `modified` since Start → queued; mid-run Partial Success → running). Also `getImportLogs`, `downloadErroredRows`, `downloadImportLog`,
+`downloadImportTemplate`, `parseTemplateWarnings`.
+
+`<FrappeDataImport>` is what an app opens from `FrappeListView`'s `onImport` (whose default still routes to Desk). It needs `ThemeProvider` and a
+`QueryClientProvider` (no `FrappeProvider`; `api` is a prop):
+
+```tsx
+const [open, setOpen] = useState(false);
+<FrappeListView doctype="Sales Order" onImport={() => setOpen(true)} />
+<FrappeDataImport api={api} doctype="Sales Order" open={open} onOpenChange={setOpen}
+  onGoToList={() => setOpen(false)} docHref={(dt, name) => `/orders/${name}`} />
+```
+
+Steps: **Upload** (import type, Submit After Import for submittable DocTypes, Don't Send Emails, "Download Template" = the exporter dialog, a `.csv / .xls / .xlsx`
+file) → **Preview** (`FrappeImportPreview`: the server's columns with the field each is matched / mapped to, skipped columns marked, the first rows as returned, "Showing
+only first N rows out of M"; `FrappeImportWarnings`: template + preview warnings grouped by row / column; "Map Columns" → `FrappeColumnMapping`, a searchable picker per
+column with "Don't Import", the DocType's fields and child-table fields `<table>.<field>`) → **Import** ("Start Import" / "Retry" = `form_start_import`; Queued / In
+Progress from the poll) → **Result** (status, the headline from the server's counts, the import log with messages and traceback, Export Errored Rows on Partial Success,
+Export Import Log from 5000 rows, Retry, "Go to {DocType} List"). **Nothing is shown as imported before `get_import_status` reports the run finished**; a job stopped by
+template warnings returns to the preview with them. Refusals are the server's (`FrappeErrorState`): a 403 on the first save comes with the note that Frappe core grants
+Data Import `create` to System Manager only; a refused or empty file can be replaced on the same Data Import; 417 "Scheduler is inactive" on start.
+
+Props that matter: `bundle` (optional — else read with `api.getMetaBundle`), `importType`, `open` / `onOpenChange` (dialog; without them an inline panel), `pollIntervalMs`
+(default 2000), `subscribe` (optional `(event, handler) => unsubscribe` over the app's socket: Desk's `data_import_progress` line and an immediate re-poll on
+`data_import_refresh`; completion still comes from the poll), `onFinished`, `onGoToList`, `docHref`, `labels` (English and Arabic defaults, `DATA_IMPORT_LABELS_EN` /
+`_AR`; the package catalogue has no keys for them yet), `exportLabels`. State lives in the component: closing the dialog keeps the import and its poll; unmounting stops
+polling, never the server's job. Not reproduced: Google Sheets URL, "Report Error", changing the import type after the Data Import exists, frappe-datatable features,
+re-reading the preview after a run (imported rows are greyed only from a preview answer that carries the log). Parity rows: `docs/release/LISTVIEW-FRAPPE-PARITY.md` §2.
 
 ---
 
