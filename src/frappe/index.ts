@@ -40,3 +40,8 @@ export { useListRealtime } from "./list/realtime";
 // indicator module for list and record before 0.4.0 (both reproduce frappe.get_indicator).
 export * from "./record";
 export type { Indicator as RecordIndicator } from "./record/indicator";
+
+// 0.4.0 — foundation (A1): hooks, services (format, translate, permissions, cache), feedback. docs/CONTRACT-0.4.md §2
+export * from "./hooks";
+export * from "./services";
+export * from "./feedback";
