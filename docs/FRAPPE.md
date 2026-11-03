@@ -26,7 +26,7 @@ Frappe layer has passed against a live site.
 |---|---|
 | Frappe 15 (verified against the 15.110 source in this bench) | the endpoints and parameters below; other versions untested |
 | The page is served by the Frappe site (same origin) | v0.1 authenticates with the logged-in user's session cookie |
-| The CSRF token on the page: `window.csrf_token` (as Sear's and PMO's `www/*.html` set it: `<script>window.csrf_token = "{{ frappe.session.csrf_token }}";</script>`), or `window.frappe.csrf_token` (Desk), or the `csrfToken` option | Frappe checks `X-Frappe-CSRF-Token` on every POST from a logged-in session |
+| The CSRF token on the page: `window.csrf_token`, set from the page context with `frappe.sessions.get_csrf_token()` (see `docs/components/foundation.md` §9, `readFrappeBoot`), or `window.frappe.csrf_token` (Desk). **Do not** use `{{ frappe.session.csrf_token }}`: in Frappe 15 it renders the string "None", so every POST fails with `CSRFTokenError` once the session has a token (e.g. after opening `/app`). Values `"None"` and `""` are ignored by the client. Or pass the `csrfToken` option | Frappe checks `X-Frappe-CSRF-Token` on every POST from a logged-in session |
 | `@tanstack/react-query` ^5 (optional peer dependency of the package; needed only for this entry) | caching, retries, chunked loading |
 | `ThemeProvider` from the core package above it | language, direction and messages |
 

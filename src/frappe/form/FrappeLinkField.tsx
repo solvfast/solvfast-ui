@@ -14,7 +14,7 @@
  *    handed to `onValidated` (the form writes the fetch targets). Clearing reports `onValidated(null)` (targets → "").
  *    `ignore_link_validation` skips it. A Dynamic Link with no DocType yet searches nothing and clears typed text.
  *  - Titles: a picked result's label is remembered per "DocType::name" and shown for the value (Desk's link-title
- *    cache). UNVERIFIED: `show_title_field_in_link` targets — without boot this shows a label only when one is known.
+ *    cache, scoped to the provider's client and session user — linkTitles.ts). UNVERIFIED: `show_title_field_in_link` targets — without boot this shows a label only when one is known.
  *  - "Create a new X": offered when `canCreate(doctype)` and not `only_select`; the app's `onCreateNew` writes back.
  */
 import * as React from "react";
@@ -28,12 +28,10 @@ import type { FieldDisplayStatus, FrappeDoc, FrappeDocField, SearchLinkOptions, 
 import { evaluateDepends, type DependsIssue } from "./model/depends";
 import { resolveLinkQuery, type LinkQuery } from "./events";
 import { useFormServices } from "./services";
+import { useLinkTitles } from "./linkTitles";
 import { FrappeError } from "../client";
 import { useFrappeMessages } from "../feedback/messages";
 
-const titles = new Map<string, string>();
-/** Remember a link title (Desk `frappe._link_titles`). */
-export const rememberLinkTitle = (doctype: string, name: string, title: string) => { if (title && title !== name) titles.set(`${doctype}::${name}`, title); };
 
 type FilterDict = Record<string, unknown>;
 
@@ -116,6 +114,7 @@ export function FrappeLinkField({
   const { t } = useLocale();
   const s = useFormServices();
   const messages = useFrappeMessages();
+  const titles = useLinkTitles();
   const target = options ?? (df?.fieldtype === "Link" ? df.options : undefined) ?? "";
   const [busy, setBusy] = React.useState(false);
   const req = React.useRef(0);
@@ -135,6 +134,8 @@ export function FrappeLinkField({
       ...(referenceDoctype ? { referenceDoctype } : {}),
       ...(merged ? { filters: merged as SearchLinkOptions["filters"] } : {}),
       ...(q.query ? { query: q.query } : {}),
+      ...(q.searchfield ? { searchfield: q.searchfield } : {}),
+      ...(q.args ? { args: q.args } : {}),
       ...(df?.ignore_user_permissions ? { ignoreUserPermissions: true } : {}),
     };
   }, [df, query, filters, formFields, referenceDoctype, target, s, onIssue]);
@@ -142,9 +143,9 @@ export function FrappeLinkField({
   const search = React.useCallback(async (txt: string): Promise<Suggestion[]> => {
     if (!target) return [];
     const res = await s.searchLink(target, txt, searchOptions());
-    for (const r of res) if (r.label) rememberLinkTitle(target, r.value, r.label);
+    for (const r of res) if (r.label) titles.remember(target, r.value, r.label);
     return res;
-  }, [target, s, searchOptions]);
+  }, [target, s, searchOptions, titles]);
 
   const commit = React.useCallback(async (v: string | null) => {
     const id = ++req.current;
@@ -168,7 +169,7 @@ export function FrappeLinkField({
     }
   }, [target, df, fetchFields, onChange, onValidated, s, messages]);
 
-  const title = value ? titles.get(`${target}::${value}`) ?? s.formatContext.linkTitles?.[`${target}::${value}`] : undefined;
+  const title = value ? titles.get(target, value) ?? s.formatContext.linkTitles?.[`${target}::${value}`] : undefined;
   const href = value && target ? s.linkHref(target, value) : undefined;
 
   if (status === "None") return null;
@@ -192,7 +193,7 @@ export function FrappeLinkField({
       className={className}
       value={value ?? null}
       displayValue={title}
-      onChange={(v, picked) => { if (picked?.label && v) rememberLinkTitle(target, v, picked.label); void commit(v); }}
+      onChange={(v, picked) => { if (picked?.label && v) titles.remember(target, v, picked.label); void commit(v); }}
       onCommitText={(text) => void commit(text)}
       search={search}
       debounceMs={500}

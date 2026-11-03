@@ -19,7 +19,7 @@ import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle, WorkflowInfo } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
 import {
-  FrappeChildTable, FrappeDynamicLinkField, FrappeField, FrappeForm, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
+  FrappeChildTable, FrappeDynamicLinkField, FrappeField, FrappeForm, linkTitleCache, resolveLinkQuery, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
   type FormEventsConfig, type FormServices,
 } from "../src/frappe/form";
 
@@ -457,5 +457,40 @@ describe("review R1 P3 items", () => {
     cleanup();
     setup(<FrappeChildTable df={b.meta.fields[0]} bundle={b} parent={{ doctype: "P", name: "P-1" }} rows={rows} permissions={[{ read: true, write: true }]} label="Items" />);
     expect(screen.getByRole("button", { name: en.formAddRow })).toBeTruthy();
+  });
+});
+
+describe("R1-F10: link titles are scoped to the client and the session user", () => {
+  it("a title remembered under one client / user is not seen by another", () => {
+    const a = {}; const b = {};
+    linkTitleCache(a, "u1").remember("Customer", "C-1", "Acme");
+    expect(linkTitleCache(a, "u1").get("Customer", "C-1")).toBe("Acme");
+    expect(linkTitleCache(a, "u2").get("Customer", "C-1")).toBeUndefined();
+    expect(linkTitleCache(b, "u1").get("Customer", "C-1")).toBeUndefined();
+    linkTitleCache(a, "u1").remember("Customer", "C-2", "C-2");
+    expect(linkTitleCache(a, "u1").get("Customer", "C-2")).toBeUndefined();
+  });
+});
+
+describe("R1-F13: extra keys of a query function reach search_link (link.js:631-657)", () => {
+  it("a setQuery function's extra keys travel as top-level args; standard keys are not replaced", async () => {
+    const events: FormEventsConfig["events"] = {
+      refresh: (frm) => frm.setQuery("assigned_by", (doc) => ({ filters: { enabled: 1 }, translate_values: false, owner_hint: doc.name, page_length: 99 })),
+    };
+    const { calls } = setup(<FrappeForm doctype="ToDo" name="TD-1" events={events} />);
+    const box = await screen.findByRole("combobox", { name: /Assigned By/ });
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    fireEvent.focus(box);
+    await waitFor(() => expect(calls("frappe.desk.search.search_link").length).toBeGreaterThan(0));
+    const args = calls("frappe.desk.search.search_link").at(-1)!.args;
+    expect(args).toMatchObject({ doctype: "User", owner_hint: "TD-1", translate_values: false, page_length: 10 });
+    expect(JSON.parse(String(args.filters))).toEqual({ enabled: 1 });
+  });
+  it("resolveLinkQuery: only a function's result carries args; a plain object keeps Desk's shapes", () => {
+    const d = { doctype: "T", name: "t" };
+    expect(resolveLinkQuery({ filters: { a: 1 }, extra: 1 }, d, "T", "t")).toEqual({ filters: { a: 1 } });
+    expect(resolveLinkQuery({ a: 1 }, d, "T", "t")).toEqual({ filters: { a: 1 } });
+    expect(resolveLinkQuery("my.query", d, "T", "t")).toEqual({ query: "my.query" });
+    expect(resolveLinkQuery(() => ({ query: "q.path", searchfield: "title", x: 2 }), d, "T", "t")).toEqual({ query: "q.path", searchfield: "title", args: { x: 2 } });
   });
 });
