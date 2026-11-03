@@ -584,9 +584,11 @@ describe("Data Import on the simulated server (data_import.py:44-256) — dry ru
   });
   it("dataImport: \"insert\" — the simulator plays the server and inserts the valid rows (labelled)", async () => {
     const t = createFixtureTransport({ meta: { "Travel Request": [TRAVEL, COMPANION], User: [USER_META] }, docs: { User: users } }, { permissions: SCENARIOS.fullAccess, dataImport: "insert" });
-    const r = await startDataImport(apiOf(t), { referenceDoctype: "Travel Request", importType: "Insert New Records", file: file("Purpose,Lead traveller\nDubai fair,omar@example.com\n"), filename: "t.csv" });
+    const r = await startDataImport(apiOf(t), { referenceDoctype: "Travel Request", importType: "Insert New Records", file: file("Purpose,Lead traveller\nDubai fair,omar@example.com\nGhost,ghost@example.com\n"), filename: "t.csv" });
     const logs = await getImportLogs(apiOf(t), r.name);
     expect(logs[0].messages).toMatch(/SIMULATED: the in-browser simulator inserted/);
+    expect(logs[1]).toMatchObject({ success: 0, exception: expect.stringMatching(/LinkValidationError/) });
+    expect(t.store.docs.get("Travel Request")!.size).toBe(1);
     expect(t.store.docs.get("Travel Request")!.get(String(logs[0].docname))!.purpose).toBe("Dubai fair");
   });
   it("refusals: Data Entry cannot create a Data Import (System Manager only → 403); no import right → 403; xlsx → labelled 417; bad template → 417", async () => {

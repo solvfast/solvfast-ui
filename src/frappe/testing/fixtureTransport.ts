@@ -882,9 +882,10 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
         let docname: string | null = null;
         if (update) {
           const cur = table(ref).get(String(pl.values.name ?? "")) ?? notFound(`${ref} ${String(pl.values.name ?? "")}`);
-          if (insert) docname = save({ ...cur, ...pl.values }, "Save").name;
+          if (insert) { validateLinks(rm, { ...cur, ...pl.values }); docname = save({ ...cur, ...pl.values }, "Save").name; }
           else if (P) P.assertDoc({ ...cur, ...pl.values } as FrappeDoc, "write");
         } else if (insert) {
+          validateLinks(rm, { ...pl.values, doctype: ref } as FrappeDoc); // the import always validates links (document.py:302)
           docname = save({ ...pl.values, doctype: ref, __islocal: 1 } as FrappeDoc, Number(di.submit_after_import) && rm.is_submittable ? "Submit" : "Save").name;
         } else {
           const posted = { ...pl.values, doctype: ref, name: "", owner: user } as FrappeDoc;
