@@ -78,7 +78,7 @@ describe("indicator precedence", () => {
 
 const ctx = (over: Partial<TimelineContext> = {}): TimelineContext => ({
   user: "me@x", t: (k) => en[k] as string, isSystemManager: false, canDeleteComment: true,
-  fieldLabel: (f, table) => ({ title: "Title", amount: "Amount", hidden_f: null, items: "Items", qty: "Qty" } as Record<string, string | null>)[f] ?? null, ...over,
+  fieldLabel: (f) => ({ title: "Title", amount: "Amount", hidden_f: null, items: "Items", qty: "Qty" } as Record<string, string | null>)[f] ?? null, ...over,
 });
 
 describe("version diff (get_diff shape)", () => {
