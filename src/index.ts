@@ -159,3 +159,6 @@ export type {
   AssignLabels, LifecycleBarProps, ActionBarProps, ActionBarLabels, StatusBadgeProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
   Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./record";
+
+// 0.4.0 — generic field controls (Frappe-free). docs/CONTRACT-0.4.md §1
+export * from "./fields";
