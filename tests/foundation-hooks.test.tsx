@@ -236,6 +236,16 @@ describe("feedback", () => {
     expect(onRetry).toHaveBeenCalled();
   });
 
+  it("FrappeErrorState: rate_limited (429) and unavailable (503) have their own title and hint, in en and ar", () => {
+    wrap(<FrappeErrorState error={toFrappeError(429, { exc_type: "RateLimitExceededError" })} />);
+    expect(screen.getByRole("alert").dataset.kind).toBe("rate_limited");
+    expect(screen.getByText("Too many requests")).toBeTruthy();
+    cleanup();
+    wrap(<FrappeErrorState error={toFrappeError(503, { exc_type: "InReadOnlyMode" })} />, "ar");
+    expect(screen.getByRole("alert").dataset.kind).toBe("unavailable");
+    expect(screen.getByText("الموقع غير متاح مؤقتًا")).toBeTruthy();
+  });
+
   it("FrappeErrorState in Arabic; session_expired offers Log in", () => {
     wrap(<FrappeErrorState error={new FrappeError("x", 401)} />, "ar");
     expect(screen.getByText("انتهت صلاحية جلستك")).toBeTruthy();
