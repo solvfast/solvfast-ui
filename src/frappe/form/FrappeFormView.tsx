@@ -559,7 +559,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     const isCollapsed = collapsible && !!collapsed[sec.key];
     const regionId = `sf-sec-${sec.key}`;
     const body = (
-      <div id={regionId} className="grid gap-x-6 gap-y-4" style={{ gridTemplateColumns: `repeat(${Math.max(1, sec.columns.length)}, minmax(0, 1fr))` }}>
+      // columns side by side from `sm` up, stacked on a phone (Desk's `.form-column.col-sm-*`)
+      <div id={regionId} className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-[repeat(var(--sf-cols),minmax(0,1fr))]" style={{ "--sf-cols": Math.max(1, sec.columns.length) } as React.CSSProperties}>
         {sec.columns.map((c) => <div key={c.key} className="min-w-0 space-y-4">{c.fields.map(renderField)}</div>)}
       </div>
     );

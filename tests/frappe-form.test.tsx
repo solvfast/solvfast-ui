@@ -238,6 +238,16 @@ describe("submit / cancel and the action matrix (docs 11 §5.2, §7)", () => {
 });
 
 describe("child tables (docs 12 §5)", () => {
+  it("p275: a section's columns stack on a phone and sit side by side from sm up (Desk's .form-column.col-sm-*)", async () => {
+    setup(<FrappeForm doctype="Contact" />);
+    await screen.findByRole("textbox", { name: /First Name/ });
+    const grids = Array.from(document.querySelectorAll<HTMLElement>("[data-section] > [id^='sf-sec-']"));
+    const two = grids.find((g) => g.children.length === 2);
+    expect(two).toBeTruthy();
+    expect(two!.className).toContain("grid-cols-1");
+    expect(two!.className).toContain("sm:grid-cols-[repeat(var(--sf-cols),minmax(0,1fr))]");
+    expect(two!.style.getPropertyValue("--sf-cols")).toBe("2");
+  });
   it("Contact: Add Row creates an __islocal row; its required column is reported per row; the row is saved", async () => {
     const { calls } = setup(<FrappeForm doctype="Contact" />);
     await screen.findByRole("table", { name: /Email IDs/ });
