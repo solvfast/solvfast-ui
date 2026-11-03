@@ -81,7 +81,12 @@ export const defaultFormatContext: Required<Omit<FormatContext, "floatPrecision"
 
 // ---- numbers -----------------------------------------------------------------------------------------------------------
 
-const cint = (v: unknown): number => { const n = parseInt(String(v ?? ""), 10); return Number.isNaN(n) ? 0 : n; };
+const cint = (v: unknown): number => {
+  if (typeof v === "boolean") return Number(v);
+  if (typeof v === "number") return Number.isFinite(v) ? Math.trunc(v) : 0;
+  const n = parseInt(String(v ?? ""), 10);
+  return Number.isNaN(n) ? 0 : n;
+};
 
 /** Decimal and group separators of Frappe's known number formats (unknown → "." and ","). */
 const SEPARATORS: Record<string, [decimal: string, group: string]> = {
