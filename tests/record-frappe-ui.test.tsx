@@ -48,7 +48,7 @@ function stub(over: Partial<RecordClient> = {}): RecordClient & Record<string, R
   } as never;
   return current as never;
 }
-const mount = (ui: React.ReactElement, qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })) => render(<QueryClientProvider client={qc}><FrappeProvider client={current as never}><ThemeProvider>{ui}</ThemeProvider></FrappeProvider></QueryClientProvider>);
+const mount = (ui: React.ReactElement, qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })) => render(<QueryClientProvider client={qc}><FrappeProvider client={current as never} session={{ user: "me@x", roles: ["Sales User"] }}><ThemeProvider>{ui}</ThemeProvider></FrappeProvider></QueryClientProvider>);
 
 describe("FrappeWorkflowActions", () => {
   it("shows the state and the allowed transitions, applies one", async () => {
@@ -144,6 +144,31 @@ describe("FrappeAssignTo", () => {
     stub();
     mount(<FrappeAssignTo doc={{ ...doc, __islocal: 1 }} user="me@x" />);
     expect(screen.queryByRole("button", { name: "Add assignment" })).toBeNull();
+  });
+});
+
+describe("FrappeTimeline field visibility", () => {
+  const fields = [
+    { fieldname: "title", fieldtype: "Data", label: "Title" },
+    { fieldname: "secret", fieldtype: "Data", label: "Secret", permlevel: 1 },
+    { fieldname: "note", fieldtype: "Data", label: "Note", hidden: 1 },
+  ];
+  const b: MetaBundle = { doctype: "Deal", meta: { name: "Deal", fields, permissions: [{ role: "Sales User", permlevel: 0, read: 1, write: 1 }] } as never, children: {} };
+  const ver = { name: "V1", owner: "bob@x", creation: "2026-11-02 10:00:00", data: JSON.stringify({ changed: [["secret", "a", "b"], ["note", "x", "y"], ["title", "1", "2"]] }) };
+  it("skips changes to fields the user cannot read (permlevel) and hidden fields; keeps visible ones", async () => {
+    stub({ getDocInfo: vi.fn(async () => ({ ...info, comments: [], versions: [ver] })) as never });
+    mount(<FrappeTimeline doc={doc} user="me@x" bundle={b} canComment={false} />);
+    const line = await screen.findByText(/changed the value of/);
+    expect(line.textContent).toContain("Title from 1 to 2");
+    expect(line.textContent).not.toMatch(/Secret|Note/);
+  });
+});
+
+describe("FrappeWorkflowActions steps", () => {
+  it("shows actor and time per past state from workflow_logs", async () => {
+    stub({ getDocInfo: vi.fn(async () => ({ ...info, workflow_logs: [{ owner: "bob@x", creation: "2026-11-02 10:00:00", content: "Draft" }] })) as never });
+    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Approved", docstatus: 1 }} user="x" variant="steps" />);
+    await waitFor(() => expect(container.querySelector("[data-entry]")?.textContent).toContain("Bob Ray"));
   });
 });
 

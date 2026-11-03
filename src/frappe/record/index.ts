@@ -18,3 +18,6 @@ export type { Indicator } from "./indicator";
 export { buildTimelineItems, formatVersion, formatTimelineValue, parseFrappeTime, commaAnd } from "./timeline";
 export type { TimelineContext, VersionLine } from "./timeline";
 export type { RecordClient } from "./data";
+export { useCommunications } from "./useCommunications";
+export { stateEntries } from "./stateHistory";
+export type { StateEntry } from "./stateHistory";

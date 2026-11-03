@@ -151,3 +151,24 @@ describe("docinfo → timeline items", () => {
     expect(parseFrappeTime(undefined)).toBe(0);
   });
 });
+
+import { stateEntries } from "../src/frappe/record/stateHistory";
+describe("stateEntries (stepper actor and time)", () => {
+  const doc: FrappeDoc = { doctype: "Deal", name: "D1", owner: "own@x", creation: "2026-11-01 10:00:00" };
+  const base = { attachments: [], communications: [], comments: [], shared: [], views: [], assignments: [], permissions: {}, user_info: { "bob@x": { fullname: "Bob Ray" }, "own@x": { fullname: "Olive" } } };
+  it("uses workflow_logs (latest per state) and falls back to versions of the state field; creation state goes to the owner", () => {
+    const info = { ...base,
+      workflow_logs: [{ owner: "bob@x", creation: "2026-11-02 10:00:00", content: "Pending" }, { owner: "bob@x", creation: "2026-11-03 10:00:00", content: "Pending" }],
+      versions: [{ name: "V", owner: "own@x", creation: "2026-11-01 12:00:00", data: JSON.stringify({ changed: [["workflow_state", "Draft", "Review"]] }) }],
+    } as unknown as DocInfo;
+    const m = stateEntries({ doc, docinfo: info, stateField: "workflow_state", states: ["Draft", "Review", "Pending", "Done"] });
+    expect(m.get("Pending")).toEqual({ by: "Bob Ray", at: parseFrappeTime("2026-11-03 10:00:00") });
+    expect(m.get("Review")?.by).toBe("Olive");
+    expect(m.get("Draft")).toEqual({ by: "Olive", at: parseFrappeTime("2026-11-01 10:00:00") });
+    expect(m.has("Done")).toBe(false);
+  });
+  it("matches the server-translated log content", () => {
+    const info = { ...base, workflow_logs: [{ owner: "bob@x", creation: "2026-11-02 10:00:00", content: "قيد المراجعة" }], versions: [] } as unknown as DocInfo;
+    expect(stateEntries({ doc, docinfo: info, stateField: "f", states: ["Review"], translate: (s) => (s === "Review" ? "قيد المراجعة" : s) }).get("Review")?.by).toBe("Bob Ray");
+  });
+});
