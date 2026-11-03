@@ -62,6 +62,8 @@ const LABEL = {
 } as const;
 type Confirmable = "delete" | "submit" | "cancel" | "clear_assignment";
 
+/** `keys` are Frappe DOCUMENT NAMES (sent to the server), not the list's UI row keys: `FrappeListView` resolves its
+ *  selection through `documentNamesForKeys`; an app rendering this itself must pass names too. */
 export function FrappeBulkActions<T = Record<string, unknown>>({ client, meta, doctype, keys, rows, docMeta, roles, clear, options, onBusy, onMessage, onExport, exportLabel }: {
   client: FrappeClient; meta: FrappeListMeta; doctype: string; keys: string[]; clear: () => void; options: FrappeBulkOptions; onBusy?: (busy: boolean) => void;
   /** The checked rows (`docstatus` for Print, the row objects for the workflow's common actions — Desk's `get_checked_items()`). */

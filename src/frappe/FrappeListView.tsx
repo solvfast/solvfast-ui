@@ -70,6 +70,17 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
 }
 
 /** Desk's Import route as a URL: the Data Import list with `reference_doctype` as a route option (`router.js:548-566`). */
+/**
+ * UI row identity vs the Frappe document name. Selection is keyed by the list's `rowKey` (kept across pages); every server
+ * request needs the document `name`. Resolves the selected keys through a key → name map of the rows the list has shown.
+ * `missing` lists keys whose row is no longer known: callers must not send them (a UI key is never a document name).
+ */
+export function documentNamesForKeys(keys: readonly string[], nameByKey: ReadonlyMap<string, string>): { names: string[]; missing: string[] } {
+  const names: string[] = []; const missing: string[] = [];
+  for (const k of keys) { const n = nameByKey.get(k); if (n === undefined) missing.push(k); else names.push(n); }
+  return { names, missing };
+}
+
 export const dataImportListUrl = (doctype: string) => `/app/data-import?reference_doctype=${encodeURIComponent(doctype)}`;
 
 export function FrappeListView<T = Record<string, unknown>>(props: FrappeListViewProps<T>) {
@@ -87,6 +98,13 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   const api = React.useMemo(() => withFrappeApi(c), [c]);
   const metaRef = React.useRef(f.meta);
   metaRef.current = f.meta;
+  // key → document name of every row shown so far (selection survives paging); reset per DocType
+  const effectiveRowKey = (rowKey ?? data.rowKey) as (row: T) => string;
+  const nameByKey = React.useMemo(() => new Map<string, string>(), [doctype]); // eslint-disable-line react-hooks/exhaustive-deps
+  for (const r of (data.rows ?? []) as T[]) {
+    const n = (r as { name?: unknown }).name;
+    if (n !== undefined && n !== null && n !== "") nameByKey.set(effectiveRowKey(r), String(n));
+  }
   // bulk gates: the user's rights on the DocType (Desk's `frm.perm`); the `permissions` prop overrides
   const perms = usePermissions(f.bundle);
   const { t, language } = useLocale();
@@ -130,20 +148,25 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
     // Desk hides Edit / Submit / Cancel / Delete and adds the workflow's actions when the DocType has an active Workflow
     // (frappe.model.has_workflow, list_view.js:1806, 1881-1886, 2111-2125) — read from getdoctype's `__workflow_docs`
     const hasWorkflow = bulk?.hasWorkflow ?? !!perms.workflow;
-    return (ctx: { keys: string[]; rows: T[]; clear: () => void }) => (
+    return (ctx: { keys: string[]; rows: T[]; clear: () => void }) => {
+      // every server request gets document names, never the UI row keys (custom `rowKey`)
+      const { names, missing } = documentNamesForKeys(ctx.keys, nameByKey);
+      if (missing.length) return <><p className="text-sm text-muted-foreground" role="status" data-testid="sf-bulk-unresolved">{t("listBulkUnresolved")}</p>{rest.renderBulkActions?.(ctx)}</>;
+      return (
       <>
         {bulk ? (
-          <FrappeBulkActions client={c} meta={meta} doctype={doctype} keys={ctx.keys} rows={ctx.rows} docMeta={f.bundle?.meta} roles={session?.roles} clear={ctx.clear} onBusy={setBulkBusy} onMessage={setBulkMessage}
+          <FrappeBulkActions client={c} meta={meta} doctype={doctype} keys={names} rows={ctx.rows} docMeta={f.bundle?.meta} roles={session?.roles} clear={ctx.clear} onBusy={setBulkBusy} onMessage={setBulkMessage}
             // Desk's Actions → Export: the exporter preset to "by_filter" on the checked names (bulk_operations.js:463-474), in Desk's position
-            onExport={showExport ? () => setExporting({ names: ctx.keys }) : undefined} exportLabel={L.exportEntry}
+            onExport={showExport ? () => setExporting({ names }) : undefined} exportLabel={L.exportEntry}
             options={{ allowEdit: !!f.settings?.allow_edit, ...bulk, hasWorkflow, permissions: bulk.permissions ?? ((p) => perms.can(p)) }} />
         ) : showExport ? (
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setExporting({ names: ctx.keys })}><Download className="h-4 w-4" /> {L.exportEntry}</Button>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setExporting({ names })}><Download className="h-4 w-4" /> {L.exportEntry}</Button>
         ) : null}
         {rest.renderBulkActions?.(ctx)}
       </>
-    );
-  }, [bulk, perms, f.meta, f.bundle, f.settings, c, doctype, rest.renderBulkActions, showExport, L.exportEntry, session?.roles]);
+      );
+    };
+  }, [bulk, perms, f.meta, f.bundle, f.settings, c, doctype, rest.renderBulkActions, showExport, L.exportEntry, session?.roles, nameByKey, t]);
   const server = typeof serverStorage === "object" ? serverStorage : serverStorage ? {} : null;
   const storage = React.useMemo(() => {
     if (rest.storage !== undefined || !server || !f.ready) return rest.storage;

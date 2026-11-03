@@ -87,7 +87,7 @@ export type { PrintSettingsInput, PrintCheck, PrintTaskSubscriber, MultiPdfOptio
 export { commonTransitionActions, bulkWorkflowApproval, workflowDocs, WORKFLOW_BULK_METHODS, WORKFLOW_BULK_SYNC_BELOW, WORKFLOW_BULK_MAX } from "./list/workflowBulk";
 export { FrappePrintDialog } from "./list/FrappePrintDialog";
 export type { FrappePrintDialogProps } from "./list/FrappePrintDialog";
-export { dataImportListUrl } from "./FrappeListView";
+export { dataImportListUrl, documentNamesForKeys } from "./FrappeListView";
 
 // 0.4.0 — Phase 27 C (import27): Data Import preview, column mapping, server-confirmed completion.
 export { FrappeDataImport } from "./list/FrappeDataImport";
