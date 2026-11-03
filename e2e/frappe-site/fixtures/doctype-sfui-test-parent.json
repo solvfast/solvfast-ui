@@ -1,0 +1,437 @@
+{
+ "doctype": "DocType",
+ "name": "SFUI Test Parent",
+ "module": "SFUI Test",
+ "custom": 1,
+ "is_submittable": 1,
+ "track_changes": 1,
+ "track_seen": 1,
+ "title_field": "title",
+ "search_fields": "title,status",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "show_title_field_in_link": 1,
+ "autoname": "format:SFUI-PAR-{####}",
+ "allow_rename": 1,
+ "max_attachments": 3,
+ "fields": [
+  {
+   "fieldname": "tab_main",
+   "fieldtype": "Tab Break",
+   "label": "Main"
+  },
+  {
+   "fieldname": "sec_basics",
+   "fieldtype": "Section Break",
+   "label": "Basics"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "in_list_view": 1,
+   "bold": 1,
+   "length": 140
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nOpen\nClosed",
+   "default": "Draft",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "contact",
+   "fieldtype": "Link",
+   "label": "Contact",
+   "options": "SFUI Test Contact",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "contact_email",
+   "fieldtype": "Data",
+   "label": "Contact Email",
+   "options": "Email",
+   "fetch_from": "contact.email_id",
+   "read_only": 1
+  },
+  {
+   "fieldname": "contact_name_if_empty",
+   "fieldtype": "Data",
+   "label": "Contact Name If Empty",
+   "fetch_from": "contact.contact_name",
+   "fetch_if_empty": 1
+  },
+  {
+   "fieldname": "ref_type",
+   "fieldtype": "Link",
+   "label": "Ref Type",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "ref_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Ref Name",
+   "options": "ref_type"
+  },
+  {
+   "fieldname": "owner_user",
+   "fieldtype": "Link",
+   "label": "Owner User",
+   "options": "User",
+   "default": "__user"
+  },
+  {
+   "fieldname": "col_dates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Due Date",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "starts_at",
+   "fieldtype": "Datetime",
+   "label": "Starts At"
+  },
+  {
+   "fieldname": "at_time",
+   "fieldtype": "Time",
+   "label": "At Time"
+  },
+  {
+   "fieldname": "work_duration",
+   "fieldtype": "Duration",
+   "label": "Work Duration"
+  },
+  {
+   "fieldname": "sec_numbers",
+   "fieldtype": "Section Break",
+   "label": "Numbers"
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "label": "Qty"
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Float",
+   "label": "Rate",
+   "precision": "3"
+  },
+  {
+   "fieldname": "pct",
+   "fieldtype": "Percent",
+   "label": "Pct"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "options": "currency_code",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "currency_code",
+   "fieldtype": "Link",
+   "label": "Currency Code",
+   "options": "Currency",
+   "default": "USD"
+  },
+  {
+   "fieldname": "amount_default_currency",
+   "fieldtype": "Currency",
+   "label": "Amount Default Currency"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Is Active",
+   "default": "1"
+  },
+  {
+   "fieldname": "star_rating",
+   "fieldtype": "Rating",
+   "label": "Star Rating"
+  },
+  {
+   "fieldname": "color",
+   "fieldtype": "Color",
+   "label": "Color"
+  },
+  {
+   "fieldname": "sec_text",
+   "fieldtype": "Section Break",
+   "label": "Text"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "body",
+   "fieldtype": "Text Editor",
+   "label": "Body"
+  },
+  {
+   "fieldname": "long_text",
+   "fieldtype": "Text",
+   "label": "Long Text"
+  },
+  {
+   "fieldname": "code_block",
+   "fieldtype": "Code",
+   "label": "Code Block",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "website",
+   "fieldtype": "Data",
+   "label": "Website",
+   "options": "URL"
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "person_name",
+   "fieldtype": "Data",
+   "label": "Person Name",
+   "options": "Name"
+  },
+  {
+   "fieldname": "secret",
+   "fieldtype": "Password",
+   "label": "Secret"
+  },
+  {
+   "fieldname": "attach",
+   "fieldtype": "Attach",
+   "label": "Attach"
+  },
+  {
+   "fieldname": "attach_image",
+   "fieldtype": "Attach Image",
+   "label": "Attach Image"
+  },
+  {
+   "fieldname": "tab_rules",
+   "fieldtype": "Tab Break",
+   "label": "Rules"
+  },
+  {
+   "fieldname": "sec_rules",
+   "fieldtype": "Section Break",
+   "label": "Dependencies"
+  },
+  {
+   "fieldname": "test_field",
+   "fieldtype": "Data",
+   "label": "Test Field"
+  },
+  {
+   "fieldname": "dependant_field",
+   "fieldtype": "Data",
+   "label": "Dependant Field",
+   "mandatory_depends_on": "eval:doc.test_field=='Some Value'",
+   "read_only_depends_on": "eval:doc.test_field=='Some Other Value'"
+  },
+  {
+   "fieldname": "display_dependant_field",
+   "fieldtype": "Data",
+   "label": "Display Dependant Field",
+   "depends_on": "eval:doc.test_field=='Value'"
+  },
+  {
+   "fieldname": "plain_dep_flag",
+   "fieldtype": "Check",
+   "label": "Plain Dep Flag"
+  },
+  {
+   "fieldname": "plain_dep_field",
+   "fieldtype": "Data",
+   "label": "Plain Dep Field",
+   "depends_on": "plain_dep_flag"
+  },
+  {
+   "fieldname": "user_type_probe",
+   "fieldtype": "Select",
+   "label": "User Type Probe",
+   "options": "\nSystem User\nWebsite User\nOther"
+  },
+  {
+   "fieldname": "globals_probe",
+   "fieldtype": "Data",
+   "label": "Globals Probe",
+   "depends_on": "eval:in_list(['System User', 'Website User'], doc.user_type_probe) && cint(doc.plain_dep_flag) == 0"
+  },
+  {
+   "fieldname": "sec_collapsible",
+   "fieldtype": "Section Break",
+   "label": "Collapsible",
+   "collapsible": 1,
+   "collapsible_depends_on": "plain_dep_flag"
+  },
+  {
+   "fieldname": "collapsed_field",
+   "fieldtype": "Data",
+   "label": "Collapsed Field"
+  },
+  {
+   "fieldname": "tab_dependent",
+   "fieldtype": "Tab Break",
+   "label": "Dependent Tab",
+   "depends_on": "eval:doc.test_field=='Show Tab'"
+  },
+  {
+   "fieldname": "sec_dep_tab",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "field_in_tab",
+   "fieldtype": "Data",
+   "label": "Field In Tab"
+  },
+  {
+   "fieldname": "tab_permissions",
+   "fieldtype": "Tab Break",
+   "label": "Permissions and flags"
+  },
+  {
+   "fieldname": "sec_flags",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "set_once",
+   "fieldtype": "Data",
+   "label": "Set Once",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "level1_field",
+   "fieldtype": "Data",
+   "label": "Level1 Field",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "unique_code",
+   "fieldtype": "Data",
+   "label": "Unique Code",
+   "unique": 1
+  },
+  {
+   "fieldname": "short_code",
+   "fieldtype": "Data",
+   "label": "Short Code",
+   "length": 5
+  },
+  {
+   "fieldname": "non_negative_qty",
+   "fieldtype": "Int",
+   "label": "Non Negative Qty",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "allowed_after_submit",
+   "fieldtype": "Small Text",
+   "label": "Allowed After Submit",
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "hidden_static",
+   "fieldtype": "Data",
+   "label": "Hidden Static",
+   "hidden": 1
+  },
+  {
+   "fieldname": "virtual_note",
+   "fieldtype": "Data",
+   "label": "Virtual Note",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tab_tables",
+   "fieldtype": "Tab Break",
+   "label": "Tables"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "SFUI Test Child"
+  },
+  {
+   "fieldname": "tags",
+   "fieldtype": "Table MultiSelect",
+   "label": "Tags",
+   "options": "SFUI Test Tag Row"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "SFUI Test Parent",
+   "no_copy": 1,
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "SFUI Tester",
+   "permlevel": 0,
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1,
+   "select": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "role": "SFUI Tester",
+   "permlevel": 1,
+   "read": 1,
+   "write": 1
+  },
+  {
+   "role": "SFUI Reader",
+   "permlevel": 0,
+   "read": 1,
+   "select": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "SFUI Approver",
+   "permlevel": 0,
+   "read": 1,
+   "write": 1,
+   "select": 1,
+   "submit": 1
+  }
+ ]
+}
