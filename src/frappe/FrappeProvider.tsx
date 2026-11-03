@@ -13,6 +13,7 @@ import { QueryClient, QueryClientContext, QueryClientProvider } from "@tanstack/
 import { createFrappeClient, FrappeError, withFrappeApi, type FrappeApi, type FrappeClient } from "./client";
 import type { FrappeMessage } from "./contract";
 import { FrappeMessagesProvider } from "./feedback/messages";
+import type { FrappeBoot } from "./services/boot";
 import type { FormatContext } from "./services/format";
 import type { FrappeSession } from "./services/permissions";
 import type { TranslationDictionary } from "./services/translate";
@@ -77,22 +78,35 @@ export interface FrappeProviderProps {
    * `useFrappeMessages`; false renders no host (an outer FrappeProvider's, if any, is used).
    */
   serverMessages?: "show" | "host" | false;
+  /**
+   * What the page's server render injected (`readFrappeBoot()`): fills `session`, `translations` and `formatContext`
+   * when those props are not given, and — when no `client` is given — the default client's CSRF token and comment
+   * identity. Explicit props win.
+   */
+  boot?: FrappeBoot;
   /** Route alert messages (`alert: 1`, e.g. "Saved") elsewhere, e.g. to `toast()` from "@solvfast/ui/toast". Default:
    *  the built-in alert region. */
   onAlert?: (message: FrappeMessage) => void;
   children: React.ReactNode;
 }
 
-export function FrappeProvider({ client, queryClient, session, translations, formatContext, serverMessages = "show", onAlert, children }: FrappeProviderProps) {
+export function FrappeProvider({ client, queryClient, session, translations, formatContext, boot, serverMessages = "show", onAlert, children }: FrappeProviderProps) {
   const existing = React.useContext(QueryClientContext);
   const [own] = React.useState(() => queryClient ?? (existing ? undefined : createFrappeQueryClient()));
   // one FrappeApi per client: hooks (useFrappeApi) and the server-message subscription then share the same object,
   // also for a 0.3-style custom client (withFrappeApi wraps it once); it still implements FrappeClient
-  const value = React.useMemo(() => withFrappeApi(client ?? createFrappeClient()), [client]);
+  const value = React.useMemo(
+    () => withFrappeApi(client ?? createFrappeClient(boot ? { csrfToken: boot.csrfToken, session: { user: boot.session.user, fullName: boot.session.fullName } } : {})),
+    [client, boot],
+  );
   const outer = React.useContext(SettingsContext);
   const settings = React.useMemo(
-    () => ({ session: session ?? outer.session, translations: translations ?? outer.translations, formatContext: formatContext ?? outer.formatContext }),
-    [session, translations, formatContext, outer],
+    () => ({
+      session: session ?? boot?.session ?? outer.session,
+      translations: translations ?? boot?.translations ?? outer.translations,
+      formatContext: formatContext ?? boot?.formatContext ?? outer.formatContext,
+    }),
+    [session, translations, formatContext, boot, outer],
   );
   const source = serverMessages === "show" ? value : undefined;
   let inner = <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>;
