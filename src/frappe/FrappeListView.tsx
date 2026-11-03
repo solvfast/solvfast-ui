@@ -20,7 +20,7 @@ import { Button } from "../primitives/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/dropdown-menu";
 import { useFrappeSettings } from "./FrappeProvider";
 import { withFrappeApi } from "./client";
-import { canExport, canImport } from "./services/permissions";
+import { canImport } from "./services/permissions";
 import { FrappeExportDialog, type ExportDialogLabels } from "./list/FrappeExportDialog";
 
 type Managed = "rows" | "columns" | "rowKey" | "mode" | "total" | "onStateChange" | "loading" | "error" | "onRetry" | "onLoadMore"
@@ -34,8 +34,11 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    * localStorage. An explicit `storage` prop wins. `user` (the session user) is required for saved filters.
    */
   /**
-   * Bulk actions (delete, submit, cancel, edit, assign) in the selection bar, each offered only when `permissions` allow
-   * it. Turns `selectable` on. Runs next to the app's own `bulkActions`.
+   * Desk's Actions in the selection bar, in Desk's order (`list_view.js:2088-2128`): Edit, Export, Assign To, Clear
+   * Assignment, Apply Assignment Rule, Add Tags, Print, Submit, Cancel, Delete, then the workflow's actions — each offered
+   * only when `permissions` allow it (Export always). Turns `selectable` on. Runs next to the app's own `bulkActions`.
+   * `bulk.print` passes the site's Print Settings and a background-print task subscriber; `bulk.hasWorkflow` defaults to
+   * the DocType's active Workflow (`__workflow_docs`).
    */
   bulk?: FrappeBulkOptions;
   /** Offers "Create your first {DocType}" in the empty list (Desk: only when the user may create). */
@@ -47,16 +50,26 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
   serverStorage?: boolean | { user?: string; savedFilters?: boolean; userSettings?: boolean; global?: boolean };
   /**
    * The list menu's "Import" (Desk `list_view.js:1703-1712`), offered only when `canImport` (DocType `allow_import` and
-   * System Manager or the level-0 `import` right — needs `session.roles`). Default: open Desk's Data Import tool for the
-   * DocType (`/app/data-import/new?reference_doctype=…`; Desk itself routes to the Data Import LIST, `:1706-1708`).
-   * `onImport` replaces the navigation (e.g. your own dialog over `startDataImport`).
+   * System Manager or the level-0 `import` right — needs `session.roles`), as Desk gates it. Default: Desk's Data Import
+   * LIST filtered on the DocType, `/app/data-import?reference_doctype=…` — Desk's `set_route("list", "data-import",
+   * {reference_doctype})` keeps the object in `frappe.route_options` and pushes `/app/data-import` (`router.js:431-440`,
+   * `:466-472`); from outside Desk the same options travel as the query string, which Desk reads back into
+   * `route_options` (`router.js:548-566`). `onImport` replaces the navigation (e.g. your own dialog over `startDataImport`).
    */
   onImport?: () => void;
-  /** Turn the menu entries off: `{ import: false }`, `{ export: false }`, or `false` for both. Default: both, gated by permissions. */
+  /**
+   * Turn the menu entries off: `{ import: false }`, `{ export: false }`, or `false` for both. Default: Import gated by
+   * `canImport`; Export ALWAYS offered, as Desk does (`list_view.js:2075-2092`, owner decision Phase 27 #1) — the server
+   * refuses a user without the right (`exporter.py:116-126`) and the dialog shows that refusal. An app that prefers to
+   * hide it can pass `menu={{ export: canExport(roles, levels[0]) }}`.
+   */
   menu?: boolean | { import?: boolean; export?: boolean };
-  /** Labels of the Import / Export entries and the Export dialog (English by default). */
+  /** Labels of the Import / Export entries (default: the message catalogue) and of the Export dialog (English by default). */
   ioLabels?: Partial<ExportDialogLabels & { importEntry: string; exportEntry: string; moreActions: string }>;
 }
+
+/** Desk's Import route as a URL: the Data Import list with `reference_doctype` as a route option (`router.js:548-566`). */
+export const dataImportListUrl = (doctype: string) => `/app/data-import?reference_doctype=${encodeURIComponent(doctype)}`;
 
 export function FrappeListView<T = Record<string, unknown>>(props: FrappeListViewProps<T>) {
   const hasQueryClient = React.useContext(QueryClientContext);
@@ -79,16 +92,19 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   const [bulkMessage, setBulkMessage] = React.useState("");
   useListRealtime({ port: realtime, doctype, enabled: !f.settings?.disable_auto_refresh, isLargeTable: f.meta?.isLargeTable, suppressed: selectedCount > 0 || bulkBusy, debounceMs: realtimeDebounceMs });
 
-  // Import / Export (docs/release/LISTVIEW-FRAPPE-PARITY.md). Gates are Desk's client checks (model.js:434-450) from the
-  // session roles + the DocType's DocPerm rows; the server decides anyway (data_import.py:59-75, exporter.py:116-126).
-  // Desk shows Export to everyone (list_view.js:2092) — the package hides it without the right (Phase 26 rule D.1).
+  // Import / Export (docs/release/LISTVIEW-FRAPPE-PARITY.md). Import keeps Desk's client gate (model.js:434-442 via
+  // list_view.js:1703); the server decides anyway (data_import.py:59-75). Export is offered to everyone, exactly as Desk
+  // pushes it unconditionally (list_view.js:2075-2092) — owner decision Phase 27 #1, reversing the Phase 26 rule D.1
+  // gate: the server is the authority (exporter.py:116-126 `can_export`) and FrappeExportDialog shows its refusal as a
+  // permission error (FrappeErrorState), with no file and no success.
   const { session } = useFrappeSettings();
   const menuOn = menu === false ? { import: false, export: false } : { import: true, export: true, ...(typeof menu === "object" ? menu : {}) };
   const showImport = menuOn.import !== false && canImport(f.bundle?.meta, session?.roles, perms.levels[0]);
-  const showExport = menuOn.export !== false && !!f.bundle && canExport(session?.roles, perms.levels[0]);
+  const showExport = menuOn.export !== false && !!f.bundle;
   const [exporting, setExporting] = React.useState<{ names?: string[] } | null>(null);
-  const L = { importEntry: "Import", exportEntry: "Export", moreActions: "More actions", ...ioLabels };
-  const doImport = onImport ?? (() => { if (typeof location !== "undefined") location.assign(`/app/data-import/new?reference_doctype=${encodeURIComponent(doctype)}`); });
+  const L = { importEntry: t("listMenuImport"), exportEntry: t("listBulkExport"), moreActions: t("listMenuMore"), ...ioLabels };
+  // Desk: frappe.set_route("list", "data-import", { reference_doctype }) — the Data Import LIST (list_view.js:1703-1712)
+  const doImport = onImport ?? (() => { if (typeof location !== "undefined") location.assign(dataImportListUrl(doctype)); });
   const menuNode = showImport || showExport ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -104,18 +120,23 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   const renderBulk = React.useMemo(() => {
     if ((!bulk && !showExport) || !f.meta) return rest.renderBulkActions;
     const meta = f.meta;
+    // Desk hides Edit / Submit / Cancel / Delete and adds the workflow's actions when the DocType has an active Workflow
+    // (frappe.model.has_workflow, list_view.js:1806, 1881-1886, 2111-2125) — read from getdoctype's `__workflow_docs`
+    const hasWorkflow = bulk?.hasWorkflow ?? !!perms.workflow;
     return (ctx: { keys: string[]; rows: T[]; clear: () => void }) => (
       <>
-        {bulk && <FrappeBulkActions client={c} meta={meta} doctype={doctype} keys={ctx.keys} clear={ctx.clear} onBusy={setBulkBusy} onMessage={setBulkMessage}
-          options={{ allowEdit: !!f.settings?.allow_edit, ...bulk, permissions: bulk.permissions ?? ((p) => perms.can(p)) }} />}
-        {showExport && (
-          // Desk's Actions → Export: the exporter preset to "by_filter" on the checked names (bulk_operations.js:463-474)
+        {bulk ? (
+          <FrappeBulkActions client={c} meta={meta} doctype={doctype} keys={ctx.keys} rows={ctx.rows} docMeta={f.bundle?.meta} roles={session?.roles} clear={ctx.clear} onBusy={setBulkBusy} onMessage={setBulkMessage}
+            // Desk's Actions → Export: the exporter preset to "by_filter" on the checked names (bulk_operations.js:463-474), in Desk's position
+            onExport={showExport ? () => setExporting({ names: ctx.keys }) : undefined} exportLabel={L.exportEntry}
+            options={{ allowEdit: !!f.settings?.allow_edit, ...bulk, hasWorkflow, permissions: bulk.permissions ?? ((p) => perms.can(p)) }} />
+        ) : showExport ? (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setExporting({ names: ctx.keys })}><Download className="h-4 w-4" /> {L.exportEntry}</Button>
-        )}
+        ) : null}
         {rest.renderBulkActions?.(ctx)}
       </>
     );
-  }, [bulk, perms, f.meta, f.settings, c, doctype, rest.renderBulkActions, showExport, L.exportEntry]);
+  }, [bulk, perms, f.meta, f.bundle, f.settings, c, doctype, rest.renderBulkActions, showExport, L.exportEntry, session?.roles]);
   const server = typeof serverStorage === "object" ? serverStorage : serverStorage ? {} : null;
   const storage = React.useMemo(() => {
     if (rest.storage !== undefined || !server || !f.ready) return rest.storage;

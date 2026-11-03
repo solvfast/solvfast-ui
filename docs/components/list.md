@@ -47,7 +47,7 @@ Works without a provider too (it creates one with the default same-origin client
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
 | `realtime` / `realtimeDebounceMs` | Reload on `list_update` (section 7). |
-| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right) and **Export** (when `canExport`). `onImport` replaces the default navigation to Desk's Data Import (`/app/data-import/new?reference_doctype=…`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
+| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right, as Desk's `list_view.js:1703`) and **Export** (always, as Desk — the server refuses without the right). `onImport` replaces the default navigation to Desk's Data Import **list** filtered on the DocType (`/app/data-import?reference_doctype=…`, Desk's `set_route("list","data-import",{reference_doctype})`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
 | `onCreate` | Offers "Create your first {DocType}" in the empty list. Empty states follow Desk (`list_view.js:497-537`): "You haven't created a {DocType} yet" (+ the create action) when nothing exists; "No {DocType} found with matching filters" (+ Clear filters) when filters or search hide everything. |
 | `belowToolbar` | A node between the toolbar and the table (e.g. state chips). |
 | `rowKey`, `client`, `fiscalYears`, `storage`, … | `rowKey` default `row.name`. `storage` (explicit) wins over `serverStorage`. |
@@ -198,34 +198,60 @@ its value. With `columnLimit`, a DocType with an indicator spends Desk's Status 
 ```tsx
 <FrappeListView doctype="ToDo" bulk={{}} />                                   // gates from usePermissions
 <FrappeListView doctype="ToDo" bulk={{ permissions: { read: true, delete: true }, only: ["delete"] }} />   // explicit override
+<FrappeListView doctype="Sales Invoice" bulk={{ print: { settings: boot.print_settings, subscribeTask } }} />  // Print Settings from your boot
 ```
 
-Shown in the selection bar, which sits above the table (sticky) so it never scrolls away. The gate is `usePermissions(bundle).can()` (session roles + the DocType's permissions); the `permissions` prop (a rights map or `can(ptype)`) overrides it. **No rights → no actions.**
+Desk's Actions menu (`list_view.js:1855-2128`) as buttons in the selection bar, which sits above the table (sticky) so it never scrolls away, **in Desk's
+order** (`:2088-2128`, workflow last `:163-168`). The gate is `usePermissions(bundle).can()` (session roles + the DocType's permissions); the `permissions` prop
+(a rights map or `can(ptype)`) overrides it. **No rights → no actions** (Export excepted, as in Desk). Phase 27 (SIMULATED tests only: `tests/list-actions.test.tsx`).
 
 | Action | Shown when | Endpoint |
 |---|---|---|
 | Edit | an editable field exists, `write`, and no workflow (or `allow_edit`) | `frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs` (`action: "update"`, `data: {field: value}`) |
-| Submit / Cancel | submittable, `submit` / `cancel`, no workflow | same, `action: "submit"` / `"cancel"` |
+| Export | always (Desk, `:2092`; section 6a) | opens the Export dialog on the checked names |
 | Assign to | `read` (Desk offers it to everyone, `list_view.js:2095`; the server requires read on each document, `assign_to.py:67-68`) | `frappe.desk.form.assign_to.add_multiple` (`bulk_assign`, `re_assign`); user picked with `AssignPicker` (searches `search_link` on `User`) with comment, due date, priority |
+| Clear Assignment | `read` (Desk: everyone, `:2097`) — confirms with Desk's "Are you sure you want to clear the assignments?" | `frappe.desk.form.assign_to.remove_multiple` (`names`, and Desk's `ignore_permissions: true` — the server then checks no permission; at most 5 open assignments per document are cancelled, `assign_to.py:25-38, 182-192`) |
+| Apply Assignment Rule | `read` (Desk: everyone, `:2099`); no confirmation | `frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply` (more than 5 → one background job per document; no rule → nothing happens) |
+| Add Tags | `read` (Desk: everyone, `:2101`) — dialog with `TagInput` over `search_link` on `Tag`; a new tag is accepted (the server creates the Tag) | `frappe.desk.doctype.tag.tag.add_tags` (`tags`, `dt`, `docs`) |
+| Print | level-0 `print` (`frappe.model.can_print`, `model.js:452-455`) | see below |
+| Submit / Cancel | submittable, `submit` / `cancel`, no workflow | `submit_cancel_or_update_docs`, `action: "submit"` / `"cancel"` |
 | Delete | `delete`, and no workflow (or `allow_edit`) | `frappe.desk.reportview.delete_items` (more than 10 are enqueued by the server) |
+| Workflow ▾ | the DocType has an active Workflow (`__workflow_docs`; `bulk.hasWorkflow` overrides) and `read` | each opening asks `frappe.model.workflow.get_common_transition_actions` (the checked rows, owner included) and lists the server's answer (none → nothing to run); an action → `frappe.model.workflow.bulk_workflow_approval` (< 20 in the request, 20–500 enqueued, > 500 refused by the server) |
 
-Destructive actions confirm. The outcome line ("N succeeded, M failed" / "queued, will run in the background") is shown under the list; the list reloads and the selection clears unless
-everything failed. For 20–500 submit/cancel documents the server enqueues and answers nothing: treated as *queued* (UNVERIFIED at runtime). `onDone`/`onError` report each action.
-Delete (`delete_items`) answers nothing — failures arrive as a realtime msgprint (`reportview.py:608-616`) — so the bar says "N requested — the server reports
-failures in its messages" and never "0 failed". When the server answers with failed names (`submit_cancel_or_update_docs`), the line reads "N succeeded, M failed: B, D" — the server's names, never a plain
-success line; a 403 shows the server's message and changes nothing (no reload, no cache change).
-**Not offered:** Print, Clear Assignment, Apply Assignment Rule, Add Tags, workflow bulk approval. **Export** is in the selection bar (section 6a).
+**Print** (`list/print.ts`, `list/FrappePrintDialog.tsx`; Desk `bulk_operations.js:7-167`). Before the dialog, Desk's filter (`checkPrintable`): for a submittable DocType only
+submitted documents, drafts / cancelled only when Print Settings allow them, anything for the Administrator role; none → "Select at least 1 record"; more
+than 500 → refused. **This filter matters:** the server's synchronous path silently leaves out every document it refuses (`print_format.py:145-147`), so a
+wrong selection would give a PDF with pages missing, not an error. Desk reads Print Settings from boot; most users cannot read them, so pass them as
+`bulk.print.settings` (`allow_print_for_draft`, `allow_print_for_cancelled`, `pdf_page_size`, `enable_raw_printing`); without them the DocType's defaults
+apply (drafts allowed, cancelled not). The dialog: Letter Head (`frappe.client.get_list("Letter Head")`, default first, "No Letterhead"), Print Format
+(getdoctype's `__print_formats`, "Standard", the DocType's default first; no JS formats; raw formats only with `enable_raw_printing`), Page Size ("Custom" →
+height / width in mm, both > 0), Background Print (forced above 25). Sync: `api.download("frappe.utils.print_format.download_multi_pdf", {doctype, name, format,
+no_letterhead, letterhead, options})` — the server's PDF handed to the browser (`saveFile`), a refusal shown in the dialog. Background:
+`download_multi_pdf_async` → `{task_id}`; the link arrives on realtime `task_complete:<task_id>`, which the contract's `RealtimePort` does not carry — pass
+`bulk.print.subscribeTask(taskId, onComplete)` (e.g. over your Socket.IO client) and the dialog offers "Download PDF" with the server's `file_url`; without it
+the dialog says the job is queued (the server saves the PDF as a private File) — **NOT REPRODUCED** beyond that.
 
-Functions: `bulkMenu`, `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`; component `FrappeBulkActions`.
+**Outcome line** (under the list): what the server answered, never more. `submit_cancel_or_update_docs` answers the failed names: "N succeeded, M failed: B, D".
+Methods that answer nothing per document — delete, clear assignment, assignment rule, tags, workflow approval — say "Action: N requested — the server reports
+failures in its messages" (`listBulkRequested`); an enqueued job says "queued, will run in the background". The list reloads and the selection clears unless
+everything failed; a refusal (403 …) shows the server's message and changes nothing. `onDone(kind, outcome, names, action?)` / `onError(error, kind)` report each action.
+
+Functions: `listActionsMenu` (every item, Desk order), `bulkMenu` (the five dev.26 kinds), `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`,
+`bulkClearAssignment`, `bulkApplyAssignmentRule`, `bulkAddTags`, `commonTransitionActions`, `bulkWorkflowApproval`, `workflowDocs`, `checkPrintable`,
+`printFormatOptions`, `letterheadOptions`, `pdfOptions`, `downloadMultiPdf`, `downloadMultiPdfAsync`; components `FrappeBulkActions`, `FrappePrintDialog`.
+Messages: the `frappe:list` block of `src/theme/messages.ts` (en + ar).
 
 ### 6a. Import and Export (Phase 26) — server-authorised, SIMULATED only
 
 Full parity table and verdict: `docs/release/LISTVIEW-FRAPPE-PARITY.md`. Nothing here has run against a site (Import writes; Export is an unapproved read).
 
-**Gates** (`services/permissions.ts`, Desk's `model.js:434-450`): `canImport(meta, roles, levels[0])` — `allow_import` AND (System Manager OR level-0 `import`);
-`canExport(roles, levels[0])` — System Manager OR level-0 `export`. Both need `session.roles`; without them nothing is offered. Import is a DocType-level right:
-never read it off a document's `docinfo` (the server forces it to 0). **Departure from Desk:** Desk's list shows Export to everyone (`list_view.js:2092`) and
-lets the server refuse; the package hides it (Phase 26 rule D.1). The server decides either way (`exporter.py:116-126`, `data_import.py:59-75`).
+**Gates.** Import: `canImport(meta, roles, levels[0])` (`services/permissions.ts`, Desk's `model.js:434-442`) — `allow_import` AND (System Manager OR
+level-0 `import`); needs `session.roles` (without them Import is not offered). Import is a DocType-level right: never read it off a document's `docinfo`
+(the server forces it to 0). **Export has no client gate** — Desk pushes it unconditionally (`list_view.js:2075-2092`) and so does the package (Phase 27
+owner decision #1, reversing Phase 26 rule D.1). A user without the right can open the dialog; the server refuses (`exporter.py:116-126` `can_export`) and
+the dialog shows the refusal as `FrappeErrorState` (kind permission) — no file, no success. `canExport(roles, levels[0])` (System Manager OR level-0
+`export`) stays exported for an app that prefers to hide the entry: `menu={{ export: canExport(roles, levels[0]) }}`. The server decides either way
+(`exporter.py:116-126`, `data_import.py:59-75`).
 
 **Export** (`list/export.ts`, `list/FrappeExportDialog.tsx`): Desk's Data Exporter dialog (`data_exporter.js`) — file type Excel / CSV, export type All /
 Filtered (the list's current filters) / Selected (`[doctype, "name", "in", names]` from the selection bar, `bulk_operations.js:463-474`) / 5 records / Blank
@@ -299,12 +325,12 @@ Custom cells can use `useListActions().applyCondition(field, operator, value)` t
 
 ## 9. Known limitations (not reproduced)
 
-- The width-based column cap and URL filters are opt-in (`columnLimit`, `urlFilters`); the default 90-day recency filter on large tables; List View Settings editing.
-- Nested-set operators need the app to name tree Link targets the page has no meta for (`treeDoctypes`); they filter nothing in client mode. The group-by sidebar with server counts (`get_group_by_count`), tag stats (`get_sidebar_stats`) and "assigned to me" counters.
+- The width-based column cap and URL filters are opt-in options of `useFrappeList` / `FrappeListView` (`columnLimit`, `urlFilters`); the default 90-day recency filter on large tables; List View Settings editing.
+- Nested-set operators need the app to name tree Link targets the page has no meta for (`treeDoctypes`); they filter nothing in client mode. The group-by sidebar with server counts (`get_group_by_count`), tag stats (`get_sidebar_stats`) and "assigned to me" counters are not reproduced.
 - URL filters: the package keeps non-filter query parameters (Desk replaces the whole string); OR queries, search text and sort are not written.
-- Other bulk actions (section 6: Print, Clear Assignment, Assignment Rule, Add Tags, workflow approval); the Report view itself, Kanban, Calendar and the other Desk views (the CRM keeps its own for those). Its export exists (section 6b) without the CSV preview, totals row or group-by aggregates; it writes an Access Log on a site (BLOCKED for verification).
+- Bulk actions are buttons in the selection bar, not Desk's Actions dropdown; Print's background completion (`task_complete`) needs a host `subscribeTask`, and its draft / cancelled filter needs the site's Print Settings from the host. The Report view itself, Kanban, Calendar and the other Desk views are not reproduced (the CRM keeps its own); report-view export (`export_query`) is available as `downloadReportExport` / `FrappeReportExportDialog`.
 - Import: the preview grid, column mapper and import-log table of Desk's Data Import form (functions only, section 6a); progress is polled, not realtime.
-- Export: the in-dialog filter editor and record-count message; Export hidden without the `export` right where Desk shows it to everyone.
+- Export: the in-dialog filter editor and record-count message.
 - Permlevel columns are dropped only when the session's roles are known; without them the header of an unreadable field is still offered (the server strips the values).
 - Saved filters cannot store OR conjunctions. Realtime is a full reload, not Desk's by-name refresh.
 - Owner columns resolve names through a `User` read; a site that hides the User list shows ids.

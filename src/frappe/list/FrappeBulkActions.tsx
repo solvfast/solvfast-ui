@@ -1,67 +1,110 @@
 /**
- * The list's Actions: delete, submit, cancel, edit, assign (docs 13 §3), as the content of the generic bar
- * (`renderBulkActions`). Destructive ones confirm; the outcome (succeeded / failed / queued) is announced in the bar and
- * the list reloads. Gated by `bulkMenu` (permissions + workflow rules). `onBusy` lets the list pause realtime refresh.
+ * The list's Actions (docs 13 §3), as the content of the generic bar (`renderBulkActions`), in Desk's order
+ * (`list_view.js:2088-2128`, workflow last `:163-168`): Edit, Export, Assign To, Clear Assignment, Apply Assignment Rule,
+ * Add Tags, Print, Submit, Cancel, Delete, Workflow. Destructive ones confirm; the outcome is announced through
+ * `onMessage` and the list reloads. Gated by `bulkMenu` (permissions + workflow rules). `onBusy` lets the list pause
+ * realtime refresh (Desk's `disable_list_update`).
+ *
+ * Outcome wording follows what the SERVER answers: a list of failed names (`submit_cancel_or_update_docs`) is shown as
+ * is; a method that answers nothing per document (`silent`: delete, clear assignment, assignment rule, tags, workflow)
+ * says "N requested — the server reports failures in its messages", never a success count; `queued` says so.
  */
 import * as React from "react";
-import { Pencil, Send, Trash2, UserPlus, Ban } from "lucide-react";
+import { Ban, ChevronDown, Download, Pencil, Printer, Send, Shuffle, Tags, Trash2, UserMinus, UserPlus, Workflow } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../primitives/alert-dialog";
 import { Button } from "../../primitives/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../primitives/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../primitives/dropdown-menu";
 import { Input } from "../../primitives/input";
 import { AssignPicker } from "../../record";
+import { TagInput } from "../../fields/TagInput";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { useLocale } from "../../theme/ThemeProvider";
-import type { FrappeClient } from "../client";
+import { withFrappeApi, type FrappeClient } from "../client";
+import type { DocTypeMeta } from "../contract";
+import { useFrappeSettings } from "../FrappeProvider";
 import type { FrappeListMeta } from "../meta";
 import { invalidateFrappeList } from "../useFrappeList";
-import { bulkAssign, bulkDelete, bulkMenu, bulkSubmitCancelOrUpdate, type BulkKind, type BulkOutcome, type BulkPermissions } from "./bulk";
+import {
+  bulkAddTags, bulkApplyAssignmentRule, bulkAssign, bulkClearAssignment, bulkDelete, bulkSubmitCancelOrUpdate, listActionsMenu,
+  type BulkOutcome, type BulkPermissions, type ListActionKind,
+} from "./bulk";
+import { checkPrintable, MAX_PRINT_LIMIT, type PrintSettingsInput, type PrintTaskSubscriber } from "./print";
+import { FrappePrintDialog } from "./FrappePrintDialog";
+import { bulkWorkflowApproval, commonTransitionActions, workflowDocs } from "./workflowBulk";
 
 export interface FrappeBulkOptions {
   /** The user's rights on the DocType (`usePermissions().levels[0]` or `can`). Without it no action is offered. */
   permissions?: BulkPermissions;
-  /** The DocType has a Workflow (Desk hides Edit / Delete / Submit / Cancel then). */
+  /** The DocType has a Workflow (Desk hides Edit / Delete / Submit / Cancel then, and adds the workflow's actions).
+   *  `FrappeListView` reads it from the DocType's `__workflow_docs`; this overrides. */
   hasWorkflow?: boolean;
   /** List View Settings `allow_edit`. */
   allowEdit?: boolean;
   /** Offer only these. */
-  only?: BulkKind[];
-  /** After each action (also failures), e.g. for the app's own refresh or toast. */
-  onDone?: (kind: BulkKind, outcome: BulkOutcome, names: string[]) => void;
-  onError?: (error: unknown, kind: BulkKind) => void;
+  only?: ListActionKind[];
+  /**
+   * Bulk Print (`bulk_operations.js:7-167`). `settings`: the site's Print Settings (Desk has them in boot; most users
+   * cannot read them — pass them from your boot payload; default: the DocType defaults, drafts allowed, cancelled not).
+   * `subscribeTask`: wait for `task_complete:<task_id>` of a background print (the contract's RealtimePort has none).
+   */
+  print?: { settings?: PrintSettingsInput; subscribeTask?: PrintTaskSubscriber };
+  /** After each action (also failures), e.g. for the app's own refresh or toast. `action` is the workflow action's name. */
+  onDone?: (kind: ListActionKind, outcome: BulkOutcome, names: string[], action?: string) => void;
+  onError?: (error: unknown, kind: ListActionKind) => void;
 }
 
-const ICON = { delete: Trash2, submit: Send, cancel: Ban, edit: Pencil, assign: UserPlus } as const;
-const LABEL = { delete: "listBulkDelete", submit: "listBulkSubmit", cancel: "listBulkCancel", edit: "listBulkEdit", assign: "listBulkAssign" } as const;
+const ICON = { delete: Trash2, submit: Send, cancel: Ban, edit: Pencil, assign: UserPlus, export: Download, clear_assignment: UserMinus, assignment_rule: Shuffle, add_tags: Tags, print: Printer, workflow: Workflow } as const;
+const LABEL = {
+  delete: "listBulkDelete", submit: "listBulkSubmit", cancel: "listBulkCancel", edit: "listBulkEdit", assign: "listBulkAssign", export: "listBulkExport",
+  clear_assignment: "listBulkClearAssignment", assignment_rule: "listBulkAssignmentRule", add_tags: "listBulkAddTags", print: "listBulkPrint", workflow: "listBulkWorkflow",
+} as const;
+type Confirmable = "delete" | "submit" | "cancel" | "clear_assignment";
 
-export function FrappeBulkActions({ client, meta, doctype, keys, clear, options, onBusy, onMessage }: {
+export function FrappeBulkActions<T = Record<string, unknown>>({ client, meta, doctype, keys, rows, docMeta, roles, clear, options, onBusy, onMessage, onExport, exportLabel }: {
   client: FrappeClient; meta: FrappeListMeta; doctype: string; keys: string[]; clear: () => void; options: FrappeBulkOptions; onBusy?: (busy: boolean) => void;
+  /** The checked rows (`docstatus` for Print, the row objects for the workflow's common actions — Desk's `get_checked_items()`). */
+  rows?: T[];
+  /** The DocType's getdoctype meta: Print formats (`__print_formats`, `default_print_format`). */
+  docMeta?: DocTypeMeta;
+  /** Session roles (Print: Desk lets the Administrator role print drafts / cancelled). Default: the provider's session. */
+  roles?: readonly string[];
   /** The outcome line; the host shows it (the bar disappears once the selection is cleared). */
   onMessage?: (message: string) => void;
+  /** Offer Export in Desk's position (the host owns the dialog). Desk offers it to everyone (`list_view.js:2092`). */
+  onExport?: () => void;
+  exportLabel?: string;
 }) {
   const { t } = useLocale();
   const qc = useQueryClient();
-  const kinds = bulkMenu({ permissions: options.permissions, isSubmittable: meta.isSubmittable, hasWorkflow: !!options.hasWorkflow, allowEdit: !!options.allowEdit, hasEditableFields: meta.editable.length > 0 })
+  const { session } = useFrappeSettings();
+  const api = React.useMemo(() => withFrappeApi(client), [client]);
+  const kinds = listActionsMenu({ permissions: options.permissions, isSubmittable: meta.isSubmittable, hasWorkflow: !!options.hasWorkflow, allowEdit: !!options.allowEdit, hasEditableFields: meta.editable.length > 0, exportable: !!onExport })
     .filter((k) => !options.only || options.only.includes(k));
-  const [asking, setAsking] = React.useState<BulkKind | null>(null);
-  const [form, setForm] = React.useState<"edit" | null>(null);
-  const [busy, setBusy] = React.useState<BulkKind | null>(null);
+  const [asking, setAsking] = React.useState<Confirmable | null>(null);
+  const [form, setForm] = React.useState<"edit" | "add_tags" | null>(null);
+  const [busy, setBusy] = React.useState<ListActionKind | null>(null);
+  const [printing, setPrinting] = React.useState<string[] | null>(null);
   const setMessage = (m: string) => onMessage?.(m);
   const [field, setField] = React.useState(meta.editable[0]?.name ?? "");
   const [value, setValue] = React.useState("");
+  const [tags, setTags] = React.useState<string[]>([]);
+  const [wf, setWf] = React.useState<{ loading: boolean; actions: string[] }>({ loading: false, actions: [] });
+  const n = String(keys.length);
 
-  const run = async (kind: BulkKind, call: () => Promise<BulkOutcome>) => {
+  const run = async (kind: ListActionKind, call: () => Promise<BulkOutcome>, action?: string) => {
     setBusy(kind); setMessage(""); onBusy?.(true);
     try {
       const out = await call();
-      options.onDone?.(kind, out, keys);
+      options.onDone?.(kind, out, keys, action);
       // the server's own list of failed names (`submit_cancel_or_update_docs` answers it; bulk_update.py) is shown as is —
       // never a plain success line when some failed
       const result = t("listBulkResult").replace("{ok}", String(keys.length - out.failed.length)).replace("{failed}", String(out.failed.length));
-      // delete_items answers nothing (reportview.py:608-616: failures come as a realtime msgprint): never claim "0 failed"
-      const requested = `${t(LABEL[kind])}: ${keys.length} requested — the server reports failures in its messages.`;
-      setMessage(out.queued ? t("listBulkQueued") : kind === "delete" ? requested : out.failed.length ? `${result}: ${out.failed.join(", ")}` : result);
+      // methods that answer nothing per document (delete_items: reportview.py:608-616; remove_multiple; bulk_apply;
+      // add_tags; bulk_workflow_approval: workflow.py:309-328 sends the result by realtime): never claim "0 failed"
+      const requested = t("listBulkRequested").replace("{action}", action ?? t(LABEL[kind])).replace("{n}", n);
+      setMessage(out.queued ? t("listBulkQueued") : out.silent || kind === "delete" ? requested : out.failed.length ? `${result}: ${out.failed.join(", ")}` : result);
       if (out.failed.length < keys.length) { clear(); await invalidateFrappeList(qc, doctype); } // Desk refreshes unless everything failed
     } catch (e) {
       options.onError?.(e, kind);
@@ -69,20 +112,46 @@ export function FrappeBulkActions({ client, meta, doctype, keys, clear, options,
     } finally { setBusy(null); onBusy?.(false); }
   };
 
-  const confirmed = (kind: BulkKind) => {
+  const confirmed = (kind: Confirmable) => {
     setAsking(null);
     if (kind === "delete") void run(kind, () => bulkDelete(client, doctype, keys));
     else if (kind === "submit") void run(kind, () => bulkSubmitCancelOrUpdate(client, doctype, keys, "submit"));
     else if (kind === "cancel") void run(kind, () => bulkSubmitCancelOrUpdate(client, doctype, keys, "cancel"));
+    else if (kind === "clear_assignment") void run(kind, () => bulkClearAssignment(client, doctype, keys));
   };
   const editField = meta.editable.find((f) => f.name === field);
   const submitForm = () => {
     const f = form; setForm(null);
     if (f === "edit" && editField) void run("edit", () => bulkSubmitCancelOrUpdate(client, doctype, keys, "update", { [field]: value === "" ? null : editField.fieldtype === "Check" ? Number(value) : value }));
+    if (f === "add_tags" && tags.length) { const chosen = tags; setTags([]); void run("add_tags", () => bulkAddTags(client, doctype, keys, chosen)); }
+  };
+
+  // Print: Desk's checks before the dialog (bulk_operations.js:16-45) — the server would silently leave such documents
+  // out of the PDF (print_format.py:145-147), so a refused selection never reaches it
+  const startPrint = () => {
+    const check = checkPrintable(keys, (rows ?? []) as Array<{ name?: unknown; docstatus?: unknown }>, { isSubmittable: meta.isSubmittable, settings: options.print?.settings, roles: roles ?? session?.roles });
+    if (!check.ok) {
+      setMessage(check.reason === "draft_or_cancelled" ? t("listPrintDraftOrCancelled") : check.reason === "none" ? t("listPrintNone") : t("listPrintTooMany").replace("{n}", String(MAX_PRINT_LIMIT)));
+      return;
+    }
+    setMessage("");
+    setPrinting(check.names);
+  };
+
+  // Workflow: ask the server which actions apply to every checked document each time the menu opens (list_view.js:1426-1428, 1831-1853)
+  const loadWorkflowActions = async () => {
+    setWf({ loading: true, actions: [] });
+    try {
+      const actions = await commonTransitionActions(client, doctype, workflowDocs(keys, (rows ?? []) as unknown[], (r) => String((r as { name?: unknown }).name)));
+      setWf({ loading: false, actions });
+    } catch (e) {
+      setWf({ loading: false, actions: [] });
+      options.onError?.(e, "workflow");
+      setMessage(e instanceof Error ? e.message : String(e));
+    }
   };
 
   if (!kinds.length) return null;
-  const n = String(keys.length);
   return (
     <>
       {kinds.map((k) => {
@@ -96,10 +165,31 @@ export function FrappeBulkActions({ client, meta, doctype, keys, clear, options,
               trigger={<Button size="sm" variant="outline" className="gap-1.5" loading={busy === k} disabled={!!busy}><Icon className="h-4 w-4" /> {t(LABEL[k])}</Button>} />
           );
         }
+        if (k === "workflow") {
+          return (
+            <DropdownMenu key={k} onOpenChange={(o) => { if (o) void loadWorkflowActions(); }}>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5" loading={busy === k} disabled={!!busy} data-testid="sf-bulk-workflow"><Icon className="h-4 w-4" /> {t(LABEL[k])} <ChevronDown className="h-3.5 w-3.5" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {wf.loading ? <DropdownMenuItem disabled>{t("loading")}</DropdownMenuItem>
+                  : wf.actions.length ? wf.actions.map((a) => (
+                    <DropdownMenuItem key={a} onSelect={() => void run("workflow", () => bulkWorkflowApproval(client, doctype, keys, a), a)}>{a}</DropdownMenuItem>
+                  ))
+                  : <DropdownMenuItem disabled>{t("listBulkWorkflowNone")}</DropdownMenuItem>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        }
+        const onClick = k === "edit" || k === "add_tags" ? () => setForm(k)
+          : k === "export" ? () => onExport?.()
+          : k === "print" ? startPrint
+          // Apply Assignment Rule runs without a confirmation in Desk (list_view.js:1929-1942)
+          : k === "assignment_rule" ? () => void run(k, () => bulkApplyAssignmentRule(client, doctype, keys))
+          : () => setAsking(k);
         return (
-          <Button key={k} size="sm" variant={k === "delete" ? "destructive" : "outline"} className="gap-1.5" loading={busy === k} disabled={!!busy}
-            onClick={() => (k === "edit" ? setForm(k) : setAsking(k))}>
-            <Icon className="h-4 w-4" /> {t(LABEL[k])}
+          <Button key={k} size="sm" variant={k === "delete" ? "destructive" : "outline"} className="gap-1.5" loading={busy === k} disabled={!!busy} onClick={onClick}>
+            <Icon className="h-4 w-4" /> {k === "export" && exportLabel ? exportLabel : t(LABEL[k])}
           </Button>
         );
       })}
@@ -109,7 +199,8 @@ export function FrappeBulkActions({ client, meta, doctype, keys, clear, options,
           <AlertDialogHeader>
             <AlertDialogTitle>{asking ? t(LABEL[asking]) : ""}</AlertDialogTitle>
             <AlertDialogDescription>
-              {asking === "delete" ? t("listBulkDeleteConfirm").replace("{n}", n) : asking === "submit" ? t("listBulkSubmitConfirm").replace("{n}", n) : t("listBulkCancelConfirm").replace("{n}", n)}
+              {asking === "delete" ? t("listBulkDeleteConfirm").replace("{n}", n) : asking === "submit" ? t("listBulkSubmitConfirm").replace("{n}", n)
+                : asking === "clear_assignment" ? t("listBulkClearAssignmentConfirm") : t("listBulkCancelConfirm").replace("{n}", n)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -146,13 +237,27 @@ export function FrappeBulkActions({ client, meta, doctype, keys, clear, options,
                 <Input aria-label={t("listBulkValue")} placeholder={t("listBulkValue")} value={value} onChange={(e) => setValue(e.target.value)} />
               )}
             </div>
+          ) : form === "add_tags" ? (
+            // Desk's MultiSelectPills over `frappe.db.get_link_options("Tag", txt)` (bulk_operations.js:429-437); a typed tag
+            // that does not exist yet is accepted — the server creates the Tag (tag.py:92-93)
+            <label className="block space-y-1 text-sm"><span>{t("listBulkTags")}</span>
+              <TagInput aria-label={t("listBulkTags")} value={tags} onChange={setTags} allowCreate
+                search={async (q) => (await client.searchLink("Tag", q)).map((r) => ({ value: r.value, label: r.label || r.value, description: r.description }))} />
+            </label>
           ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setForm(null)}>{t("cancel")}</Button>
-            <Button onClick={submitForm}>{t("listBulkApply")}</Button>
+            {/* Tags are required (reqd: true, bulk_operations.js:433) */}
+            <Button onClick={submitForm} disabled={form === "add_tags" && !tags.length}>{form === "add_tags" ? t("listBulkAdd") : t("listBulkApply")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {printing && (
+        <FrappePrintDialog api={api} doctype={doctype} names={printing} meta={docMeta} settings={options.print?.settings} subscribeTask={options.print?.subscribeTask}
+          open onOpenChange={(o) => { if (!o) setPrinting(null); }}
+          onDone={(r) => options.onDone?.("print", { failed: [], queued: !!r.taskId, silent: true }, printing)} />
+      )}
     </>
   );
 }
