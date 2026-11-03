@@ -71,6 +71,8 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   totalLabel?: string;
   /** Server mode: more rows may follow the current page even though `total` says otherwise (capped or unknown count). */
   hasMore?: boolean;
+  /** Called when the set of selected rows changes (keys). */
+  onSelectionChange?: (keys: string[]) => void;
   /** Makes the total a button (Desk: click "1,000+" to count exactly). */
   onTotalClick?: () => void;
   className?: string;
@@ -118,7 +120,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick,
+    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -137,6 +139,8 @@ export function ListView<T>(props: ListViewProps<T>) {
   };
   const partial = s.mode === "server" && s.grouped && s.rows.length < s.total;
   const selectedKeys = [...s.selected];
+  const selectionSize = s.selected.size;
+  React.useEffect(() => { onSelectionChange?.([...s.selected]); }, [selectionSize]); // eslint-disable-line react-hooks/exhaustive-deps
   const actions = React.useMemo(() => ({
     applyCondition: (field: string, operator: Operator, value: string) =>
       s.setQuery({ ...s.query, conditions: [...s.query.conditions.filter((c) => c.field !== field), { id: `c${Date.now()}`, field, operator, value }] }),

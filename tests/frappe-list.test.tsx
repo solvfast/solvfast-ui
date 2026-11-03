@@ -339,3 +339,146 @@ describe("server-backed storage adapters", () => {
     expect(await screen.findByText("Urgent")).toBeTruthy();
   });
 });
+
+// ---- bulk actions and realtime ----------------------------------------------------------------------------------------
+import { bulkAssign, bulkDelete, bulkMenu, bulkSubmitCancelOrUpdate } from "../src/frappe/list/bulk";
+import type { RealtimeEvent, RealtimePort } from "../src/frappe/contract";
+
+describe("bulk menu (Desk's guards + permissions)", () => {
+  const base = { isSubmittable: true, hasWorkflow: false, allowEdit: false, hasEditableFields: true };
+  const all = { read: true, write: true, delete: true, submit: true, cancel: true };
+  it("offers each action only with its right; nothing without permissions", () => {
+    expect(bulkMenu({ ...base, permissions: all })).toEqual(["edit", "submit", "cancel", "assign", "delete"]);
+    expect(bulkMenu({ ...base, permissions: undefined })).toEqual([]);
+    expect(bulkMenu({ ...base, permissions: { delete: true } })).toEqual(["delete"]);
+    expect(bulkMenu({ ...base, permissions: (p) => p === "submit" })).toEqual(["submit"]);
+    expect(bulkMenu({ ...base, isSubmittable: false, permissions: all })).toEqual(["edit", "assign", "delete"]);
+  });
+  it("a Workflow hides edit / delete / submit / cancel unless allow_edit (edit and delete only)", () => {
+    expect(bulkMenu({ ...base, hasWorkflow: true, permissions: all })).toEqual(["assign"]);
+    expect(bulkMenu({ ...base, hasWorkflow: true, allowEdit: true, permissions: all })).toEqual(["edit", "assign", "delete"]);
+    expect(bulkMenu({ ...base, hasEditableFields: false, permissions: all })).not.toContain("edit");
+  });
+});
+
+describe("bulk server contracts", () => {
+  const rec = (message?: unknown) => {
+    const calls: { method: string; args: Record<string, unknown> }[] = [];
+    return { calls, client: createFrappeClient({ transport: async (method, args) => { calls.push({ method, args }); return { message }; } }) };
+  };
+  it("delete_items: items JSON; more than 10 are queued", async () => {
+    const r = rec();
+    expect(await bulkDelete(r.client, "ToDo", ["a", "b"])).toEqual({ failed: [], queued: false });
+    expect(r.calls[0]).toEqual({ method: "frappe.desk.reportview.delete_items", args: { doctype: "ToDo", items: '["a","b"]' } });
+    expect((await bulkDelete(r.client, "ToDo", Array.from({ length: 11 }, (_, i) => `n${i}`))).queued).toBe(true);
+  });
+  it("submit_cancel_or_update_docs: the answer is the failed list; no answer = queued", async () => {
+    expect(await bulkSubmitCancelOrUpdate(rec(["b"]).client, "X", ["a", "b"], "submit")).toEqual({ failed: ["b"], queued: false });
+    expect(await bulkSubmitCancelOrUpdate(rec([]).client, "X", ["a"], "cancel")).toEqual({ failed: [], queued: false });
+    expect((await bulkSubmitCancelOrUpdate(rec(undefined).client, "X", ["a"], "submit")).queued).toBe(true);
+    const r = rec([]);
+    await bulkSubmitCancelOrUpdate(r.client, "X", ["a"], "update", { status: null });
+    expect(r.calls[0]).toEqual({ method: "frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs", args: { doctype: "X", docnames: '["a"]', action: "update", data: '{"status":null}' } });
+  });
+  it("assign_to.add_multiple as the list's dialog calls it", async () => {
+    const r = rec();
+    await bulkAssign(r.client, "ToDo", ["a", "b"], ["u@x.com"], { description: "d" });
+    expect(r.calls[0]).toEqual({ method: "frappe.desk.form.assign_to.add_multiple", args: { doctype: "ToDo", name: '["a","b"]', assign_to: '["u@x.com"]', bulk_assign: true, re_assign: true, description: "d" } });
+  });
+});
+
+describe("bulk bar in the list", () => {
+  it("delete: confirms, calls delete_items for the selected rows, clears the selection and reloads; hidden without the right", async () => {
+    const mock = createMockFrappe();
+    const del: string[][] = [];
+    const transport: FrappeTransport = async (method, args) => {
+      if (method === "frappe.desk.reportview.delete_items") { del.push(JSON.parse(String(args.items))); return { message: null }; }
+      return mock.transport(method, args);
+    };
+    const { unmount } = mount(transport, { bulk: { permissions: { read: true } } });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    expect(screen.queryByRole("button", { name: en("listBulkDelete") })).toBeNull(); // no delete right → no delete button
+    unmount();
+
+    mount(transport, { bulk: { permissions: { delete: true } } });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    const before = mock.calls.filter((c) => c.method === "frappe.desk.reportview.get").length;
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    fireEvent.click(screen.getAllByRole("checkbox")[2]);
+    fireEvent.click(await screen.findByRole("button", { name: en("listBulkDelete") }));
+    expect(await screen.findByText("Delete 2 items permanently?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: en("confirm") }));
+    await waitFor(() => expect(del).toHaveLength(1));
+    expect(del[0]).toHaveLength(2);
+    await waitFor(() => expect(mock.calls.filter((c) => c.method === "frappe.desk.reportview.get").length).toBeGreaterThan(before));
+    expect(await screen.findByText("2 succeeded, 0 failed")).toBeTruthy();
+  });
+
+  it("assign: asks for a user and calls add_multiple", async () => {
+    const mock = createMockFrappe();
+    const seen: Record<string, unknown>[] = [];
+    const transport: FrappeTransport = async (method, args) => {
+      if (method === "frappe.desk.form.assign_to.add_multiple") { seen.push(args); return { message: null }; }
+      return mock.transport(method, args);
+    };
+    mount(transport, { bulk: { permissions: { write: true }, only: ["assign"] } });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    fireEvent.click(await screen.findByRole("button", { name: en("listBulkAssign") }));
+    fireEvent.change(await screen.findByLabelText(en("listBulkAssignee")), { target: { value: "omar@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: en("listBulkApply") }));
+    await waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toMatchObject({ doctype: "ToDo", assign_to: '["omar@example.com"]', bulk_assign: true });
+  });
+});
+
+describe("realtime refresh", () => {
+  function port() {
+    const handlers = new Set<(e: RealtimeEvent) => void>();
+    const p: RealtimePort = { subscribeDoc: () => () => {}, subscribeDoctype: (_d, h) => { handlers.add(h); return () => handlers.delete(h); } };
+    return { p, emit: (e: RealtimeEvent) => handlers.forEach((h) => h(e)), count: () => handlers.size };
+  }
+  const rowCalls = (m: MockFrappe) => m.calls.filter((c) => c.method === "frappe.desk.reportview.get").length;
+  const wait = (ms: number) => act(() => new Promise((r) => setTimeout(r, ms)));
+
+  it("debounces list_update into one reload; no prompt; ignores other events and other DocTypes", async () => {
+    const mock = createMockFrappe(); const rt = port();
+    mount(mock.transport, { realtime: rt.p, realtimeDebounceMs: 150 });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    const before = rowCalls(mock);
+    rt.emit({ event: "doc_update", doctype: "ToDo" }); rt.emit({ event: "list_update", doctype: "Other" });
+    await wait(300);
+    expect(rowCalls(mock)).toBe(before);
+    for (let i = 0; i < 4; i++) { rt.emit({ event: "list_update", doctype: "ToDo", name: `n${i}` }); await wait(40); }
+    expect(rowCalls(mock)).toBe(before); // still inside the quiet period
+    await waitFor(() => expect(rowCalls(mock)).toBe(before + 1));
+    await wait(300);
+    expect(rowCalls(mock)).toBe(before + 1);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("is suppressed while rows are selected, resumes after the selection is cleared, and unsubscribes on unmount", async () => {
+    const mock = createMockFrappe(); const rt = port();
+    const { unmount } = mount(mock.transport, { realtime: rt.p, realtimeDebounceMs: 100, selectable: true });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    const before = rowCalls(mock);
+    rt.emit({ event: "list_update", doctype: "ToDo" });
+    await wait(300);
+    expect(rowCalls(mock)).toBe(before);
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    rt.emit({ event: "list_update", doctype: "ToDo" });
+    await waitFor(() => expect(rowCalls(mock)).toBe(before + 1));
+    expect(rt.count()).toBe(1);
+    unmount();
+    expect(rt.count()).toBe(0);
+  });
+
+  it("List View Settings disable_auto_refresh turns it off", async () => {
+    const mock = createMockFrappe({ listSettings: { disable_auto_refresh: 1 } }); const rt = port();
+    mount(mock.transport, { realtime: rt.p, realtimeDebounceMs: 50 });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    await waitFor(() => expect(rt.count()).toBe(0));
+  });
+});
