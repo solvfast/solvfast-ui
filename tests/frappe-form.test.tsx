@@ -14,12 +14,12 @@ import noteEn from "./fixtures/real-15.110/note.en.json";
 import eventEn from "./fixtures/real-15.110/event.en.json";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { defaultMessages } from "../src/theme/messages";
-import { createFrappeClient, toFrappeError } from "../src/frappe/client";
+import { createFrappeClient, toFrappeError, type FrappeTransport } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle, WorkflowInfo } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
 import { useDoc, useMetaBundle } from "../src/frappe/hooks";
-import { FormSkeleton } from "../src/frappe/form/FrappeForm";
+import { FormSkeleton, canCancelDoctype } from "../src/frappe/form/FrappeForm";
 import {
   FrappeChildTable, FrappeDynamicLinkField, FrappeField, FrappeForm, FrappeFormView, linkTitleCache, resolveLinkQuery, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
   type FormEventsConfig, type FormServices,
@@ -65,10 +65,19 @@ const APPROVAL_WF: WorkflowInfo = {
   ],
 };
 
-function setup(ui: React.ReactElement, opts: { docs?: FixtureBackend["docs"]; lang?: "en" | "ar"; services?: Partial<FormServices>; handlers?: Record<string, FixtureHandler> } = {}) {
+const REVIEW_WF: WorkflowInfo = {
+  name: "Review Flow", document_type: "Review Memo", workflow_state_field: "workflow_state",
+  states: [
+    { state: "Draft", doc_status: "0", allow_edit: "System Manager", style: "Warning" },
+    { state: "Approved", doc_status: "1", allow_edit: "System Manager", style: "Success" },
+  ],
+  transitions: [{ state: "Draft", action: "Approve", next_state: "Approved", allowed: "System Manager" }],
+};
+
+function setup(ui: React.ReactElement, opts: { docs?: FixtureBackend["docs"]; lang?: "en" | "ar"; services?: Partial<FormServices>; handlers?: Record<string, FixtureHandler>; wrap?: (t: FrappeTransport) => FrappeTransport } = {}) {
   const transport = createFixtureTransport({
-    meta: { ToDo: docsOf(todoEn), User: docsOf(userEn), Contact: docsOf(contactEn), Note: docsOf(noteEn), Event: docsOf(eventEn), "Sales Memo": [SUBM], "Approval Memo": [APPROVAL] },
-    workflows: { "Approval Memo": APPROVAL_WF },
+    meta: { ToDo: docsOf(todoEn), User: docsOf(userEn), Contact: docsOf(contactEn), Note: docsOf(noteEn), Event: docsOf(eventEn), "Sales Memo": [SUBM], "Approval Memo": [APPROVAL], "Review Memo": [{ ...APPROVAL, name: "Review Memo" }] },
+    workflows: { "Approval Memo": APPROVAL_WF, "Review Memo": REVIEW_WF },
     docs: {
       User: [
         { doctype: "User", name: "ann@x.com", full_name: "Ann Xu", first_name: "Ann", email: "ann@x.com", enabled: 1 },
@@ -78,7 +87,7 @@ function setup(ui: React.ReactElement, opts: { docs?: FixtureBackend["docs"]; la
       ...opts.docs,
     },
   }, { handlers: opts.handlers });
-  const client = createFrappeClient({ transport });
+  const client = createFrappeClient({ transport: opts.wrap ? opts.wrap(transport) : transport });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrap = (node: React.ReactElement) => (
     <ThemeProvider defaultTheme="light" defaultLanguage={opts.lang ?? "en"} storageKeys={null}>
@@ -534,3 +543,42 @@ function FrappeFormServicesProbe() {
       cancelAllLinkedDocs={async () => {}} canCancelAllLinked={() => false} />
   );
 }
+
+describe("review R3 items", () => {
+  it("R3-F1: can_cancel — Administrator can cancel every DocType; others need a cancel right from their roles", () => {
+    const meta: DocTypeMeta = { name: "X", fields: [], permissions: [{ role: "Accounts Manager", permlevel: 0, cancel: 1 }, { role: "Accounts User", permlevel: 0, read: 1 }] };
+    expect(canCancelDoctype({ name: "Y", fields: [] }, { user: "Administrator" })).toBe(true);
+    expect(canCancelDoctype({ name: "Y", fields: [] }, { user: "x@y.z", roles: ["Administrator"] })).toBe(true);
+    expect(canCancelDoctype(meta, { user: "x@y.z", roles: ["Accounts Manager"] })).toBe(true);
+    expect(canCancelDoctype(meta, { user: "x@y.z", roles: ["Accounts User", "System Manager"] })).toBe(false);
+    expect(canCancelDoctype(meta, { user: "x@y.z" })).toBeUndefined();
+  });
+
+  it("R3-F2: a saved workflow document shows no Cancel until the definition and transitions are known", async () => {
+    let releaseDef: (v: unknown) => void = () => {};
+    let releaseTr: (v: unknown) => void = () => {};
+    const defPending = new Promise((r) => { releaseDef = r; });
+    const trPending = new Promise((r) => { releaseTr = r; });
+    let defCalls = 0;
+    const handlers: Record<string, FixtureHandler> = {
+      "frappe.model.workflow.get_transitions": async () => { await trPending; return { message: [] }; },
+    };
+    // the form's own meta load answers at once; the workflow DEFINITION (a second getdoctype) is held back
+    const wrap = (t: FrappeTransport): FrappeTransport => async (m, a) => {
+      if (m === "frappe.desk.form.load.getdoctype" && a.doctype === "Review Memo" && ++defCalls === 2) await defPending;
+      return t(m, a);
+    };
+    setup(<FrappeForm doctype="Review Memo" name="RM-1" />, {
+      handlers, wrap,
+      docs: { "Review Memo": [{ doctype: "Review Memo", name: "RM-1", title: "Plan", docstatus: 1, workflow_state: "Approved", modified: "2026-11-01 10:00:00.000000", owner: "Administrator" }] },
+    });
+    expect(await screen.findByRole("heading", { name: "Plan" })).toBeTruthy();
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(defCalls).toBe(2);
+    expect(screen.queryByRole("button", { name: en.formCancelDoc })).toBeNull(); // definition pending
+    await act(async () => { releaseDef(null); await new Promise((r) => setTimeout(r, 30)); });
+    expect(screen.queryByRole("button", { name: en.formCancelDoc })).toBeNull(); // transitions pending
+    await act(async () => { releaseTr(null); await new Promise((r) => setTimeout(r, 30)); });
+    expect(await screen.findByRole("button", { name: en.formCancelDoc })).toBeTruthy();
+  });
+});
