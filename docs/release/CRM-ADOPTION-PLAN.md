@@ -84,7 +84,7 @@ flag on in a scratch build, side-by-side review, flag on in the live build after
 ## 6. Preserving mock mode (default unchanged)
 
 - `mock` is the default in every build and is the only mode a production build can select besides an explicit
-  build-time `VITE_CRM_DATA_MODE=frappe` (`client.ts:21-39`; URL and sessionStorage can never select a mode in
+  build-time `VITE_CRM_DATA_MODE=frappe` (`client.ts:25-40` `readMode`; URL and sessionStorage can never select a mode in
   production, a stored value is cleared, a stray demo Type is purged).
 - The `VITE_CRM_ALLOW_SIMULATED` gate is **proven** (`60` round 24 "production gate proven"): a default build contains
   no simulator, no fixture backend, no draft metas, no demo Deal Type and no `@solvfast/ui/frappe/testing` chunk
