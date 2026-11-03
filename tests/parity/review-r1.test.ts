@@ -50,7 +50,7 @@ describe("D-23 interpreter vs Desk (layout.js:751-791 / utils.js:1076) on Frappe
 
   // R1-F6: Desk compiles `let out = <code>; return out`, so a trailing ";" is valid. 37 of the 947 eval: expressions in the
   // installed apps end with one (e.g. "eval: !doc.percentage_based && doc.auto_rate;"); the interpreter reports them unsupported.
-  it.fails("accepts a trailing semicolon like `let out = <code>; return out`", () => {
+  it("accepts a trailing semicolon like `let out = <code>; return out`", () => {
     const c = compileExpression(" !doc.percentage_based && doc.auto_rate;", "interpreter");
     expect(c.ok).toBe(true);
   });
@@ -153,7 +153,7 @@ describe("R1 gaps (native expectation, currently failing)", () => {
   // R1-F3, C-02/F-10: link.js:709-765. A typed value that does not exist is cleared AND the empty link clears every fetch
   // target (link.js:761-764, the cleared value re-validates as empty). fetchUpdates() only returns {link: null}, and the form's
   // handler then deletes the link key (FrappeFormView.tsx:305), so stale fetched values stay.
-  it.fails("C-02: validate_link answering name:null leaves no stale fetch targets", () => {
+  it("C-02: validate_link answering name:null leaves no stale fetch targets", () => {
     const b = synthetic("SFUI F", [
       { fieldname: "contact", fieldtype: "Link", options: "SFUI Contact" },
       { fieldname: "contact_email", fieldtype: "Data", fetch_from: "contact.email_id", read_only: 1 },

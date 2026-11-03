@@ -190,6 +190,28 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     return m;
   }, [bundle, meta]);
 
+  // ---- default Link values of a new document run validate_link + fetch once (form.js:569 -> trigger_link_fields, :1103-1112) ----
+  const linkTriggersDone = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const cur = store.getDoc();
+    if (!cur.__islocal || !cur.__run_link_triggers || linkTriggersDone.current === cur.name) return;
+    linkTriggersDone.current = cur.name;
+    const docName = cur.name;
+    for (const df of meta.fields ?? []) {
+      const v = cur[df.fieldname];
+      if (df.fieldtype !== "Link" || typeof v !== "string" || !v || !df.options || df.ignore_link_validation) continue;
+      const entries = fetchMaps.get(meta.name)?.get(df.fieldname) ?? [];
+      void s.validateLink(df.options, v, entries.map((e) => e.source)).then((r) => {
+        if (store.getDoc().name !== docName) return;
+        const updates = fetchUpdates(entries, df.fieldname, r);
+        if (r.name == null) updates[df.fieldname] = null;
+        else if (r.name !== v) updates[df.fieldname] = r.name;
+        else delete updates[df.fieldname];
+        if (Object.keys(updates).length) store.setValues(updates);
+      }, () => { /* the error reaches the user through the server-message host; the default value stays */ });
+    }
+  }, [store, meta, fetchMaps, s, doc.name]);
+
   // ---- the frm controller (D-24) ----
   const frmRef = React.useRef<FormController | null>(null);
   /** Desk `frm.trigger`: handlers of the form's DocType; with a child DocType, its child handlers when it has any. */

@@ -86,9 +86,8 @@ describe("formatValue — numbers", () => {
   it.todo("negative numbers keep the minus attached in RTL (number_format.js:120-125) — assert on a bidi-aware renderer instead");
 });
 
-// KNOWN DIVERGENCE (it.fails): services/format.ts has no Duration case, so a Duration value falls through to the Data
-// formatter and prints the raw seconds ("93784", "0"). Native: form/formatters.js:281-288 + utils/utils.js:1115-1175 print
-// "1d 2h 3m 4s" / "0s". Flip `it.fails` to `it` when A1 adds it.
+// Duration: native form/formatters.js:281-288 + utils/utils.js:1115-1175 print "1d 2h 3m 4s" / "0s" (A1 added the case;
+// these were it.fails while it was missing).
 describe("formatValue — dates and durations (user formats; storage formats in, display out)", () => {
   it("Date: system YYYY-MM-DD -> user format (dd-mm-yyyy)", () => {
     expect(formatValue("2026-01-02", df("Date"), undefined, ctx)).toBe("02-01-2026");
@@ -105,17 +104,17 @@ describe("formatValue — dates and durations (user formats; storage formats in,
   it("Time: accepts the unpadded server form '9:30:00' and pads with time_format; NO time-zone conversion", () => {
     expect(formatValue("9:30:00", df("Time"), undefined, ctx)).toBe("09:30:00");
   });
-  it.fails("Duration: 93784 s -> '1d 2h 3m 4s' (get_formatted_duration, utils.js:1115-1143)", () => {
+  it("Duration: 93784 s -> '1d 2h 3m 4s' (get_formatted_duration, utils.js:1115-1143)", () => {
     expect(formatValue(93784, df("Duration"), undefined, ctx)).toBe("1d 2h 3m 4s");
   });
-  it.fails("Duration: empty/0 -> '0s' (formatters.js:281-288)", () => {
+  it("Duration: empty/0 -> '0s' (formatters.js:281-288)", () => {
     expect(formatValue(0, df("Duration"), undefined, ctx)).toBe("0s");
     expect(formatValue(null, df("Duration"), undefined, ctx)).toBe("0s");
   });
-  it.fails("Duration: hide_days folds days into hours (utils.js:1153-1173)", () => {
+  it("Duration: hide_days folds days into hours (utils.js:1153-1173)", () => {
     expect(formatValue(93784, df("Duration", { hide_days: 1 }), undefined, ctx)).toBe("26h 3m 4s");
   });
-  it.fails("Duration: hide_seconds rounds seconds into minutes", () => {
+  it("Duration: hide_seconds rounds seconds into minutes", () => {
     expect(formatValue(3690, df("Duration", { hide_seconds: 1 }), undefined, ctx)).toBe("1h 2m"); // 61 min 30 s -> 1h 1m + round(30/60)=1 -> 2m
   });
 });
