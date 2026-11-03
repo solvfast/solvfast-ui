@@ -161,9 +161,27 @@ export interface FrappeClientOptions {
    * strings are sent and the server's Comment.validate fills `comment_email` from the session (`comment_by` stays empty).
    */
   session?: SessionUser | (() => SessionUser | undefined);
+  /** Replace the binary transport (`download` / `uploadFile`) — tests, another auth scheme. Default: fetch, like `transport`. */
+  files?: FrappeFilesTransport;
 }
 
 export interface SessionUser { user: string; fullName?: string }
+
+/** A file the server answered with (`frappe.response["type"] = "binary"`, desk/utils.py:60-66). */
+export interface DownloadedFile { blob: Blob; filename: string; contentType: string }
+export interface UploadFileOptions {
+  /** Attach to a document (`attached_to_doctype` / `attached_to_name` / `attached_to_field`); the server checks WRITE on it (handler.py:220). */
+  doctype?: string; docname?: string; fieldname?: string;
+  isPrivate?: boolean; folder?: string;
+  /** A whitelisted method the server hands the file to instead of creating a File (handler.py:162-165). */
+  method?: string;
+}
+export interface FrappeFilesTransport {
+  /** POST `method` with form fields; resolves to the file the server streamed back. Errors are JSON and become FrappeError. */
+  download(method: string, args: Record<string, unknown>): Promise<DownloadedFile>;
+  /** POST multipart to `/api/method/upload_file` (FileUploader.vue:656-698). Resolves to the created File document. */
+  upload(file: Blob, filename: string, opts: UploadFileOptions): Promise<FrappeDoc>;
+}
 
 export interface DocField {
   fieldname: string;
@@ -212,6 +230,11 @@ export interface FrappeApi extends FrappeClient, DocumentApi, RecordApi {
   /** Cancel; `workflow` sets the state field first, as Desk does for a workflow doctype (save.py cancel). */
   cancelDoc(doctype: string, name: string, opts?: { workflowStateField?: string; workflowState?: string }): Promise<FrappeDoc>;
   subscribeMessages(listener: ServerMessagesListener): () => void;
+  /** A whitelisted method that answers with a file (Data Export template, print PDF …): Desk's `open_url_post`, without
+   *  leaving the page. The server authorises; a refusal arrives as a FrappeError like any call. */
+  download(method: string, args: Record<string, unknown>): Promise<DownloadedFile>;
+  /** `upload_file`: multipart, same fields as Desk's FileUploader. Throws FrappeError on refusal (write on the target doc). */
+  uploadFile(file: Blob, filename: string, opts?: UploadFileOptions): Promise<FrappeDoc>;
 }
 
 /** `window.csrf_token`, then `window.frappe.csrf_token`. "None" (what a page rendered without a session token prints)
@@ -240,6 +263,54 @@ function fetchTransport(opts: FrappeClientOptions): FrappeTransport {
     try { data = text ? (JSON.parse(text) as Record<string, unknown>) : {}; } catch { data = { message: text.slice(0, 200) }; }
     if (!res.ok || typeof data.exc_type === "string" || data.session_expired) throw toFrappeError(res.status, data);
     return data as FrappeResponse;
+  };
+}
+
+/** The default binary transport: `fetch` POSTs with the CSRF header; a non-file answer (JSON error) becomes a FrappeError. */
+function fetchFilesTransport(opts: FrappeClientOptions): FrappeFilesTransport {
+  const token = () => (typeof opts.csrfToken === "function" ? opts.csrfToken() : opts.csrfToken ?? defaultCsrf());
+  const doFetch = opts.fetch ?? fetch;
+  const failed = async (res: Response): Promise<never> => {
+    const text = await res.text();
+    let data: Record<string, unknown> = {};
+    try { data = text ? (JSON.parse(text) as Record<string, unknown>) : {}; } catch { data = { message: text.slice(0, 200) }; }
+    throw toFrappeError(res.status, data);
+  };
+  const filenameOf = (res: Response, fallback: string) => {
+    const cd = res.headers.get("content-disposition") ?? "";
+    const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(cd); if (star) { try { return decodeURIComponent(star[1].trim().replace(/^"|"$/g, "")); } catch { /* fall through */ } }
+    const plain = /filename="?([^";]+)"?/i.exec(cd); return plain ? plain[1] : fallback;
+  };
+  const network = (e: unknown) => new FrappeError(e instanceof Error ? e.message : "Network error", 0);
+  return {
+    async download(method, args) {
+      const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "*/*" };
+      const t = token(); if (t) headers["X-Frappe-CSRF-Token"] = t;
+      let res: Response;
+      try { res = await doFetch(`${opts.baseUrl ?? ""}/api/method/${method}`, { method: "POST", credentials: opts.credentials ?? "same-origin", headers, body: JSON.stringify(args) }); } catch (e) { throw network(e); }
+      const type = res.headers.get("content-type") ?? "";
+      if (!res.ok || type.includes("application/json")) return failed(res);
+      return { blob: await res.blob(), filename: filenameOf(res, method.split(".").pop() ?? "download"), contentType: type };
+    },
+    async upload(file, filename, o) {
+      const form = new FormData();
+      form.append("file", file, filename);
+      form.append("is_private", o.isPrivate ? "1" : "0");
+      form.append("folder", o.folder ?? "Home");
+      if (o.doctype) form.append("doctype", o.doctype);
+      if (o.docname) form.append("docname", o.docname);
+      if (o.fieldname) form.append("fieldname", o.fieldname);
+      if (o.method) form.append("method", o.method);
+      const headers: Record<string, string> = { Accept: "application/json" };
+      const t = token(); if (t) headers["X-Frappe-CSRF-Token"] = t;
+      let res: Response;
+      try { res = await doFetch(`${opts.baseUrl ?? ""}/api/method/upload_file`, { method: "POST", credentials: opts.credentials ?? "same-origin", headers, body: form }); } catch (e) { throw network(e); }
+      const text = await res.text();
+      let data: Record<string, unknown> = {};
+      try { data = text ? (JSON.parse(text) as Record<string, unknown>) : {}; } catch { data = { message: text.slice(0, 200) }; }
+      if (!res.ok || typeof data.exc_type === "string" || data.session_expired) throw toFrappeError(res.status, data);
+      return (data.message ?? {}) as FrappeDoc;
+    },
   };
 }
 
@@ -384,6 +455,9 @@ export function createDocumentApis(call: FrappeTransport, session: FrappeClientO
 
 export function createFrappeClient(opts: FrappeClientOptions = {}): FrappeApi {
   const transport = opts.transport ?? fetchTransport(opts);
+  const files = opts.files ?? (opts.transport
+    ? { download: async () => { throw new FrappeError("This client has no file transport (createFrappeClient({ files }))", 0); }, upload: async () => { throw new FrappeError("This client has no file transport (createFrappeClient({ files }))", 0); } }
+    : fetchFilesTransport(opts));
   const listeners = new Set<ServerMessagesListener>();
   const call: FrappeTransport = async (method, args) => {
     const res = await transport(method, args);
@@ -431,6 +505,8 @@ export function createFrappeClient(opts: FrappeClientOptions = {}): FrappeApi {
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     },
+    download: (method, args) => files.download(method, args),
+    uploadFile: (file, filename, o = {}) => files.upload(file, filename, o),
   };
 }
 

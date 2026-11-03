@@ -33,11 +33,11 @@ and anonymous HTTP through the built client, **not** an authenticated session fr
 | 15 | `FrappeListView` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/FrappeListView.tsx`, `useFrappeList.tsx`, `meta.ts`, `query.ts` | frappe-list 38, parity/list 28, sada-real | ✓ | ✓ renders real Sada Post Type metadata and rows (jsdom) | no Import / Export menu entries (native `list_view.js:1703`, `:2075`); no width-based column cap; no 90-day recency filter; columns do not drop permlevel > 0 fields the user cannot read (server strips values; header still offered) | browser on a real site NOT VERIFIED | No |
 | 16 | `decodeReportview` / `reportviewGet` / `reportviewCount` / `COUNT_UPPER_BOUND` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/list/reportview.ts` | parity/list, sada-real | ✓ | ✓ compressed `{keys, values}`, `[]`, `_comment_count`, count | — | — | No |
 | 17 | `buildFrappeListMeta` / `columnsFromMeta` / `filterFieldsFromMeta` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/meta.ts` | frappe-list, parity/list | ✓ | ✓ built from real metas | no permlevel filtering (see 15) | — | No |
-| 18 | `queryToFrappe` / `conditionToFrappe` / `buildListRequest` / `orderByWithTieBreak` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/query.ts` | parity/list, frappe | ✓ | request shape accepted by the real server (reportview captured with it) | nested-set operators missing | — | No |
+| 18 | `queryToFrappe` / `conditionToFrappe` / `buildListRequest` / `orderByWithTieBreak` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/query.ts` | parity/list, frappe | ✓ | NOT VERIFIED: the Sada capture built `form_dict` by hand (`capture-real-sada.py:44-49`), not through `buildListRequest`; the Guest `getList` was refused (403) before the query ran | nested-set operators missing | — | No |
 | 19 | List View Settings: `fetchListSettings` / `applyColumnSettings` | Frappe | IMPLEMENTED (read only) | `./frappe` | `src/frappe/list/settings.ts` | frappe-list, sada-real | ✓ | ✓ `get_list_settings` null on Sada | no settings editor | — | No |
 | 20 | Saved filters + user settings (server storage): `createFrappeSavedFilters`, `createFrappeUserSettings`, `queryToTuples` | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/list/storage.ts`, `tuples.ts` | frappe-list | ✓ | BLOCKED (writes List Filter / `__UserSettings`) | OR conjunctions cannot be stored | — | No |
 | 21 | Bulk actions: `bulkMenu`, `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`, `FrappeBulkActions` | Frappe | **PARTIALLY IMPLEMENTED** | `./frappe` | `src/frappe/list/bulk.ts`, `FrappeBulkActions.tsx` | frappe-list | ✓ | BLOCKED (writes) | missing: Export, Clear Assignment, Assignment Rule, Add Tags, Print, workflow bulk actions (`list_view.js:2075-2128`); "Assign To" gated by `write` here, always offered in Desk (UNVERIFIED) | queued (20–500) outcome handling UNVERIFIED at runtime | No |
-| 22 | **Export** (list menu → Data Exporter `download_template`; report-view `export_query`) | Frappe | **MISSING** | — | — | — | — | BLOCKED on a site: `export_query` and `export_data` write an Access Log row (`reportview.py:352-400`, `data_export/exporter.py:46`); `download_template` does not (`data_import/exporter.py`) but is a read the owner has not approved | native checks `can_export` server-side (`permissions.py:607-615`: System Manager, else role `export`, else `if_owner` export with per-row owner check) | nothing implemented | No |
+| 22 | **Export** (list menu → Data Exporter `download_template`; report-view `export_query`) | Frappe | **MISSING** | — | — | — | — | BLOCKED on a site: `export_query` and `export_data` write an Access Log row (`reportview.py:352-400`, `data_export/exporter.py:46`); `download_template` → `Exporter.build_response` → `provide_binary_file` (`desk/utils.py:60-66`) writes nothing, but it is a read the owner has not approved | native checks `can_export` server-side (`permissions.py:607-615`: System Manager, else role `export`, else `if_owner` export with per-row owner check) | nothing implemented | No |
 | 23 | **Import** (list menu entry gated by `can_import` → Data Import tool; `download_template`, Data Import doc, `get_preview_from_template`, `form_start_import`, `get_import_status`) | Frappe | **MISSING** | — | — | — | — | BLOCKED (creating a Data Import document and importing are writes) | native gate `model.js:434-442`: `meta.allow_import` AND (System Manager OR `perm[0].import`); server re-validates in `DataImport.validate` (`data_import.py:60-75`) | nothing implemented | No |
 | 24 | `FrappeForm` / `FrappeFormView` (load, save lifecycle, submit/cancel/amend, Cancel All, read-only, skeleton) | Frappe | IMPLEMENTED | `./frappe` | `src/frappe/form/FrappeForm.tsx`, `FrappeFormView.tsx` | frappe-form 33, record-form-fixes 6, review-r1 22, review-r2 11, sada-real | ✓ | ✓ renders the real Sada Lifecycle with child rows (jsdom); save BLOCKED | no Client Scripts (D-24), no undo, viewers, Connections, print, rename, Duplicate, prev/next | Attach upload P2 | No |
 | 25 | `FrappeField` (fieldtype coverage) | Frappe | **PARTIALLY IMPLEMENTED** | `./frappe` | `src/frappe/form/FrappeField.tsx` | frappe-form, fields 30 | ✓ | ✓ (fields rendered from real metas) | fieldtypes not supported listed in `forms.md` §3 (Attach, Geolocation, Signature, …) | — | No |
@@ -65,21 +65,24 @@ and anonymous HTTP through the built client, **not** an authenticated session fr
 
 ## 2. Counts (denominator 46)
 
+Frappe-kind rows: 37 (1–35, 45, 46). Of those, 14 (simulator), 22 and 23 (MISSING) and 45 (types) are excluded from the verification
+percentages, leaving **33 verifiable Frappe units**.
+
 | Measure | Count | % |
-|---|---|---|
-| IMPLEMENTED (complete against its own contract) | 37 | 80 % |
-| PARTIALLY IMPLEMENTED (7, 13, 21, 25, 33 + the two 0.3.x generic rows counted as implemented) | 5 | 11 % |
-| MISSING (22 Export, 23 Import) | 2 | 4 % |
-| n/a (14 simulator, 45 types) | 2 | 4 % |
-| VERIFIED — SIMULATED (Frappe units with simulator / recorded-payload tests) | 31 of 33 Frappe units | 94 % |
-| VERIFIED — REAL FRAPPE, read path (rows 1, 2, 3, 5, 7*, 10, 15–19, 24–27, 34, 45, 46) | 17 of 33 Frappe units | 52 % |
-| BLOCKED for real verification (every write path: 6, 13, 20, 21, 22, 23, 33; part of 1, 24, 32) | 7 whole + 3 partial | — |
+|---|---:|---:|
+| IMPLEMENTED (complete against its own contract) | 37 / 46 | 80 % |
+| PARTIALLY IMPLEMENTED (rows 7, 13, 21, 25, 33) | 5 / 46 | 11 % |
+| MISSING (22 Export, 23 Import) | 2 / 46 | 4 % |
+| n/a (14 simulator, 45 types) | 2 / 46 | 4 % |
+| VERIFIED — SIMULATED | 33 / 33 verifiable Frappe units | 100 % |
+| VERIFIED — REAL FRAPPE, read path (rows 1, 2, 3, 5, 7*, 10, 15, 16, 17, 19, 24, 25, 26, 27, 34, 46) | 16 / 33 | 48 % |
+| BLOCKED for real verification (every write path: 6, 13, 20, 21, 33 whole; parts of 1, 24, 32) | 5 whole + 3 partial | — |
 | PRODUCTION READY (0.4 Frappe layer) | **0** | 0 % |
 
-\* row 7's real check is weak (full-rights users only).
+\* row 7's real check is weak (full-rights users only). Row 18 was moved to NOT VERIFIED (see its cell).
 
-**Honest completion figure:** 37/46 = **80 % implemented**, **52 % of Frappe units touched by real responses on the read path, 0 % on writes,
-0 % production ready.** The 0.3.x generic list/form rows (36, 37, 44) were already published and are the only shipped units.
+**Honest completion figure:** 37/46 = **80 % implemented**; **48 % of verifiable Frappe units touched by real responses on the read path,
+0 % on writes, 0 % production ready.** The 0.3.x generic list/form rows (36, 37, 44) were already published and are the only shipped units.
 
 ## 3. What is genuinely ready to demonstrate (showcase scope)
 

@@ -187,3 +187,44 @@ export function isFetchLocked(df: FrappeDocField, doc: FrappeDoc | undefined): b
   const link = df.fetch_from.split(".")[0];
   return !isNullValue(doc[link]);
 }
+
+// ---- DocType-level rights Desk checks on the client before offering Import / Export (model.js:434-450) ---------------
+
+/** Rights at level 0 as `rolePermissions(meta.permissions, roles).levels[0]`, or `usePermissions().levels[0]`. */
+export type Level0Rights = Partial<Record<PermType, boolean>> | undefined;
+const isSystemManager = (roles: readonly string[] | undefined) => !!roles?.includes("System Manager") || !!roles?.includes("Administrator");
+
+/**
+ * `frappe.model.can_import(doctype, frm, meta)` (model.js:434-442) and the server's `can_import` (permissions.py:600-606):
+ * the DocType must have `allow_import`; then System Manager always may, otherwise the level-0 `import` right.
+ * NEVER read this off a loaded document's `docinfo.permissions`: the server forces `permissions["import"] = 0` there
+ * (permissions.py:221); Import is a DocType-level right. No roles → false (Phase 26 rule 9: missing information denies).
+ * The server re-validates on `Data Import` insert (data_import.py:59-75); this only decides what the UI offers.
+ */
+export function canImport(meta: Pick<DocTypeMeta, "allow_import"> | undefined, roles: readonly string[] | undefined, level0: Level0Rights): boolean {
+  if (!meta || !truthy(meta.allow_import)) return false;
+  if (isSystemManager(roles)) return true;
+  return !!roles && !!level0?.import;
+}
+
+/**
+ * `frappe.model.can_export(doctype, frm)` (model.js:444-450) and the server's `can_export` (permissions.py:609-615):
+ * System Manager always may; otherwise the level-0 `export` right, which `rolePermissions` already takes from `if_owner`
+ * rows too (the server then checks every exported row's owner — data_import/exporter.py:116-124). No roles → false.
+ * Desk shows the list's Export entry to everyone (`list_view.js:2092`) and lets the server refuse; the package hides it
+ * (Phase 26 rule D.1). Either way the server decides.
+ */
+export function canExport(roles: readonly string[] | undefined, level0: Level0Rights): boolean {
+  if (isSystemManager(roles)) return true;
+  return !!roles && !!level0?.export;
+}
+
+/**
+ * Fields the user may READ, by permlevel: a field at level N is kept when `levels[N].read`. Frappe strips the values of
+ * unreadable permlevel fields from `getdoc` and `reportview.get` rows (docs 10 §C5); list columns, export field pickers
+ * and import templates must not offer them. Level 0 unreadable → nothing. Without `levels` → nothing (rule 9).
+ */
+export function readableFields<F extends Pick<FrappeDocField, "permlevel">>(fields: readonly F[] | undefined, levels: DocPermissions | undefined): F[] {
+  if (!fields || !levels || !levels[0]?.read) return [];
+  return fields.filter((f) => !!levels[Number(f.permlevel) || 0]?.read);
+}

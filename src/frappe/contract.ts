@@ -72,6 +72,8 @@ export interface DocTypeMeta {
   istable?: Check;
   issingle?: Check;
   is_submittable?: Check;
+  /** DocType "Allow Import": required for the Import right (permissions.py:142, 221). */
+  allow_import?: Check;
   is_tree?: Check;
   is_virtual?: Check;
   editable_grid?: Check;

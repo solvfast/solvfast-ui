@@ -3,7 +3,7 @@
  * Frappe site (same origin). The core entry never imports this. See docs/FRAPPE.md.
  */
 export { createFrappeClient, FrappeError, toFrappeError } from "./client";
-export type { FrappeClient, FrappeClientOptions, FrappeTransport, FrappeResponse, DocField, DocMeta, GetListArgs } from "./client";
+export type { FrappeClient, FrappeClientOptions, FrappeTransport, FrappeResponse, DocField, DocMeta, GetListArgs, FrappeFilesTransport, DownloadedFile, UploadFileOptions } from "./client";
 export { FrappeProvider, useFrappeClient, useFrappeApi, useFrappeSettings, useFormatContext, createFrappeQueryClient, frappeRetry } from "./FrappeProvider";
 export type { FrappeProviderProps, FrappeSettings } from "./FrappeProvider";
 export { useFrappeMeta, useFrappeList, frappeLinkSearch, invalidateFrappeList } from "./useFrappeList";

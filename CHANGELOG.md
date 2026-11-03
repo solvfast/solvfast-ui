@@ -271,3 +271,12 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
   buttons keep the glass engine's timings, as in Sear. No motion under `prefers-reduced-motion` (verified).
 - Path B: Tailwind's preflight is also applied to the scope element's own `::before`/`::after`.
 - Hooks never throw outside `ThemeProvider` (Sear's Navbar crashed without its provider).
+
+## 0.4.0-dev.26 (2026-11-03, Phase 26 Lead pre-work)
+- `canImport(meta, roles, level0)`, `canExport(roles, level0)`, `readableFields(fields, levels)` in `@solvfast/ui/frappe`
+  (Desk `model.js:434-450`, server `permissions.py:600-615`): missing roles / meta / rights deny.
+- `DocTypeMeta.allow_import`.
+- Client file primitives: `api.download(method, args)` (a whitelisted method that streams a file; JSON refusals become
+  `FrappeError`) and `api.uploadFile(file, filename, opts)` (`upload_file`, Desk's multipart fields). Stubbable through
+  `createFrappeClient({ files })`; a client with a custom JSON `transport` and no `files` refuses file calls.
+- `docs/release/COMPONENT-COMPLETION-MATRIX.md`.
