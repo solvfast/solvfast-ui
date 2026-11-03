@@ -234,7 +234,7 @@ describe("formatValue (docs 12 §9)", () => {
 describe("feedback", () => {
   const wrap = (ui: React.ReactNode, lang: "en" | "ar" = "en") => render(<ThemeProvider defaultTheme="light" defaultLanguage={lang} storageKeys={null}>{ui}</ThemeProvider>);
 
-  it("FrappeErrorState: title by kind, server messages as sent (sanitized), Retry", () => {
+  it("FrappeErrorState: title by kind, server messages as sent (sanitized), no Retry for a mandatory error", () => {
     const onRetry = vi.fn();
     const e = toFrappeError(417, { exc_type: "MandatoryError", _server_messages: sm({ message: "Value missing for <b>Subject</b><script>alert(1)</script>", raise_exception: 1 }) });
     wrap(<FrappeErrorState error={e} onRetry={onRetry} />);
@@ -242,8 +242,40 @@ describe("feedback", () => {
     expect(screen.getByText("Missing required values")).toBeTruthy();
     expect(screen.getByText("Subject").tagName).toBe("B");
     expect(document.querySelector("script")).toBeNull();
+    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull(); // re-sending the same values cannot succeed
+  });
+
+  it("FrappeErrorState actions (R2 V5/V6): no Retry for permission / not_found / validation; csrf reloads the page; network retries", () => {
+    const onRetry = vi.fn();
+    const buttons = () => screen.queryAllByRole("button").map((b) => b.textContent);
+    for (const e of [toFrappeError(403, { exc_type: "PermissionError" }), toFrappeError(404, { exc_type: "DoesNotExistError" }), toFrappeError(417, { exc_type: "MandatoryError" }), toFrappeError(417, { exc_type: "ValidationError" })]) {
+      wrap(<FrappeErrorState error={e} onRetry={onRetry} />);
+      expect(buttons()).toEqual([]);
+      cleanup();
+    }
+    wrap(<FrappeErrorState error={toFrappeError(400, { exc_type: "CSRFTokenError" })} onRetry={onRetry} />);
+    expect(buttons()).toEqual(["Reload page"]);
+    cleanup();
+    wrap(<FrappeErrorState error={new FrappeError("Failed to fetch", 0)} onRetry={onRetry} />);
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("FrappeErrorState timestamp (R2 V5): the action is Reload (onReload, else onRetry) and the sentence is said once", () => {
+    const onRetry = vi.fn();
+    const e = toFrappeError(417, { exc_type: "TimestampMismatchError", _server_messages: sm({ message: "Error: Document has been modified after you have opened it (a, b). Please refresh to get the latest document.", raise_exception: 1 }) });
+    wrap(<FrappeErrorState error={e} onRetry={onRetry} />);
+    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
     expect(onRetry).toHaveBeenCalled();
+    const text = screen.getByRole("alert").textContent ?? "";
+    expect(text).not.toContain("Please refresh");
+    expect(text.match(/modified after you opened it/g)).toHaveLength(1);
+    cleanup();
+    const onReload = vi.fn();
+    wrap(<FrappeErrorState error={e} onRetry={onRetry} onReload={onReload} />, "ar");
+    fireEvent.click(screen.getByRole("button", { name: "إعادة التحميل" }));
+    expect(onReload).toHaveBeenCalled();
   });
 
   it("FrappeErrorState: rate_limited (429) and unavailable (503) have their own title and hint, in en and ar", () => {
