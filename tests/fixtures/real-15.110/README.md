@@ -10,3 +10,11 @@ no whitelisted method returns a language's dictionary. Arabic labels therefore n
 - Read-only: `READ ONLY` transaction, rolled back; metadata only — no `getdoc`, no record contents.
 - Use them as the real shapes for meta parsing, field rendering and translation tests. They are not evidence of
   behaviour beyond what metadata contains.
+
+## Licences (repository-internal test data, never published)
+
+`package.json` `files` excludes `tests/`, so none of this ships in the npm tarball (checked on the 0.4.0-dev.12 tarball).
+- Frappe metadata (ToDo, Contact, Event, File, User, Note): Frappe Framework, MIT.
+- `customer.*.json`: ERPNext metadata, **GPL-3.0**. Kept only as internal test input; never copy it into `src/` or `dist/`.
+- `tests/parity/frappe-core-eval-expressions.json` (A6): Frappe core `eval:` expressions, MIT. ERPNext/HRMS expressions are
+  deliberately not stored (counts only).

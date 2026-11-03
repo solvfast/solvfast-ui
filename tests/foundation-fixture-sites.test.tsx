@@ -35,7 +35,7 @@ afterEach(cleanup);
 
 const docsOf = (x: unknown) => (x as { docs: DocTypeMeta[] }).docs;
 const DEAL: DocTypeMeta = {
-  name: "CRM Deal", is_submittable: 1, track_changes: 1, autoname: "format:CRM-DEAL-.#####", title_field: "title", sort_field: "modified", sort_order: "desc",
+  name: "CRM Deal", is_submittable: 1, track_changes: 1, autoname: "format:CRM-DEAL-{#####}", title_field: "title", sort_field: "modified", sort_order: "desc",
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title", reqd: 1, in_list_view: 1 },
     { fieldname: "status", fieldtype: "Select", label: "Status", options: "Open\nWon\nLost", in_list_view: 1 },

@@ -17,10 +17,12 @@ import { ServerHtml } from "./ServerHtml";
 const TITLE: Record<FrappeErrorKind, keyof Messages> = {
   permission: "feErrPermission", not_found: "feErrNotFound", duplicate: "feErrDuplicate", timestamp: "feErrTimestamp",
   mandatory: "feErrMandatory", link: "feErrLink", validation: "feErrValidation", csrf: "feErrSecurityToken",
-  session_expired: "feErrSessionExpired", too_large: "feErrTooLarge", network: "feErrNetwork", server: "feErrServer",
+  session_expired: "feErrSessionExpired", too_large: "feErrTooLarge", rate_limited: "feErrRateLimited", unavailable: "feErrUnavailable",
+  network: "feErrNetwork", server: "feErrServer",
 };
 const HINT: Partial<Record<FrappeErrorKind, keyof Messages>> = {
   timestamp: "feHintTimestamp", csrf: "feHintSecurityToken", session_expired: "feHintSessionExpired", network: "feHintNetwork", too_large: "feHintTooLarge",
+  rate_limited: "feHintRateLimited", unavailable: "feHintUnavailable",
 };
 
 /** Any thrown value → kind + messages, so the component also renders plain Errors (as "server"). */

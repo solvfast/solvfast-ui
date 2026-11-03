@@ -21,12 +21,13 @@ import { Button } from "../../primitives/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../primitives/dialog";
 import { DataGrid, type DataGridColumn } from "../../fields/DataGrid";
 import { interpolate } from "../../fields/FieldShell";
-import type { DocTypeMeta, FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle } from "../contract";
+import type { DocPermissions, DocTypeMeta, FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle } from "../contract";
 import { createDocStore } from "./model/docStore";
 import { isEmptyValue, resolveFields, type EffectiveField } from "./model/depends";
 import { LAYOUT_TYPES, NO_VALUE_TYPES } from "./model/fieldtypes";
 import { buildLayout, sectionFields } from "./model/layout";
 import { controlStatus, ladderStatus } from "./model/status";
+import { usePermissions } from "../hooks";
 import { useFormServices } from "./services";
 import { FrappeField, type FrappeFieldProps } from "./FrappeField";
 
@@ -77,8 +78,9 @@ export function useLocalTableController(df: FrappeDocField, childMeta: DocTypeMe
 }
 
 /** Visible grid columns (grid.js `setup_visible_columns`). */
-export function gridColumns(childMeta: DocTypeMeta): { df: FrappeDocField; width: number }[] {
-  const candidates = (childMeta.fields ?? []).filter((f) => !LAYOUT_TYPES.has(f.fieldtype) && !f.hidden);
+export function gridColumns(childMeta: DocTypeMeta, canRead?: (df: FrappeDocField) => boolean): { df: FrappeDocField; width: number }[] {
+  // grid.js:1015-1021: `frm.get_perm(df.permlevel, "read")` filters the columns BEFORE the width budget is spent
+  const candidates = (childMeta.fields ?? []).filter((f) => !LAYOUT_TYPES.has(f.fieldtype) && !f.hidden && (!canRead || canRead(f)));
   const listed = candidates.filter((f) => f.in_list_view);
   const pool = listed.length ? listed : candidates.filter((f) => !NO_VALUE_TYPES.has(f.fieldtype) && f.fieldtype !== "Table");
   const out: { df: FrappeDocField; width: number }[] = [];
@@ -105,15 +107,21 @@ export interface FrappeChildTableProps {
   controller?: TableController;
   /** The grid's display status (Read: no editing). */
   status?: FieldDisplayStatus;
+  /** Rights per permlevel for a standalone table (Desk's no-permission branch is for dialogs only, perm.js:196-203);
+   *  a form's controller supplies cell statuses itself. */
+  permissions?: DocPermissions;
   label?: string;
   invalid?: boolean;
   className?: string;
 }
 
-export function FrappeChildTable({ df, bundle, childMeta: metaProp, parent, rows, onRowsChange, controller, status = "Write", label, invalid, className }: FrappeChildTableProps) {
+export function FrappeChildTable({ df, bundle, childMeta: metaProp, parent, rows, onRowsChange, controller, status: statusProp, permissions, label, invalid, className }: FrappeChildTableProps) {
   const { t } = useLocale();
   const s = useFormServices();
   const childMeta = metaProp ?? childMetaOf(df, bundle);
+  const status: FieldDisplayStatus = statusProp ?? (permissions ? ladderStatus(df, parent, permissions) : "Write");
+  // inside a form (a controller) Desk filters columns by the read right of their permlevel; a standalone grid has no frm and shows all
+  const perms = usePermissions(bundle, parent);
   const local = useLocalTableController(df, childMeta, parent, rows, onRowsChange);
   const ctl = controller ?? local;
   const [openRow, setOpenRow] = React.useState<string | null>(null);
@@ -123,10 +131,10 @@ export function FrappeChildTable({ df, bundle, childMeta: metaProp, parent, rows
   const editable = status === "Write" && !df.static_rows;
   const fieldsFor = (row: FrappeDoc) => ctl.fieldsFor?.(row) ?? resolveFields(childMeta.fields, row, parent, s.evaluator);
   const statusFor = (f: EffectiveField, row: FrappeDoc): FieldDisplayStatus => {
-    const base = ctl.statusFor?.(f, row) ?? controlStatus(ladderStatus(f, row), f, row, { gridStatus: status });
+    const base = ctl.statusFor?.(f, row) ?? controlStatus(ladderStatus(f, row, permissions), f, row, { gridStatus: status });
     return status === "Read" && base === "Write" && !f.allow_on_submit ? "Read" : base;
   };
-  const cols = gridColumns(childMeta);
+  const cols = gridColumns(childMeta, controller && bundle ? (f) => perms.can("read", f.permlevel ?? 0) : undefined);
   const columns: DataGridColumn<FrappeDoc>[] = cols.map(({ df: col, width }) => ({
     key: col.fieldname,
     label: s.translate(bundle, col.label || col.fieldname),

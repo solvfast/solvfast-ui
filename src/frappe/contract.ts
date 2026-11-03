@@ -177,15 +177,17 @@ export type FieldDisplayStatus = "Write" | "Read" | "None";
 
 /**
  * Classification of a failed call. Mapping (frappe/exceptions.py, 15.110):
- *  permission ← PermissionError (403) · not_found ← DoesNotExistError (404) · duplicate ← DuplicateEntryError (409),
- *  UniqueValidationError (417) · timestamp ← TimestampMismatchError (417) · mandatory ← MandatoryError (417) ·
- *  link ← LinkValidationError / LinkExistsError (417) · validation ← any other ValidationError subclass (417) ·
- *  csrf ← CSRFTokenError (400) · session_expired ← body `session_expired: 1` or 401 · too_large ← 413 (non-JSON) ·
+ *  permission ← PermissionError (403) · not_found ← DoesNotExistError (404), LinkExpired (410), and getdoc's 200 with
+ *  no docs · duplicate ← DuplicateEntryError (409), UniqueValidationError (417) · timestamp ← TimestampMismatchError
+ *  (417) · mandatory ← MandatoryError (417) · link ← LinkValidationError / LinkExistsError (417) · validation ← any
+ *  other ValidationError subclass (417) and a plain NameError (409) · csrf ← CSRFTokenError (400) · session_expired ←
+ *  body `session_expired: 1` or 401 · too_large ← 413 (non-JSON) · rate_limited ← TooManyRequestsError /
+ *  RateLimitExceededError (429) · unavailable ← 503 (InReadOnlyMode, QueueOverloaded, SessionStopped, maintenance) ·
  *  network ← status 0 · server ← anything else (5xx, unparseable).
  */
 export type FrappeErrorKind =
   | "permission" | "not_found" | "duplicate" | "timestamp" | "mandatory" | "link" | "validation"
-  | "csrf" | "session_expired" | "too_large" | "network" | "server";
+  | "csrf" | "session_expired" | "too_large" | "rate_limited" | "unavailable" | "network" | "server";
 
 /** One entry of `_server_messages` (a JSON list of JSON strings). `message` may contain HTML (sanitize before rendering). */
 export interface FrappeMessage {

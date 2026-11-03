@@ -211,6 +211,16 @@ describe("formatValue (docs 12 §9)", () => {
     expect(formatValue("9:30:00", f("Time"), undefined, { timeFormat: "HH:mm" })).toBe("09:30");
     expect(formatValue("garbage", f("Date"))).toBe("");
   });
+  it("duration (seconds): parts, 0s, hide_days / hide_seconds quirks, negatives, unit labels", () => {
+    expect(formatValue(93784, f("Duration"))).toBe("1d 2h 3m 4s");
+    expect(formatValue(3600, f("Duration"))).toBe("1h");
+    expect(formatValue("", f("Duration"))).toBe("0s");
+    expect(formatValue(20, f("Duration", { hide_seconds: 1 }))).toBe("0s");
+    expect(formatValue(3599, f("Duration", { hide_seconds: 1 }))).toBe("60m"); // native does not carry into hours
+    expect(formatValue(-90, f("Duration"))).toBe("-1m -30s");
+    expect(formatValue(93784, f("Duration", { hide_days: 1 }), undefined, { durationUnits: { d: "ي", h: "س", m: "د", s: "ث" } })).toBe("26س 3د 4ث");
+  });
+
   it("check, select, link, data", () => {
     expect(formatValue(1, f("Check"), undefined, { checkLabels: { yes: "نعم", no: "لا" } })).toBe("نعم");
     expect(formatValue("Open", f("Select"), undefined, { translate: (s) => (s === "Open" ? "مفتوح" : s) })).toBe("مفتوح");
@@ -234,6 +244,16 @@ describe("feedback", () => {
     expect(document.querySelector("script")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
     expect(onRetry).toHaveBeenCalled();
+  });
+
+  it("FrappeErrorState: rate_limited (429) and unavailable (503) have their own title and hint, in en and ar", () => {
+    wrap(<FrappeErrorState error={toFrappeError(429, { exc_type: "RateLimitExceededError" })} />);
+    expect(screen.getByRole("alert").dataset.kind).toBe("rate_limited");
+    expect(screen.getByText("Too many requests")).toBeTruthy();
+    cleanup();
+    wrap(<FrappeErrorState error={toFrappeError(503, { exc_type: "InReadOnlyMode" })} />, "ar");
+    expect(screen.getByRole("alert").dataset.kind).toBe("unavailable");
+    expect(screen.getByText("الموقع غير متاح مؤقتًا")).toBeTruthy();
   });
 
   it("FrappeErrorState in Arabic; session_expired offers Log in", () => {

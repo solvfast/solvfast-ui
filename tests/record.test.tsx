@@ -162,6 +162,13 @@ describe("LifecycleBar / ActionBar / StatusBadge", () => {
     expect(Array.from(container.querySelectorAll("[data-step]")).map((e) => e.getAttribute("data-step"))).toEqual(["past", "current", "future"]);
     expect(container.querySelector("[data-tone='warning']")?.textContent).toBe("Pending");
   });
+  it("shows who and when under past states only (current only on request)", () => {
+    const st = [{ id: "d", label: "Draft", by: "Ann", at: NOW - 3_600_000 }, { id: "p", label: "Pending", by: "Bob", at: NOW - 60_000 }, { id: "a", label: "Approved" }];
+    const { container, rerender } = wrap(<LifecycleBar states={st} current="p" now={NOW} />);
+    expect(Array.from(container.querySelectorAll("[data-entry]")).map((e) => e.textContent)).toEqual(["Ann · 1h ago"]);
+    rerender(<ThemeProvider><LifecycleBar states={st} current="p" now={NOW} showCurrentEntry /></ThemeProvider>);
+    expect(container.querySelectorAll("[data-entry]")).toHaveLength(2);
+  });
   it("falls back to currentLabel for an unknown state, compact variant has no steps", () => {
     const { container } = wrap(<LifecycleBar states={states} current="zzz" currentLabel="Legacy" variant="compact" />);
     expect(screen.getByText("Legacy")).toBeTruthy();

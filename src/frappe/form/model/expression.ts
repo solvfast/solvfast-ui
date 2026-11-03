@@ -9,8 +9,8 @@
  * Subset: literals (numbers, strings, true/false/null/undefined, array literals), identifiers bound by the caller
  * (`doc`, `parent`, helpers), member access (`a.b`, `a["b"]`, `a?.b`, `.length`), whitelisted string/array methods
  * (includes, indexOf, startsWith, endsWith, toLowerCase, toUpperCase, trim), calls to bound helper functions, unary
- * `! - + typeof`, binary `* / % + - < > <= >= == != === !== && || ??`, the conditional `?:` and parentheses.
- * Helpers bound by default: `in_list(list, value)`, `cint`, `flt`, `cstr`, `is_null` — Desk exposes these as page
+ * `! - + typeof`, binary `* / % + - < > <= >= == != === !== && || ??` and `in`, a trailing `;`, the conditional `?:` and parentheses.
+ * Helpers bound by default: `in_list(list, value)`, `cint`, `flt`, `cstr`, `is_null`, `Boolean` — Desk exposes these as page
  * globals; the fixtures' real expressions use `in_list` and `cint`. UNVERIFIED: which other Desk globals expressions in
  * the wild rely on (docs `11` §12) — they are reported as unsupported.
  * Semantics follow JavaScript: loose `==`, truthiness, short-circuit `&&`/`||`. Reading a property of null/undefined is
@@ -139,7 +139,7 @@ function parse(tokens: Tok[], used: Set<string>): Node {
       p++;
       if (t.v in KEYWORDS) { const v = KEYWORDS[t.v]; return { node: () => v }; }
       if (t.v === "typeof") { const r = unary(); return { node: (s) => typeof r(s) }; }
-      if (["new", "function", "this", "class", "async", "await", "yield", "delete", "void", "in", "instanceof", "eval", "window", "globalThis", "document"].includes(t.v)) throw new Error(`"${t.v}" is not supported`);
+      if (["new", "function", "this", "class", "async", "await", "yield", "delete", "void", "instanceof", "eval", "window", "globalThis", "document"].includes(t.v)) throw new Error(`"${t.v}" is not supported`);
       const name = t.v;
       used.add(name);
       return {
@@ -228,7 +228,8 @@ function parse(tokens: Tok[], used: Set<string>): Node {
     let left = binary(level + 1);
     for (;;) {
       const t = peek();
-      if (!t || t.t !== "op" || !LEVELS[level].includes(t.v)) return left;
+      const isIn = level === 4 && !!t && t.t === "id" && t.v === "in"; // relational level, like JS
+      if (!t || (!isIn && (t.t !== "op" || !LEVELS[level].includes(t.v)))) return left;
       p++;
       const op = t.v;
       const right = binary(level + 1);
@@ -277,6 +278,12 @@ function combine(op: string, l: Node, r: Node): Node {
     case "*": return (s) => (l(s) as number) * (r(s) as number);
     case "/": return (s) => (l(s) as number) / (r(s) as number);
     case "%": return (s) => (l(s) as number) % (r(s) as number);
+    case "in": return (s) => {
+      const k = String(l(s)); const o = r(s);
+      if (o == null || typeof o !== "object") throw new TypeError(`Cannot use 'in' operator to search for '${k}' in ${String(o)}`);
+      if (Array.isArray(o)) return k === "length" || (/^\d+$/.test(k) && Number(k) < o.length);
+      return Object.prototype.hasOwnProperty.call(o, k);
+    };
     default: throw new Error(`operator "${op}" is not supported`);
   }
 }
@@ -303,6 +310,7 @@ export const DEFAULT_HELPERS: Scope = {
   flt: exprHelper(flt),
   cstr: exprHelper((v: unknown) => (v == null ? "" : String(v))),
   is_null: exprHelper((v: unknown) => v == null || (typeof v === "string" && v.trim() === "")),
+  Boolean: exprHelper((v: unknown) => !!v),
 };
 
 // ---- compile ---------------------------------------------------------------------------------------------------
@@ -316,6 +324,8 @@ const cache = new Map<string, Compiled>();
  * parent and the helpers); in "function" mode they become the parameters of a `new Function`.
  */
 export function compileExpression(src: string, mode: EvalMode = "interpreter", names: string[] = ["doc", "parent", ...Object.keys(DEFAULT_HELPERS)]): Compiled {
+  // Desk compiles `let out = <code>; return out`, so trailing semicolons are valid
+  src = src.replace(/[\s;]+$/, "");
   const key = `${mode}\u0000${names.join(",")}\u0000${src}`;
   const hit = cache.get(key);
   if (hit) return hit;

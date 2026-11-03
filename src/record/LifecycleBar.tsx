@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { cn } from "../lib/cn";
+import { relativeTime } from "../lib/relative-time";
 import { useLocale } from "../theme/ThemeProvider";
 import { ActionBar, type ActionBarLabels } from "./ActionBar";
 import { StatusBadge } from "./StatusBadge";
@@ -22,14 +23,18 @@ export interface LifecycleBarProps {
   actionLabels?: ActionBarLabels;
   /** Label for the “current” marker (the CRM can say “Current phase”). */
   currentMarker?: string;
+  /** Also show actor and time under the current state (default: past states only, like the CRM stepper). */
+  showCurrentEntry?: boolean;
+  /** Fixed "now" for relative times (tests). */
+  now?: number;
   className?: string;
 }
 
 /** The record's lifecycle: where it is (badge + steps) and what can be done next (actions). Vocabulary is entirely props. */
 export function LifecycleBar({
-  states, current, currentLabel, actions = [], onAction, variant = "steps", busy, actionsDisabled, actionsDisabledReason, actionLabels, currentMarker, className,
+  states, current, currentLabel, actions = [], onAction, variant = "steps", busy, actionsDisabled, actionsDisabledReason, actionLabels, currentMarker, showCurrentEntry, now, className,
 }: LifecycleBarProps) {
-  const { t } = useLocale();
+  const { t, isRTL } = useLocale();
   const idx = states.findIndex((s) => s.id === current);
   const cur = idx >= 0 ? states[idx] : undefined;
   const marker = currentMarker ?? t("recCurrentState");
@@ -56,6 +61,9 @@ export function LifecycleBar({
                 </span>
                 <div className="min-w-0 flex-1 pt-0.5 text-xs">
                   <p className={cn("leading-tight", isCur ? "font-semibold text-foreground" : past ? "font-medium text-foreground" : "text-muted-foreground")}>{s.label}</p>
+                  {(past || (isCur && showCurrentEntry)) && (s.by || s.at) ? (
+                    <p className="mt-0.5 truncate text-[10px] text-muted-foreground" data-entry>{[s.by, s.at ? relativeTime(s.at, isRTL, now) : ""].filter(Boolean).join(" · ")}</p>
+                  ) : null}
                   {isCur ? <p className="mt-0.5 text-[10px] font-medium text-primary">{marker}</p> : null}
                 </div>
               </li>

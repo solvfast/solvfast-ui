@@ -6,7 +6,7 @@
  *    Data, Read Only, Text, Small Text, Currency, Check, Text Editor, Attach Image, Code, Link, Float, Int, Date,
  *    Datetime, Select, Duration, Time — or that are read_only / virtual (script_manager.js:194-235);
  *  - when the link changes, `frappe.client.validate_link(doctype, value, fields=[sources])` answers `{name, …values}`;
- *    a null `name` CLEARS the link; otherwise every target is written UNCONDITIONALLY (the client does not consult
+ *    a null `name` CLEARS the link and (link.js:761-764) every fetch target; otherwise every target is written UNCONDITIONALLY (the client does not consult
  *    `fetch_if_empty`); clearing the link writes "" into every target; no request for the untouched default with no
  *    fetch;
  *  - a `fetch_from` field renders read-only while its link has a value, unless `fetch_if_empty` (base_input.js:56-62).
@@ -49,7 +49,8 @@ export function buildFetchMap(meta: DocTypeMeta): Map<string, FetchEntry[]> {
 export function fetchUpdates(entries: FetchEntry[], linkField: string, result: ValidateLinkResult | null): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (!result) { for (const e of entries) out[e.target] = ""; return out; }
-  if (result.name == null) { out[linkField] = null; return out; }
+  // link.js:761-764: an invalid value is cleared and the empty link clears every fetch target
+  if (result.name == null) { out[linkField] = null; for (const e of entries) out[e.target] = ""; return out; }
   for (const e of entries) out[e.target] = result.values[e.source] ?? "";
   return out;
 }
