@@ -30,6 +30,8 @@ export interface FixtureOptions {
   roles?: string[];
   /** Fixed clock for `modified` / `creation` (tests). Default: the real clock. */
   now?: () => Date;
+  /** `frappe.desk.listview.get_list_settings` answers by DocType (List View Settings rows). Default: null. */
+  listSettings?: Record<string, Record<string, unknown> | null>;
 }
 
 export interface FixtureCall { method: string; args: Record<string, unknown> }
@@ -140,13 +142,42 @@ function splitField(field: string): [string | undefined, string] {
   return m ? [m[1], m[2]] : [undefined, u];
 }
 
+/**
+ * Minimal metas the package's own components need even when an app's fixture does not ship them (SIMULATED, a subset of
+ * the real DocTypes' fields): `User` (assign picker: search_link with user_type / enabled) and `List Filter` (saved
+ * filters: get_list / insert / delete). A backend that provides its own meta for them wins.
+ */
+export const BUILTIN_FIXTURE_META: Record<string, DocTypeMeta[]> = {
+  User: [{
+    name: "User", autoname: "field:email", title_field: "full_name", search_fields: "full_name", show_title_field_in_link: 0,
+    fields: [
+      { fieldname: "email", fieldtype: "Data", label: "Email", options: "Email", reqd: 1 },
+      { fieldname: "first_name", fieldtype: "Data", label: "First Name" },
+      { fieldname: "full_name", fieldtype: "Data", label: "Full Name", read_only: 1 },
+      { fieldname: "user_image", fieldtype: "Attach Image", label: "User Image" },
+      { fieldname: "user_type", fieldtype: "Select", label: "User Type", options: "System User\nWebsite User" },
+      { fieldname: "enabled", fieldtype: "Check", label: "Enabled", default: "1" },
+    ],
+  }],
+  "List Filter": [{
+    name: "List Filter", autoname: "hash",
+    fields: [
+      { fieldname: "filter_name", fieldtype: "Data", label: "Filter Name" },
+      { fieldname: "reference_doctype", fieldtype: "Link", label: "Reference Document Type", options: "DocType" },
+      { fieldname: "for_user", fieldtype: "Link", label: "For User", options: "User" },
+      { fieldname: "filters", fieldtype: "Long Text", label: "Filters" },
+    ],
+  }],
+};
+
 export function createFixtureTransport(backend: FixtureBackend, options: FixtureOptions = {}): FixtureTransport {
   const now = options.now ?? (() => new Date());
   const user = backend.user ?? "Administrator";
   const store: FixtureStore = {
-    docs: new Map(), meta: clone(backend.meta), workflows: clone(backend.workflows ?? {}), comments: new Map(), todos: new Map(),
+    docs: new Map(), meta: { ...clone(BUILTIN_FIXTURE_META), ...clone(backend.meta) }, workflows: clone(backend.workflows ?? {}), comments: new Map(), todos: new Map(),
     userSettings: {}, user, calls: [],
   };
+  const versions: Row[] = [];
   let lastTs = 0;
   let seq = 0;
   const counters: Record<string, number> = {};
@@ -243,15 +274,15 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     const doc = table(doctype).get(name);
     if (doc?.owner) users.add(String(doc.owner));
     if (doc?.modified_by) users.add(String(doc.modified_by));
-    const userDocs = store.docs.get("User");
     return {
-      doctype, name, attachments: [], communications: [], automated_messages: [], versions: [], views: [], shared: [], milestones: [],
+      doctype, name, attachments: [], communications: [], automated_messages: [], views: [], shared: [], milestones: [],
+      versions: meta.track_changes ? versions.filter((v) => v.ref_doctype === doctype && v.docname === name).slice(-10).reverse().map(clone) : [],
       energy_point_logs: [], additional_timeline_content: [], tags: "", document_email: null, is_document_followed: 0,
       comments: byType("Comment").map((c) => ({ name: c.name, content: c.content, owner: c.owner, creation: c.creation, comment_type: "Comment", comment_email: c.comment_email, comment_by: c.comment_by })),
       assignment_logs: byType("Assigned", "Assignment Completed"), attachment_logs: byType("Attachment", "Attachment Removed"),
       info_logs: byType("Info", "Edit", "Label"), like_logs: byType("Like"), workflow_logs: byType("Workflow"),
       assignments, permissions: permissions(meta),
-      user_info: Object.fromEntries([...users].filter(Boolean).map((u) => { const ud = userDocs?.get(u); return [u, { fullname: String(ud?.full_name ?? u), image: (ud?.user_image as string) ?? null, name: u }]; })),
+      user_info: Object.fromEntries([...users].filter(Boolean).map((u) => [u, userInfoFn(u)])),
     };
   }
 
@@ -310,7 +341,11 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     const orFilters = toFilters(a.or_filters, doctype);
     let rows = [...table(doctype).values()].filter((d) => filters.every((f) => test(d, f)) && (!orFilters.length || orFilters.some((f) => test(d, f))));
     const order = String(a.order_by ?? `${meta.sort_field || "modified"} ${meta.sort_order || "desc"}`);
-    const parts = order.split(",").map((p) => p.trim()).filter(Boolean).map((p) => { const [f, dir] = p.split(/\s+/); return { f: splitField(f)[1], desc: (dir ?? "asc").toLowerCase() === "desc" }; });
+    // "f desc", "`tabCRM Lead`.`modified` desc, `tabCRM Lead`.`name` desc" (DocType names may contain spaces)
+    const parts = order.split(",").map((p) => p.trim()).filter(Boolean).map((p) => {
+      const m = /^(.*?)(?:\s+(asc|desc))?$/i.exec(p)!;
+      return { f: splitField(m[1])[1], desc: (m[2] ?? "asc").toLowerCase() === "desc" };
+    });
     rows = rows.sort((x, y) => { for (const { f, desc } of parts) { const c = cmp(x[f], y[f]); if (c) return desc ? -c : c; } return 0; });
     return rows;
   }
@@ -372,9 +407,41 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     }
     if (isNew && table(meta.name).has(doc.name)) fail(409, "DuplicateEntryError", `${meta.name} ${doc.name} already exists`);
     for (const k of ["_assign", "_comments", "_liked_by", "_user_tags"]) if (previous && previous[k] !== undefined && doc[k] === undefined) doc[k] = previous[k];
+    if (previous && meta.track_changes) recordVersion(meta, previous, doc);
     table(meta.name).set(doc.name, doc);
     return doc;
   }
+
+  /** A `Version` row like Frappe's (`data` = JSON {changed, added, removed, row_changed}) — simplified diff (SIMULATED). */
+  function recordVersion(meta: DocTypeMeta, before: FrappeDoc, after: FrappeDoc) {
+    const skip = new Set(["modified", "modified_by", "creation", "owner", "idx", "docstatus", "_assign", "_comments", "_liked_by", "_user_tags", "_seen"]);
+    const scalar = meta.fields.filter((f) => !LAYOUT.has(f.fieldtype) && !TABLES.has(f.fieldtype) && !skip.has(f.fieldname));
+    const same = (a: unknown, b: unknown) => (a ?? "") === (b ?? "") || String(a ?? "") === String(b ?? "");
+    const changed = scalar.filter((f) => !same(before[f.fieldname], after[f.fieldname])).map((f) => [f.fieldname, before[f.fieldname] ?? null, after[f.fieldname] ?? null]);
+    const added: unknown[] = [], removed: unknown[] = [], rowChanged: unknown[] = [];
+    for (const tf of tableFields(meta)) {
+      const old = ((before[tf.fieldname] as FrappeDoc[] | undefined) ?? []);
+      const now_ = ((after[tf.fieldname] as FrappeDoc[] | undefined) ?? []);
+      const cm = metaOf(tf.options!);
+      for (const r of now_) {
+        const o = old.find((x) => x.name === r.name);
+        if (!o) { added.push([tf.fieldname, r]); continue; }
+        const diff = (cm?.fields ?? []).filter((f) => !LAYOUT.has(f.fieldtype) && !same(o[f.fieldname], r[f.fieldname])).map((f) => [f.fieldname, o[f.fieldname] ?? null, r[f.fieldname] ?? null]);
+        if (diff.length) rowChanged.push([tf.fieldname, r.idx, r.name, diff]);
+      }
+      for (const o of old) if (!now_.some((r) => r.name === o.name)) removed.push([tf.fieldname, o]);
+    }
+    if (!changed.length && !added.length && !removed.length && !rowChanged.length) return;
+    versions.push({
+      doctype: "Version", name: hash(), ref_doctype: meta.name, docname: after.name, owner: user, creation: after.modified,
+      data: JSON.stringify({ changed, added, removed, row_changed: rowChanged, data_import: null, updater_reference: null }),
+    });
+  }
+
+  const userInfoFn = (u: string) => {
+    const ud = store.docs.get("User")?.get(u);
+    return { fullname: String(ud?.full_name || u), image: (ud?.user_image as string | undefined) ?? null, name: u };
+  };
 
   function workflowOf(doctype: string): WorkflowInfo | undefined {
     return store.workflows[doctype] ?? Object.values(store.workflows).find((w) => w.document_type === doctype);
@@ -495,7 +562,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const withCount = Number(a.with_comment_count) === 1 || a.with_comment_count === true;
       if (withCount && !keys.includes("_comment_count")) { keys.push("_comment_count"); rows.forEach((r, i) => { r._comment_count = ((parse(all[i]._comments) as unknown[] | null) ?? []).length; }); }
       const userInfo: Row = {};
-      for (const r of all) for (const u of (parse(r._assign) as string[] | null) ?? []) userInfo[u] = { fullname: u, image: null, name: u };
+      for (const r of all) for (const u of (parse(r._assign) as string[] | null) ?? []) userInfo[u] = userInfoFn(u);
       return { message: { keys, values: rows.map((r) => keys.map((k) => r[k] ?? null)), user_info: userInfo } };
     },
     "frappe.desk.reportview.get_count": (a) => {
@@ -503,7 +570,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const limit = Number(a.limit) || 0;
       return { message: limit ? Math.min(n, limit) : n };
     },
-    "frappe.desk.listview.get_list_settings": () => ({ message: null }),
+    "frappe.desk.listview.get_list_settings": (a) => ({ message: clone(options.listSettings?.[String(a.doctype)] ?? null) }),
     "frappe.model.utils.user_settings.save": (a) => {
       const prev = parse(store.userSettings[String(a.doctype)] ?? "{}") as Row;
       const next = { ...prev, ...((parse(a.user_settings) as Row) ?? {}) };
@@ -608,9 +675,17 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const doc = meta ? prepare(meta, { ...d, doctype }, false) : ({ ...d, doctype } as FrappeDoc);
       // keep authored standard values when given
       for (const k of ["owner", "creation", "modified", "modified_by", "docstatus"] as const) if (d[k] !== undefined) (doc as Row)[k] = d[k];
-      if (!doc.name) doc.name = `${doctype}-${++seq}`;
+      doc.owner ??= user;
+      doc.creation ??= d.modified ?? doc.modified;
+      if (!d.name) doc.name = meta ? makeName(meta, d) : `${doctype}-${++seq}`;
+      if (meta) for (const tf of tableFields(meta)) for (const r of (doc[tf.fieldname] as FrappeDoc[] | undefined) ?? []) r.parent = doc.name;
       table(doctype).set(doc.name, doc);
     }
+  }
+  // the session user exists as a User (assign picker, user_info) unless the backend authored its own users
+  if (!store.docs.get("User")?.size) {
+    const ts = stamp();
+    table("User").set(user, { doctype: "User", name: user, email: user, first_name: user, full_name: user, user_type: "System User", enabled: 1, docstatus: 0, owner: "Administrator", creation: ts, modified: ts, modified_by: "Administrator" });
   }
 
   const transport = (async (method: string, args: Record<string, unknown>) => {

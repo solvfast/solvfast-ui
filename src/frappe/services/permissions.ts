@@ -122,7 +122,8 @@ export function isWorkflowReadOnly(workflow: WorkflowInfo | null | undefined, do
   return !roles.some((r) => allowed.includes(r));
 }
 
-const cint = (v: unknown) => (typeof v === "number" ? Math.trunc(v) : parseInt(String(v ?? ""), 10) || 0);
+/** Desk's `cint`: numbers truncate, booleans count (Desk sets `hidden_due_to_dependency = true`), strings parse. */
+const cint = (v: unknown) => (typeof v === "number" ? Math.trunc(v) : typeof v === "boolean" ? Number(v) : parseInt(String(v ?? ""), 10) || 0);
 
 /**
  * `frappe.perm.get_field_display_status(df, doc, perm)` (perm.js:191-267; docs 11 §2.5), step by step:

@@ -138,6 +138,18 @@ describe("permissions: the display-status ladder (docs 11 §2.5)", () => {
     expect(fieldDisplayStatus(df({ read_only: 1 }), undefined, undefined)).toBe("Read");
   });
 
+  it("boolean flags count (Desk sets hidden_due_to_dependency = true): hidden, read_only, allow_on_submit, set_only_once", () => {
+    const b = (p: Record<string, unknown>) => df(p as Partial<FrappeDocField>);
+    expect(fieldDisplayStatus(b({ hidden_due_to_dependency: true }), saved, W)).toBe("None");
+    expect(fieldDisplayStatus(b({ hidden_due_to_dependency: false }), saved, W)).toBe("Write");
+    expect(fieldDisplayStatus(b({ hidden: true }), saved, W)).toBe("None");
+    expect(fieldDisplayStatus(b({ read_only: true }), saved, W)).toBe("Read");
+    expect(fieldDisplayStatus(b({ allow_on_submit: true }), { ...saved, docstatus: 1 }, W)).toBe("Write");
+    expect(fieldDisplayStatus(b({ hidden_due_to_dependency: true }), undefined, undefined)).toBe("None");
+    expect(fieldDisplayStatus(b({ read_only: true }), undefined, undefined)).toBe("Read");
+    expect(formatValue(true, { fieldname: "c", fieldtype: "Check" })).toBe("Yes");
+  });
+
   it("control rules: blank Read → None (not HTML/Button), Read table → Read cells", () => {
     expect(controlDisplayStatus("Read", df({}), "")).toBe("None");
     expect(controlDisplayStatus("Read", df({ fieldtype: "HTML" }), "")).toBe("Read");
