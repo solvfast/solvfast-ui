@@ -307,3 +307,8 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
   (`--popover`), no backdrop blur. Dark mode unchanged.
 - Showcase (repository only, not in the tarball): "Frappe layer" group with 10 sections on an in-browser simulated
   site, every section labelled SIMULATED; smoke test extended (61 sections × light/dark × en/ar, 38 interactive checks).
+
+## 0.4.0-dev.30 (2026-11-03, Phase 27 E — source maps)
+- Source maps no longer embed the TypeScript source (`sourcemapExcludeSources`); they keep line mappings and relative
+  `src/` paths. `scripts/check-package.mjs` fails the build when a shipped map carries `sourcesContent` or an absolute
+  source path. Packed size 846 kB → 524 kB.

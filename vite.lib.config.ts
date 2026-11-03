@@ -23,7 +23,9 @@ export default defineConfig({
     lib: { entry: entries, formats: ["es"] },
     rollupOptions: {
       external: (id) => !id.startsWith(".") && !path.isAbsolute(id) && !id.startsWith("\0"),
-      output: { preserveModules: true, preserveModulesRoot: "src", entryFileNames: "[name].js" },
+      // Phase 27 (owner decision 2): maps keep line mappings and relative `src/` paths but never embed the TypeScript
+      // source (`sourcesContent`). `scripts/check-package.mjs` fails the build if any shipped map carries source text.
+      output: { preserveModules: true, preserveModulesRoot: "src", entryFileNames: "[name].js", sourcemapExcludeSources: true },
     },
   },
 });

@@ -41,7 +41,7 @@ for (const f of files) {
 }
 for (const d of Object.keys(pkg.dependencies ?? {})) if (!used.has(d)) problems.push(`dependency "${d}" is declared but never imported by dist/`);
 
-// 4. tarball contents: no absolute local paths, no credentials, no repository-only folders
+// 4. tarball contents: no absolute local paths, no credentials, no repository-only folders; 5. maps without source text
 const listing = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }))[0];
 const CREDENTIAL = /gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|npm_[A-Za-z0-9]{30,}|_authToken=(?!\$\{)[A-Za-z0-9_.-]{20,}/;
 const REPO_ONLY = /^(showcase|playground|tests|e2e|tools|upstream|scripts)\/|(^|\/)\.npmrc$/;
@@ -52,6 +52,12 @@ for (const { path: p } of listing.files) {
   const text = fs.readFileSync(full, "utf8");
   if (/\/home\/|\/tmp\/|\/Users\//.test(text)) problems.push(`${p} contains an absolute local path`);
   if (CREDENTIAL.test(text)) problems.push(`${p} contains what looks like a credential (token) — remove it`);
+  // 5. source maps must not embed the TypeScript source (owner decision, Phase 27): no non-empty `sourcesContent`.
+  if (p.endsWith(".map")) {
+    let map; try { map = JSON.parse(text); } catch { problems.push(`${p} is not valid JSON`); continue; }
+    if (Array.isArray(map.sourcesContent) && map.sourcesContent.some((c) => typeof c === "string" && c.length > 0)) problems.push(`${p} embeds source text (sourcesContent)`);
+    if ((map.sources ?? []).some((s) => /^\/|^[A-Za-z]:\\/.test(s))) problems.push(`${p} has an absolute source path`);
+  }
 }
 
 console.log(`  exports: ${Object.keys(pkg.exports).length} · built files scanned: ${files.length} · npm imports: ${[...used].sort().join(", ")}`);
