@@ -11,3 +11,4 @@ e2e/frappe-site/dist/
 
 # agent working notes (untracked)
 .agent/
+node_modules
