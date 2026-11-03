@@ -8,6 +8,7 @@ import * as React from "react";
 import { Badge, ToggleGroup, ToggleGroupItem, cn } from "@ui";
 import { FrappeProvider } from "@ui/frappe";
 import { createSimSite, type SimSite, type SimSiteOptions } from "../../../../playground/src/demo/sim-site";
+import type { SimulatedPermissions } from "../../../../src/frappe/testing";
 import { l, useTr, type L } from "../../i18n";
 
 /** The sessions the sections switch between (roles as Frappe lists them; "All" is held by every user). */
@@ -85,15 +86,38 @@ export function StatusStrip({ verified, parts, note }: {
   );
 }
 
+/** The SIMULATED server-side permissions of a demo session (`createFixtureTransport`'s `permissions`): the same user and
+ *  roles on the simulated server, the roles the client is told (none for "unknown"). Automatic roles are re-added by the
+ *  simulator as `get_roles` does. */
+export function sessionPermissions(key: SessionKey): SimulatedPermissions {
+  const s = SESSIONS[key];
+  return { user: s.user, fullName: s.fullName, roles: (s.roles ?? []).filter((r) => !["All", "Guest", "Desk User", "Administrator"].includes(r)), clientRoles: s.roles ? "known" : "unknown" };
+}
+
+/** The strip every permission scenario carries: the data AND the permission decisions are simulated. */
+export function SimulatedPermissionStrip() {
+  const tr = useTr();
+  return (
+    <div role="note" data-testid="sim-permission-strip" className="flex flex-wrap items-center gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-foreground">
+      <Badge variant="warning">{tr(l("SIMULATED", "محاكاة"))}</Badge>
+      <span>{tr(l("SIMULATED — in-browser simulator; permission decisions are the simulator's approximation of the Frappe server", "محاكاة — محاكٍ داخل المتصفّح؛ قرارات الأذونات تقريبٌ من المحاكي لما يقرّره خادم فرابيه"))}</span>
+    </div>
+  );
+}
+
 /** A fresh simulated site, rebuilt when `deps` change (each scenario gets clean data and an empty query cache). */
 export function useSimSite(opts: SimSiteOptions, deps: React.DependencyList): SimSite {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   return React.useMemo(() => createSimSite(opts), deps);
 }
 
-/** `FrappeProvider` over a simulated site with one of the demo sessions. */
+/**
+ * `FrappeProvider` over a simulated site. A site built with `permissions` carries its own client session
+ * (`transport.store.session`: the roles the simulated server evaluates, or none when the scenario hides them) and that
+ * wins, so the client and the simulated server always describe the same user; otherwise one of the demo sessions.
+ */
 export function SimProvider({ site, session = "admin", children }: { site: SimSite; session?: SessionKey; children: React.ReactNode }) {
-  const s = SESSIONS[session];
+  const s = site.transport.store.session ?? SESSIONS[session];
   return (
     <FrappeProvider client={site.client} queryClient={site.qc} session={{ user: s.user, fullName: s.fullName, roles: s.roles }}>
       {children}

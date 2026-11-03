@@ -421,33 +421,52 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     const skeletonRows = await sec.locator("tbody tr").count();
     if (!skeletonRows || (await sec.locator("tbody").innerText()).trim() !== "") throw new Error(`no loading skeleton (${skeletonRows} rows)`);
   });
-  await check("frappe forms: new ToDo mandatory, Travel Request depends_on, 403, 417, read-only by role", async () => {
+  await check("frappe forms: new ToDo mandatory, Travel Request depends_on, 403, 417", async () => {
     const sec = await go(page, "frappe-forms");
-    await sec.getByRole("button", { name: T("Save", "حفظ") }).first().waitFor({ timeout: 10_000 });
-    await sec.getByRole("radio", { name: /New ToDo|مهمة جديدة/ }).click();
-    await sec.getByRole("button", { name: T("Save", "حفظ") }).first().click();
+    const main = sec.getByTestId("forms-main");
+    const scenario = sec.locator(`[aria-label="${T("Scenario", "السيناريو")}"]`);
+    await main.getByRole("button", { name: T("Save", "حفظ") }).first().waitFor({ timeout: 10_000 });
+    await scenario.getByRole("radio", { name: /New ToDo|مهمة جديدة/ }).click();
+    await main.getByRole("button", { name: T("Save", "حفظ") }).first().click();
     await page.getByRole("dialog").waitFor({ timeout: 5000 });                                    // Missing Fields
     await page.keyboard.press("Escape");
-    await sec.getByRole("radio", { name: /New Travel Request|طلب سفر جديد/ }).click();
-    const visa = sec.getByText(/^Visa country/);
-    await sec.getByText(/^Needs a visa/).waitFor({ timeout: 10_000 });
+    await scenario.getByRole("radio", { name: /New Travel Request|طلب سفر جديد/ }).click();
+    const visa = main.getByText(/^Visa country/);
+    await main.getByText(/^Needs a visa/).waitFor({ timeout: 10_000 });
     if (await visa.count()) throw new Error("depends_on field visible before its condition");
-    await sec.getByRole("checkbox", { name: /Needs a visa/ }).click();
+    await main.getByRole("checkbox", { name: /Needs a visa/ }).click();
     await visa.first().waitFor({ timeout: 5000 });
-    await sec.getByRole("radio", { name: /403/ }).click();
-    await sec.getByText(T("Not permitted", "غير مسموح")).first().waitFor({ timeout: 10_000 });
-    await sec.getByRole("radio", { name: /417/ }).click();
-    const first = sec.getByRole("textbox", { name: /First Name/ }).first();
+    await scenario.getByRole("radio", { name: /403/ }).click();
+    await main.getByText(T("Not permitted", "غير مسموح")).first().waitFor({ timeout: 10_000 });
+    await scenario.getByRole("radio", { name: /417/ }).click();
+    const first = main.getByRole("textbox", { name: /First Name/ }).first();
     await first.waitFor({ timeout: 10_000 });
     await first.fill("Sarah");
     await first.press("Tab");
-    await sec.getByRole("button", { name: T("Save", "حفظ") }).first().click();
-    await sec.getByRole("button", { name: T("Reload", "إعادة التحميل") }).first().waitFor({ timeout: 10_000 });
-    await sec.getByRole("radio", { name: /Sales User/ }).click();
-    await sec.getByText("Riyadh offsite").first().waitFor({ timeout: 10_000 });
+    await main.getByRole("button", { name: T("Save", "حفظ") }).first().click();
+    await main.getByRole("button", { name: T("Reload", "إعادة التحميل") }).first().waitFor({ timeout: 10_000 });
+  });
+  // Phase 27 D — the seven SIMULATED permission scenarios drive the client session and the simulator's server-side evaluation
+  const permissionPicker = (demo) => demo.locator(`[aria-label="${T("Permission scenario", "سيناريو الأذونات")}"]`);
+  await check("frappe forms: permission scenarios — read-only form, forced save 403, restricted DocType 403", async () => {
+    const sec = await go(page, "frappe-forms");
+    const demo = sec.getByTestId("scenario-form-demo");
+    const picker = permissionPicker(demo);
+    if ((await picker.getByRole("radio").count()) !== 7) throw new Error("not seven scenarios");
+    await demo.getByTestId("sim-permission-strip").waitFor();
+    if (!/SIMULATED — in-browser simulator; permission decisions are the simulator's approximation of the Frappe server|محاكاة — محاكٍ داخل المتصفّح/.test(await demo.getByTestId("sim-permission-strip").innerText())) throw new Error("strip text");
+    await picker.getByRole("radio", { name: T("Read-only role", "دور للقراءة فقط"), exact: true }).click();
+    await demo.getByText("Riyadh offsite").first().waitFor({ timeout: 10_000 });
     await page.waitForTimeout(300);
-    if (await sec.getByRole("button", { name: T("Save", "حفظ") }).count()) throw new Error("Save offered without write");
-    if (await sec.getByText(/^Internal notes/).count()) throw new Error("permlevel-1 field shown to Sales User");
+    if (await demo.getByRole("button", { name: T("Save", "حفظ"), exact: true }).count()) throw new Error("Save offered without write");
+    if (await demo.getByText(/^Internal notes/).count()) throw new Error("permlevel-1 field shown to the read-only role");
+    await demo.getByTestId("forced-save").click();
+    await demo.getByText(/savedocs TR-0001 → 403 PermissionError/).waitFor({ timeout: 5000 });
+    await picker.getByRole("radio", { name: T("Restricted fields (permlevel 1)", "حقول مقيّدة (permlevel 1)"), exact: true }).click();
+    await demo.getByRole("button", { name: T("Save", "حفظ"), exact: true }).first().waitFor({ timeout: 10_000 });   // level-0 write
+    if (await demo.getByText(/^Internal notes/).count()) throw new Error("permlevel-1 field shown without level-1 read");
+    await picker.getByRole("radio", { name: T("Restricted DocType", "نوع مستند مقيّد"), exact: true }).click();
+    await demo.getByText(T("Not permitted", "غير مسموح")).first().waitFor({ timeout: 10_000 });
   });
   await check("frappe record: status chip, timeline, add a comment", async () => {
     const sec = await go(page, "frappe-record");
@@ -483,15 +502,37 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await box.press("Control+Enter");
     await sec.getByText(/data-id="sara@example.com"/).waitFor({ timeout: 5000 });
   });
+  await check("frappe permissions: seven scenarios — rights beside the simulated server's answers, filtered list, rule-9 state", async () => {
+    const sec = await go(page, "frappe-permissions");
+    const demo = sec.getByTestId("scenario-permissions-demo");
+    const picker = permissionPicker(demo);
+    if ((await picker.getByRole("radio").count()) !== 7) throw new Error("not seven scenarios");
+    await demo.getByTestId("sim-permission-strip").waitFor();
+    const probe = demo.getByTestId("server-probe");
+    await probe.getByText(/keys: name, purpose$/).waitFor({ timeout: 10_000 });               // read-only: permlevel column dropped
+    if (!(await probe.innerText()).includes("403")) throw new Error("read-only role: no 403 from the simulated server");
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid="scenario-list"] tbody tr').length === 3, null, { timeout: 10_000 });
+    if (await demo.getByTestId("scenario-form").getByRole("button", { name: T("Save", "حفظ"), exact: true }).count()) throw new Error("read-only role offered Save");
+    await picker.getByRole("radio", { name: T("User Permissions", "أذونات المستخدم"), exact: true }).click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid="scenario-list"] tbody tr').length === 2 && /TR-0002, TR-0003/.test(document.querySelector('[data-testid="server-probe"]')?.textContent ?? ""), null, { timeout: 10_000 });
+    await picker.getByRole("radio", { name: T("Restricted DocType", "نوع مستند مقيّد"), exact: true }).click();
+    await demo.getByTestId("scenario-list").getByText(T("Not permitted", "غير مسموح")).first().waitFor({ timeout: 10_000 });
+    await demo.getByTestId("scenario-form").getByText(T("Not permitted", "غير مسموح")).first().waitFor({ timeout: 10_000 });
+    await picker.getByRole("radio", { name: T("Unknown roles", "أدوار مجهولة"), exact: true }).click();
+    await demo.getByTestId("scenario-new-form").locator('[data-permissions="unknown"]').waitFor({ timeout: 10_000 });
+    await picker.getByRole("radio", { name: T("Administrator", "المدير (Administrator)"), exact: true }).click();
+    await page.waitForFunction(() => /keys: name, purpose, internal_notes/.test(document.querySelector('[data-testid="server-probe"]')?.textContent ?? ""), null, { timeout: 10_000 });
+  });
   await check("frappe permissions: role picker drives the rights and the form", async () => {
     const sec = await go(page, "frappe-permissions");
+    const sessions = sec.locator(`[aria-label="${T("Session", "الجلسة")}"]`);
     await sec.getByText("canImport(meta, roles, level0)").waitFor({ timeout: 10_000 });
-    await sec.getByRole("radio", { name: /Sales User/ }).click();
+    await sessions.getByRole("radio", { name: /Sales User/ }).click();
     await page.waitForTimeout(400);
     if ((await sec.getByText(T("hidden", "مخفي")).count()) < 4) throw new Error("Sales User still sees the gated entries");
-    await sec.getByRole("radio", { name: T("Roles unknown", "أدوار غير معروفة") }).click();
+    await sessions.getByRole("radio", { name: T("Roles unknown", "أدوار غير معروفة") }).click();
     await sec.locator('[data-permissions="unknown"]').waitFor({ timeout: 5000 });
-    await sec.getByRole("radio", { name: /Data Entry/ }).click();
+    await sessions.getByRole("radio", { name: /Data Entry/ }).click();
     await page.waitForTimeout(400);
     if ((await sec.locator("text=canImport(meta, roles, level0)").locator("xpath=..").innerText()).includes(T("no", "لا"))) throw new Error("Data Entry cannot import");
   });

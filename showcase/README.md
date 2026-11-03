@@ -36,7 +36,7 @@ node e2e/showcase-smoke.mjs                          # in another: [baseUrl] [sc
 
 The smoke test opens every section from its address in light/dark × English/Arabic. It fails on any page error, console error, wrong `dir` or theme on `<html>`, more than one section open, a section not scrolled into view, or sideways scrolling (desktop and phone width). It also checks:
 - **Browsing:** sections are collapsed by default; the section toggle, the rail collapse, the header pill and the phone menu work.
-- **Interactive examples:** dialogs, sheets, menus, the command palette, tabs, the date field, list search, selection, filters, the stat cards, the simulated Frappe list and the app shell; from 0.4.0 the ten Frappe-layer sections (scenario and session pickers, the realtime button, bulk bar gating, the Missing Fields dialog, depends_on, 403 / 417, a comment, a workflow transition, an assignment, a mention, the role picker, the Export dialog and its recorded request, the RTL and themed panes); from 0.3.0 also toggles, slider and progress direction, accordion, search combobox, rich text (toolbar, and an XSS sample that must not run), form validation, charts, hover card, context menu, menubar, breadcrumb, pagination, navigation menu, and the page header (in and out of the app shell). It needs `playwright-core`'s Chromium, as the other `e2e/` scripts do.
+- **Interactive examples:** dialogs, sheets, menus, the command palette, tabs, the date field, list search, selection, filters, the stat cards, the simulated Frappe list and the app shell; from 0.4.0 the ten Frappe-layer sections (scenario and session pickers, the realtime button, bulk bar gating, the Missing Fields dialog, depends_on, 403 / 417, a comment, a workflow transition, an assignment, a mention, the seven permission scenarios with their simulated 403s and filtered rows, the role picker, the Export dialog and its recorded request, the RTL and themed panes); from 0.3.0 also toggles, slider and progress direction, accordion, search combobox, rich text (toolbar, and an XSS sample that must not run), form validation, charts, hover card, context menu, menubar, breadcrumb, pagination, navigation menu, and the page header (in and out of the app shell). It needs `playwright-core`'s Chromium, as the other `e2e/` scripts do.
 
 ## How it is put together
 
@@ -61,21 +61,24 @@ a Table MultiSelect, a permlevel-1 field, role rows and `allow_import`). A manag
 |---|---|
 | `#frappe-gallery` | a card per component with its matrix status and a link |
 | `#frappe-list-view` | ToDo list: search, filters, saved filters (List Filter rows in the simulator), columns, sort, paging, selection, bulk delete / assign, the ⋯ menu, a "simulate server event" button for the realtime hook, loading / empty / 403 scenarios, two sessions |
-| `#frappe-forms` | Contact (child tables, Dynamic Link), new ToDo (mandatory, Link search), Travel Request (depends_on, Table MultiSelect), submitted memo, read-only by role, save error 417, loading, 403 |
+| `#frappe-forms` | Contact (child tables, Dynamic Link), new ToDo (mandatory, Link search), Travel Request (depends_on, Table MultiSelect), submitted memo, save error 417, loading, 403; (Phase 27) a saved Travel Request under the seven **permission scenarios** with a "send a save anyway" button that shows the simulated server's 403 |
 | `#frappe-record` | FrappeStatusIndicator + FrappeTimeline: comments with mentions, versions, assignment logs |
 | `#frappe-workflow` | FrappeWorkflowActions (stepper and compact) on the Approval Flow; generic LifecycleBar / ActionBar |
 | `#frappe-assign` | FrappeAssignTo (add / remove through the simulator); generic AssigneeGroup / AssignPicker; CommentComposer |
-| `#frappe-permissions` | a role picker over `usePermissions`, `canImport`, `canExport`, `bulkMenu`, the permlevel-1 field status, and what the UI hides (incl. the rule-9 "roles unknown" case) |
-| `#frappe-import-export` | the gated Import / Export entries, `FrappeExportDialog`, the exact `download_template` request the package posts (recorded by a stub file transport), the 403 case |
+| `#frappe-permissions` | (Phase 27) the seven **permission scenarios** — Administrator, full-access role, read-only role, restricted DocType, restricted fields (permlevel 1), User Permissions (+ a DocShare), unknown roles — each driving the client session AND the simulator's server-side evaluation: the client's rights on the saved document beside the simulated server's answers (getdoc, list keys, saves, delete, another DocType, export), the list as the server filters it, the document as the session sees it; then the role picker over `usePermissions`, `canImport`, `canExport`, `bulkMenu`, the permlevel-1 field status and what the UI hides (incl. the rule-9 "roles unknown" case), also on the permission-evaluating simulator |
+| `#frappe-import-export` | the gated Import / Export entries, `FrappeExportDialog`, the exact `download_template` request the package posts (recorded, then decided by the simulator's file server: read + `can_export`), the 403 case |
 | `#frappe-rtl` · `#frappe-themes` | the same list and form in Arabic RTL and English LTR, and in light and dark, side by side (element-scoped `ThemeProvider`s) |
 
 **Labels.** Every section carries a status strip: *SIMULATED — in-browser Frappe simulator, demo data*, and, where
 `docs/release/COMPONENT-COMPLETION-MATRIX.md` says so (rows 10, 15–19, 24–27), *read path verified against recorded real Frappe 15.110
 responses — tests/real/sada-real.test.tsx*. Nothing on these pages is evidence of real-site behaviour; no write has ever run on a site.
-The simulated file transport never builds an export from client data: it records the request and answers a 403 or a tiny text file
-that says it is a simulated response; uploads (imports) are refused. Two simulator simplifications are labelled on the pages:
-`docinfo.permissions` is always full-rights (a demo override answers restricted rights for the "read-only by role" form scenario), and
-the simulator never checks permissions on reads.
+The simulated file transport never builds an export from client data: it records the request and the simulator's file server
+answers a 403 or a small text file labelled SIMULATED that carries the column labels and the request — never document values;
+uploads (imports) are refused. **Permissions (Phase 27):** the Forms, Permissions and Import & export sections run the simulator's
+opt-in server-side permission model (`createFixtureTransport(…, { permissions })`, `docs/qa/simulator-caveats.md` §4), so 403s,
+filtered rows, stripped permlevel values and `docinfo.permissions` come from the simulated server; every permission scenario
+carries the strip *SIMULATED — in-browser simulator; permission decisions are the simulator's approximation of the Frappe server*.
+The other sections still run the simulator without it (every right), as their labels say.
 
 The List View, Frappe and app-shell pages reuse the playground's demos (`playground/src/showcase`, `playground/src/demo`): Sear's Field Library data, Sear's shell configuration, and the simulated Frappe site. The Frappe page runs entirely in the browser against that simulation; it is not evidence of real-site validation, which is still deferred.
 
