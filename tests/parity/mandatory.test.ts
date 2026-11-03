@@ -4,7 +4,7 @@
  * "Missing Fields" dialog), form_tab_break.js (tab switch on validation error), control_attach.js.
  * Python (server side, static `reqd` only): test_document.py::test_mandatory (document.py:946-967).
  *
- * PENDING: A3 `checkMandatory` (./seam.ts). Skipped until wired.
+ * Wired to A3's `checkMandatory` (./seam.ts).
  */
 import { describe, expect, it } from "vitest";
 import type { FrappeDoc, FrappeDocField } from "../../src/frappe/contract";
@@ -12,7 +12,7 @@ import { checkMandatory, fieldOf, loadBundle, synthetic } from "./seam";
 
 const TITLE = "Missing Fields";
 
-describe.skip("checkMandatory — parent fields", () => {
+describe("checkMandatory — parent fields", () => {
   const todo = loadBundle("todo.en.json"); // description: Text Editor, reqd=1 (real meta)
   const run = (o: Record<string, unknown>) => checkMandatory(todo, { doctype: "ToDo", name: "new-todo-1", __islocal: 1, docstatus: 0, ...o });
 
@@ -53,7 +53,7 @@ describe.skip("checkMandatory — parent fields", () => {
   });
 });
 
-describe.skip("checkMandatory — mandatory_depends_on (client only; the server ignores it)", () => {
+describe("checkMandatory — mandatory_depends_on (client only; the server ignores it)", () => {
   const dep = "eval:doc.test_field=='Some Value'";
   const b = synthetic("Test Depends On", [
     { fieldname: "test_field", fieldtype: "Data", label: "Test Field" },
@@ -80,7 +80,7 @@ describe.skip("checkMandatory — mandatory_depends_on (client only; the server 
   });
 });
 
-describe.skip("checkMandatory — child tables (message grouping, save.js:160-246)", () => {
+describe("checkMandatory — child tables (message grouping, save.js:160-246)", () => {
   const item: FrappeDocField[] = [
     { fieldname: "item_code", fieldtype: "Data", label: "Item Code", reqd: 1 },
     { fieldname: "qty", fieldtype: "Int", label: "Qty", reqd: 1 },
