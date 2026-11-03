@@ -2,12 +2,14 @@
  * The SIMULATED Frappe site the playground (`FrappeSimPage`) and the showcase ("Frappe layer" group) share: real 15.110
  * metadata for ToDo / User / Contact (tests/fixtures/real-15.110), two authored demo DocTypes (Approval Memo with a
  * workflow; Travel Request with depends_on, a Table MultiSelect, a permlevel-1 field and role rows), demo documents, the
- * scenario failure handlers (403 / 417 / latency) and a fake realtime port. Everything here runs in the browser through
- * `createFixtureTransport`; nothing is evidence of Frappe behaviour. Playground / showcase only.
+ * scenario failure handlers (403 / 417 / latency), a fake realtime port and the seven PERMISSION SCENARIOS (the
+ * simulator's opt-in server-side permission model). Everything here runs in the browser through
+ * `createFixtureTransport`; nothing is evidence of Frappe behaviour — permission decisions included: they are the
+ * simulator's approximation of the Frappe server. Playground / showcase only.
  */
 import { QueryClient } from "@tanstack/react-query";
-import { createFrappeClient, toFrappeError, type DocPerm, type DocTypeMeta, type DownloadedFile, type FrappeDoc, type FrappeFilesTransport, type PermType, type RealtimeEvent, type RealtimePort, type WorkflowInfo } from "@ui/frappe";
-import { createFixtureTransport, type FixtureHandler, type FixtureTransport } from "../../../src/frappe/testing";
+import { createFrappeClient, DOWNLOAD_TEMPLATE_METHOD, FrappeError, toFrappeError, type DocPerm, type DocTypeMeta, type DownloadedFile, type FrappeDoc, type FrappeFilesTransport, type RealtimeEvent, type RealtimePort, type WorkflowInfo } from "@ui/frappe";
+import { createFixtureTransport, simScenario, type FixtureHandler, type FixtureTransport, type SimScenarioName, type SimulatedPermissions } from "../../../src/frappe/testing";
 import todoEn from "../../../tests/fixtures/real-15.110/todo.en.json";
 import userEn from "../../../tests/fixtures/real-15.110/user.en.json";
 import contactEn from "../../../tests/fixtures/real-15.110/contact.en.json";
@@ -85,7 +87,9 @@ export const todos = (n: number): FrappeDoc[] => Array.from({ length: n }, (_, i
   doctype: "ToDo", name: `TD-${String(i + 1).padStart(4, "0")}`, description: `<p>${TASKS[i % TASKS.length]}</p>`, status: ["Open", "Closed", "Cancelled"][i % 3], priority: ["High", "Medium", "Low"][i % 3],
   date: `2026-11-${String((i % 27) + 1).padStart(2, "0")}`, allocated_to: USERS[i % 4], assigned_by: USERS[(i + 1) % 4], owner: USERS[i % 4], modified: `2026-11-02 ${String(8 + (i % 10)).padStart(2, "0")}:00:00.000000`, creation: T, _assign: JSON.stringify([USERS[i % 4]]),
 })) as FrappeDoc[];
-export const userDocs = USERS.map((u) => ({ doctype: "User", name: u, email: u, full_name: u.split("@")[0].replace(/^./, (c) => c.toUpperCase()) + " Q", first_name: u.split("@")[0], enabled: 1, user_type: "System User" })) as FrappeDoc[];
+/** A demo user with no role assigned (the "unknown roles" permission scenario). Not in USERS: no ToDo is allocated to her. */
+export const NEW_USER = "noor@example.com";
+export const userDocs = [...USERS, NEW_USER].map((u) => ({ doctype: "User", name: u, email: u, full_name: u.split("@")[0].replace(/^./, (c) => c.toUpperCase()) + " Q", first_name: u.split("@")[0], enabled: 1, user_type: "System User" })) as FrappeDoc[];
 
 export const CONTACT: FrappeDoc = {
   doctype: "Contact", name: "Sara Al-Otaibi", first_name: "Sara", last_name: "Al-Otaibi", full_name: "Sara Al-Otaibi", company_name: "Acme Travel", designation: "Operations Manager", status: "Passive",
@@ -137,22 +141,47 @@ export interface FileCall { kind: "download" | "upload"; method: string; args: R
 /**
  * A SIMULATED file transport (`createFrappeClient({ files })`): it records every `download` / `upload` the package asks
  * for and never contacts a server. `mode` "refuse" answers the 403 a site returns for a user without the right;
- * "respond" resolves a tiny text file that says it is a simulated response (NOT an export of any data); "none" (the
- * default for every section but Import & export) refuses with a labelled 417 so nothing is ever handed to the browser.
+ * "respond" hands the request to the simulator's own file server (`server`, i.e. `transport.files`: permission-checked
+ * when the site simulates permissions, and answering a text file labelled SIMULATED with the column labels and the
+ * request — never document values); without `server` it resolves a tiny text file that says it is a simulated response;
+ * "none" (the default for every section but Import & export) refuses with a labelled 417 so nothing is ever handed to
+ * the browser.
  */
-export function simulatedFiles(mode: "none" | "refuse" | "respond", onCall?: (c: FileCall) => void): FrappeFilesTransport {
+export function simulatedFiles(mode: "none" | "refuse" | "respond", onCall?: (c: FileCall) => void, server?: FrappeFilesTransport): FrappeFilesTransport {
   const record = (c: FileCall) => { onCall?.(c); return c; };
   const refuse = (status: number, exc_type: string, message: string) => toFrappeError(status, { exc_type, _server_messages: JSON.stringify([JSON.stringify({ message, indicator: "red" })]) });
   return {
     async download(method, args) {
       if (mode === "refuse") { record({ kind: "download", method, args, at: Date.now(), outcome: "403 PermissionError (simulated server refusal)" }); throw refuse(403, "PermissionError", "Not permitted to export Travel Request"); }
       if (mode === "none") { record({ kind: "download", method, args, at: Date.now(), outcome: "417 — no file server in the showcase" }); throw refuse(417, "ValidationError", "SIMULATED showcase: the file server is not simulated in this section; see Import & export."); }
+      if (server) {
+        try {
+          const file = await server.download(method, args);
+          record({ kind: "download", method, args, at: Date.now(), outcome: `200 — simulated ${file.filename} (${file.blob.size} bytes; labels and request only)` });
+          return file;
+        } catch (e) {
+          const err = e instanceof FrappeError ? e : undefined;
+          record({ kind: "download", method, args, at: Date.now(), outcome: `${err?.status ?? "?"} ${err?.excType ?? ""} — ${err?.message ?? String(e)} (simulated server decision)` });
+          throw e;
+        }
+      }
       const text = `SIMULATED RESPONSE — NOT AN EXPORT.\nThe showcase has no server; on a site ${method} would stream the CSV/XLSX built server-side.\nRequest: ${JSON.stringify(args)}\n`;
       const file: DownloadedFile = { blob: new Blob([text], { type: "text/plain" }), filename: "SIMULATED-not-an-export.txt", contentType: "text/plain" };
       record({ kind: "download", method, args, at: Date.now(), outcome: `200 — simulated ${file.filename} (${text.length} bytes)` });
       return file;
     },
-    async upload(_file, filename, opts) {
+    async upload(file, filename, opts) {
+      if (server && mode === "respond") {
+        try {
+          const doc = await server.upload(file, filename, opts);
+          record({ kind: "upload", method: "upload_file", args: { filename, ...opts }, at: Date.now(), outcome: `200 — kept in the simulator's memory as ${String(doc.file_url)} (simulated server)` });
+          return doc;
+        } catch (e) {
+          const err = e instanceof FrappeError ? e : undefined;
+          record({ kind: "upload", method: "upload_file", args: { filename, ...opts }, at: Date.now(), outcome: `${err?.status ?? "?"} ${err?.excType ?? ""} — ${err?.message ?? String(e)} (simulated server decision)` });
+          throw e;
+        }
+      }
       record({ kind: "upload", method: "upload_file", args: { filename, ...opts }, at: Date.now(), outcome: "417 — uploads are not simulated (an import would write to the site)" });
       throw refuse(417, "ValidationError", "SIMULATED showcase: uploads are not simulated; an import writes to the site.");
     },
@@ -160,23 +189,30 @@ export function simulatedFiles(mode: "none" | "refuse" | "respond", onCall?: (c:
 }
 
 export interface SimSiteOptions {
-  /** The file transport (download / upload). Default: `simulatedFiles("none")`. */
+  /** The file transport (download / upload). Default: `simulatedFiles(fileMode ?? "none", onFileCall, transport.files)`. */
   files?: FrappeFilesTransport;
+  /** With no `files`: how the showcase's file transport answers (see `simulatedFiles`); "respond" goes through the
+   *  simulator's own file server (permission-checked with `permissions`). */
+  fileMode?: "none" | "refuse" | "respond";
+  onFileCall?: (c: FileCall) => void;
   /** Extra / overriding methods (e.g. one of `SCENARIO_HANDLERS`). */
   handlers?: Record<string, FixtureHandler>;
-  /** The simulated session's roles (workflow transitions are filtered by them). */
+  /** The simulated session's roles (workflow transitions are filtered by them). Ignored with `permissions`. */
   roles?: string[];
   user?: string;
+  /**
+   * SIMULATED server-side permissions (`createFixtureTransport(…, { permissions })`): the simulator then evaluates every
+   * call from the DocPerm rows × the session's roles, User Permissions and shares — 403s, filtered rows, stripped
+   * permlevel values. `site.transport.store.session` is the matching client session. Omitted: every right (as before).
+   */
+  permissions?: SimulatedPermissions;
+  /** The simulated Data Import job: "dry-run" (default — rows checked and logged, nothing written) or "insert" (the
+   *  simulator plays the server and inserts valid rows into its own memory; labelled in the log). */
+  dataImport?: "dry-run" | "insert";
   /** Artificial latency (ms); a huge value keeps "loading" on screen. */
   latency?: number;
   /** Number of demo ToDos (default 45; 0 = empty list). */
   todoCount?: number;
-  /**
-   * DEMO OVERRIDE: the simulator answers `docinfo.permissions` with every right set (its documented simplification), so a
-   * saved document can never be read-only by role. This replaces the document-level rights in `getdoc` / `get_docinfo`
-   * answers with the given ones, the way a real server answers for a restricted user. Simulated, like everything else.
-   */
-  docinfoPermissions?: Partial<Record<PermType, 0 | 1>>;
 }
 export interface SimSite {
   transport: FixtureTransport;
@@ -191,21 +227,14 @@ export interface SimSite {
 
 /** One simulated site: fresh in-memory data, a client over the fixture transport, and its own React Query cache. */
 export function createSimSite(o: SimSiteOptions = {}): SimSite {
-  const base = createFixtureTransport({
+  const transport = createFixtureTransport({
     meta: { ...REAL_META, "Approval Memo": [MEMO], "Travel Request": [TRAVEL, TRAVEL_COMPANION] },
     workflows: { "Approval Memo": WF },
     docs: { User: userDocs, ToDo: todos(o.todoCount ?? 45), Contact: [CONTACT], "Approval Memo": MEMOS, "Travel Request": TRAVELS },
     latency: o.latency ?? 0,
     user: o.user ?? "Administrator",
-  }, { handlers: o.handlers ?? {}, roles: o.roles ?? ["System Manager", "All"] });
-  const perms = o.docinfoPermissions;
-  const transport: FixtureTransport = perms ? Object.assign(async (method: string, args: Record<string, unknown>) => {
-    const r = await base(method, args);
-    if (method === "frappe.desk.form.load.getdoc" && r.docinfo) return { ...r, docinfo: { ...(r.docinfo as Record<string, unknown>), permissions: perms } };
-    if (method === "frappe.desk.form.load.get_docinfo" && r.message) return { ...r, message: { ...(r.message as Record<string, unknown>), permissions: perms } };
-    return r;
-  }, { store: base.store }) : base;
-  const client = createFrappeClient({ transport, files: o.files ?? simulatedFiles("none") });
+  }, { handlers: o.handlers ?? {}, roles: o.roles ?? ["System Manager", "All"], permissions: o.permissions, dataImport: o.dataImport });
+  const client = createFrappeClient({ transport, files: o.files ?? simulatedFiles(o.fileMode ?? "none", o.onFileCall, transport.files) });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   let extra = 0;
   return {
@@ -227,3 +256,87 @@ export function createSimSite(o: SimSiteOptions = {}): SimSite {
     },
   };
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Permission scenarios — SIMULATED server-side permission decisions (createFixtureTransport's `permissions` option)
+// ---------------------------------------------------------------------------------------------------------------------
+
+export interface PermissionScenario {
+  key: SimScenarioName;
+  /** What the simulated SERVER evaluates (and, via `store.session`, what the client is told). */
+  permissions: SimulatedPermissions;
+  /** The saved document the scenario opens. */
+  focus: { doctype: string; name: string };
+}
+
+/**
+ * The seven scenarios over Travel Request's role rows (TRAVEL above): System Manager (everything + permlevel 1), Sales
+ * User (read), Data Entry (read / write / create / import), and roles the DocType has no row for. SIMULATED.
+ */
+export const PERMISSION_SCENARIOS: Record<SimScenarioName, PermissionScenario> = {
+  administrator: { key: "administrator", permissions: simScenario.administrator(), focus: { doctype: "Travel Request", name: "TR-0001" } },
+  "full-access": { key: "full-access", permissions: simScenario.fullAccess("sara@example.com", ["System Manager"]), focus: { doctype: "Travel Request", name: "TR-0001" } },
+  "read-only": { key: "read-only", permissions: simScenario.readOnly("lina@example.com", ["Sales User"]), focus: { doctype: "Travel Request", name: "TR-0001" } },
+  "restricted-doctype": { key: "restricted-doctype", permissions: simScenario.restrictedDoctype("khaled@example.com", ["Purchase User"]), focus: { doctype: "Travel Request", name: "TR-0001" } },
+  "restricted-fields": { key: "restricted-fields", permissions: simScenario.restrictedFields("omar@example.com", ["Data Entry"]), focus: { doctype: "Travel Request", name: "TR-0001" } },
+  "user-permissions": {
+    key: "user-permissions",
+    permissions: simScenario.userPermissions("omar@example.com", ["Data Entry"], [{ allow: "User", for_value: "omar@example.com", applicable_for: "Travel Request" }],
+      { shares: [{ share_doctype: "Travel Request", share_name: "TR-0002", user: "omar@example.com", read: 1, owner: "Administrator" }] }),
+    focus: { doctype: "Travel Request", name: "TR-0003" },
+  },
+  "unknown-roles": { key: "unknown-roles", permissions: simScenario.unknownRoles(NEW_USER, { fullName: "Noor Q" }), focus: { doctype: "Travel Request", name: "TR-0001" } },
+};
+
+/** One answer of the simulated server to a probe call. */
+export interface ProbeLine { call: string; status: number; outcome: string }
+
+/**
+ * Ask a THROWAWAY simulated site (same scenario, fresh data) a fixed set of questions and report what its permission
+ * model answered — so the page shows the server-side decisions without mutating the site on screen. SIMULATED.
+ */
+export async function probeServer(sc: PermissionScenario): Promise<ProbeLine[]> {
+  const site = createSimSite({ permissions: sc.permissions, todoCount: 6 });
+  const t = site.transport;
+  const out: ProbeLine[] = [];
+  const run = async (call: string, fn: () => Promise<string>) => {
+    try { out.push({ call, status: 200, outcome: await fn() }); } catch (e) {
+      const err = e instanceof FrappeError ? e : undefined;
+      const text = [err?.message ?? String(e), ...(err?.messages ?? []).map((m) => m.message)].map((x) => x.replace(/<br\s*\/?>/gi, " · ").replace(/<[^>]+>/g, "").trim()).filter((x, i, a) => x && a.indexOf(x) === i);
+      out.push({ call, status: err?.status ?? 0, outcome: `${err?.excType ?? "Error"}: ${text.join(" — ")}` });
+    }
+  };
+  const { doctype, name } = sc.focus;
+  await run(`getdoctype ${doctype}`, async () => "meta loaded — getdoctype has no permission check (load.py:62-79)");
+  await run(`getdoc ${doctype} ${name}`, async () => {
+    const r = await t("frappe.desk.form.load.getdoc", { doctype, name });
+    const d = r.docs![0] as FrappeDoc;
+    const info = r.docinfo as { permissions: Record<string, unknown>; shared: { user?: string; read?: number; write?: number }[] };
+    const rights = ["read", "write", "create", "delete"].map((k) => `${k} ${info.permissions[k] ?? "–"}`).join(", ");
+    const shared = info.shared.length ? `; docinfo.shared: ${info.shared.map((x) => `${x.user} (read ${x.read}, write ${x.write})`).join(", ")}` : "";
+    return `internal_notes ${"internal_notes" in d ? "present" : "absent (permlevel 1 stripped)"}; docinfo.permissions: ${rights}${shared}`;
+  });
+  await run("reportview.get Travel Request [name, purpose, internal_notes]", async () => {
+    const r = (await t("frappe.desk.reportview.get", { doctype: "Travel Request", fields: JSON.stringify(["name", "purpose", "internal_notes"]), order_by: "name asc" })).message as { keys: string[]; values: unknown[][] } | [];
+    if (Array.isArray(r)) return "0 rows";
+    return `${r.values.length} row(s): ${r.values.map((v) => v[0]).join(", ")} · keys: ${r.keys.join(", ")}`;
+  });
+  await run(`savedocs ${name} (no change)`, async () => {
+    const stored = t.store.docs.get(doctype)!.get(name)!;
+    await t("frappe.desk.form.save.savedocs", { doc: JSON.stringify(stored), action: "Save" });
+    return "saved";
+  });
+  await run("savedocs a new Travel Request", async () => {
+    const traveller = sc.permissions.user === "Administrator" ? "sara@example.com" : sc.permissions.user;
+    const r = await t("frappe.desk.form.save.savedocs", { doc: JSON.stringify({ doctype: "Travel Request", name: "new-travel-request-1", __islocal: 1, purpose: "Probe trip", traveller }), action: "Save" });
+    return `created ${String((r.docs![0] as FrappeDoc).name)}`;
+  });
+  await run("frappe.client.delete Travel Request TR-0002", async () => { await t("frappe.client.delete", { doctype: "Travel Request", name: "TR-0002" }); return "deleted"; });
+  await run("getdoc Approval Memo AM-1", async () => { await t("frappe.desk.form.load.getdoc", { doctype: "Approval Memo", name: "AM-1" }); return "opened"; });
+  await run("download_template Travel Request (export)", async () => {
+    const f = await t.files.download(DOWNLOAD_TEMPLATE_METHOD, { doctype: "Travel Request", file_type: "CSV", export_records: "all", export_fields: JSON.stringify({ "Travel Request": ["name", "purpose"] }), export_filters: null });
+    return `${f.filename} — labels and request only, no values`;
+  });
+  return out;
+}
+
