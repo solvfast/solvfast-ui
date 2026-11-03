@@ -151,3 +151,14 @@ export { groupRows } from "./list/model/group";
 export type { GroupByOption, RowGroup } from "./list/model/group";
 export { createLocalStorageAdapter } from "./list/model/storage";
 export type { ListPrefs, ListPrefsStorage, SavedFilter, SavedFiltersStorage } from "./list/model/storage";
+
+// 0.4.0 — generic record pieces (Frappe-free). docs/CONTRACT-0.4.md §1
+export { Timeline, filterItems, sortItems, CommentComposer, draftToHtml, htmlToDraft, AssigneeGroup, AssignPicker, LifecycleBar, ActionBar, StatusBadge } from "./record";
+export type {
+  TimelineProps, TimelineLabels, TimelineFilter, CommentComposerProps, CommentComposerLabels, CommentDraft, AssigneeGroupProps, AssignPickerProps,
+  AssignLabels, LifecycleBarProps, ActionBarProps, ActionBarLabels, StatusBadgeProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
+  Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
+} from "./record";
+
+// 0.4.0 — generic field controls (Frappe-free). docs/CONTRACT-0.4.md §1
+export * from "./fields";
