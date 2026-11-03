@@ -182,9 +182,8 @@ describe("package components on REAL Frappe responses", () => {
     expect(unrecorded, `unrecorded calls: ${unrecorded.join(", ")}`).toEqual([]);
   });
 
-  // FINDING (Lead, real-response replay): FrappeListView still offers Retry on a 403, unlike FrappeErrorState (R2-V6).
-  // Pinned as it.fails until the list adopts the per-kind actions.
-  it.fails("the real Guest 403 renders as a permission error with no Retry action", async () => {
+  // The list renders failures with FrappeErrorState: a 403 has no Retry (R2-V6).
+  it("the real Guest 403 renders as a permission error with no Retry action", async () => {
     const r403 = (guest as unknown as { raw: { request: { path: string }; status: number; body: Rec }[] }).raw.find((x) => x.request.path.endsWith("getdoctype"))!;
     const denied: FrappeTransport = async () => { throw toFrappeError(r403.status, r403.body); };
     wrap(<FrappeListView doctype="Sada Post Type" />, denied);
