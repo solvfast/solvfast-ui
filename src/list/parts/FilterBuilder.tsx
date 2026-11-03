@@ -83,7 +83,7 @@ export function FilterBuilder({ fields, query, onChange, activeCount, loadOption
           {activeCount > 0 && <Badge variant="info" className="ms-0.5 h-5 px-1.5">{activeCount}</Badge>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[min(92vw,34rem)] p-3" align="end">
+      <PopoverContent className="w-[min(92vw,34rem)] p-3 !bg-popover !bg-none !backdrop-blur-none" align="end">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-medium">{t("filters")}</span>
           {query.conditions.length > 1 && (
@@ -171,7 +171,7 @@ function FieldPicker({ fields, value, onChange }: { fields: FilterField[]; value
           <ChevronDown className="h-4 w-4 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-0" align="start">
+      <PopoverContent className="w-56 p-0 !bg-popover !bg-none !backdrop-blur-none" align="start">
         <Command>
           <CommandInput placeholder={t("listSearch")} />
           <CommandList>
@@ -273,7 +273,7 @@ function LinkValue({ field, value, onChange, loadOptions }: { field: FilterField
           <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 !bg-popover !bg-none !backdrop-blur-none" align="start">
         <Command shouldFilter={false}>
           <CommandInput placeholder={t("listSearch")} value={txt} onValueChange={setTxt} />
           <CommandList>

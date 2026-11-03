@@ -44,8 +44,11 @@ Works without a provider too (it creates one with the default same-origin client
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
 | `realtime` / `realtimeDebounceMs` | Reload on `list_update` (section 7). |
+| `onCreate` | Offers "Create your first {DocType}" in the empty list. Empty states follow Desk (`list_view.js:497-537`): "You haven't created a {DocType} yet" (+ the create action) when nothing exists; "No {DocType} found with matching filters" (+ Clear filters) when filters or search hide everything. |
 | `belowToolbar` | A node between the toolbar and the table (e.g. state chips). |
 | `rowKey`, `client`, `fiscalYears`, `storage`, … | `rowKey` default `row.name`. `storage` (explicit) wins over `serverStorage`. |
+
+**Subject first.** Without curated `columns`, the title field (else the ID) is always the first, visible column, as in Desk. Curated columns keep full control.
 
 **Cells.** Int, Float, Percent, Currency, Date, Datetime and Time cells without a custom `render` go through `formatValue` (docs 12 §9), never wrapping
 (`whitespace-nowrap`, tabular numerals). A Currency column's currency field (its `options`) is requested with the rows. User columns (`owner`,
@@ -147,7 +150,7 @@ its value. One colour table maps every vocabulary (`colourTone`, `styleTone`, `t
 <FrappeListView doctype="ToDo" bulk={{ permissions: { read: true, delete: true }, only: ["delete"] }} />   // explicit override
 ```
 
-Shown in the selection bar. The gate is `usePermissions(bundle).can()` (session roles + the DocType's permissions); the `permissions` prop (a rights map or `can(ptype)`) overrides it. **No rights → no actions.**
+Shown in the selection bar, which sits above the table (sticky) so it never scrolls away. The gate is `usePermissions(bundle).can()` (session roles + the DocType's permissions); the `permissions` prop (a rights map or `can(ptype)`) overrides it. **No rights → no actions.**
 
 | Action | Shown when | Endpoint |
 |---|---|---|

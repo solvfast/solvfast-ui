@@ -37,7 +37,7 @@ export function SavedFilters({ saved, activeCount, onApply, onSave, onDelete }: 
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5"><Bookmark className="h-4 w-4" /> {t("saved")}</Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-2" align="end">
+      <PopoverContent className="w-64 p-2 !bg-popover !bg-none !backdrop-blur-none" align="end">
         {saved.length > 0 ? (
           <div className="mb-2 space-y-0.5">
             {saved.map((s) => (
@@ -143,7 +143,7 @@ export function ColumnManager<T>({ columns, visibleKeys, onChange }: { columns: 
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5"><Columns3 className="h-4 w-4" /> {t("columns")}</Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-1.5" align="end">
+      <PopoverContent className="w-64 p-1.5 !bg-popover !bg-none !backdrop-blur-none" align="end">
         <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{t("editColumns")}</div>
         <span className="sr-only" aria-live="polite">{announce}</span>
         <ScrollArea className="max-h-72">
