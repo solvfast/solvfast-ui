@@ -16,3 +16,21 @@ export { queryToFrappe, conditionToFrappe, buildListRequest } from "./query";
 export type { FrappeFilter, ListRequest, ListRequestInput, TranslatedQuery } from "./query";
 // 0.4.0 integration contract (types + query keys). docs/CONTRACT-0.4.md
 export * from "./contract";
+
+// 0.4.0 — list (A2). docs/CONTRACT-0.4.md
+export { loadDocTypeBundle } from "./useFrappeList";
+export { orderByWithTieBreak } from "./query";
+export type { ListDocMeta, ChildFieldRef } from "./meta";
+export { decodeReportview, reportviewGet, reportviewCount, commentCount, COUNT_UPPER_BOUND, ROW_STANDARD_FIELDS } from "./list/reportview";
+export type { ReportviewUser } from "./list/reportview";
+export { getIndicator, guessColour, toneOf, hasIndicator } from "./list/indicator";
+export type { Indicator, IndicatorConfig, IndicatorWorkflow } from "./list/indicator";
+export { fetchListSettings, applyColumnSettings } from "./list/settings";
+export type { ListViewSettings } from "./list/settings";
+export { queryToTuples, tuplesToQuery, UnstorableQueryError } from "./list/tuples";
+export { createFrappeSavedFilters, createFrappeUserSettings } from "./list/storage";
+export { bulkMenu, bulkDelete, bulkSubmitCancelOrUpdate, bulkAssign } from "./list/bulk";
+export type { BulkKind, BulkPermissions, BulkOutcome } from "./list/bulk";
+export { FrappeBulkActions } from "./list/FrappeBulkActions";
+export type { FrappeBulkOptions } from "./list/FrappeBulkActions";
+export { useListRealtime } from "./list/realtime";
