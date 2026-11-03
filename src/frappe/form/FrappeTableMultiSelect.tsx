@@ -16,7 +16,7 @@ import type { FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle } from "
 import { resolveLinkQuery, type LinkQuery } from "./events";
 import { useFormServices } from "./services";
 import { childMetaOf, useLocalTableController, type TableController } from "./FrappeChildTable";
-import { rememberLinkTitle } from "./FrappeLinkField";
+import { useLinkTitles } from "./linkTitles";
 
 export interface FrappeTableMultiSelectProps {
   df: FrappeDocField;
@@ -38,6 +38,7 @@ export interface FrappeTableMultiSelectProps {
 export function FrappeTableMultiSelect({ df, bundle, parent, rows, onRowsChange, controller, status = "Write", query, invalid, id, className, ...aria }: FrappeTableMultiSelectProps) {
   const s = useFormServices();
   const { t } = useLocale();
+  const titles = useLinkTitles();
   const childMeta = childMetaOf(df, bundle);
   const local = useLocalTableController(df, childMeta, parent, rows, onRowsChange);
   const ctl = controller ?? local;
@@ -49,7 +50,7 @@ export function FrappeTableMultiSelect({ df, bundle, parent, rows, onRowsChange,
   const target = linkDf.options;
   const lf = linkDf.fieldname;
   const values = data.map((r) => r[lf]).filter((v): v is string => typeof v === "string" && !!v);
-  const titleOf = (v: string) => s.formatContext.linkTitles?.[`${target}::${v}`] ?? v;
+  const titleOf = (v: string) => titles.get(target, v) ?? s.formatContext.linkTitles?.[`${target}::${v}`] ?? v;
 
   if (status === "None") return null;
   if (status === "Read") return <ReadOnlyValue id={id} {...aria} value={values.map(titleOf).join(", ")} className={className} />;
@@ -77,7 +78,7 @@ export function FrappeTableMultiSelect({ df, bundle, parent, rows, onRowsChange,
           ...(q.filters ? { filters: q.filters as Record<string, unknown> } : {}), ...(q.query ? { query: q.query } : {}),
           ...(df.ignore_user_permissions ? { ignoreUserPermissions: true } : {}),
         });
-        for (const r of res) if (r.label) rememberLinkTitle(target, r.value, r.label);
+        for (const r of res) if (r.label) titles.remember(target, r.value, r.label);
         return res;
       }}
       validate={df.ignore_link_validation ? undefined : async (v) => (await s.validateLink(target, v)).name}
