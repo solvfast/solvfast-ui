@@ -1,0 +1,228 @@
+{
+ "_meta": {
+  "host": "internal.solvfaster.com",
+  "target": "127.0.0.1:8003",
+  "note": "anonymous requests; tracebacks removed"
+ },
+ "raw": [
+  {
+   "request": {
+    "method": "POST",
+    "path": "/api/method/frappe.desk.form.load.getdoctype",
+    "csrfHeader": null
+   },
+   "status": 403,
+   "body": {
+    "exc_type": "PermissionError",
+    "_server_messages": "[\"{\\\"message\\\": \\\"<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.form.load.getdoctype</strong> is not whitelisted.</details>\\\", \\\"title\\\": \\\"Method Not Allowed\\\", \\\"indicator\\\": \\\"red\\\", \\\"raise_exception\\\": 1, \\\"__frappe_exc_id\\\": \\\"89e3b5a9856ce1a922aaef156a9de35bce4e6498378861af7966ef09\\\"}\"]"
+   }
+  },
+  {
+   "request": {
+    "method": "POST",
+    "path": "/api/method/frappe.client.get_list",
+    "csrfHeader": null
+   },
+   "status": 403,
+   "body": {
+    "exc_type": "PermissionError",
+    "_server_messages": "[\"{\\\"message\\\": \\\"<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.client.get_list</strong> is not whitelisted.</details>\\\", \\\"title\\\": \\\"Method Not Allowed\\\", \\\"indicator\\\": \\\"red\\\", \\\"raise_exception\\\": 1, \\\"__frappe_exc_id\\\": \\\"351073dfb63f6703f96b9bba1bab5316a6e0ae963c73ff4277c64c3e\\\"}\"]"
+   }
+  },
+  {
+   "request": {
+    "method": "POST",
+    "path": "/api/method/frappe.desk.reportview.get",
+    "csrfHeader": null
+   },
+   "status": 403,
+   "body": {
+    "exc_type": "PermissionError",
+    "_server_messages": "[\"{\\\"message\\\": \\\"<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.reportview.get</strong> is not whitelisted.</details>\\\", \\\"title\\\": \\\"Method Not Allowed\\\", \\\"indicator\\\": \\\"red\\\", \\\"raise_exception\\\": 1, \\\"__frappe_exc_id\\\": \\\"58dc542fc8b3db90be0578aae6be713db7b2bb4a5ee9cdc3e8fa0163\\\"}\"]"
+   }
+  },
+  {
+   "request": {
+    "method": "POST",
+    "path": "/api/method/frappe.desk.search.search_link",
+    "csrfHeader": null
+   },
+   "status": 403,
+   "body": {
+    "exc_type": "PermissionError",
+    "_server_messages": "[\"{\\\"message\\\": \\\"<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.search.search_link</strong> is not whitelisted.</details>\\\", \\\"title\\\": \\\"Method Not Allowed\\\", \\\"indicator\\\": \\\"red\\\", \\\"raise_exception\\\": 1, \\\"__frappe_exc_id\\\": \\\"9225b98d65fa3683a91dd8a3b542b786b98f31473e930358cc02f5ca\\\"}\"]"
+   }
+  },
+  {
+   "request": {
+    "method": "POST",
+    "path": "/api/method/frappe.desk.form.load.getdoc",
+    "csrfHeader": null
+   },
+   "status": 403,
+   "body": {
+    "exc_type": "PermissionError",
+    "_server_messages": "[\"{\\\"message\\\": \\\"<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.form.load.getdoc</strong> is not whitelisted.</details>\\\", \\\"title\\\": \\\"Method Not Allowed\\\", \\\"indicator\\\": \\\"red\\\", \\\"raise_exception\\\": 1, \\\"__frappe_exc_id\\\": \\\"d6448e5d66d3e0a005d1657b4743b5d4b3b69052b5e0ef594c52bbe1\\\"}\"]"
+   }
+  },
+  {
+   "request": {
+    "method": "POST",
+    "path": "/api/method/frappe.no_such_module.no_such_method",
+    "csrfHeader": null
+   },
+   "status": 417,
+   "body": {
+    "exc_type": "ValidationError",
+    "_server_messages": "[\"{\\\"message\\\": \\\"Failed to get method for command frappe.no_such_module.no_such_method with No module named 'frappe.no_such_module'\\\", \\\"title\\\": \\\"Message\\\", \\\"indicator\\\": \\\"red\\\", \\\"raise_exception\\\": 1, \\\"__frappe_exc_id\\\": \\\"9d0cdac7cccedea359ba10cefc5cf9fb7abf7568a985d036bf3e72a5\\\"}\"]"
+   }
+  },
+  {
+   "request": {
+    "method": "POST",
+    "path": "/api/method/frappe.desk.form.load.getdoctype",
+    "csrfHeader": "bogus-token"
+   },
+   "status": 403,
+   "body": {
+    "exc_type": "PermissionError",
+    "_server_messages": "[\"{\\\"message\\\": \\\"<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.form.load.getdoctype</strong> is not whitelisted.</details>\\\", \\\"title\\\": \\\"Method Not Allowed\\\", \\\"indicator\\\": \\\"red\\\", \\\"raise_exception\\\": 1, \\\"__frappe_exc_id\\\": \\\"dbe8f628a058185b75f3d3415dc3670206bd7840864c4953f01eacea\\\"}\"]"
+   }
+  }
+ ],
+ "results": [
+  {
+   "name": "getMetaBundle(Sada Post Type) as Guest",
+   "ok": false,
+   "error": {
+    "name": "FrappeError",
+    "status": 403,
+    "excType": "PermissionError",
+    "kind": "permission",
+    "message": "You are not permitted to access this resource. Login to access Function frappe.desk.form.load.getdoctype is not whitelisted.",
+    "messages": [
+     {
+      "message": "<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.form.load.getdoctype</strong> is not whitelisted.</details>",
+      "title": "Method Not Allowed",
+      "indicator": "red",
+      "raiseException": true
+     }
+    ]
+   }
+  },
+  {
+   "name": "getList(Sada Post Type) as Guest",
+   "ok": false,
+   "error": {
+    "name": "FrappeError",
+    "status": 403,
+    "excType": "PermissionError",
+    "kind": "permission",
+    "message": "You are not permitted to access this resource. Login to access Function frappe.client.get_list is not whitelisted.",
+    "messages": [
+     {
+      "message": "<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.client.get_list</strong> is not whitelisted.</details>",
+      "title": "Method Not Allowed",
+      "indicator": "red",
+      "raiseException": true
+     }
+    ]
+   }
+  },
+  {
+   "name": "reportview.get(Sada Post Type) as Guest",
+   "ok": false,
+   "error": {
+    "name": "FrappeError",
+    "status": 403,
+    "excType": "PermissionError",
+    "kind": "permission",
+    "message": "You are not permitted to access this resource. Login to access Function frappe.desk.reportview.get is not whitelisted.",
+    "messages": [
+     {
+      "message": "<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.reportview.get</strong> is not whitelisted.</details>",
+      "title": "Method Not Allowed",
+      "indicator": "red",
+      "raiseException": true
+     }
+    ]
+   }
+  },
+  {
+   "name": "searchLink(Sada Post Type) as Guest",
+   "ok": false,
+   "error": {
+    "name": "FrappeError",
+    "status": 403,
+    "excType": "PermissionError",
+    "kind": "permission",
+    "message": "You are not permitted to access this resource. Login to access Function frappe.desk.search.search_link is not whitelisted.",
+    "messages": [
+     {
+      "message": "<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.search.search_link</strong> is not whitelisted.</details>",
+      "title": "Method Not Allowed",
+      "indicator": "red",
+      "raiseException": true
+     }
+    ]
+   }
+  },
+  {
+   "name": "getDoc(Sada Post Type, post Type1) as Guest",
+   "ok": false,
+   "error": {
+    "name": "FrappeError",
+    "status": 403,
+    "excType": "PermissionError",
+    "kind": "permission",
+    "message": "You are not permitted to access this resource. Login to access Function frappe.desk.form.load.getdoc is not whitelisted.",
+    "messages": [
+     {
+      "message": "<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.form.load.getdoc</strong> is not whitelisted.</details>",
+      "title": "Method Not Allowed",
+      "indicator": "red",
+      "raiseException": true
+     }
+    ]
+   }
+  },
+  {
+   "name": "unknown method as Guest",
+   "ok": false,
+   "error": {
+    "name": "FrappeError",
+    "status": 417,
+    "excType": "ValidationError",
+    "kind": "validation",
+    "message": "Failed to get method for command frappe.no_such_module.no_such_method with No module named 'frappe.no_such_module'",
+    "messages": [
+     {
+      "message": "Failed to get method for command frappe.no_such_module.no_such_method with No module named 'frappe.no_such_module'",
+      "title": "Message",
+      "indicator": "red",
+      "raiseException": true
+     }
+    ]
+   }
+  },
+  {
+   "name": "getMetaBundle with a bogus CSRF header as Guest",
+   "ok": false,
+   "error": {
+    "name": "FrappeError",
+    "status": 403,
+    "excType": "PermissionError",
+    "kind": "permission",
+    "message": "You are not permitted to access this resource. Login to access Function frappe.desk.form.load.getdoctype is not whitelisted.",
+    "messages": [
+     {
+      "message": "<details><summary>You are not permitted to access this resource. Login to access</summary>Function <strong>frappe.desk.form.load.getdoctype</strong> is not whitelisted.</details>",
+      "title": "Method Not Allowed",
+      "indicator": "red",
+      "raiseException": true
+     }
+    ]
+   }
+  }
+ ]
+}
