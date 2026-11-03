@@ -56,7 +56,8 @@ Works without a provider too (it creates one with the default same-origin client
 
 **Subject first.** Without curated `columns`, the title field (else the ID) is always the first, visible column, as in Desk. Curated columns keep full control.
 
-*Phase 27:* `columnLimit`, `hideNameColumn`, `treeDoctypes` and `urlFilters` are `useFrappeList` options; `FrappeListView` forwards them.
+*Phase 27:* `columnLimit`, `hideNameColumn`, `treeDoctypes` and `urlFilters` are `useFrappeList` options. On `FrappeListView` they take
+effect once the component forwards them to `useFrappeList` (Phase 27 integration); until then they are accepted and ignored there.
 The Report-view export (section 6b) is a dialog + functions for the host (`useFrappeList().reportExport` carries its list props).
 
 **Cells.** Int, Float, Percent, Currency, Date, Datetime and Time cells without a custom `render` go through `formatValue` (docs 12 §9), never wrapping
@@ -162,6 +163,7 @@ Desk's list routes carry the filters in the query string (`list_view.js:2130-218
   unparsable JSON and operators the list cannot show are ignored. `routeOptions` (Desk's `frappe.route_options`) is read when the query string is empty.
 - **write**: after every applied change, `history.replaceState` (no history entry) with Desk's format (`=` raw, else `JSON.stringify([op, value])`).
   Other query parameters are kept (Desk replaces the whole string). An OR query cannot be written — its filter parameters are removed. Search text and sort are not written.
+  `replaceState` fires no `popstate`: a router hook reading the search string (e.g. React Router's `useSearchParams`) sees the change at its next navigation (Desk has the same property).
 - Never on the server (no `window`). Functions: `parseUrlFilters(search | URLSearchParams | route_options, meta)`, `filtersToUrl(query, meta, currentSearch)`.
 
 ---
