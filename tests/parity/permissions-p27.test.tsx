@@ -20,21 +20,24 @@
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { act, cleanup, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../../src/theme/ThemeProvider";
 import { defaultMessages } from "../../src/theme/messages";
-import { createFrappeClient, type FrappeTransport } from "../../src/frappe/client";
+import { createFrappeClient, FrappeError, type FrappeTransport } from "../../src/frappe/client";
 import { FrappeProvider } from "../../src/frappe/FrappeProvider";
-import type { DocInfo, DocPerm, DocTypeMeta, FrappeDoc, MetaBundle, WorkflowInfo } from "../../src/frappe/contract";
-import { usePermissions } from "../../src/frappe/hooks";
+import { frappeKeys, type DocInfo, type DocPerm, type DocTypeMeta, type FrappeDoc, type MetaBundle, type WorkflowInfo, type WorkflowTransition } from "../../src/frappe/contract";
+import { useDocAction, usePermissions } from "../../src/frappe/hooks";
 import { FrappeForm, canCancelDoctype } from "../../src/frappe/form/FrappeForm";
 import { FrappeFormView, type FormPermissions, type LinkedDoc } from "../../src/frappe/form/FrappeFormView";
 import { createFixtureTransport, type FixtureHandler } from "../../src/frappe/testing";
 import {
   PERM_TYPES, buildDocPermissions, canExport, canImport, isAdministrator, isWorkflowReadOnly, permissionsKnown, type FrappeSession,
 } from "../../src/frappe/services/permissions";
-import { bulkMenu } from "../../src/frappe/list/bulk";
+import { bulkDelete, bulkMenu } from "../../src/frappe/list/bulk";
+import { FrappeWorkflowActions } from "../../src/frappe/record/FrappeWorkflowActions";
+import { useWorkflow } from "../../src/frappe/record/useWorkflow";
+import { isReadOnlyState, transitionsKnown, visibleTransitions, workflowFromMeta } from "../../src/frappe/record/workflow";
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -77,6 +80,11 @@ const ADMIN_SESSIONS: [string, FrappeSession][] = [
 ];
 
 const noop: FrappeTransport = async () => ({});
+/** A stub transport that answers 403 PermissionError (Frappe's `frappe.PermissionError` → HTTP 403) for `methods`. */
+const deny = (methods: string[], otherwise: FrappeTransport = noop): FrappeTransport => async (method, args) => {
+  if (methods.includes(method)) throw new FrappeError("User u@x does not have access to this document", 403, "PermissionError");
+  return otherwise(method, args);
+};
 function harness(transport: FrappeTransport, session?: FrappeSession) {
   const client = createFrappeClient({ transport });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -382,5 +390,166 @@ describe("SIMULATED Cancel All is offered only when the user may cancel every li
     const dialog = await openDialog();
     expect(within(dialog).queryByRole("button", { name: en.formCancelAll })).toBeNull();
     expect((await within(dialog).findByText(en.formNoCancelAllPermission)).getAttribute("data-permissions")).toBe("denied");
+  });
+});
+
+// ---- 5. workflow actions (P2-3; Administrator P2-4) ---------------------------------------------------------------------
+
+describe("SIMULATED workflow actions: the server's get_transitions answer is authoritative; missing information denies (P2-3)", () => {
+  const flowDoc = (extra: Partial<FrappeDoc> = {}): FrappeDoc => ({ doctype: "Flow Memo", name: "F-1", title: "Flow plan", docstatus: 0, workflow_state: "Draft", owner: "author@x", modified: "2026-11-03 10:00:00.000000", ...extra });
+  const definition = FLOW_WF.transitions as WorkflowTransition[];
+  const actionsOf = (ts: WorkflowTransition[]) => ts.map((t) => t.action);
+  const openActions = async () => {
+    const b = await screen.findByRole("button", { name: en.recActions });
+    fireEvent.keyDown(b, { key: "Enter" });
+  };
+
+  it("pure: roles unknown and the list is NOT the server's (client-side, from the definition) → nothing, transitionsKnown false", () => {
+    expect(visibleTransitions(definition, { user: "u@x", doc: flowDoc() })).toEqual([]);
+    expect(transitionsKnown({ user: "u@x" })).toBe(false);
+    // with roles the client may filter the definition itself (Desk form/workflow.js:103)
+    expect(actionsOf(visibleTransitions(definition, { user: "u@x", doc: flowDoc(), roles: ["Approver"] }))).toEqual(["Approve", "Reject"]);
+    expect(visibleTransitions(definition, { user: "u@x", doc: flowDoc(), roles: ["Clerk"] })).toEqual([]);
+    expect(transitionsKnown({ user: "u@x", roles: ["Clerk"] })).toBe(true);
+  });
+
+  it("pure: the server's answer without roles is kept (model/workflow.py:64-67 filtered it); self-approval still applies (:221-222)", () => {
+    expect(actionsOf(visibleTransitions(definition, { user: "u@x", doc: flowDoc(), fromServer: true }))).toEqual(["Approve", "Reject"]);
+    expect(actionsOf(visibleTransitions(definition, { user: "author@x", doc: flowDoc(), fromServer: true }))).toEqual(["Reject"]);
+    expect(transitionsKnown({ user: "u@x", fromServer: true })).toBe(true);
+  });
+
+  it("pure: user unknown → only allow_self_approval transitions (approval holds for anyone); transitionsKnown false", () => {
+    expect(actionsOf(visibleTransitions(definition, { user: "", doc: flowDoc(), fromServer: true }))).toEqual(["Reject"]);
+    expect(actionsOf(visibleTransitions(definition, { user: "", doc: flowDoc(), roles: ["Approver"] }))).toEqual(["Reject"]);
+    expect(transitionsKnown({ user: "", roles: ["Approver"], fromServer: true })).toBe(false);
+  });
+
+  for (const [label, session] of ADMIN_SESSIONS) {
+    it(`pure: the Administrator ${label} — every transition of the state, no self-approval block, never read-only (permissions.py:506-507; workflow.py:222)`, () => {
+      const own = flowDoc({ owner: "Administrator" });
+      for (const fromServer of [true, false]) {
+        expect(actionsOf(visibleTransitions(definition, { user: "Administrator", doc: own, roles: session.roles, fromServer }))).toEqual(["Approve", "Reject"]);
+      }
+      expect(transitionsKnown({ user: "Administrator", roles: session.roles })).toBe(true);
+      const wf = workflowFromMeta({ name: "Flow Memo", __workflow_docs: [{ doctype: "Workflow", ...FLOW_WF }] })!;
+      expect(isReadOnlyState(wf, own, session.roles, "Administrator")).toBe(false);
+    });
+  }
+
+  it("pure: workflow read-only state — roles unknown → read-only (rule 9; before dev.31 useWorkflow said false); allow_edit role → editable", () => {
+    const wf = workflowFromMeta({ name: "Flow Memo", __workflow_docs: [{ doctype: "Workflow", ...FLOW_WF }] })!;
+    expect(isReadOnlyState(wf, flowDoc(), undefined, "u@x")).toBe(true);
+    expect(isReadOnlyState(wf, flowDoc(), ["Approver"], "u@x")).toBe(false);
+    expect(isReadOnlyState(wf, flowDoc(), ["Clerk"], "u@x")).toBe(true);
+    expect(isReadOnlyState(wf, { ...flowDoc(), __islocal: 1 }, undefined, "u@x")).toBe(false);
+  });
+
+  it("useWorkflow without roles over the simulator: the server's transitions are offered, readOnly true, transitionsKnown true", async () => {
+    const { wrapper } = harness(site(), { user: "u@x" });
+    const { result } = renderHook(() => useWorkflow({ doc: flowDoc(), user: "u@x" }), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(actionsOf(result.current.transitions)).toEqual(["Approve", "Reject"]);
+    expect(result.current.readOnly).toBe(true);
+    expect(result.current.transitionsKnown).toBe(true);
+    // the server answering nothing for the user's roles (simulated: roles ["Clerk"]) → nothing offered, still known
+    const other = harness(site({ roles: ["Clerk"] }), { user: "u@x" });
+    const { result: none } = renderHook(() => useWorkflow({ doc: flowDoc(), user: "u@x" }), { wrapper: other.wrapper });
+    await waitFor(() => expect(none.current.isLoading).toBe(false));
+    expect(none.current.transitions).toEqual([]);
+    expect(none.current.transitionsKnown).toBe(true);
+  });
+
+  it("FrappeWorkflowActions with an unknown user: only the self-approvable action, and a visible 'permissions unknown' state", async () => {
+    mount(<FrappeWorkflowActions doc={flowDoc()} user="" />, site(), { user: "u@x" });
+    const note = await waitFor(() => { const n = unknownNotice(); expect(n).toBeTruthy(); return n!; });
+    expect(note.textContent).toBe(en.formReadOnly);
+    await openActions();
+    expect(await screen.findByRole("menuitem", { name: "Reject" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "Approve" })).toBeNull();
+  });
+
+  it("get_transitions refused (403): no Actions, the state stays visible with the error — not an empty silence", async () => {
+    mount(<FrappeWorkflowActions doc={flowDoc()} user="u@x" roles={["Approver"]} />, deny(["frappe.model.workflow.get_transitions"], site()), { user: "u@x", roles: ["Approver"] });
+    expect(await screen.findByText(en.feErrPermission)).toBeTruthy();
+    expect(screen.getByText("Draft")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: en.recActions })).toBeNull();
+    expect(document.querySelector('[data-workflow-actions="unavailable"]')).toBeTruthy();
+  });
+
+  it("revocation: when get_transitions re-answers empty, the actions disappear", async () => {
+    let answer: WorkflowTransition[] = definition;
+    const r = mount(<FrappeWorkflowActions doc={flowDoc()} user="u@x" roles={["Approver"]} />, site({ handlers: { "frappe.model.workflow.get_transitions": () => ({ message: answer }) } }), { user: "u@x", roles: ["Approver"] });
+    expect(await screen.findByRole("button", { name: en.recActions })).toBeTruthy();
+    answer = [];
+    await act(async () => { await r.qc.invalidateQueries({ queryKey: ["sf-frappe", "workflow-transitions"] }); });
+    await waitFor(() => expect(screen.queryByRole("button", { name: en.recActions })).toBeNull());
+    expect(screen.getByText("Draft")).toBeTruthy();
+    expect(unknownNotice()).toBeNull(); // the server answered: nothing for you — known, not unknown
+  });
+
+  it("Approve path with known roles (FrappeForm): Actions → Approve → apply_workflow → Approved", async () => {
+    const transport = site();
+    mount(<FrappeForm doctype="Flow Memo" name="F-1" />, transport, { user: "approver@x", roles: ["Approver"] });
+    expect(await screen.findByRole("heading", { name: "Flow plan" })).toBeTruthy();
+    await openActions();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Approve" }));
+    await waitFor(() => expect(transport.store.calls.some((c) => c.method === "frappe.model.workflow.apply_workflow")).toBe(true));
+    expect(await screen.findAllByText("Approved")).toBeTruthy();
+  });
+
+  for (const [label, session] of ADMIN_SESSIONS) {
+    it(`FrappeForm for the Administrator ${label}: Approve and Reject on a doc it owns, server roles notwithstanding`, async () => {
+      // the simulated server lists only "Approver" transitions; the Administrator's partial role list must not filter them away
+      mount(<FrappeForm doctype="Flow Memo" name="F-1" />, site({ docs: { "Flow Memo": [flowDoc({ owner: "Administrator" })] } }), session);
+      expect(await screen.findByRole("heading", { name: "Flow plan" })).toBeTruthy();
+      await openActions();
+      expect(await screen.findByRole("menuitem", { name: "Approve" })).toBeTruthy();
+      expect(screen.getByRole("menuitem", { name: "Reject" })).toBeTruthy();
+      expect(unknownNotice()).toBeNull();
+    });
+  }
+
+  it("server-side refusal: 403 on apply_workflow → the error is shown, the doc and the cache are unchanged (no optimistic state)", async () => {
+    const r = mount(<FrappeWorkflowActions doc={flowDoc()} user="u@x" roles={["Approver"]} />, deny(["frappe.model.workflow.apply_workflow"], site()), { user: "u@x", roles: ["Approver"] });
+    r.qc.setQueryData(frappeKeys.doc("Flow Memo", "F-1"), flowDoc());
+    await openActions();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Approve" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("does not have access");
+    expect(screen.getByText("Draft")).toBeTruthy();
+    expect(screen.queryByText("Approved")).toBeNull();
+    expect((r.qc.getQueryData(frappeKeys.doc("Flow Memo", "F-1")) as FrappeDoc).workflow_state).toBe("Draft");
+  });
+});
+
+// ---- 6. direct invocation of hidden actions ------------------------------------------------------------------------------
+
+describe("SIMULATED direct invocation of hidden actions: the server refuses, the package surfaces kind 'permission' and changes nothing", () => {
+  const seeded = (): FrappeDoc => ({ doctype: "Flow Memo", name: "F-1", docstatus: 0, workflow_state: "Draft", owner: "author@x", modified: "2026-11-03 10:00:00.000000" });
+
+  it("useDocAction().applyWorkflow (no action was offered: roles unknown, user unknown) → 403 → FrappeError kind permission; cache untouched", async () => {
+    const { qc, wrapper } = harness(deny(["frappe.model.workflow.apply_workflow"]), { user: "u@x" });
+    qc.setQueryData(frappeKeys.doc("Flow Memo", "F-1"), seeded());
+    const inv = vi.spyOn(qc, "invalidateQueries");
+    const { result } = renderHook(() => useDocAction(), { wrapper });
+    let err: unknown;
+    await act(async () => { try { await result.current.applyWorkflow.mutateAsync({ doc: seeded(), action: "Approve" }); } catch (e) { err = e; } });
+    expect(err).toBeInstanceOf(FrappeError);
+    expect((err as FrappeError).kind).toBe("permission");
+    expect(qc.getQueryData(frappeKeys.doc("Flow Memo", "F-1"))).toEqual(seeded());
+    expect(inv).not.toHaveBeenCalled();
+  });
+
+  it("api.saveDoc from a read-only form (no permissions known) → 403 → kind permission", async () => {
+    const client = createFrappeClient({ transport: deny(["frappe.desk.form.save.savedocs"]) });
+    await expect(client.saveDoc({ ...memo(), title: "edited", __unsaved: 1 }, "Save")).rejects.toMatchObject({ kind: "permission", status: 403 });
+  });
+
+  it("bulkDelete while the bulk menu is empty (roles unknown) → 403 → kind permission; nothing reported as deleted", async () => {
+    const { wrapper } = harness(noop, { user: "u@x" });
+    const { result } = renderHook(() => usePermissions(bundleOf(MEMO(1))), { wrapper });
+    expect(bulkMenu({ permissions: (p) => result.current.can(p), isSubmittable: true, hasWorkflow: false, allowEdit: true, hasEditableFields: true })).not.toContain("delete");
+    const client = createFrappeClient({ transport: deny(["frappe.desk.reportview.delete_items"]) });
+    await expect(bulkDelete(client, "Memo", ["M-1", "M-2"])).rejects.toMatchObject({ kind: "permission" });
   });
 });

@@ -143,8 +143,10 @@ export function FrappeForm({ doctype, name, newDocDefaults, ...rest }: FrappeFor
       // R2-F4 / R3-F2: for a saved, clean document of a DocType that HAS a workflow (known from its meta at once), keep
       // Save / Cancel hidden until both the workflow definition and the user's transitions are known — no flash. A failed
       // load gives the standard buttons back.
+      // The workflow actions are rendered only for a known session user (below): without one, nothing replaces Save /
+      // Cancel, so they are not hidden (P2-3).
       workflowActionsShown={rest.workflowActionsShown ?? (
-        !doc.__unsaved && !doc.__islocal && !!permissions.workflow && !wf.error && (wf.isLoading || !wf.workflow || wf.transitions.length > 0)
+        !!session?.user && !doc.__unsaved && !doc.__islocal && !!permissions.workflow && !wf.error && (wf.isLoading || !wf.workflow || wf.transitions.length > 0)
       )}
       alreadyAmended={rest.alreadyAmended ?? amended}
       toolbarExtra={(
