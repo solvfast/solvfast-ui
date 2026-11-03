@@ -9,7 +9,7 @@ export { createDocStore } from "./docStore";
 export type { DocStore, FieldChange, RowOperation, RowRef } from "./docStore";
 export { newDoc, newChildRow, applyDefaults, todayString, nowTimeString, nowDatetimeString } from "./defaults";
 export type { DefaultsContext } from "./defaults";
-export { checkMandatory, rowRanges } from "./mandatory";
+export { checkMandatory, rowRanges, isRequiredNow, commaAnd } from "./mandatory";
 export type { MandatoryLine, MandatoryOptions, MandatoryResult, MissingField } from "./mandatory";
 export { buildFetchMap, fetchUpdates, isReadOnlyByFetch } from "./fetch";
 export type { FetchEntry } from "./fetch";

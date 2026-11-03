@@ -9,7 +9,9 @@
  *  - Hidden and read-only fields are checked too (Desk applies no display filter here).
  *  - A new document whose autoname is Prompt and has no `__newname` misses "Name".
  * Messages (one "Missing Fields" dialog): "{Label} is required." per parent field; per table field, rows collapse into
- * ranges: every row; one row; a list of ranges (≤ 10 ranges); otherwise a count. Exact Desk punctuation: UNVERIFIED.
+ * ranges joined like `comma_and` ("1, 3-4 and 6"): every row; one row; a list of ranges (≤ 10 ranges); otherwise a
+ * count. A `mandatory_depends_on` that cannot be evaluated THROWS (Desk: 'Invalid "mandatory_depends_on" expression',
+ * save.js:281-283) — including one outside the interpreter's subset (D-23: reported, never guessed).
  * Server mirror: static `reqd` only (MandatoryError); `mandatory_depends_on` is never enforced by the server.
  */
 import type { FrappeDoc, FrappeDocField, MetaBundle } from "../../contract";
@@ -29,7 +31,8 @@ export interface MissingField {
 export type MandatoryLine =
   | { kind: "field"; label: string; fieldname: string }
   | { kind: "every"; table: string; label: string; parentfield: string; fieldname: string }
-  | { kind: "rows"; table: string; label: string; parentfield: string; fieldname: string; rows: string; single: boolean }
+  /** `rows`: the ranges joined with ", " and " and " (English); `ranges` for a localized join. */
+  | { kind: "rows"; table: string; label: string; parentfield: string; fieldname: string; rows: string; ranges: string[]; single: boolean }
   | { kind: "count"; table: string; label: string; parentfield: string; fieldname: string; count: number };
 
 export interface MandatoryResult {
@@ -47,14 +50,24 @@ export interface MandatoryOptions extends EvaluatorOptions {
   translate?: (label: string) => string;
 }
 
-function isRequired(df: FrappeDocField, doc: FrappeDoc, parent: FrappeDoc, opts: MandatoryOptions): boolean {
+/** Required now: `mandatory_depends_on` (evaluated with {doc, parent}; it REPLACES a static reqd) else `reqd`.
+ *  Throws `Invalid "mandatory_depends_on" expression …` when the expression cannot be evaluated. */
+export function isRequiredNow(df: FrappeDocField, doc: FrappeDoc, parent: FrappeDoc, opts: EvaluatorOptions = {}): boolean {
   if (df.mandatory_depends_on) {
     const expr = String(df.mandatory_depends_on);
     if (expr.startsWith("fn:")) return false;
-    return isTruthy(evaluateDepends(expr as DependsValue, doc, parent, { ...opts, fnHandlers: undefined }, { doctype: doc.doctype, fieldname: df.fieldname, property: "mandatory_depends_on" }));
+    let issue: string | null = null;
+    const v = evaluateDepends(expr as DependsValue, doc, parent, { ...opts, fnHandlers: undefined, onIssue: (i) => { issue = i.reason; opts.onIssue?.(i); } }, { doctype: doc.doctype, fieldname: df.fieldname, property: "mandatory_depends_on" });
+    if (issue != null) throw new Error(`Invalid "mandatory_depends_on" expression in ${doc.doctype}.${df.fieldname}: ${issue}`);
+    return isTruthy(v);
   }
   return !!df.reqd;
 }
+const isRequired = (df: FrappeDocField, doc: FrappeDoc, parent: FrappeDoc, opts: MandatoryOptions) => isRequiredNow(df, doc, parent, opts);
+
+/** `frappe.utils.comma_and`: "a", "a and b", "a, b and c". */
+export const commaAnd = (items: string[], and = "and") =>
+  items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} ${and} ${items[items.length - 1]}`;
 
 /** Collapse sorted row numbers into "1-3, 5" style ranges. */
 export function rowRanges(rows: number[]): string[] {
@@ -114,7 +127,7 @@ export function checkMandatory(bundle: MetaBundle, doc: FrappeDoc, opts: Mandato
       else {
         const ranges = rowRanges(bad);
         if (ranges.length > 10) lines.push({ kind: "count", ...base, count: bad.length });
-        else lines.push({ kind: "rows", ...base, rows: ranges.join(", "), single: bad.length === 1 });
+        else lines.push({ kind: "rows", ...base, rows: commaAnd(ranges), ranges, single: bad.length === 1 });
       }
     }
   }

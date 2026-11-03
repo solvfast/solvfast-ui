@@ -205,7 +205,7 @@ describe("check_mandatory (docs 11 §5.6)", () => {
     const rows = (n: number, missing: number[]) => Array.from({ length: n }, (_, i) => ({ doctype: "Contact Email", name: `r${i + 1}`, idx: i + 1, email_id: missing.includes(i + 1) ? "" : `${i}@x.com` }));
     const r = checkMandatory(contact, doc(contact, { email_ids: rows(6, [1, 2, 3, 5]) }));
     expect(r.ok).toBe(false);
-    expect(r.lines).toEqual([{ kind: "rows", table: "Email IDs", label: "Email ID", parentfield: "email_ids", fieldname: "email_id", rows: "1-3, 5", single: false }]);
+    expect(r.lines).toEqual([{ kind: "rows", table: "Email IDs", label: "Email ID", parentfield: "email_ids", fieldname: "email_id", rows: "1-3 and 5", ranges: ["1-3", "5"], single: false }]);
     expect(r.first).toMatchObject({ parentfield: "email_ids", idx: 1 });
     expect(checkMandatory(contact, doc(contact, { email_ids: rows(3, [1, 2, 3]) })).lines[0].kind).toBe("every");
     expect(checkMandatory(contact, doc(contact, { email_ids: rows(3, [2]) })).lines[0]).toMatchObject({ kind: "rows", rows: "2", single: true });

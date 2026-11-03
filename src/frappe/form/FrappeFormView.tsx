@@ -37,7 +37,7 @@ import { createDocStore, type DocStore, type FieldChange } from "./model/docStor
 import { analyzeDependencies, resolveFields, sectionCollapsed, type DependsIssue, type EffectiveField, type FieldOverrides } from "./model/depends";
 import { buildFetchMap, fetchUpdates, isReadOnlyByFetch, type FetchEntry } from "./model/fetch";
 import { buildLayout, sectionFields, type LayoutSection, type LayoutTab } from "./model/layout";
-import { checkMandatory, type MandatoryLine, type MandatoryResult } from "./model/mandatory";
+import { checkMandatory, commaAnd, type MandatoryLine, type MandatoryResult } from "./model/mandatory";
 import { formActions, type FormAction } from "./model/actions";
 import { controlStatus, ladderStatus } from "./model/status";
 import type { DefaultsContext } from "./model/defaults";
@@ -451,7 +451,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     switch (l.kind) {
       case "field": return interpolate(t("formFieldRequired"), { label: l.label });
       case "every": return interpolate(t("formRowsEvery"), { table: l.table, label: l.label });
-      case "rows": return interpolate(t(l.single ? "formRowsOne" : "formRowsList"), { table: l.table, label: l.label, rows: l.rows });
+      case "rows": return interpolate(t(l.single ? "formRowsOne" : "formRowsList"), { table: l.table, label: l.label, rows: commaAnd(l.ranges, t("formAnd")) });
       case "count": return interpolate(t("formRowsCount"), { table: l.table, label: l.label, n: l.count });
     }
   };

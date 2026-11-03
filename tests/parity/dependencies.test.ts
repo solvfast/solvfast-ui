@@ -3,7 +3,7 @@
  * apps/frappe/frappe/public/js/frappe/form/layout.js:751-791 (`evaluate_depends_on_value`), :701-749
  * (dependency-derived `reqd` / `read_only`), cypress/integration/depends_on.js.
  *
- * PENDING: A3 evaluator (`evaluateDependsOn`, `isFieldRequired` in ./seam.ts). Skipped until wired.
+ * Wired to A3's evaluator (`evaluateDependsOn`, `isFieldRequired` in ./seam.ts).
  *
  * Evidence from the REAL metadata fixtures: the expressions in use need the Desk page globals `in_list` and `cint`
  * (utils/number_format.js:276, utils/datatype.js:9) in addition to `doc` / `parent`. The two `real expressions` tests
@@ -17,7 +17,7 @@ const doc = (o: Record<string, unknown>): FrappeDoc => ({ doctype: "SFUI Test Pa
 const ev = (expr: string | boolean | ((d: FrappeDoc) => unknown), d: FrappeDoc, extra: { parent?: FrappeDoc; hasForm?: boolean } = {}) =>
   evaluateDependsOn(expr, { doc: d, hasForm: true, ...extra });
 
-describe.skip("evaluateDependsOn (layout.js:751-791)", () => {
+describe("evaluateDependsOn (layout.js:751-791)", () => {
   describe("eval:", () => {
     // depends_on.js: display_dependant_field depends_on "eval:doc.test_field=='Value'"
     it("true", () => expect(ev("eval:doc.test_field=='Value'", doc({ test_field: "Value" }))).toBe(true));
@@ -94,7 +94,7 @@ describe.skip("evaluateDependsOn (layout.js:751-791)", () => {
   });
 });
 
-describe.skip("dependency-derived reqd (layout.js:701-711; save.js:271-296)", () => {
+describe("dependency-derived reqd (layout.js:701-711; save.js:271-296)", () => {
   const field = (extra: Record<string, unknown>) => ({ fieldname: "dependant_field", fieldtype: "Data", ...extra });
   const dep = "eval:doc.test_field=='Some Value'"; // cypress depends_on.js
 

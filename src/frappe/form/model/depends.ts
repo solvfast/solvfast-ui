@@ -38,6 +38,9 @@ export interface EvaluatorOptions {
   globals?: Scope;
   /** Handlers for `fn:<name>` dependencies. */
   fnHandlers?: Record<string, FnHandler>;
+  /** `fn:` needs a form (layout.js:775); without one (`false`) it falls through to plain-fieldname truthiness of
+   *  `doc["fn:…"]`. Default true. */
+  hasForm?: boolean;
   onIssue?: (issue: DependsIssue) => void;
 }
 
@@ -68,7 +71,7 @@ export function evaluateDepends(expr: DependsValue, doc: FrappeDoc, parent: Frap
       return false;
     }
   }
-  if (text.startsWith("fn:")) {
+  if (text.startsWith("fn:") && opts.hasForm !== false) {
     const name = text.slice(3).trim();
     const h = opts.fnHandlers?.[name];
     if (!h) { report("unsupported", `no handler registered for "fn:${name}"`); return true; }

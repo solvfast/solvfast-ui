@@ -1,9 +1,8 @@
 /**
  * Seam between the A6 parity tests and the 0.4.0 implementations.
  *
- * STATUS (0.4.0-dev.5): A1 (errors, messages, translate) is wired to the real code below. A3's behaviour engine
- * (depends_on, mandatory) is not merged: those adapters still throw `pending(...)` and their suites stay `describe.skip`.
- * When A3 lands, replace the three adapters at the bottom and flip their `describe.skip`.
+ * STATUS: A1 (errors, messages, translate) and A3 (depends_on, mandatory: src/frappe/form/model) are wired to the real
+ * code below.
  *
  * What is CONTRACT (src/frappe/contract.ts, docs/CONTRACT-0.4.md §2): the types used here and `frappeKeys`.
  * What is PROPOSED by A6 (not in the contract; the Lead decides names/shapes): `evaluateDependsOn`, `isFieldRequired`,
@@ -24,6 +23,8 @@ import type {
 } from "../../src/frappe/contract";
 import { FrappeError, parseServerMessages as realParse, toFrappeError, visibleMessages } from "../../src/frappe/client";
 import { translateLabel as realTranslate } from "../../src/frappe/services/translate";
+import { checkMandatory as realCheckMandatory, evaluateDepends, isRequiredNow, isTruthy, type DependsValue } from "../../src/frappe/form/model";
+import { defaultMessages } from "../../src/theme/messages";
 
 export const pending = (what: string): never => {
   throw new Error(`pending implementation: ${what}`);
@@ -79,7 +80,7 @@ export const parseServerMessages = (raw: string | undefined): FrappeMessage[] =>
 export const messagesToDisplay = (m: FrappeMessage[]): FrappeMessage[] => visibleMessages(m);
 export const translateLabel = (bundle: MetaBundle, text: string): string => realTranslate(bundle, text);
 
-// ---- A3: PENDING (behaviour engine not merged) ------------------------------------------------------------------------
+// ---- A3: wired to the behaviour engine (src/frappe/form/model) ---------------------------------------------------------
 
 export interface DependsCtx {
   doc: FrappeDoc;
@@ -88,14 +89,19 @@ export interface DependsCtx {
   /** `fn:` needs a form (layout.js:775); without one it falls through to plain-name truthiness. */
   hasForm?: boolean;
 }
-/** Stands for A3's depends-on evaluator. Throws Error("Invalid depends_on expression"). */
+/** A3's depends-on evaluator (interpreter, D-23). Throws Error("Invalid depends_on expression …") like Desk's frappe.throw. */
 export const evaluateDependsOn = (
-  _expression: string | boolean | ((doc: FrappeDoc) => unknown),
-  _ctx: DependsCtx,
-): boolean => pending("A3 evaluateDependsOn");
+  expression: string | boolean | ((doc: FrappeDoc) => unknown),
+  ctx: DependsCtx,
+): boolean => {
+  let issue: string | null = null;
+  const v = evaluateDepends(expression as DependsValue, ctx.doc, ctx.parent ?? ctx.doc, { hasForm: ctx.hasForm, onIssue: (i) => { issue = i.reason; } });
+  if (issue != null) throw new Error(`Invalid "depends_on" expression: ${issue}`);
+  return isTruthy(v);
+};
 
 /** `mandatory_depends_on` when present (its result REPLACES static `reqd`, save.js:271-296), else `!!reqd`. */
-export const isFieldRequired = (_df: FrappeDocField, _ctx: DependsCtx): boolean => pending("A3 isFieldRequired");
+export const isFieldRequired = (df: FrappeDocField, ctx: DependsCtx): boolean => isRequiredNow(df, ctx.doc, ctx.parent ?? ctx.doc);
 
 export interface MandatoryResult {
   ok: boolean;
@@ -104,5 +110,18 @@ export interface MandatoryResult {
   lines: string[];
   firstFieldname?: string;
 }
-/** Stands for A3's client-side `check_mandatory` (save.js:120-247). */
-export const checkMandatory = (_bundle: MetaBundle, _doc: FrappeDoc): MandatoryResult => pending("A3 checkMandatory");
+/** A3's client-side `check_mandatory` (save.js:120-247), lines rendered with the package's English strings. */
+export const checkMandatory = (bundle: MetaBundle, doc: FrappeDoc): MandatoryResult => {
+  const r = realCheckMandatory(bundle, doc, { translate: (l) => realTranslate(bundle, l) });
+  const en = defaultMessages.en;
+  const fill = (s: string, v: Record<string, string | number>) => s.replace(/\{(\w+)\}/g, (m, k: string) => (k in v ? String(v[k]) : m));
+  const lines = r.lines.map((l) => {
+    switch (l.kind) {
+      case "field": return fill(en.formFieldRequired, { label: l.label });
+      case "every": return fill(en.formRowsEvery, { table: l.table, label: l.label });
+      case "rows": return fill(l.single ? en.formRowsOne : en.formRowsList, { table: l.table, label: l.label, rows: l.rows });
+      case "count": return fill(en.formRowsCount, { table: l.table, label: l.label, n: l.count });
+    }
+  });
+  return { ok: r.ok, title: en.formMissingFields, lines, firstFieldname: r.first?.fieldname };
+};
