@@ -1,6 +1,6 @@
 /** Sections of the one-page showcase: groups → sections. Only what the package implements. */
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { Bell, Compass, Component, Layers, Shapes, Table2, type LucideIcon } from "lucide-react";
+import { Bell, Compass, Component, Database, Layers, Shapes, Table2, type LucideIcon } from "lucide-react";
 import { l, type L } from "./i18n";
 
 export interface Page { id: string; title: L; description: L; Component: LazyExoticComponent<ComponentType> }
@@ -16,6 +16,7 @@ const data = () => import("./pages/data");
 const shell = () => import("./pages/shell");
 const merged = () => import("./pages/merged");
 const chart = () => import("./pages/chart");
+const frappe = () => import("./pages/frappe");
 
 /** Navigation, grouped as on the Design System site. Section bodies load per module, when a section is first opened. */
 export const GROUPS: Group[] = [
@@ -81,6 +82,18 @@ export const GROUPS: Group[] = [
     { id: "stepper", title: l("Stepper", "خطوات المعالج"), description: l("Progress through a multi-step flow.", "التقدّم في معالج متعدّد الخطوات."), Component: from(shell, "StepperPage") },
     { id: "app-shell", title: l("App shell", "هيكل التطبيق"), description: l("Sidebar, top bar, app switcher, notifications and mobile navigation in one layout.", "الشريط الجانبي والعلوي ومبدّل التطبيقات والإشعارات والتنقّل على الجوال في تخطيط واحد."), Component: from(shell, "AppShellPage") },
     { id: "shell-parts", title: l("Shell parts", "أجزاء الهيكل"), description: l("The app switcher and the notification panel on their own.", "مبدّل التطبيقات ولوحة الإشعارات منفردين."), Component: from(shell, "ShellPartsPage") },
+  ] },
+  { id: "frappe", title: l("Frappe layer", "طبقة فرابيه"), icon: Database, pages: [
+    { id: "frappe-gallery", title: l("Component gallery", "معرض المكوّنات"), description: l("Every 0.4 Frappe component with its status from the completion matrix and a link to where it runs.", "كل مكوّن فرابيه 0.4 مع حالته من مصفوفة الإكمال ورابط إلى حيث يعمل."), Component: from(frappe, "FrappeGalleryPage") },
+    { id: "frappe-list-view", title: l("Frappe list view", "عرض قائمة فرابيه"), description: l("FrappeListView on the simulated ToDo site: search, filters, saved filters, columns, sort, paging, selection, bulk actions, realtime, and the loading / empty / error states.", "FrappeListView على موقع ToDo المحاكى: البحث والتصفية والتصفيات المحفوظة والأعمدة والفرز والتصفّح والتحديد والإجراءات الجماعية والزمن الحقيقي وحالات التحميل والفراغ والخطأ."), Component: from(frappe, "FrappeListViewPage") },
+    { id: "frappe-forms", title: l("Frappe forms", "نماذج فرابيه"), description: l("FrappeForm: Contact with child tables, new ToDo, Travel Request with depends_on and Table MultiSelect, submitted memo, save error, loading, permission denied.", "FrappeForm: جهة اتصال مع جداول فرعية، مهمة جديدة، طلب سفر مع depends_on واختيار متعدد، مذكرة معتمدة، خطأ حفظ، تحميل، رفض إذن."), Component: from(frappe, "FrappeFormsPage") },
+    { id: "frappe-record", title: l("Record detail", "تفاصيل السجل"), description: l("FrappeStatusIndicator and FrappeTimeline with the comment composer, versions and assignment logs.", "FrappeStatusIndicator و FrappeTimeline مع صندوق التعليق والإصدارات وسجلات الإسناد."), Component: from(frappe, "FrappeRecordPage") },
+    { id: "frappe-workflow", title: l("Workflow", "سير العمل"), description: l("FrappeWorkflowActions on the Approval Memo workflow (stepper and compact), plus the generic LifecycleBar and ActionBar.", "FrappeWorkflowActions على سير عمل مذكرة الاعتماد (متتبّع ومضغوط)، مع LifecycleBar و ActionBar العامّين."), Component: from(frappe, "FrappeWorkflowPage") },
+    { id: "frappe-assign", title: l("Assignment & comments", "الإسناد والتعليقات"), description: l("FrappeAssignTo through the simulator, the generic AssigneeGroup / AssignPicker, and CommentComposer with mentions.", "FrappeAssignTo عبر المحاكي، و AssigneeGroup / AssignPicker العامّان، و CommentComposer مع الإشارات."), Component: from(frappe, "FrappeAssignPage") },
+    { id: "frappe-permissions", title: l("Permissions playground", "ساحة الأذونات"), description: l("A role picker over usePermissions, canImport, canExport and bulkMenu: the rights, a permlevel-1 field's display status, and what the UI hides. Client-side mirror of Desk; the server is the authority.", "منتقي أدوار فوق usePermissions و canImport و canExport و bulkMenu: الحقوق وحالة عرض حقل permlevel 1 وما تخفيه الواجهة. مرآة في العميل لديسك؛ الخادم هو المرجع."), Component: from(frappe, "FrappePermissionsPage") },
+    { id: "frappe-import-export", title: l("Import & export", "الاستيراد والتصدير"), description: l("The gated Import entry and Export dialog — pending the list-io merge; nothing is ever downloaded or imported here.", "مدخل الاستيراد المقيّد وحوار التصدير — بانتظار دمج list-io؛ لا يُنزَّل ولا يُستورَد شيء هنا أبداً."), Component: from(frappe, "FrappeImportExportPage") },
+    { id: "frappe-rtl", title: l("RTL and LTR", "اليمين واليسار"), description: l("The same list and form in Arabic (right-to-left) and English (left-to-right), side by side, with mixed-direction text.", "القائمة والنموذج نفسهما بالعربية (يمين إلى يسار) والإنجليزية (يسار إلى يمين) جنباً إلى جنب، مع نص مختلط الاتجاه."), Component: from(frappe, "FrappeRtlPage") },
+    { id: "frappe-themes", title: l("Light and dark", "الفاتح والداكن"), description: l("List, form and timeline in two themed containers at once.", "القائمة والنموذج والخط الزمني في حاويتَين بسمتَين في آن واحد."), Component: from(frappe, "FrappeThemesPage") },
   ] },
 ];
 
