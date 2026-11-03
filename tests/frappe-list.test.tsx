@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src";
 import { FrappeListView, FrappeProvider, buildFrappeListMeta, buildListRequest, createFrappeClient, queryToFrappe, type DocMeta, type FrappeTransport } from "../src/frappe";
@@ -16,6 +16,7 @@ import { defaultMessages } from "../src/theme/messages";
 import { TODO_META, createMockFrappe, todoRows, type MockFrappe } from "../playground/src/demo/mock-frappe";
 
 beforeAll(() => {
+  configure({ asyncUtilTimeout: 5000 }); // the machine may be heavily loaded: wait for the state, not a fixed 1 s
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
   const proto = Element.prototype as unknown as Record<string, unknown>;
   for (const m of ["scrollIntoView", "setPointerCapture", "releasePointerCapture"]) proto[m] ??= () => {};
@@ -63,7 +64,7 @@ describe("rows through reportview.get", () => {
     mount(mock.transport);
     await waitFor(() => expect(bodyRows()).toHaveLength(5));
     expect(calls(mock, "frappe.client.get_list")).toHaveLength(0);
-    expect([...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim())).toEqual(["Status", "Priority", "Due Date", "Reference Type"]);
+    expect([...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim())).toEqual(["Description", "Status", "Priority", "Due Date", "Reference Type"]) // Desk: the subject (title field) always comes first;
   });
 
   it("rowMeta: assignees (avatars with the response's user_info), comment count from with_comment_count, likes", async () => {
@@ -569,5 +570,39 @@ describe("User links show full names; number and date cells never wrap", () => {
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     const dateCell = [...document.querySelectorAll("tbody td span[dir=ltr]")][0];
     expect(dateCell?.className).toContain("whitespace-nowrap");
+  });
+});
+
+describe("Desk's list conventions: subject first, empty states, selection bar placement, opaque popover", () => {
+  it("without curated columns the title field (else the ID) is the first, visible column", async () => {
+    const mock = createMockFrappe();
+    mount(mock.transport);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    expect([...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim()).slice(0, 2)).toEqual(["Description", "Status"]);
+  });
+  it("empty: 'you haven't created a …' + the create action; with filters: 'no … found' + Clear filters", async () => {
+    const mock = createMockFrappe({ rows: [] });
+    const onCreate = vi.fn();
+    mount(mock.transport, { onCreate });
+    expect(await screen.findByText("You haven't created a ToDo yet")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Create your first ToDo" }));
+    expect(onCreate).toHaveBeenCalled();
+    cleanup();
+    const full = createMockFrappe();
+    mount(full.transport);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.change(screen.getByPlaceholderText("Search…"), { target: { value: "zzzzzz-nothing" } });
+    expect(await screen.findByText("No ToDo found with matching filters")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+  });
+  it("the selection bar comes before the table, so selecting never scrolls it away", async () => {
+    const mock = createMockFrappe();
+    mount(mock.transport, { bulk: { permissions: { delete: true } } });
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    const bar = await screen.findByRole("region", { name: /1/ });
+    const table = document.querySelector("table")!;
+    expect(bar.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

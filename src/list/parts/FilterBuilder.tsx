@@ -16,6 +16,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { DateField } from "../../primitives/date-time-field";
 import { Input } from "../../primitives/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../../primitives/popover";
+
+/** Desk's list popovers must stay readable over the table: an opaque surface instead of the glass tint. */
+const OPAQUE: React.CSSProperties = { backgroundColor: "hsl(var(--background))", backdropFilter: "none", WebkitBackdropFilter: "none" };
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { cn } from "../../lib/cn";
 import { useLocale } from "../../theme/ThemeProvider";
@@ -83,7 +86,7 @@ export function FilterBuilder({ fields, query, onChange, activeCount, loadOption
           {activeCount > 0 && <Badge variant="info" className="ms-0.5 h-5 px-1.5">{activeCount}</Badge>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[min(92vw,34rem)] p-3" align="end">
+      <PopoverContent className="w-[min(92vw,34rem)] p-3" style={OPAQUE} align="end">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-medium">{t("filters")}</span>
           {query.conditions.length > 1 && (
@@ -171,7 +174,7 @@ function FieldPicker({ fields, value, onChange }: { fields: FilterField[]; value
           <ChevronDown className="h-4 w-4 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-0" align="start">
+      <PopoverContent className="w-56 p-0" style={OPAQUE} align="start">
         <Command>
           <CommandInput placeholder={t("listSearch")} />
           <CommandList>
@@ -273,7 +276,7 @@ function LinkValue({ field, value, onChange, loadOptions }: { field: FilterField
           <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" style={OPAQUE} align="start">
         <Command shouldFilter={false}>
           <CommandInput placeholder={t("listSearch")} value={txt} onValueChange={setTxt} />
           <CommandList>

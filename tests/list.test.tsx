@@ -816,7 +816,7 @@ describe("toolbar, states and data mode", () => {
     expect(screen.getByText(/No tasks yet/)).toBeTruthy();
     rerenderList({ rows: ROWS, emptyMessage: "No tasks yet" });
     type(screen.getByPlaceholderText("Search…"), "zzz");
-    expect(screen.getByText("No data yet")).toBeTruthy();
+    expect(screen.getByText("No records match the current filters.")).toBeTruthy();
     expect(screen.queryByText("No tasks yet")).toBeNull();
   });
 

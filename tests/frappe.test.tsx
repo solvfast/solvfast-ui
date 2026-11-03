@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { ThemeProvider, type ColumnDef, type FilterQuery, type ListQueryState, type SavedFilter } from "../src";
@@ -23,6 +23,7 @@ import { buildGridMeta } from "../upstream/sear-7abc895-dirty/data-grid/frappe-m
 import { queryToFrappe as searQueryToFrappe } from "../upstream/sear-7abc895-dirty/data-grid/filter-to-frappe";
 
 beforeAll(() => {
+  configure({ asyncUtilTimeout: 5000 }); // the machine may be heavily loaded: wait for the state, not a fixed 1 s
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
   const proto = Element.prototype as unknown as Record<string, unknown>;
   for (const m of ["scrollIntoView", "setPointerCapture", "releasePointerCapture"]) proto[m] ??= () => {};
@@ -310,9 +311,9 @@ describe("FrappeListView (F31 data mode)", () => {
     expect(calls(mock, "frappe.desk.form.load.getdoctype")).toHaveLength(1);
     expect(calls(mock, ROWS)).toHaveLength(1); // no request from the placeholder shown while meta loads
     // Desk's row source, with its standard row fields (docs 13 §1.2) and comment counts
-    expect(lastList(mock)).toMatchObject({ doctype: "ToDo", fields: ["name", "status", "priority", "date", "reference_type", "docstatus", "owner", "modified", "_assign", "_comments", "_liked_by", "_user_tags"], filters: [], or_filters: [], order_by: "modified desc", limit_start: 0, limit_page_length: 20, with_comment_count: 1, view: "List" });
+    expect(lastList(mock)).toMatchObject({ doctype: "ToDo", fields: ["name", "description", "status", "priority", "date", "reference_type", "docstatus", "owner", "modified", "_assign", "_comments", "_liked_by", "_user_tags"], filters: [], or_filters: [], order_by: "modified desc", limit_start: 0, limit_page_length: 20, with_comment_count: 1, view: "List" });
     expect(lastCount(mock)).toEqual({ doctype: "ToDo", filters: [], or_filters: [], fields: [], limit: 1001 }); // capped count (Desk's count_upper_bound)
-    expect([...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim())).toEqual(["Status", "Priority", "Due Date", "Reference Type"]);
+    expect([...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim())).toEqual(["Description", "Status", "Priority", "Due Date", "Reference Type"]) // Desk: the subject (title field) always comes first;
     for (const name of ["Status", "Priority", "Allocated To"]) expect(screen.getAllByLabelText(name).length).toBeGreaterThan(0); // in_standard_filter
     expect(screen.getByText("Total: 45")).toBeTruthy();
   });

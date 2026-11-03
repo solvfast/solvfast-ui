@@ -8,6 +8,7 @@ import { QueryClientContext } from "@tanstack/react-query";
 import { ListView, type ListViewProps } from "../list/ListView";
 import { FrappeProvider } from "./FrappeProvider";
 import { useFrappeClient } from "./FrappeProvider";
+import { useLocale } from "../theme/ThemeProvider";
 import { usePermissions } from "./hooks/usePermissions";
 import { useFrappeList, type FrappeListOptions } from "./useFrappeList";
 import { FrappeBulkActions, type FrappeBulkOptions } from "./list/FrappeBulkActions";
@@ -30,6 +31,8 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    * it. Turns `selectable` on. Runs next to the app's own `bulkActions`.
    */
   bulk?: FrappeBulkOptions;
+  /** Offers "Create your first {DocType}" in the empty list (Desk: only when the user may create). */
+  onCreate?: () => void;
   /** Reload on the server's `list_update` (debounced 2 s, 15 s for large tables; not while rows are selected). */
   realtime?: RealtimePort;
   /** Override the realtime quiet period (ms). Default 2000, 15000 for large tables. */
@@ -42,7 +45,7 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, realtime, realtimeDebounceMs, rowKey, ...rest }: FrappeListViewProps<T>) {
+function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, realtime, realtimeDebounceMs, rowKey, ...rest }: FrappeListViewProps<T>) {
   const f = useFrappeList<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext });
   const { quickFilterFields, loadOptions, ...data } = f.listProps;
   const fallbackClient = useFrappeClient();
@@ -51,6 +54,7 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
   metaRef.current = f.meta;
   // bulk gates: the user's rights on the DocType (Desk's `frm.perm`); the `permissions` prop overrides
   const perms = usePermissions(f.bundle);
+  const { t } = useLocale();
   const [selectedCount, setSelectedCount] = React.useState(0);
   const [bulkBusy, setBulkBusy] = React.useState(false);
   const [bulkMessage, setBulkMessage] = React.useState("");
@@ -84,6 +88,9 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
       loadOptions={rest.loadOptions ?? loadOptions}
       {...rest}
       storage={storage}
+      emptyMessage={rest.emptyMessage ?? t("listEmptyNone").replace("{doctype}", doctype)}
+      emptyFilteredMessage={rest.emptyFilteredMessage ?? t("listEmptyFilteredDoctype").replace("{doctype}", doctype)}
+      emptyAction={rest.emptyAction ?? (onCreate ? { label: t("listCreateFirst").replace("{doctype}", doctype), onClick: onCreate } : undefined)}
       selectable={rest.selectable ?? (bulk ? true : undefined)}
       renderBulkActions={renderBulk}
       onSelectionChange={(k) => { setSelectedCount(k.length); rest.onSelectionChange?.(k); }}

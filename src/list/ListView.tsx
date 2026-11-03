@@ -20,6 +20,7 @@ import { ColumnManager, GroupByMenu, QuickFilters, SavedFilters, SortMenu } from
 import { useListState, type UseListStateOptions } from "./useListState";
 import type { FiscalYear, Operator } from "./model/filters";
 import { ListActionsContext } from "./ListActionsContext";
+import { EMPTY_QUERY } from "./model/filters";
 
 export interface RowAction<T> {
   key: string;
@@ -71,6 +72,10 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   totalLabel?: string;
   /** Server mode: more rows may follow the current page even though `total` says otherwise (capped or unknown count). */
   hasMore?: boolean;
+  /** Empty list with nothing filtered: a button under the message (e.g. "Create your first …"). */
+  emptyAction?: { label: React.ReactNode; onClick: () => void };
+  /** Message when filters or search hide every row (default: "No records match the current filters."). */
+  emptyFilteredMessage?: React.ReactNode;
   /** Content between the toolbar and the table (e.g. a row of state chips). */
   belowToolbar?: React.ReactNode;
   /** Called when the set of selected rows changes (keys). */
@@ -122,7 +127,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar,
+    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -137,7 +142,19 @@ export function ListView<T>(props: ListViewProps<T>) {
   const tableProps = {
     columns, rowKey: s.rowKey, sort: s.sort, onSortToggle: s.toggleSort, onRowClick, rowClassName,
     selection: selectable ? { isSelected: s.isSelected, toggleRow: s.toggleRow, setRowsSelected: s.setRowsSelected } : undefined,
-    loading, error, onRetry, empty: filtered ? t("noData") : emptyMessage ?? t("noData"),
+    loading, error, onRetry,
+    // Desk (list_view.js:497-537): "no matching records" (with a way out) is not "you have none yet" (with the create action)
+    empty: filtered ? (
+      <div className="flex flex-col items-center gap-2">
+        <span>{emptyFilteredMessage ?? t("listEmptyFiltered")}</span>
+        <Button variant="outline" size="sm" onClick={() => { s.setQuery(EMPTY_QUERY); s.setSearch(""); }}>{t("listClearFilters")}</Button>
+      </div>
+    ) : (
+      <div className="flex flex-col items-center gap-2">
+        <span>{emptyMessage ?? t("noData")}</span>
+        {emptyAction && <Button size="sm" onClick={emptyAction.onClick}>{emptyAction.label}</Button>}
+      </div>
+    ),
   };
   const partial = s.mode === "server" && s.grouped && s.rows.length < s.total;
   const selectedKeys = [...s.selected];
@@ -182,11 +199,11 @@ export function ListView<T>(props: ListViewProps<T>) {
         </div>
       )}
 
-      {s.groups ? <GroupedListTable {...tableProps} groups={s.groups} partial={partial} /> : <ListTable {...tableProps} rows={s.rows} />}
-
       {selectable && (bulkActions?.length || renderBulkActions) ? (
         <BulkActionBar count={selectedKeys.length} actions={bulkActions} render={renderBulkActions} onClear={s.clearSelection} keys={selectedKeys} rows={s.selectedRows()} />
       ) : null}
+
+      {s.groups ? <GroupedListTable {...tableProps} groups={s.groups} partial={partial} /> : <ListTable {...tableProps} rows={s.rows} />}
 
       {/* The pager must be the last child (pill styles, styles/src/sf-overrides.css); while grouped there is no paging (rule
           C1), and with an error there is nothing to page or count, so an empty element keeps those selectors from

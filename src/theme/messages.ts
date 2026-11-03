@@ -185,6 +185,11 @@ const en = {
   feDismiss: "Dismiss",
 
   // ---- frappe:list ----
+  listEmptyFiltered: "No records match the current filters.",
+  listEmptyNone: "You haven't created a {doctype} yet",
+  listEmptyFilteredDoctype: "No {doctype} found with matching filters",
+  listCreateFirst: "Create your first {doctype}",
+  listClearFilters: "Clear filters",
   listOwner: "Created By",
   listModifiedBy: "Last Updated By",
   listAssigned: "Assigned to",
@@ -556,6 +561,11 @@ const ar: Messages = {
   feDismiss: "إغلاق",
 
   // ---- frappe:list ----
+  listEmptyFiltered: "لا توجد سجلات تطابق عوامل التصفية الحالية.",
+  listEmptyNone: "لم تُنشئ {doctype} بعد",
+  listEmptyFilteredDoctype: "لا توجد نتائج لـ {doctype} تطابق عوامل التصفية",
+  listCreateFirst: "أنشئ أول {doctype}",
+  listClearFilters: "مسح عوامل التصفية",
   listOwner: "أنشأه",
   listModifiedBy: "آخر تحديث بواسطة",
   listAssigned: "المُسند إليه",

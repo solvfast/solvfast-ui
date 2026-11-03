@@ -44,7 +44,7 @@ export function BulkActionBar<T>({ count, actions, render, onClear, keys, rows }
   const [busy, setBusy] = React.useState<string | null>(null);
   if (!count) return null;
   return (
-    <Card className="sticky bottom-4 z-10 flex flex-wrap items-center gap-3 p-3" role="region" aria-label={t("selectedCount").replace("{n}", String(count))}>
+    <Card className="sticky top-2 z-20 flex flex-wrap items-center gap-3 p-3" role="region" aria-label={t("selectedCount").replace("{n}", String(count))}>
       <span className="text-sm font-medium" aria-live="polite">{t("selectedCount").replace("{n}", String(count))}</span>
       <div className="h-5 w-px bg-border" />
       {render?.({ keys, rows, clear: onClear })}

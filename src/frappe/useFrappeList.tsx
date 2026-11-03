@@ -132,7 +132,12 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   const commentsOff = !!settings?.disable_comment_count;
   const columns = React.useMemo<ColumnDef<T>[]>(() => {
     const generated = (meta?.columns ?? []).map((c) => ({ ...c, label: label(c.key, c.label) })) as unknown as ColumnDef<T>[];
-    const merged = mergeColumns(o.columns ?? [], generated);
+    // Desk always puts the Subject (title field, else the ID) first and shows it (list_view.js:375-486). Apps that curate
+    // their own columns keep full control.
+    const subjectKey = generated.some((c) => c.key === meta?.titleField) ? meta?.titleField : "name";
+    const subject = !o.columns?.length ? generated.filter((c) => c.key === subjectKey).map((c) => ({ ...c, hidden: false })) : [];
+    const rest = subject.length ? generated.filter((c) => c.key !== subjectKey) : generated;
+    const merged = mergeColumns(o.columns ?? [], [...subject, ...rest]);
     const on = (k: "assignees" | "comments" | "likes") => o.rowMeta !== false && rm[k] !== false && (k !== "comments" || !commentsOff) && !!meta?.hasField(k === "assignees" ? "_assign" : k === "comments" ? "_comments" : "_liked_by");
     const extra = rowMetaColumns({
       indicator: indicatorCfg, assignees: on("assignees"), comments: on("comments"), likes: on("likes"), userInfo,
