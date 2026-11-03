@@ -414,7 +414,10 @@ export function createFrappeClient(opts: FrappeClientOptions = {}): FrappeApi {
       return Number(res.message) || 0;
     },
     async searchLink(doctype, txt, o = {}) {
+      // extra get_query keys first (link.js `$.extend(args, q)`), the standard ones after so they always win
+      const extra = Object.fromEntries(Object.entries(o.args ?? {}).filter(([, v]) => v !== undefined).map(([k, v]) => [k, v !== null && typeof v === "object" ? json(v) : v]));
       const res = await call("frappe.desk.search.search_link", {
+        ...extra,
         doctype, txt, page_length: o.pageLength ?? 10, ...(o.referenceDoctype ? { reference_doctype: o.referenceDoctype } : {}),
         ...(o.filters !== undefined ? { filters: asJson(o.filters) } : {}),
         ...(o.query ? { query: o.query } : {}),
