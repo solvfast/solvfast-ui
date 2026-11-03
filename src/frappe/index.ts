@@ -54,3 +54,5 @@ export type { FrappeApi, SessionUser, ServerMessagesListener } from "./client";
 export * from "./form";
 // `commaAnd` exists in record and form (duplicate — consolidation debt); the record one is exported.
 export { commaAnd } from "./record";
+// Form helpers (A3): Desk's can_cancel rule and the form loading skeleton.
+export { canCancelDoctype, FormSkeleton } from "./form/FrappeForm";
