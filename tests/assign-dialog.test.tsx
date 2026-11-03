@@ -5,7 +5,6 @@
  * desk/form/assign_to.py:73-90). SIMULATED: no site involved.
  */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import * as React from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { defaultMessages } from "../src/theme/messages";

@@ -49,3 +49,13 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+
+/* List popovers (Saved Filters, Columns, the filter builder and its field / value pickers) sit over a dense table.
+ * Light mode keeps their opaque `--background` surface (as since 0.4.0-dev.13, ebefff3); dark mode uses the DS glass
+ * like every other dark popup (Phase 27.5: they were near-black because an inline style out-ranked the theme). The
+ * class is set by src/list/parts/{Toolbar,FilterBuilder}.tsx only. */
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-popper.sf-list-surface {
+  background: hsl(var(--background));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
