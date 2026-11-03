@@ -280,3 +280,12 @@ integrated into a real project — not done (docs/LIMITATIONS.md).
   `FrappeError`) and `api.uploadFile(file, filename, opts)` (`upload_file`, Desk's multipart fields). Stubbable through
   `createFrappeClient({ files })`; a client with a custom JSON `transport` and no `files` refuses file calls.
 - `docs/release/COMPONENT-COMPLETION-MATRIX.md`.
+
+## 0.4.0-dev.27 (2026-11-03, Phase 26 D — permissions)
+- **Behaviour change (rule 9):** without `session.roles` nothing is granted beyond the server's `docinfo.permissions` of a
+  saved doc; a NEW doc is denied (no fields, no Save) and `usePermissions().known` is false (FrappeForm shows "Read only").
+  Pass `session.roles` to `FrappeProvider`. The Administrator USER keeps everything; the "Administrator" ROLE on another user
+  is just its DocPerm rows.
+- `bulkMenu`: Assign To gated on `read` (server: `assign_to.py:67-68`), was `write`.
+- `permissionsKnown`, `isAdministrator` exported. `tests/parity/permissions-matrix.test.tsx` (31 tests, SIMULATED).
+- `docs/release/PERMISSION-AUDIT.md`.
