@@ -1,12 +1,13 @@
 /**
  * usePermissions(bundle, doc, docinfo) — Desk's `frm.perm` and field display status (docs 10 §C6, 11 §2.5).
- * Roles and user come from FrappeProvider `session`; without roles the rights are approximated (buildDocPermissions).
+ * Roles and user come from FrappeProvider `session`; without roles nothing is granted beyond what the server said about
+ * a saved doc (rule 9, `buildDocPermissions`) and `known` is false so the UI can say "permissions unknown".
  */
 import * as React from "react";
 import type { DocInfo, DocPermissions, FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle, PermType, WorkflowInfo } from "../contract";
 import { workflowFromMeta } from "../client";
 import { useFrappeSettings } from "../FrappeProvider";
-import { buildDocPermissions, controlDisplayStatus, fieldDisplayStatus, isWorkflowReadOnly, readOnlyPermissions } from "../services/permissions";
+import { buildDocPermissions, controlDisplayStatus, fieldDisplayStatus, isWorkflowReadOnly, permissionsKnown, readOnlyPermissions } from "../services/permissions";
 
 export interface PermissionsResult {
   /** Rights per permlevel, as Desk's `frm.perm` (shrunk to read / cancel / share / print / email when the workflow
@@ -25,8 +26,12 @@ export interface PermissionsResult {
   displayStatus(df: FrappeDocField, doc: FrappeDoc, parent?: FrappeDoc, opts?: { gridCell?: boolean; onlyInput?: boolean }): FieldDisplayStatus;
   /** The DocType's active workflow (from the bundle's `__workflow_docs`), or null. */
   workflow: WorkflowInfo | null;
-  /** True when the workflow state makes the doc read-only for this user (needs `session.roles`). */
+  /** True when the workflow state makes the doc read-only for this user (needs `session.roles`; without them a saved
+   *  doc in a workflow is read-only — rule 9). */
   workflowReadOnly: boolean;
+  /** False when the rights are the rule-9 denial for MISSING information (no `session.roles`, not Administrator, and no
+   *  server-evaluated `docinfo.permissions` for a saved doc) — show "permissions unknown", not "forbidden". */
+  known: boolean;
 }
 
 export function usePermissions(bundle?: MetaBundle, doc?: FrappeDoc, docinfo?: DocInfo): PermissionsResult {
@@ -34,7 +39,8 @@ export function usePermissions(bundle?: MetaBundle, doc?: FrappeDoc, docinfo?: D
   return React.useMemo(() => {
     const workflow = workflowFromMeta(bundle?.meta);
     const base = buildDocPermissions({ meta: bundle?.meta, children: bundle?.children, doc, docinfo, session });
-    const workflowReadOnly = isWorkflowReadOnly(workflow, doc, session?.roles);
+    const workflowReadOnly = isWorkflowReadOnly(workflow, doc, session?.roles, session?.user);
+    const known = permissionsKnown({ doc, docinfo, session });
     const levels = workflowReadOnly ? readOnlyPermissions(base) : base;
     const withRowDocstatus = (row: FrappeDoc, parent?: FrappeDoc): FrappeDoc =>
       parent && row !== parent && row.docstatus === undefined ? { ...row, docstatus: parent.docstatus } : row;
@@ -54,6 +60,7 @@ export function usePermissions(bundle?: MetaBundle, doc?: FrappeDoc, docinfo?: D
       displayStatus,
       workflow,
       workflowReadOnly,
+      known,
     };
   }, [bundle, doc, docinfo, session]);
 }

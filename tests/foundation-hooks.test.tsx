@@ -158,14 +158,18 @@ describe("permissions: the display-status ladder (docs 11 §2.5)", () => {
     expect(controlDisplayStatus("Write", df({ allow_on_submit: 1 }), "x", { gridStatus: "Read" })).toBe("Write");
   });
 
-  it("roles × real ToDo DocPerm rows, docinfo overlay, owner rule; approximation without roles", () => {
+  it("roles × real ToDo DocPerm rows, docinfo overlay, owner rule; rule 9 without roles", () => {
     const doc = { doctype: "ToDo", name: "TD-1", owner: "a@x", docstatus: 0 } as FrappeDoc;
     const withRoles = buildDocPermissions({ meta: TODO, doc, docinfo: { permissions: { read: 1, write: 0 } } as never, session: { user: "a@x", roles: ["All", "Desk User"] } });
     expect(withRoles[0].write).toBe(false); // docinfo said no write
     expect(withRoles[0].read).toBe(true);
     const noRoles = buildDocPermissions({ meta: TODO, doc, docinfo: { permissions: { read: 1, write: 1, delete: 0 } } as never });
     expect(noRoles[0]).toMatchObject({ read: true, write: true, delete: false });
-    expect(buildDocPermissions({ meta: TODO, doc: { doctype: "ToDo", name: "new-todo-1", __islocal: 1 } })[0]).toMatchObject({ read: true, write: true, create: true });
+    // rule 9 (Phase 26 D): without roles a NEW doc is denied — no read / write / create (it was optimistic before dev.26)
+    const newDoc = buildDocPermissions({ meta: TODO, doc: { doctype: "ToDo", name: "new-todo-1", __islocal: 1 } })[0];
+    expect(newDoc.read).toBeFalsy(); expect(newDoc.write).toBeFalsy(); expect(newDoc.create).toBeFalsy();
+    // the Administrator is the exception: the server grants it everything (permissions.py:107-109)
+    expect(buildDocPermissions({ meta: TODO, doc: { doctype: "ToDo", name: "new-todo-1", __islocal: 1 }, session: { user: "Administrator" } })[0]).toMatchObject({ read: true, write: true, create: true });
   });
 
   it("usePermissions: workflow state without an allow_edit role shrinks to read-only", () => {

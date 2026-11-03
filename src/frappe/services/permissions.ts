@@ -6,7 +6,8 @@
  * Inputs Desk has and a React app must supply (see `FrappeSession`): the user and their ROLES. Desk builds the rights
  * per permlevel from the DocType's DocPerm rows × the user's roles (perm.js get_role_permissions), then overlays the
  * document's `docinfo.permissions` (server-evaluated: ownership, user permissions, sharing) on level 0.
- * Without roles (no session supplied) this falls back to an APPROXIMATION, documented on `buildDocPermissions`.
+ * Without roles (no session supplied) nothing is inferred: Phase 26 rule 9 — missing information DENIES (see
+ * `buildDocPermissions`, `permissionsKnown`). The Administrator is the one exception (the server grants it everything).
  */
 import type { DocInfo, DocPerm, DocPermissions, DocTypeMeta, FieldDisplayStatus, FrappeDoc, FrappeDocField, PermType, WorkflowInfo } from "../contract";
 
@@ -42,20 +43,47 @@ export function rolePermissions(perms: DocPerm[] | undefined, roles: string[]): 
 }
 
 /** Permlevels the DocType uses (fields and DocPerm rows), always including 0. */
-function permlevelsOf(meta: DocTypeMeta | undefined): number[] {
+function permlevelsOf(meta: DocTypeMeta | undefined, children?: Record<string, DocTypeMeta>): number[] {
   const set = new Set<number>([0]);
   for (const f of meta?.fields ?? []) set.add(Number(f.permlevel) || 0);
+  for (const c of Object.values(children ?? {})) for (const f of c.fields ?? []) set.add(Number(f.permlevel) || 0);
   for (const p of meta?.permissions ?? []) set.add(Number(p.permlevel) || 0);
   return [...set].sort((a, b) => a - b);
 }
 
 export interface BuildPermissionsInput {
   meta?: DocTypeMeta;
-  /** Child-table metas (for the permlevels of child fields in the approximation). */
+  /** Child-table metas (their permlevels count for the Administrator's levels). */
   children?: Record<string, DocTypeMeta>;
   doc?: FrappeDoc;
   docinfo?: DocInfo;
   session?: FrappeSession;
+}
+
+/** The server grants the Administrator USER everything, unconditionally (permissions.py:107-109 `has_permission`,
+ *  :288-290 `allow_everything` — keyed on the user name; role.py:92-95 resolves the "Administrator" role to that user).
+ *  A session that merely lists the "Administrator" ROLE gets the DocPerm rows for it, like any role (perm.js:62-64 sets
+ *  only `read` for it and then reads the rows). */
+export const isAdministrator = (session: FrappeSession | undefined) => session?.user === "Administrator";
+
+/** The server's `docinfo.shared` row of this user adds read / write / submit / share (perm.js:88-96; share.py:155). */
+function applyShared(base: Partial<Record<PermType, boolean>>, docinfo: DocInfo | undefined, user: string | undefined) {
+  if (!user) return;
+  for (const s of (docinfo?.shared ?? []) as Record<string, unknown>[]) {
+    if (s.user !== user) continue;
+    for (const right of ["read", "write", "submit", "share"] as const) if (!base[right]) base[right] = truthy(s[right]);
+  }
+}
+
+/**
+ * Whether the rights `buildDocPermissions` returns are KNOWN (computed from the information Desk has) or the rule-9
+ * denial for missing information: true with `session.roles`, for the Administrator, and for a saved doc whose
+ * `docinfo.permissions` the server evaluated (level 0 only — permlevels > 0 stay denied without roles).
+ * A UI shows "permissions unknown / read only" when this is false (`usePermissions().known`).
+ */
+export function permissionsKnown({ doc, docinfo, session }: Pick<BuildPermissionsInput, "doc" | "docinfo" | "session">): boolean {
+  if (isAdministrator(session) || !!session?.roles) return true;
+  return !!doc && !doc.__islocal && !!docinfo?.permissions;
 }
 
 /**
@@ -65,29 +93,39 @@ export interface BuildPermissionsInput {
  *    non-owner the level-0 rights granted ONLY by `if_owner` rows are removed, then the user's `docinfo.shared` row
  *    adds read / write / submit / share (Desk also sets email / print from boot `can_email` / `can_print` — not
  *    available here, left as they are).
- *  - Administrator with no meta → read.
- * APPROXIMATION without `session.roles` (UNVERIFIED parity, reported): a saved doc's level 0 = `docinfo.permissions`
- * alone; a level > 0 is readable when the doc carries a key for one of its fields (Frappe strips unreadable permlevel
- * fields, docs 10 §C5) and writable when also level 0 is writable (the server resets values the user may not write,
- * docs 11 §6 step 7). A NEW doc is optimistic — read / write / create at every level — since Desk would use role rights
- * there; the server checks `create` on insert.
+ *  - the Administrator USER: every right at every permlevel (the server never checks further, permissions.py:107-109);
+ *    the "Administrator" ROLE on another user is just a role (its DocPerm rows).
+ *  - No meta → read for the Administrator only (perm.js:62-70; boot `can_read` is not available here).
+ * RULE 9 (Phase 26 D: missing information DENIES) without `session.roles` and not Administrator:
+ *  - a saved doc: level 0 = exactly the server-evaluated `docinfo.permissions` (ownership, user permissions and
+ *    `if_owner` already applied by `get_doc_permissions`, permissions.py:196-250) plus the user's `docinfo.shared` row
+ *    (server-evaluated too, load.py:130). Permlevels > 0: nothing — Desk reads them from the role rows, which are
+ *    missing; the former inference from "the doc carries a field of that level" is no longer made.
+ *  - a NEW doc or no doc: nothing (no read / write / create). Before dev.26 this was optimistic (read / write / create).
+ *  `permissionsKnown` tells a UI that this denial is for lack of information.
  */
 export function buildDocPermissions({ meta, children, doc, docinfo, session }: BuildPermissionsInput): DocPermissions {
   const roles = session?.roles;
   const saved = !!doc && !doc.__islocal;
-  if (!meta) return [{ read: session?.user === "Administrator" || !!roles?.includes("Administrator") }];
+  const admin = isAdministrator(session);
+  if (!meta) return [{ read: admin || !!roles?.includes("Administrator") }]; // perm.js:62-64
+
+  if (admin) {
+    const levels: DocPermissions = [];
+    const everything = Object.fromEntries(PERM_TYPES.map((r) => [r, true])) as Partial<Record<PermType, boolean>>;
+    for (const level of permlevelsOf(meta, children)) levels[level] = { ...everything };
+    for (let i = 0; i < levels.length; i++) levels[i] ??= {};
+    return levels;
+  }
 
   if (!roles) {
-    const base: Partial<Record<PermType, boolean>> = saved ? {} : { read: true, write: true, create: true };
-    if (saved && docinfo?.permissions) for (const [k, v] of Object.entries(docinfo.permissions)) if (PERM_TYPES.includes(k as PermType)) base[k as PermType] = truthy(v);
-    const levels: DocPermissions = [base];
-    const fields = [...(meta.fields ?? []), ...Object.values(children ?? {}).flatMap((c) => c.fields ?? [])];
-    for (const level of permlevelsOf(meta).filter((l) => l > 0)) {
-      const atLevel = fields.filter((f) => (Number(f.permlevel) || 0) === level);
-      const readable = !saved || (!!doc && atLevel.some((f) => f.fieldname in doc));
-      levels[level] = { read: readable, write: readable && !!base.write };
+    const base: Partial<Record<PermType, boolean>> = {};
+    if (saved && docinfo?.permissions) {
+      for (const [k, v] of Object.entries(docinfo.permissions)) if (PERM_TYPES.includes(k as PermType)) base[k as PermType] = truthy(v);
+      applyShared(base, docinfo, session?.user);
     }
-    for (let i = 0; i < levels.length; i++) levels[i] ??= {};
+    const levels: DocPermissions = [base];
+    for (const level of permlevelsOf(meta, children)) levels[level] ??= {};
     return levels;
   }
 
@@ -96,10 +134,7 @@ export function buildDocPermissions({ meta, children, doc, docinfo, session }: B
     const base = levels[0];
     for (const [k, v] of Object.entries(docinfo?.permissions ?? {})) if (PERM_TYPES.includes(k as PermType)) base[k as PermType] = truthy(v);
     if (doc.owner !== session?.user) for (const right of PERM_TYPES) if (base[right] && !rightsWithoutIfOwner.has(right)) base[right] = false;
-    for (const s of (docinfo?.shared ?? []) as Record<string, unknown>[]) {
-      if (s.user !== session?.user) continue;
-      for (const right of ["read", "write", "submit", "share"] as const) if (!base[right]) base[right] = truthy(s[right]);
-    }
+    applyShared(base, docinfo, session?.user);
   }
   return levels;
 }
@@ -112,10 +147,14 @@ export function readOnlyPermissions(levels: DocPermissions): DocPermissions {
 /**
  * `frappe.workflow.is_read_only` (model/workflow.js:53-70): a saved doc in a workflow is read-only when the user has none
  * of the roles in `allow_edit` of the doc's current state (state field, else the default state for its docstatus).
- * Needs the roles; without them → false (not read-only; the server still validates transitions).
+ * Needs the roles. Without them → read-only (rule 9: missing information denies; before dev.26 this answered false),
+ * except for the Administrator USER, whom the server never restricts (permissions.py:107-109). The server validates
+ * transitions anyway.
  */
-export function isWorkflowReadOnly(workflow: WorkflowInfo | null | undefined, doc: FrappeDoc | undefined, roles: string[] | undefined): boolean {
-  if (!workflow || !doc || doc.__islocal || !roles) return false;
+export function isWorkflowReadOnly(workflow: WorkflowInfo | null | undefined, doc: FrappeDoc | undefined, roles: string[] | undefined, user?: string): boolean {
+  if (!workflow || !doc || doc.__islocal) return false;
+  if (user === "Administrator") return false;
+  if (!roles) return true;
   const state = (doc[workflow.workflow_state_field] as string | undefined) || workflow.states.find((s) => Number(s.doc_status) === Number(doc.docstatus ?? 0))?.state;
   if (!state) return false;
   const allowed = workflow.states.filter((s) => s.state === state).map((s) => s.allow_edit);
