@@ -271,8 +271,9 @@ export function canImport(meta: Pick<DocTypeMeta, "allow_import"> | undefined, w
  * rows too (the server then checks every exported row's owner — data_import/exporter.py:116-124). No roles → false.
  * `who`: the roles, or the session — the Administrator USER may always export (System Manager among its roles,
  * :506-507 + :609; and `get_role_permissions` answers `allow_everything` for it, :273-275).
- * Desk shows the list's Export entry to everyone (`list_view.js:2092`) and lets the server refuse; the package hides it
- * (Phase 26 rule D.1). Either way the server decides.
+ * Desk shows the list's Export entry to everyone (`list_view.js:2092`) and lets the server refuse; so does `FrappeListView`
+ * since Phase 27 (owner decision). This helper gates what Desk gates: the report-view export (`report_view.js:1646`).
+ * Either way the server decides.
  */
 export function canExport(who: RolesOrSession, level0: Level0Rights): boolean {
   if (actsAsSystemManager(who)) return true;

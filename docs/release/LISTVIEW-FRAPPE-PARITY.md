@@ -1,6 +1,6 @@
 # `FrappeListView` — parity with the Frappe 15.110 List View
 
-Phase 26 (list-io), `@solvfast/ui` 0.4.0-dev.26. Native source: `/home/frappe/lovable_bench/apps/frappe/frappe/` (read-only), paths
+Phase 26 (list-io), updated in Phase 27 (actions27, query27, import27, Lead wiring) — `@solvfast/ui` 0.4.0-dev.32. Native source: `/home/frappe/lovable_bench/apps/frappe/frappe/` (read-only), paths
 below are relative to it; `JS/` = `public/js/frappe/`. Package: `src/frappe/FrappeListView.tsx`, `useFrappeList.tsx`, `meta.ts`,
 `query.ts`, `src/frappe/list/*`, `src/frappe/services/permissions.ts`.
 
@@ -93,32 +93,39 @@ puts a UI over the Phase 26 sequence. Every row below is SIMULATED only (`tests/
 | User settings | `list_view.js:620-623, 1658-1668` `save_view_user_settings` (`frappe.model.user_settings.save`) | `createFrappeUserSettings` (`list/storage.ts`) | — | frappe-list | IMPLEMENTED — BLOCKED (site write) for live |
 | Realtime | `list_view.js:1476-1599` (`list_update`, debounced; skipped while rows are checked; `avoid_realtime_update :1588`) | `useListRealtime` (`list/realtime.ts`): 2 s / 15 s debounce, suppressed with a selection or a running bulk action | Full reload, not Desk's by-name refresh (UNVERIFIED) | frappe-list (realtime) | IMPLEMENTED |
 
-## 5. Verdict
+## 5. Verdict (0.4.0-dev.32)
 
-The package's List View reproduces Desk's data path (rows, count, columns, filters, saved filters, user settings, list
-settings, realtime), the server-authorised **Import** and **Export** request sequences with Desk's exact methods and
-argument shapes, Desk's client-side gates for both (`canImport`, `canExport`), and the field picker of the Export dialog.
-All of that is verified against stub transports only; Import and Export have NOT run against a site (BLOCKED: writes /
-an unapproved read) and must not be described as verified on Frappe.
+**Evidence class of everything in this document: implemented and tested with stubs / the simulator.** No List View
+behaviour has been verified against an authenticated real Frappe session, and none with actual writes. Read paths
+(metadata, rows, count, list settings, link search) were replayed from recorded real 15.110 responses
+(`tests/real/sada-real.test.tsx`); nothing else here has real-Frappe evidence.
 
-It is **not** a Frappe-compatible List View yet. Important behaviours still missing or deliberately different:
+**Release-relevant gaps closed in Phase 27** (simulated): Print, Clear Assignment, Apply Assignment Rule, Add Tags,
+workflow bulk approval, Desk's width-based column cap (default on), nested-set operators, URL filters, report-view export,
+Export offered to everyone as Desk, Import → Data Import list, import preview + column mapping with server-confirmed
+completion.
 
-1. **Import UI** (Phase 27): `FrappeDataImport` reproduces the Data Import form's flow — upload, the server's preview and
-   warnings, the column mapper (`template_options` + preview re-requested), Start / Retry, progress by polling (Desk's
-   realtime line only when the app passes `subscribe`), the result, the import log and the errored-rows / log exports —
-   SIMULATED only, live BLOCKED. Not reproduced: Google Sheets, "Report Error", editing the import type after creation,
-   frappe-datatable features, re-reading the preview after a run. `FrappeListView`'s `onImport` defaults to Desk's
-   Data Import list route; the app opens `FrappeDataImport` from it.
-2. **Export**: offered to everyone as in Desk (Phase 27 owner decision #1; the server refuses, the dialog shows it); the
-   "Filtered Records" option uses the list's filters instead of an in-dialog FilterGroup; no record-count message; the
-   Report-view export (`export_query`) is implemented as functions + a dialog (Phase 27); on a real site it writes an
-   Access Log row — BLOCKED for site verification.
-3. **Actions menu**: complete in Desk's order since Phase 27 (Print, Clear Assignment, Apply Assignment Rule, Add Tags,
-   workflow bulk approval added), as buttons in the selection bar. Print's background completion needs a host task
-   subscriber (`RealtimePort` has no task events) and its client filter needs the site's Print Settings from the host.
-4. **Columns**: Desk's width-based cap (Phase 27); permlevel filtering needs the session's roles (without them the
-   unreadable column header is still offered — the server strips the values).
-5. **Filters / views**: the group-by sidebar, Report / Kanban / Calendar views. Nested-set operators (tree targets the
-   page has no meta for must be named by the app) and URL filters (opt-in) arrived in Phase 27.
-6. **Message keys**: the list menu and every bulk action are in the catalogue (`frappe:list` block, en + ar, Phase 27);
-   the Export and Report-export dialogs' own labels are still English with a `labels` / `ioLabels` override.
+**Verdict: NOT declared Frappe-compatible.** The behaviours Desk's List View offers for the release scope are now
+implemented with Desk's request shapes, but compatibility is a claim about a real server and none has been exercised.
+Remaining differences, by design or not reproduced:
+
+1. **Real-site evidence**: every write path (bulk actions, Print, tags, assignment, workflow approval, Data Import) and
+   both exports are BLOCKED for site verification (writes; `export_query` writes an Access Log; `download_template` is an
+   unapproved read).
+2. **Import UI**: `FrappeDataImport` covers upload, the server's preview and warnings, the column mapper
+   (`template_options`, preview re-requested), Start / Retry, the server-confirmed result, the import log and errored
+   rows. Not reproduced: Google Sheets, "Report Error", changing the import type after creation, frappe-datatable features,
+   re-reading the preview after a run. `FrappeListView` navigates to the Data Import list by default; the app opens
+   `FrappeDataImport` from `onImport`.
+3. **Export**: "Filtered Records" uses the list's current filters instead of an in-dialog FilterGroup; no record-count
+   message. Report-view export is in the list's ⋯ menu as "Export as report" (gated by `canExport`, as Desk's report view).
+4. **Actions**: buttons in the selection bar, not Desk's Actions dropdown. Print's background completion
+   (`task_complete:<id>`) needs a host `subscribeTask` (`RealtimePort` has no task events); its draft / cancelled filter
+   needs the site's Print Settings from the host (System Manager-only read).
+5. **Columns**: the width cap counts Desk's Tag and Status slots in fixed positions (Desk follows `status_field`'s place
+   in List View Settings); permlevel filtering of headers needs known rights (the server strips the values regardless).
+6. **Filters / views**: URL filters are opt-in, keep non-filter parameters and do not write OR queries, search or sort;
+   nested-set operators need tree targets the page has no meta for named by the app; the group-by sidebar with server
+   counts, tag stats, Report / Kanban / Calendar views are not reproduced; realtime is a full reload.
+7. **Message keys**: menu, bulk actions and operators are in the catalogue (en + ar); the Export, Report-export and
+   Print dialogs' own labels are English defaults with overrides; Data Import ships en + ar label sets in code.
