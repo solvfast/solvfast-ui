@@ -205,7 +205,7 @@ Results show `label`, or the value when there is none. The description shows onl
 2. The field's query (`frm.setQuery` or the `query` prop) may be:
    - an object (`{filters}`, `{query}` or bare filters);
    - a method path;
-   - a function `(doc, cdt, cdn)` returning either of the above.
+   - a function `(doc, cdt, cdn)` returning either of the above. Desk merges the whole object a function returns into the request, so its extra keys (for example `translate_values`, or arguments a custom query reads from `frappe.form_dict`) are sent as top-level request arguments (`SearchLinkOptions.args`). They never replace the standard keys. Its `searchfield` is passed as `searchfield`.
 3. Empty filter values are dropped, except for keys that are Link or Dynamic Link fields of the form.
 4. `filters` (prop or `df.filters`) is merged in.
 
@@ -376,5 +376,3 @@ The `frm` controller offers:
 
 **Not supported yet:**
 - Fieldtypes: see the table in §3. Attach upload is P2.
-- Extra keys returned by a query function (for example `translate_values`). This waits for `SearchLinkOptions.args` (R1-F13).
-- **Simulated backend:** the cancel pre-flight and `is_document_amended` methods are requested from A1's fixture. Until they exist, Cancel on a submittable document errors in simulated mode.

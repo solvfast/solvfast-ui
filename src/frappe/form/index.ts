@@ -20,5 +20,5 @@ export type { FrappeTableMultiSelectProps } from "./FrappeTableMultiSelect";
 export { FrappeFormServices, useFormServices } from "./services";
 export type { FormServices, CreateNewRequest } from "./services";
 export { runEvent, resolveLinkQuery } from "./events";
-export type { FormController, FormEventHandler, FormEvents, FormEventsConfig, LinkQuery } from "./events";
+export type { FormController, FormEventHandler, FormEvents, FormEventsConfig, LinkQuery, ResolvedLinkQuery } from "./events";
 export * from "./model";
