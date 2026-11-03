@@ -50,7 +50,7 @@ export interface ReportExportOptions {
   csvDelimiter?: string;
   /** CSV only; default 2 (Non-numeric). */
   csvQuoting?: CsvQuoting;
-  /** Desk offers "Translate values" when the session language is not English (`report_view.js:1672-1679`). */
+  /** Desk offers "Translate values" when the session language is not English (`report_view.js:1673-1680`). */
   translateValues?: boolean;
   /** The report view's totals row (`append_totals_row`, `reportview.py:430-431, 469-486`). */
   addTotalsRow?: boolean;

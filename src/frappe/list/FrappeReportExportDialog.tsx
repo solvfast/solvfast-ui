@@ -12,7 +12,7 @@
  *
  * ⚠ On a real site every Download writes an Access Log row (`desk/reportview.py:410-415`), refused or not: BLOCKED for
  * site verification. Offer it only when `canExport(session.roles, levels[0])` (Desk: `frappe.model.can_export`,
- * `report_view.js:1646`). Not reproduced: Desk's CSV Preview box (`report_utils.js:216-222, 243-279`), the totals row
+ * `report_view.js:1646`). Not reproduced: Desk's CSV Preview box (`report_utils.js:216-222, 243-276`), the totals row
  * and group-by aggregate arguments of a report view (the list has neither).
  */
 import * as React from "react";

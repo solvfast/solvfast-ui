@@ -38,7 +38,9 @@ function parseFields(settings: ListViewSettings): string[] {
  * Re-order and cap the DEFAULT columns as Desk does (`list_view.js:436-486`): the title column stays first, then the
  * configured `fields` in their order (the status column is the pseudo field `status_field`), at most `total_fields`
  * visible. Columns outside the list stay offered, hidden. The user's own column choice (prefs) still wins.
- * UNVERIFIED: Desk also caps by window width (4/6/10) when `total_fields` is unset; not reproduced.
+ * This cap counts the title + the listed columns only (the 0.4.0-dev behaviour, kept for curated columns); Desk's exact
+ * slot count (its hidden Tag slot, the Status slot) and its width-based default (4/6/10) are `capDefaultColumns`, used
+ * by `useFrappeList({ columnLimit: true })` for generated columns.
  */
 export function applyColumnSettings<T>(columns: ColumnDef<T>[], settings: ListViewSettings | null | undefined, titleField: string): ColumnDef<T>[] {
   if (!settings) return columns;
@@ -78,7 +80,7 @@ export interface DeskColumnCapOptions {
   subjectKey: string;
   /** `frappe.has_indicator(doctype)` (`JS/model/indicator.js:3-24`; the package's `hasIndicator`): Desk then counts a Status slot. */
   hasIndicator: boolean;
-  /** List View Settings `fields` given: Desk keeps Status only when they list `status_field` (`reorder_listview_fields`, `:460-489`). */
+  /** List View Settings `fields` given: Desk keeps Status only when they list `status_field` (`reorder_listview_fields`, `:461-486`). */
   settingsFields?: string[];
   /** Columns Desk does not draw as columns (assignees, comment count, likes: the row's activity area) — never counted, never changed. */
   uncounted?: string[];
