@@ -44,6 +44,7 @@ Works without a provider too (it creates one with the default same-origin client
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
 | `realtime` / `realtimeDebounceMs` | Reload on `list_update` (section 7). |
+| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right) and **Export** (when `canExport`). `onImport` replaces the default navigation to Desk's Data Import (`/app/data-import/new?reference_doctype=…`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
 | `onCreate` | Offers "Create your first {DocType}" in the empty list. Empty states follow Desk (`list_view.js:497-537`): "You haven't created a {DocType} yet" (+ the create action) when nothing exists; "No {DocType} found with matching filters" (+ Clear filters) when filters or search hide everything. |
 | `belowToolbar` | A node between the toolbar and the table (e.g. state chips). |
 | `rowKey`, `client`, `fiscalYears`, `storage`, … | `rowKey` default `row.name`. `storage` (explicit) wins over `serverStorage`. |
@@ -163,9 +164,35 @@ Shown in the selection bar, which sits above the table (sticky) so it never scro
 
 Destructive actions confirm. The outcome line ("N succeeded, M failed" / "queued, will run in the background") is shown under the list; the list reloads and the selection clears unless
 everything failed. For 20–500 submit/cancel documents the server enqueues and answers nothing: treated as *queued* (UNVERIFIED at runtime). `onDone`/`onError` report each action.
-**Not offered:** Export, Print, Clear Assignment, Apply Assignment Rule, Add Tags, workflow bulk approval.
+When the server answers with failed names (`submit_cancel_or_update_docs`), the line reads "N succeeded, M failed: B, D" — the server's names, never a plain
+success line; a 403 shows the server's message and changes nothing (no reload, no cache change).
+**Not offered:** Print, Clear Assignment, Apply Assignment Rule, Add Tags, workflow bulk approval. **Export** is in the selection bar (section 6a).
 
 Functions: `bulkMenu`, `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`; component `FrappeBulkActions`.
+
+### 6a. Import and Export (Phase 26) — server-authorised, SIMULATED only
+
+Full parity table and verdict: `docs/release/LISTVIEW-FRAPPE-PARITY.md`. Nothing here has run against a site (Import writes; Export is an unapproved read).
+
+**Gates** (`services/permissions.ts`, Desk's `model.js:434-450`): `canImport(meta, roles, levels[0])` — `allow_import` AND (System Manager OR level-0 `import`);
+`canExport(roles, levels[0])` — System Manager OR level-0 `export`. Both need `session.roles`; without them nothing is offered. Import is a DocType-level right:
+never read it off a document's `docinfo` (the server forces it to 0). **Departure from Desk:** Desk's list shows Export to everyone (`list_view.js:2092`) and
+lets the server refuse; the package hides it (Phase 26 rule D.1). The server decides either way (`exporter.py:116-126`, `data_import.py:59-75`).
+
+**Export** (`list/export.ts`, `list/FrappeExportDialog.tsx`): Desk's Data Exporter dialog (`data_exporter.js`) — file type Excel / CSV, export type All /
+Filtered (the list's current filters) / Selected (`[doctype, "name", "in", names]` from the selection bar, `bulk_operations.js:463-474`) / 5 records / Blank
+template, field groups per DocType and child table (child groups keyed by the **table fieldname**, `exporter.py:63-67`) with Select All / Select Mandatory /
+Unselect All; fields the user cannot read (permlevel) are not offered. The file comes from the server — `api.download("…data_import.download_template",
+{doctype, file_type, export_records, export_fields, export_filters})`, objects JSON-encoded as Desk's `open_url_post` form does — and is handed to the
+browser (`saveFile`). A refusal is shown in the dialog (`FrappeErrorState`); there is no success toast and never a client-built file.
+Functions: `downloadExportTemplate`, `exportPickerGroups`, `mandatorySelection`, `selectedNamesFilter`, `saveFile`.
+
+**Import** (`list/import.ts`): the Data Import tool's client sequence (`data_import.js`, `attach.js:137-144`) as functions — `startDataImport(api, {
+referenceDoctype, importType, file, filename, submitAfterImport?, start? })`: `savedocs` (new Data Import) → `upload_file` (attached to it, private) →
+`savedocs` with `import_file` (the server parses the template here) → `get_preview_from_template` → `form_start_import`. Then `useImportStatus(api, name)`
+polls `get_import_status` (+ the document for `template_warnings`) until the job leaves Pending; `getImportLogs`, `downloadErroredRows`, `downloadImportLog`,
+`downloadImportTemplate` (= blank template). **No preview grid, no column mapper, no log table** — the host builds them or routes to Desk (`onImport` default).
+Note: the Data Import DocType grants `create` to System Manager only; a role with `import` but not System Manager is refused at the first save (as in Desk).
 
 ---
 
@@ -202,7 +229,10 @@ Custom cells can use `useListActions().applyCondition(field, operator, value)` t
 
 - Width-based column cap (4/6/10) when `total_fields` is unset; the default 90-day recency filter on large tables; List View Settings editing.
 - Nested-set filter operators; filters from the URL query; the group-by sidebar with server counts (`get_group_by_count`), tag stats (`get_sidebar_stats`) and "assigned to me" counters.
-- Other bulk actions (section 6); Report view, Kanban, Calendar and the other Desk views (the CRM keeps its own for those).
+- Other bulk actions (section 6: Print, Clear Assignment, Assignment Rule, Add Tags, workflow approval); Report view (incl. its `export_query` export), Kanban, Calendar and the other Desk views (the CRM keeps its own for those).
+- Import: the preview grid, column mapper and import-log table of Desk's Data Import form (functions only, section 6a); progress is polled, not realtime.
+- Export: the in-dialog filter editor and record-count message; Export hidden without the `export` right where Desk shows it to everyone.
+- Permlevel columns are dropped only when the session's roles are known; without them the header of an unreadable field is still offered (the server strips the values).
 - Saved filters cannot store OR conjunctions. Realtime is a full reload, not Desk's by-name refresh.
 - Owner columns resolve names through a `User` read; a site that hides the User list shows ids.
 - Simulated only: all behaviour above is tested against recorded shapes and the fixture transport, never a live site.
