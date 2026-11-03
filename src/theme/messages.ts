@@ -159,6 +159,31 @@ const en = {
   // ---- frappe:foundation ----
 
   // ---- frappe:list ----
+  listOwner: "Created By",
+  listModifiedBy: "Last Updated By",
+  listAssigned: "Assigned to",
+  listComments: "Comments",
+  listLikes: "Liked by",
+  listIndicator: "Status",
+  listDraft: "Draft",
+  listSubmitted: "Submitted",
+  listCancelled: "Cancelled",
+  listCountExact: "Click to count exactly",
+  listBulkDelete: "Delete",
+  listBulkSubmit: "Submit",
+  listBulkCancel: "Cancel documents",
+  listBulkEdit: "Edit",
+  listBulkAssign: "Assign to",
+  listBulkDeleteConfirm: "Delete {n} items permanently?",
+  listBulkSubmitConfirm: "Submit {n} documents?",
+  listBulkCancelConfirm: "Cancel {n} documents?",
+  listBulkResult: "{ok} succeeded, {failed} failed",
+  listBulkQueued: "The operation was queued and will run in the background.",
+  listBulkField: "Field",
+  listBulkValue: "Value",
+  listBulkAssignee: "User",
+  listBulkApply: "Apply",
+  listChildTable: "{field} ({table})",
 
   // ---- frappe:form ----
 
@@ -397,6 +422,31 @@ const ar: Messages = {
   // ---- frappe:foundation ----
 
   // ---- frappe:list ----
+  listOwner: "أنشأه",
+  listModifiedBy: "آخر تحديث بواسطة",
+  listAssigned: "المُسند إليه",
+  listComments: "التعليقات",
+  listLikes: "أعجب بها",
+  listIndicator: "الحالة",
+  listDraft: "مسودة",
+  listSubmitted: "مُرسل",
+  listCancelled: "ملغى",
+  listCountExact: "انقر للعدّ الدقيق",
+  listBulkDelete: "حذف",
+  listBulkSubmit: "إرسال",
+  listBulkCancel: "إلغاء المستندات",
+  listBulkEdit: "تعديل",
+  listBulkAssign: "إسناد إلى",
+  listBulkDeleteConfirm: "حذف {n} عنصرًا نهائيًا؟",
+  listBulkSubmitConfirm: "إرسال {n} مستندًا؟",
+  listBulkCancelConfirm: "إلغاء {n} مستندًا؟",
+  listBulkResult: "نجح {ok}، وفشل {failed}",
+  listBulkQueued: "تمت جدولة العملية وستعمل في الخلفية.",
+  listBulkField: "الحقل",
+  listBulkValue: "القيمة",
+  listBulkAssignee: "المستخدم",
+  listBulkApply: "تطبيق",
+  listChildTable: "{field} ({table})",
 
   // ---- frappe:form ----
 

@@ -16,9 +16,11 @@ export function useFrappeClient(): FrappeClient {
   return React.useContext(FrappeContext) ?? (sameOrigin ??= createFrappeClient());
 }
 
-/** Retry network and server errors (twice), never client errors (permission, validation, CSRF). */
+const NO_RETRY = new Set(["csrf", "session_expired", "too_large"]);
+/** Retry network and server errors (twice), never client errors (permission, validation, CSRF, expired session,
+ *  too large — whatever the HTTP status they arrived with). */
 export const frappeRetry = (failures: number, error: unknown) =>
-  !(error instanceof FrappeError && error.status >= 400 && error.status < 500) && failures < 2;
+  !(error instanceof FrappeError && ((error.status >= 400 && error.status < 500) || NO_RETRY.has(error.kind))) && failures < 2;
 
 export function createFrappeQueryClient(): QueryClient {
   return new QueryClient({ defaultOptions: { queries: { retry: frappeRetry, refetchOnWindowFocus: false } } });

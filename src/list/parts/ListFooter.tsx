@@ -10,13 +10,15 @@ import { Card } from "../../primitives/card";
 import { loc, type Localized } from "../../lib/localized";
 import { useLocale } from "../../theme/ThemeProvider";
 
-export function ListPagination({ total, page, hasPrev, hasNext, onPage }: { total: number; page: number; hasPrev: boolean; hasNext: boolean; onPage: (p: number) => void }) {
+export function ListPagination({ total, totalLabel, onTotalClick, page, hasPrev, hasNext, onPage }: { total: number; totalLabel?: string; onTotalClick?: () => void; page: number; hasPrev: boolean; hasNext: boolean; onPage: (p: number) => void }) {
   const { t, direction } = useLocale();
   const Prev = direction === "rtl" ? ChevronRight : ChevronLeft;
   const Next = direction === "rtl" ? ChevronLeft : ChevronRight;
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground">
-      <span>{t("total")}: {total}</span>
+      {totalLabel === "" ? <span /> : onTotalClick
+        ? <button type="button" className="underline decoration-dotted" title={t("listCountExact")} onClick={onTotalClick}>{t("total")}: {totalLabel ?? total}</button>
+        : <span>{t("total")}: {totalLabel ?? total}</span>}
       <div className="flex items-center gap-1">
         <Button variant="outline" size="icon" className="h-8 w-8" disabled={!hasPrev} onClick={() => onPage(page - 1)} aria-label={t("prevPage")}><Prev className="h-4 w-4" /></Button>
         <span className="px-2" aria-current="page">{page + 1}</span>
