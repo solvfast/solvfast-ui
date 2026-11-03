@@ -94,7 +94,7 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
       readOnly={readOnly}
       aria-invalid={isInvalid || undefined}
       aria-describedby={badText && errorId ? errorId : rest["aria-describedby"]}
-      className={cn(FIELD_INPUT, "text-end tabular-nums", isInvalid && FIELD_INVALID, (prefix || suffix) && "border-0 bg-transparent shadow-none focus-visible:ring-0", !(prefix || suffix) && className)}
+      className={cn(FIELD_INPUT, "text-end tabular-nums", isInvalid && FIELD_INVALID, (prefix || suffix) && "border-0 bg-transparent shadow-none focus-visible:outline-none focus-visible:ring-0", !(prefix || suffix) && className)}
       value={shown}
       onFocus={(e) => {
         setDraft(format(value));
@@ -118,7 +118,7 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
     />
   );
   const body = prefix || suffix ? (
-    <div className={cn("sf-field-fill flex h-9 w-full items-center rounded-md focus-within:ring-2 focus-within:ring-ring", isInvalid && FIELD_INVALID, disabled && "opacity-50", className)}>
+    <div className={cn("sf-field-fill flex h-9 w-full items-center rounded-md focus-within:ring-2 focus-within:ring-ring/60", isInvalid && FIELD_INVALID, disabled && "opacity-50", className)}>
       {prefix && <span className="ps-3 text-sm text-muted-foreground" aria-hidden>{prefix}</span>}
       {input}
       {suffix && <span className="pe-3 text-sm text-muted-foreground" aria-hidden>{suffix}</span>}

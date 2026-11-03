@@ -18,8 +18,10 @@ import { createFrappeClient, toFrappeError } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle, WorkflowInfo } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
+import { useDoc, useMetaBundle } from "../src/frappe/hooks";
+import { FormSkeleton } from "../src/frappe/form/FrappeForm";
 import {
-  FrappeChildTable, FrappeDynamicLinkField, FrappeField, FrappeForm, linkTitleCache, resolveLinkQuery, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
+  FrappeChildTable, FrappeDynamicLinkField, FrappeField, FrappeForm, FrappeFormView, linkTitleCache, resolveLinkQuery, FrappeFormServices, FrappeTableMultiSelect, amendDoc, copyDoc, mergeLinkFilters, parseLinkFilters,
   type FormEventsConfig, type FormServices,
 } from "../src/frappe/form";
 
@@ -494,3 +496,41 @@ describe("R1-F13: extra keys of a query function reach search_link (link.js:631-
     expect(resolveLinkQuery(() => ({ query: "q.path", searchfield: "title", x: 2 }), d, "T", "t")).toEqual({ query: "q.path", searchfield: "title", args: { x: 2 } });
   });
 });
+
+describe("review R2 items", () => {
+  it("V1: an HTML title field is shown as text (toolbar.js strips it)", async () => {
+    setup(<FrappeForm doctype="ToDo" name="TD-9" />, { docs: { ToDo: [{ doctype: "ToDo", name: "TD-9", description: "<p>Review <b>visa</b> documents</p>", status: "Open", modified: "2026-11-01 10:00:00.000000" }] } });
+    expect(await screen.findByRole("heading", { name: "Review visa documents" })).toBeTruthy();
+  });
+
+  it("V4: the loading state shows text after 300 ms", async () => {
+    vi.useFakeTimers();
+    render(<ThemeProvider defaultTheme="dark" defaultLanguage="en" storageKeys={null}><FormSkeleton /></ThemeProvider>);
+    expect(screen.getByRole("status").textContent).toBe("");
+    await act(async () => { vi.advanceTimersByTime(301); });
+    expect(screen.getByRole("status").textContent).toBe(defaultMessages.en.loading);
+  });
+
+  it("R2-F3: without the right to cancel every linked DocType, Desk's explanation replaces Cancel All", async () => {
+    const handlers: Record<string, FixtureHandler> = {
+      "frappe.desk.form.linked_with.get_submitted_linked_docs": () => ({ message: { docs: [{ doctype: "Sales Memo", name: "SM-9", docstatus: 1 }], count: 1 } }),
+    };
+    setup(<FrappeFormServicesProbe />, { handlers, docs: { "Sales Memo": [{ doctype: "Sales Memo", name: "SM-1", title: "T", docstatus: 1, modified: "2026-11-01 10:00:00.000000", owner: "Administrator" }] } });
+    fireEvent.click(await screen.findByRole("button", { name: en.formCancelDoc }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(en.formNoCancelAllPermission)).toBeTruthy();
+    expect(within(dialog).queryByRole("button", { name: en.formCancelAll })).toBeNull();
+  });
+});
+
+/** FrappeForm with a canCancelAllLinked answer of false (as for a user without the cancel right on a linked DocType). */
+function FrappeFormServicesProbe() {
+  const meta = useMetaBundle("Sales Memo");
+  const doc = useDoc("Sales Memo", "SM-1");
+  if (!meta.data || !doc.data) return null;
+  return (
+    <FrappeFormView bundle={meta.data} doc={doc.data.doc} onSave={async (d) => d} onCancelDoc={async (d) => ({ ...d, docstatus: 2 })}
+      getSubmittedLinkedDocs={async () => ({ docs: [{ doctype: "Sales Memo", name: "SM-9" }], count: 1 })}
+      cancelAllLinkedDocs={async () => {}} canCancelAllLinked={() => false} />
+  );
+}

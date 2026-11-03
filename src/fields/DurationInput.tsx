@@ -60,7 +60,7 @@ export function DurationInput({ value, onChange, hideDays, hideSeconds, disabled
       onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDrafts({}); }}
     >
       {units.map((u) => (
-        <label key={u.key} className={cn("sf-field-fill flex h-9 items-center rounded-md focus-within:ring-2 focus-within:ring-ring", invalid && FIELD_INVALID, disabled && "opacity-50")}>
+        <label key={u.key} className={cn("sf-field-fill flex h-9 items-center rounded-md focus-within:ring-2 focus-within:ring-ring/60", invalid && FIELD_INVALID, disabled && "opacity-50")}>
           <input
             type="text"
             inputMode="numeric"
@@ -69,7 +69,7 @@ export function DurationInput({ value, onChange, hideDays, hideSeconds, disabled
             disabled={disabled}
             readOnly={readOnly}
             aria-invalid={invalid || undefined}
-            className="h-full w-14 min-w-0 bg-transparent px-2 text-end text-base tabular-nums outline-none disabled:cursor-not-allowed md:text-sm"
+            className="h-full w-14 min-w-0 bg-transparent px-2 text-end text-base tabular-nums outline-none focus-visible:outline-none disabled:cursor-not-allowed md:text-sm"
             value={drafts[u.key] ?? (value == null ? "" : String(parts[u.key]))}
             onChange={(e) => { if (/^[0-9٠-٩۰-۹]*$/.test(e.target.value)) write(u.key, e.target.value); }}
           />

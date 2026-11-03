@@ -11,6 +11,8 @@
  */
 import * as React from "react";
 import { Skeleton } from "../../primitives/skeleton";
+import { useLocale } from "../../theme/ThemeProvider";
+import { rolePermissions } from "../services/permissions";
 import type { FrappeDoc } from "../contract";
 import { useFrappeSettings } from "../FrappeProvider";
 import { useDoc, useMetaBundle } from "../hooks/useDoc";
@@ -33,13 +35,20 @@ export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "d
 
 const isNewName = (name?: string) => !name || name.startsWith("new-");
 
-function FormSkeleton() {
+/** Loading: skeleton blocks (with a foreground tint so they read in dark themes too) and, after 300 ms, a text
+ *  status (CONTRACT §3: never a loader without text for more than 300 ms). */
+export function FormSkeleton() {
+  const { t } = useLocale();
+  const [slow, setSlow] = React.useState(false);
+  React.useEffect(() => { const id = setTimeout(() => setSlow(true), 300); return () => clearTimeout(id); }, []);
+  const block = "bg-foreground/10";
   return (
     <div className="space-y-4" aria-busy="true">
-      <Skeleton className="h-7 w-1/3" />
+      <Skeleton className={`h-7 w-1/3 ${block}`} />
       <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-9 w-full" />)}
+        {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className={`h-9 w-full ${block}`} />)}
       </div>
+      <p role="status" className="text-sm text-muted-foreground">{slow ? t("loading") : ""}</p>
     </div>
   );
 }
@@ -106,8 +115,15 @@ export function FrappeForm({ doctype, name, newDocDefaults, ...rest }: FrappeFor
         return { docs: m.docs ?? [], count: Number(m.count) || 0 };
       }}
       cancelAllLinkedDocs={async (docs) => { await api.call("frappe.desk.form.linked_with.cancel_all_linked_docs", { docs: JSON.stringify(docs) }); }}
+      canCancelAllLinked={session?.roles ? async (docs) => {
+        // Desk `frappe.model.can_cancel(doctype)` = a cancel right from the user's roles (boot can_cancel)
+        const dts = [...new Set(docs.map((d) => d.doctype))];
+        const metas = await Promise.all(dts.map((dt) => api.getMetaBundle(dt)));
+        return metas.every((b) => !!rolePermissions(b.meta.permissions, session.roles!).levels[0]?.cancel);
+      } : undefined}
       canCancelWithWorkflow={rest.canCancelWithWorkflow ?? (wf.workflow ? wf.standardActions.showCancel : undefined)}
-      workflowActionsShown={rest.workflowActionsShown ?? (!doc.__unsaved && wf.transitions.length > 0)}
+      // R2-F4: while the transitions of a saved, clean workflow document load, keep Save / Cancel hidden (no flicker)
+      workflowActionsShown={rest.workflowActionsShown ?? (!doc.__unsaved && !doc.__islocal && !!wf.workflow && (wf.isLoading || wf.transitions.length > 0))}
       alreadyAmended={rest.alreadyAmended ?? amended}
       toolbarExtra={(
         <>

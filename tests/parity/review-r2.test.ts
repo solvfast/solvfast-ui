@@ -45,12 +45,12 @@ describe("R1-F5 closure: copy_doc / amend_doc (create_new.js:281-330, form.js:10
 
   // R2-F1. Native copies only keys that have a DocField (`df && ...`, create_new.js:303-308). `_assign`, `_comments`,
   // `_liked_by`, `_user_tags` are not DocFields, so the amended document must NOT inherit the old one's assignees / comment cache.
-  it.fails("amend does not copy _assign / _comments / _liked_by / _user_tags", () => {
+  it("amend does not copy _assign / _comments / _liked_by / _user_tags", () => {
     const a = amendDoc(bundle, cancelled);
     for (const k of ["_assign", "_comments", "_liked_by", "_user_tags"]) expect(a[k], k).toBeUndefined();
   });
   // R2-F2. form.js:1021-1023 sets amendment_date to today when the field exists.
-  it.fails("amend sets amendment_date to today when the DocType has the field", () => {
+  it("amend sets amendment_date to today when the DocType has the field", () => {
     const a = amendDoc(bundle, cancelled);
     expect(a.amendment_date).toBe(new Date().toISOString().slice(0, 10));
   });

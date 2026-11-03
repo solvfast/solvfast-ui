@@ -100,7 +100,7 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
       onAction={runAction}
       className={className}
       anchor={
-        <div className={cn("sf-field-fill flex h-9 w-full items-center rounded-md focus-within:ring-2 focus-within:ring-ring", invalid && FIELD_INVALID, disabled && "opacity-50")}>
+        <div className={cn("sf-field-fill flex h-9 w-full items-center rounded-md focus-within:ring-2 focus-within:ring-ring/60", invalid && FIELD_INVALID, disabled && "opacity-50")}>
           <input
             ref={ref}
             id={id}
@@ -119,7 +119,7 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
             disabled={disabled}
             readOnly={readOnly}
             placeholder={placeholder}
-            className="h-full min-w-0 flex-1 bg-transparent px-3 text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed md:text-sm"
+            className="h-full min-w-0 flex-1 bg-transparent px-3 text-base outline-none focus-visible:outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed md:text-sm"
             value={text}
             onFocus={() => { if (editable && !text) sugg.query("", true); }}
             onChange={(e) => { setDraft(e.target.value); sugg.query(e.target.value); }}

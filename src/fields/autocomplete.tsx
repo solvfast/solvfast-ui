@@ -102,7 +102,7 @@ export function SuggestionList({ open, onDismiss, anchor, listId, options, actio
       </PopoverAnchor>
       <PopoverContent
         align="start"
-        className="w-[--radix-popover-trigger-width] min-w-[14rem] max-w-[min(32rem,90vw)] p-1"
+        className="w-[--radix-popover-trigger-width] min-w-[14rem] max-w-[90vw] p-1"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
         onInteractOutside={(e) => { if (anchorRef.current?.contains(e.target as Node)) e.preventDefault(); }}
