@@ -120,13 +120,19 @@ type CalendarOptions = {
 };
 
 export function DateField({
-  value, onChange, placeholder, disabled, error, className, id, captionLayout, startMonth, endMonth, ...rest
-}: BaseProps & CalendarOptions & { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  value, onChange, placeholder, disabled, error, className, id, captionLayout, startMonth, endMonth, formatDisplay, ...rest
+}: BaseProps & CalendarOptions & {
+  value: string; onChange: (v: string) => void; placeholder?: string;
+  /** The text shown for a selected value ("YYYY-MM-DD" in), e.g. a site's date format so the field reads the same as its
+   *  read-only display. Display only: the value, `onChange` and the calendar are unchanged. Default: the DS format. */
+  formatDisplay?: (value: string) => string;
+}) {
   const { isRTL } = useLocale();
   const [open, setOpen] = React.useState(false);
   const selected = parseDateValue(value);
-  const label = selected ? formatDate(selected, isRTL) : (placeholder ?? (isRTL ? "اختر تاريخًا" : "Pick a date"));
-  const a11y = triggerA11y(id, rest["aria-label"], isRTL ? "التاريخ" : "Date", selected ? formatDate(selected, isRTL) : null);
+  const shown = selected ? (formatDisplay?.(toDateValue(selected)) || formatDate(selected, isRTL)) : null;
+  const label = shown ?? (placeholder ?? (isRTL ? "اختر تاريخًا" : "Pick a date"));
+  const a11y = triggerA11y(id, rest["aria-label"], isRTL ? "التاريخ" : "Date", shown);
 
   return (
     <div className={className}>

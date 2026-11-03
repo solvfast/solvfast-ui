@@ -218,7 +218,10 @@ export function FrappeField(props: FrappeFieldProps) {
       );
     }
     case "Date":
-      return shell(<DateField {...common} value={str(value).slice(0, 10)} onChange={(v) => onChange(v || null)} error={undefined} />);
+      // the editable field shows the site's date format, like its read-only display (Desk: both through the user's
+      // date_format); the value stays "YYYY-MM-DD" (no Date/timezone conversion on the way in or out)
+      return shell(<DateField {...common} value={str(value).slice(0, 10)} onChange={(v) => onChange(v || null)} error={undefined}
+        formatDisplay={(v) => s.formatValue(v, df, rowDoc)} />);
     case "Datetime":
       return shell(<DateTimeField {...common} value={toDsDatetime(value)} onChange={(v) => onChange(fromDsDatetime(v))} />);
     case "Time":
