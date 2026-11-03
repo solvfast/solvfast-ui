@@ -92,6 +92,16 @@ describe("Timeline", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /Bob changed/ })[0]);
     expect(container.querySelectorAll("bdi").length).toBeGreaterThanOrEqual(4);
   });
+  it("R3-F3: bidi isolates never reach the DOM text or aria-label; isolated tokens become <bdi>", () => {
+    const iso = (x: string) => `\u2068${x}\u2069`;
+    const summary = `${iso("Bob")} changed ${iso(`${iso("Title")} from ${iso("a")} to ${iso("b")}`)}`;
+    const it2: TimelineItem[] = [{ id: "x", kind: "change", at: NOW, actor: "Bob", summary, changes: [{ label: "A", before: "1", after: "2" }, { label: "B", before: "3", after: "4" }] }];
+    const { container } = wrap(<Timeline items={it2} now={NOW} />, "ar");
+    expect(container.textContent).not.toMatch(/[\u2068\u2069]/);
+    expect(container.textContent).toContain("Bob changed Title from a to b");
+    expect(container.querySelectorAll("li[data-kind='change'] bdi").length).toBe(5);
+    expect(container.querySelector("button")!.getAttribute("aria-label")).toBe("Bob changed Title from a to b");
+  });
   it("renders in Arabic / RTL with Arabic chrome", () => {
     wrap(<Timeline items={[]} />, "ar");
     expect(screen.getByText("لا يوجد نشاط بعد")).toBeTruthy();

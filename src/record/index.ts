@@ -1,4 +1,4 @@
-export { Timeline, filterItems, sortItems } from "./Timeline";
+export { Timeline, filterItems, sortItems, renderIsolated } from "./Timeline";
 export type { TimelineProps, TimelineLabels, TimelineFilter } from "./Timeline";
 export { CommentComposer, draftToHtml, htmlToDraft } from "./CommentComposer";
 export type { CommentComposerProps, CommentComposerLabels, CommentDraft } from "./CommentComposer";
