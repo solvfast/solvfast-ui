@@ -45,12 +45,14 @@ errors, `useMetaBundle`/`useDoc`/`useDocInfo` + cache rules (now 5 more tests, `
 `FrappeTimeline`, `FrappeStatusIndicator`, generic list/record/field controls. Real-Frappe evidence exists for the
 read path of client, list and form rendering (`62`). PARTIAL: permissions, realtime, bulk, assign.
 
-## 3. Package gaps to close first (before any real-site screen)
+## 3. Package gaps to close first (before any real-site screen) — updated at 0.4.0-dev.32
 
 | Gap | Where | Blocks |
 |---|---|---|
-| **Import / Export** MISSING (matrix rows 22–23; pre-work primitives only) | package, agent list-io | CRM lists that need the native list menu; owner decides whether rc.1 ships without |
-| **Permission rule 9**: a new doc without `session.roles` is optimistic (read/write/create granted) | `src/frappe/services/permissions.ts`, agent perm | any CRM page in `frappe` mode where the boot is absent or a guest arrives (`crmIsGuest()`) |
+| ~~Import / Export missing~~ — **closed in the package at dev.32 (simulated only)**: list Export for everyone, report-view export, `FrappeDataImport` with preview and column mapping | package | still BLOCKED for real-site verification (writes / an Access Log / an unapproved read) |
+| ~~Permission rule 9~~ — **closed at dev.27/dev.32**: no roles → nothing granted; `FrappeFormView` without permissions is read-only; workflow transitions come from the server | package | the CRM must pass the boot's real Frappe roles (`session.roles`) — its member roles are not Frappe roles |
+| **List actions** (Print, Clear Assignment, Assignment Rule, Add Tags, workflow bulk) — implemented at dev.32 (simulated); Print background completion needs a host task subscriber | package + CRM host | CRM lists that rely on Desk's Actions menu |
+| **Width cap default ON** (dev.32): generated columns are capped by window width; curated `columns` never are | package | CRM lists that rely on generated columns: pass `columnLimit={false}` or curated columns |
 | **Realtime skeleton** (fake socket only; full reload instead of by-name refresh; reconnect UNVERIFIED) | `services/realtime.ts`, `list/realtime.ts` | live list refresh in the CRM; acceptable to ship disabled (`disable_auto_refresh`) |
 | **D-06 DocTypes not created** (`72` design only; `Serve Fast *` prefix; Lead = Contact question) | owner decision + migration approval, outside the package | every `frappe`-mode screen |
 | **D-25 boot not deployed** (`71`; CSRF token renders `"None"` today, R-2) | `crm/boot` merged into the work copy only; needs an approved build window | every POST from the CRM page in `frappe` mode; formats, roles, translations |
