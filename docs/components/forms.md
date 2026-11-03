@@ -14,8 +14,8 @@ Contents: [1. Generic controls](#1-generic-field-controls-core) · [2. FrappeFor
 [3. FrappeField](#3-frappefield-and-fieldtype-coverage) · [4. FrappeLinkField](#4-frappelinkfield) ·
 [5. FrappeDynamicLinkField](#5-frappedynamiclinkfield) · [6. FrappeChildTable](#6-frappechildtable) ·
 [7. FrappeTableMultiSelect](#7-frappetablemultiselect) · [8. The expression evaluator (D-23)](#8-the-expression-evaluator-d-23) ·
-[9. formEvents (D-24)](#9-formevents-d-24) · [10. The behaviour engine](#10-the-behaviour-engine-pure-typescript) ·
-[11. Known limitations](#11-known-limitations)
+[9. formEvents (D-24)](#9-formevents-d-24) · [10. Compatibility boundary](#10-compatibility-boundary) ·
+[11. The behaviour engine](#11-the-behaviour-engine-pure-typescript) · [12. Known limitations](#12-known-limitations)
 
 ---
 
@@ -275,7 +275,7 @@ It wraps `DataGrid` for a Table field. Inside a form it uses the form's controll
 
 ## 8. The expression evaluator (D-23)
 
-Desk evaluates `eval:` dependencies with `new Function` and full page access (`11 §2.4`). Decision D-23 (recommended, awaiting the owner) works as follows:
+Desk evaluates `eval:` dependencies with `new Function` and full page access (`11 §2.4`). **Decided policy (D-23, ratified by the owner):** the interpreter is the default. An expression outside its subset is explicitly unsupported: it is reported and never guessed, and the package never silently runs a different interpretation of it. It works as follows:
 
 - **By default, an interpreter evaluates the expressions.** Nothing is executed, and no `unsafe-eval` is needed in a Content Security Policy.
 - **Supported subset:**
@@ -285,7 +285,7 @@ Desk evaluates `eval:` dependencies with `new Function` and full page access (`1
   - string and array methods `includes`, `indexOf`, `startsWith`, `endsWith`, `toLowerCase`, `toUpperCase`, `trim`;
   - `! - + typeof`, `* / % + -`, `< > <= >=`, `== != === !==` (loose `==` as in JavaScript), `&& || ??`, `?:`, `in`, a trailing `;`, `Boolean()`;
   - the helpers `in_list`, `cint`, `flt`, `cstr`, `is_null` (Desk page globals).
-- **Every expression in the captured 15.110 metadata is supported.** QA's differential test shows the interpreter giving the same results as Desk's `new Function` on all supported Frappe-core expressions.
+- **Every expression in the captured 15.110 metadata is supported.** Over Frappe core, QA's differential test accepts 929 of 947 real expressions with 0 mismatches against Desk's `new Function`. The 18 others stay explicitly unsupported (reported, never evaluated).
 - **Unsupported constructs are reported, never guessed:**
   - unknown globals (`frappe.*`, `window`, `fetch`);
   - assignment, `new`, function literals, template interpolation;
@@ -301,7 +301,7 @@ Desk evaluates `eval:` dependencies with `new Function` and full page access (`1
 
 ## 9. formEvents (D-24)
 
-Decision D-24 (recommended, awaiting the owner):
+**Decided policy (D-24, ratified by the owner):** `formEvents` is the package's customization API. The package does **not** claim compatibility with Desk Client Scripts (see §10).
 - Desk Client Scripts (`__js`, `__custom_js`) are **not executed**: they need jQuery, `cur_frm` and `frappe.*` globals.
 - Apps register typed handlers instead, using Desk's event names.
 - Handlers run serially and promises are awaited.
@@ -342,7 +342,84 @@ The `frm` controller offers:
 
 ---
 
-## 10. The behaviour engine (pure TypeScript)
+## 10. Compatibility boundary
+
+What the package reproduces, and what it deliberately does not (D-23 and D-24, decided).
+
+**Supported:**
+- Every DocField property the form reads from meta: layout, `depends_on`, `mandatory_depends_on`, `read_only_depends_on`, `collapsible_depends_on`, `fetch_from`, `link_filters`, permissions, and so on.
+- `eval:` expressions within the interpreter's subset (§8), the plain fieldname form, and `fn:` through registered `fnHandlers`.
+- `formEvents`, with Desk's event names and order (§9): `setup`, `onload`, `refresh`, `validate`, `before_save`, `after_save`, `before_submit`, `on_submit`, `before_cancel`, `after_cancel`, field names, the `<table>_*` events, `form_render`, and Button fields.
+- The frm-like controller: `doc`, `doctype`, `docname`, `isNew`, `isDirty`, `validated`, `setValue`, `setRowValue`, `setDfProperty`, `toggleDisplay`, `toggleReqd`, `toggleEnable`, `setQuery`, `addChild`, `clearTable`, `trigger`.
+
+**Not supported (by decision):**
+- Desk Client Scripts: the `Client Script` DocType, the `__custom_js` and `__js` code from `getdoctype`, and `frappe.ui.form.on(...)` handlers defined in that code. The package never evaluates them.
+- jQuery or DOM access from handlers (`frm.fields_dict.x.$wrapper`, `$(...)`), `cur_frm`, `locals[cdt][cdn]`, and `frappe.ui.form.*` objects.
+- In `eval:` expressions: `frappe.*` (including `frappe.boot.*`, `frappe.user.*`, `frappe.datetime.*`), `window`, `document`, arrow functions and other function literals, bitwise operators (`& | ^ ~ << >>`), assignment, `new`, and template interpolation. They are reported when the meta loads, never evaluated. An app that needs full JavaScript must opt in to `evaluator: { mode: "function" }` (CSP `unsafe-eval`) and accept Desk's semantics.
+- `frm.add_custom_button`, `frm.set_intro`, `frm.dashboard`, `frappe.msgprint` called from inside the form. The app renders its own UI: `toolbarExtra` for buttons, and `useFrappeMessages().show` for messages.
+
+**Migrating a Client Script to formEvents.** Desk:
+
+```js
+frappe.ui.form.on("Sales Order", {
+  refresh(frm) {
+    frm.set_query("customer", () => ({ filters: { disabled: 0 } }));
+    frm.toggle_reqd("delivery_date", frm.doc.order_type === "Sales");
+  },
+  customer(frm) { frm.set_value("contact_person", ""); },
+  validate(frm) {
+    if (frm.doc.discount_percentage > 50) { frappe.msgprint("Discount too high"); frappe.validated = false; }
+  },
+});
+frappe.ui.form.on("Sales Order Item", {
+  qty(frm, cdt, cdn) { const row = locals[cdt][cdn]; frappe.model.set_value(cdt, cdn, "amount", row.qty * row.rate); },
+});
+```
+
+The same with formEvents:
+
+```tsx
+const messages = useFrappeMessages();
+<FrappeForm doctype="Sales Order" name={name}
+  events={{
+    refresh: (frm) => {
+      frm.setQuery("customer", () => ({ filters: { disabled: 0 } }));
+      frm.toggleReqd("delivery_date", frm.doc.order_type === "Sales");
+    },
+    customer: (frm) => frm.setValue("contact_person", ""),
+    validate: (frm) => {
+      if (Number(frm.doc.discount_percentage) > 50) { messages.show([{ message: "Discount too high", indicator: "red" }]); return false; }
+    },
+  }}
+  childEvents={{
+    "Sales Order Item": {
+      qty: (frm, _cdt, cdn) => {
+        const row = (frm.doc.items as FrappeDoc[]).find((r) => r.name === cdn)!;
+        frm.setRowValue("items", cdn!, "amount", Number(row.qty) * Number(row.rate));
+      },
+    },
+  }} />
+```
+
+How the Desk calls map:
+
+| Desk | formEvents |
+|---|---|
+| `frm.set_value` | `frm.setValue` |
+| `frappe.model.set_value(cdt, cdn, …)` | `frm.setRowValue(table, cdn, …)` |
+| `locals[cdt][cdn]` | the row in `frm.doc[table]` |
+| `frm.set_query` | `frm.setQuery` |
+| `frm.toggle_*` | `frm.toggle*` |
+| `frm.set_df_property` | `frm.setDfProperty` |
+| `frappe.validated = false` | `return false` (or `frm.validated = false`) |
+| `frappe.call` / `frm.call` | the app's `useFrappeApi().call` / `runDocMethod` |
+| `cur_frm` | the `frm` argument, or `controllerRef` |
+
+Server-side logic (controllers, Server Scripts) runs unchanged, because the package saves through Desk's own endpoints.
+
+---
+
+## 11. The behaviour engine (pure TypeScript)
 
 `src/frappe/form/model` is exported from `@solvfast/ui/frappe` and needs no DOM. It can be tested against recordings.
 
@@ -357,7 +434,7 @@ The `frm` controller offers:
 
 ---
 
-## 11. Known limitations
+## 12. Known limitations
 
 **Not reproduced** (by design or decision):
 - Desk Client Scripts are not run (D-24).
