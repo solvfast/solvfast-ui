@@ -132,7 +132,7 @@ export type { ListViewProps, ListViewControls, RowAction } from "./list/ListView
 export { useListState } from "./list/useListState";
 export type { UseListStateOptions, ListQueryState, ListState } from "./list/useListState";
 export { ListTable, GroupedListTable, DefaultCell } from "./list/parts/ListTable";
-export type { ListTableProps } from "./list/parts/ListTable";
+export type { ListTableProps, ListLikeConfig } from "./list/parts/ListTable";
 export { FilterBuilder, FilterValueInput } from "./list/parts/FilterBuilder";
 export type { FilterBuilderProps, LoadOptions } from "./list/parts/FilterBuilder";
 export { SavedFilters, ColumnManager, QuickFilters, SortMenu, GroupByMenu } from "./list/parts/Toolbar";
@@ -153,10 +153,10 @@ export { createLocalStorageAdapter } from "./list/model/storage";
 export type { ListPrefs, ListPrefsStorage, SavedFilter, SavedFiltersStorage } from "./list/model/storage";
 
 // 0.4.0 — generic record pieces (Frappe-free). docs/CONTRACT-0.4.md §1
-export { Timeline, filterItems, sortItems, CommentComposer, draftToHtml, htmlToDraft, AssigneeGroup, AssignPicker, LifecycleBar, ActionBar, StatusBadge } from "./record";
+export { Timeline, filterItems, sortItems, CommentComposer, draftToHtml, htmlToDraft, AssigneeGroup, AssignPicker, LifecycleBar, ActionBar, StatusBadge, LikeToggle } from "./record";
 export type {
   TimelineProps, TimelineLabels, TimelineFilter, CommentComposerProps, CommentComposerLabels, CommentDraft, AssigneeGroupProps, AssignPickerProps,
-  AssignLabels, LifecycleBarProps, ActionBarProps, ActionBarLabels, StatusBadgeProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
+  AssignLabels, LifecycleBarProps, ActionBarProps, ActionBarLabels, StatusBadgeProps, LikeToggleProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
   Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./record";
 

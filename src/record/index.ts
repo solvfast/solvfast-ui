@@ -9,6 +9,8 @@ export type { LifecycleBarProps } from "./LifecycleBar";
 export { ActionBar } from "./ActionBar";
 export type { ActionBarProps, ActionBarLabels } from "./ActionBar";
 export { StatusBadge } from "./StatusBadge";
+export { LikeToggle } from "./LikeToggle";
+export type { LikeToggleProps } from "./LikeToggle";
 export type { StatusBadgeProps } from "./StatusBadge";
 export { sanitizeCommentHtml, htmlToText } from "./sanitize";
 export type {

@@ -10,7 +10,7 @@
  * rows it acts on (PMO's grouped select-all compared a group's rows with the whole selection).
  */
 import * as React from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Heart, X } from "lucide-react";
 import { Badge } from "../../primitives/badge";
 import { Button } from "../../primitives/button";
 import { Card } from "../../primitives/card";
@@ -19,6 +19,7 @@ import { Skeleton } from "../../primitives/skeleton";
 import { cn } from "../../lib/cn";
 import { loc } from "../../lib/localized";
 import { useLocale } from "../../theme/ThemeProvider";
+import { LikeToggle } from "../../record/LikeToggle";
 import { fieldOf, type ColumnDef } from "../model/columns";
 import type { SortState } from "../model/sort";
 import type { RowGroup } from "../model/group";
@@ -62,6 +63,22 @@ export function DefaultCell<T>({ value, col }: { value: unknown; col: ColumnDef<
   }
 }
 
+/**
+ * Desk's Like heart per row (list_view.js:985-991): the last cell of the row, hidden below 768 px like Desk's `hidden-xs`.
+ * Frappe-free: the host says what is liked and performs the toggle (`FrappeListView` wires `frappe.desk.like.toggle_like`).
+ */
+export interface ListLikeConfig<T> {
+  isLiked: (row: T) => boolean;
+  /** Tooltip: the names of the users who liked the row. */
+  likedByTitle?: (row: T) => string | undefined;
+  /** Requested state; a returned promise keeps the heart pending, the state changes only after it resolves. */
+  onToggle: (row: T, next: boolean) => void | Promise<unknown>;
+  onError?: (error: unknown, row: T) => void;
+  disabled?: (row: T) => boolean;
+  /** Desk's "Liked by me" header toggle (list_view.js:729-735, 1440-1455). */
+  filter?: { active: boolean; onChange: (active: boolean) => void };
+}
+
 export interface ListTableProps<T> {
   columns: ColumnDef<T>[];
   rows: T[];
@@ -82,6 +99,8 @@ export interface ListTableProps<T> {
   groups?: RowGroup<T>[];
   /** Only part of the records is loaded (server mode, rule C1): group counts end in "+". */
   partial?: boolean;
+  /** Desk's Like heart and "Liked by me" toggle (omit: no extra column, markup unchanged). */
+  like?: ListLikeConfig<T>;
 }
 
 /**
@@ -91,14 +110,15 @@ export interface ListTableProps<T> {
  */
 export function ListTable<T>({
   columns, rows, rowKey, sort, onSortToggle, onRowClick, rowClassName, selection, loading, error, onRetry, empty, className,
-  groups, partial,
+  groups, partial, like,
 }: ListTableProps<T>) {
   const { language, t } = useLocale();
   const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
   const toggleGroup = (key: string) => setCollapsed((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const shown = groups ? groups.flatMap((g) => (collapsed.has(g.key) ? [] : g.rows)) : rows;
   const any = groups ? groups.some((g) => g.rows.length > 0) : rows.length > 0;
-  const colCount = Math.max(columns.length, 1) + (selection ? 1 : 0);
+  const colCount = Math.max(columns.length, 1) + (selection ? 1 : 0) + (like ? 1 : 0);
+  const likeCell = "hidden w-10 px-2 md:table-cell";
   const allOn = !!selection && shown.length > 0 && shown.every((r) => selection.isSelected(r));
   const someOn = !!selection && !allOn && shown.some((r) => selection.isSelected(r));
 
@@ -128,6 +148,12 @@ export function ListTable<T>({
             {c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} />}
           </td>
         ))}
+        {like && (
+          <td className={cn(likeCell, "py-2")} onClick={(e) => e.stopPropagation()} data-like-cell="">
+            <LikeToggle liked={like.isLiked(row)} title={like.likedByTitle?.(row)} disabled={like.disabled?.(row)}
+              onToggle={(next) => like.onToggle(row, next)} onError={(err) => like.onError?.(err, row)} />
+          </td>
+        )}
       </tr>
     );
   };
@@ -145,7 +171,7 @@ export function ListTable<T>({
                 aria-label={t("selectGroup").replace("{group}", g.label)} />
             </td>
           )}
-          <td colSpan={Math.max(columns.length, 1)} className="px-4 py-2">
+          <td colSpan={Math.max(columns.length, 1) + (like ? 1 : 0)} className="px-4 py-2">
             <button type="button" onClick={() => toggleGroup(g.key)} aria-expanded={open} className="flex items-center gap-2 rounded-md text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4 rtl:rotate-180" />}
               <span>{g.label}</span>
@@ -183,6 +209,18 @@ export function ListTable<T>({
                   </th>
                 );
               })}
+              {like && (
+                <th className={cn(likeCell, "py-1.5")}>
+                  {like.filter ? (
+                    <button type="button" aria-pressed={like.filter.active} aria-label={t("likedByMe")} title={t("likedByMe")}
+                      onClick={() => like.filter!.onChange(!like.filter!.active)}
+                      className={cn("inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        like.filter.active ? "text-destructive" : "text-muted-foreground hover:text-foreground")}>
+                      <Heart className={cn("h-4 w-4", like.filter.active && "fill-current")} aria-hidden />
+                    </button>
+                  ) : <span className="sr-only">{t("like")}</span>}
+                </th>
+              )}
             </tr>
           </thead>
           {(loading && !any) || error || !any ? (
@@ -192,6 +230,7 @@ export function ListTable<T>({
                   <tr key={i} className="border-b border-border last:border-0" aria-hidden>
                     {selection && <td className="px-3 py-3" />}
                     {columns.map((c) => <td key={c.key} className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>)}
+                    {like && <td className={likeCell} />}
                   </tr>
                 ))}
               {!loading && React.isValidElement(error) && (

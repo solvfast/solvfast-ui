@@ -4,8 +4,10 @@
  * actions, selection and bulk actions, toolbar, controls, storage). Works without any provider (one is created).
  */
 import * as React from "react";
-import { QueryClientContext } from "@tanstack/react-query";
+import { QueryClientContext, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { ListView, type ListViewProps } from "../list/ListView";
+import type { ListLikeConfig } from "../list/parts/ListTable";
+import type { FrappeFilter } from "./query";
 import { FrappeProvider } from "./FrappeProvider";
 import { useFrappeClient } from "./FrappeProvider";
 import { useLocale } from "../theme/ThemeProvider";
@@ -25,11 +27,21 @@ import { FrappeReportExportDialog } from "./list/FrappeReportExportDialog";
 import { FrappeExportDialog, type ExportDialogLabels } from "./list/FrappeExportDialog";
 
 type Managed = "rows" | "columns" | "rowKey" | "mode" | "total" | "onStateChange" | "loading" | "error" | "onRetry" | "onLoadMore"
-  | "totalLabel" | "hasMore" | "onTotalClick" | "searchHint" | "selectionScope" | "filterFields" | "groupByOptions" | "searchFields" | "pageSize" | "fiscalYears" | "loadFiscalYears";
+  | "totalLabel" | "hasMore" | "onTotalClick" | "searchHint" | "selectionScope" | "filterFields" | "groupByOptions" | "searchFields" | "pageSize" | "fiscalYears" | "loadFiscalYears" | "like";
 
 export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>, FrappeListOptions<T> {
   /** Default: the document `name`. */
   rowKey?: (row: T) => string;
+  /**
+   * Desk's Like heart on every row and the "Liked by me" header toggle (list_view.js:729-735, 985-991, 1431-1455). On by
+   * default when the provider's session names a logged-in user (none for Guest / no session); `false` turns it off.
+   * The heart reads `_liked_by` (requested with every list, as Desk's std_fields_list), toggles through
+   * `frappe.desk.like.toggle_like` (not optimistic: the row changes only after the server answers) and updates the
+   * cached rows without reloading the list, as Desk does. "Liked by me" adds `_liked_by like %user%` (always ANDed).
+   */
+  like?: boolean;
+  /** A like / unlike failed. Desk is quiet (the heart keeps its state); this lets the host show something. */
+  onLikeError?: (error: unknown, row: T) => void;
   /**
    * Keep saved filters and the user's list settings on the server (`List Filter` rows; `user_settings`) instead of
    * localStorage. An explicit `storage` prop wins. `user` (the session user) is required for saved filters.
@@ -90,14 +102,45 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
+function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
   // `columnLimit` defaults ON here: Desk always caps the generated columns by window width (list_view.js:432-444);
   // app-curated `columns` are never capped. `columnLimit={false}` keeps every `in_list_view` column.
-  const f = useFrappeList<T>({ doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, treeDoctypes, columnLimit: columnLimit ?? true, hideNameColumn, urlFilters });
+  // Like: the session user decides; "Liked by me" narrows the list server-side like Desk's filter (always ANDed)
+  const { session: likeSession } = useFrappeSettings();
+  const likeUser = like && likeSession?.user && likeSession.user !== "Guest" ? likeSession.user : undefined;
+  const [likedByMe, setLikedByMe] = React.useState(false);
+  const effectiveBaseFilters = React.useMemo<FrappeFilter[] | undefined>(
+    () => (likeUser && likedByMe ? [...(baseFilters ?? []), ["_liked_by", "like", `%${likeUser}%`]] : baseFilters),
+    [baseFilters, likeUser, likedByMe],
+  );
+  const f = useFrappeList<T>({ doctype, columns, baseFilters: effectiveBaseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, treeDoctypes, columnLimit: columnLimit ?? true, hideNameColumn, urlFilters });
   const { quickFilterFields, loadOptions, ...data } = f.listProps;
   const fallbackClient = useFrappeClient();
   const c = client ?? fallbackClient;
   const api = React.useMemo(() => withFrappeApi(c), [c]);
+  const queryClient = useQueryClient();
+  const likeConfig = React.useMemo<ListLikeConfig<T> | undefined>(() => {
+    if (!likeUser) return undefined;
+    return {
+      isLiked: (row) => likedBy(row).includes(likeUser),
+      likedByTitle: (row) => likedBy(row).map((u) => f.userName(u)).join(", ") || undefined,
+      onToggle: async (row, next) => {
+        const name = String((row as { name?: unknown }).name ?? "");
+        await c.call("frappe.desk.like.toggle_like", { doctype, name, add: next ? "Yes" : "No" });
+        // Desk updates the heart in place (ui/like.js:31-50), no reload: rewrite the cached rows of this DocType's lists
+        queryClient.setQueriesData<InfiniteData<{ rows: T[] }>>({ queryKey: ["sf-frappe", "list", doctype] }, (data) => data && {
+          ...data,
+          pages: data.pages.map((p) => ({ ...p, rows: p.rows.map((r) => {
+            if (String((r as { name?: unknown }).name) !== name) return r;
+            const users = likedBy(r).filter((u) => u !== likeUser);
+            return { ...r, _liked_by: JSON.stringify(next ? [...users, likeUser] : users) };
+          }) })),
+        });
+      },
+      onError: onLikeError,
+      filter: { active: likedByMe, onChange: setLikedByMe },
+    };
+  }, [likeUser, likedByMe, c, doctype, queryClient, onLikeError, f.userName]); // eslint-disable-line react-hooks/exhaustive-deps
   const metaRef = React.useRef(f.meta);
   metaRef.current = f.meta;
   // key → document name of every row shown so far (selection survives paging); reset per DocType
@@ -195,6 +238,7 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
       renderBulkActions={renderBulk}
       onSelectionChange={(k) => { setSelectedCount(k.length); rest.onSelectionChange?.(k); }}
       {...data}
+      like={likeConfig}
       rowKey={rowKey ?? data.rowKey}
     />
     {bulkMessage && <p className="mt-2 text-sm text-muted-foreground" role="status">{bulkMessage}</p>}
@@ -207,4 +251,12 @@ function Inner<T>({ doctype, columns, baseFilters, searchFields, groupByFields, 
     )}
     </>
   );
+}
+
+/** `_liked_by` is a JSON list of user ids (desk/like.py); anything else counts as nobody. */
+function likedBy(row: unknown): string[] {
+  const v = (row as { _liked_by?: unknown })?._liked_by;
+  if (Array.isArray(v)) return v.map(String);
+  if (typeof v !== "string" || !v) return [];
+  try { const a = JSON.parse(v); return Array.isArray(a) ? a.map(String) : []; } catch { return []; }
 }

@@ -15,7 +15,7 @@ import { useLocale } from "../theme/ThemeProvider";
 import type { ColumnDef } from "./model/columns";
 import { FilterBuilder, type LoadOptions } from "./parts/FilterBuilder";
 import { BulkActionBar, ListPagination, type BulkAction } from "./parts/ListFooter";
-import { GroupedListTable, ListTable } from "./parts/ListTable";
+import { GroupedListTable, ListTable, type ListLikeConfig } from "./parts/ListTable";
 import { ColumnManager, GroupByMenu, QuickFilters, SavedFilters, SortMenu } from "./parts/Toolbar";
 import { useListState, type UseListStateOptions } from "./useListState";
 import type { FiscalYear, Operator } from "./model/filters";
@@ -46,6 +46,8 @@ export interface ListViewControls {
 }
 
 export interface ListViewProps<T> extends UseListStateOptions<T> {
+  /** Desk's Like heart per row and "Liked by me" header toggle (`ListTable`'s `like`). */
+  like?: ListLikeConfig<T>;
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T) => string | undefined;
   rowActions?: RowAction<T>[];
@@ -126,7 +128,7 @@ function RowActionsCell<T>({ row, actions }: { row: T; actions: RowAction<T>[] }
 export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
-    onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
+    like, onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
     emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage,
   } = props;
   const s = useListState(props);
@@ -140,7 +142,7 @@ export function ListView<T>(props: ListViewProps<T>) {
 
   const filtered = s.activeCount > 0 || !!s.search.trim();
   const tableProps = {
-    columns, rowKey: s.rowKey, sort: s.sort, onSortToggle: s.toggleSort, onRowClick, rowClassName,
+    columns, rowKey: s.rowKey, sort: s.sort, onSortToggle: s.toggleSort, onRowClick, rowClassName, like,
     selection: selectable ? { isSelected: s.isSelected, toggleRow: s.toggleRow, setRowsSelected: s.setRowsSelected } : undefined,
     loading, error, onRetry,
     // Desk (list_view.js:497-537): "no matching records" (with a way out) is not "you have none yet" (with the create action)

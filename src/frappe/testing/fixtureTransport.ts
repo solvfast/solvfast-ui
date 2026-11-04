@@ -1215,6 +1215,22 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       syncAssign(String(a.doctype), String(a.name));
       return { message: openAssignments(String(a.doctype), String(a.name)) };
     },
+    // desk/like.py: logged-in users only (Guest → 403, __init__.py:868-876); no document permission check; `_liked_by`
+    // updated without touching `modified`; a like adds a "Like" comment ("Liked"), an unlike deletes the user's Like comments
+    "frappe.desk.like.toggle_like": (a) => {
+      if (!user || user === "Guest") fail(403, "PermissionError", "Not permitted");
+      const doc = store.docs.get(String(a.doctype))?.get(String(a.name)) ?? notFound(`${String(a.doctype)} ${String(a.name)}`);
+      let liked: string[] = [];
+      try { const v = JSON.parse(String(doc._liked_by ?? "[]")); if (Array.isArray(v)) liked = v.map(String); } catch { /* not a list */ }
+      if (a.add === "Yes") {
+        if (!liked.includes(user)) { liked.push(user); addComment(String(a.doctype), String(a.name), "Like", "Liked"); }
+      } else if (liked.includes(user)) {
+        liked = liked.filter((u) => u !== user);
+        for (const c of [...store.comments.values()]) if (c.comment_type === "Like" && c.reference_doctype === a.doctype && c.reference_name === a.name && c.owner === user) store.comments.delete(String(c.name));
+      }
+      doc._liked_by = JSON.stringify(liked);
+      return {};
+    },
     "frappe.desk.form.utils.add_comment": (a) => {
       const ref = get(String(a.reference_doctype), a.reference_name);
       if (P) P.assertDoc(ref, "read"); // desk/form/utils.py:31-32

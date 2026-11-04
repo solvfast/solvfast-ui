@@ -361,6 +361,8 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     ready: !!meta,
     request: req,
     refetch: () => { if (m.error) void m.refetch(); else { void list.refetch(); void count.refetch(); } },
+    /** A user's display name as far as the list knows it (assignee profiles, User lookups), else the user id. */
+    userName: (id: string) => userInfo[id]?.fullname || userNames[id] || id,
     /** Props for `FrappeReportExportDialog` (fields, filters, or_filters, order_by, shownCount, totalCount); null until loaded. */
     reportExport,
     /** URL filters read at mount (`urlFilters`): what was applied and which keys were ignored. */
