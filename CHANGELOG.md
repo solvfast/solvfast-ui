@@ -6,6 +6,23 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-04
+
+Frappe-integrated components: the `@solvfast/ui/frappe` entry (client, provider, hooks, `FrappeListView`, `FrappeForm`,
+workflow, assignment, timeline, Import / Export, permissions) and the simulator `@solvfast/ui/frappe/testing`; the CRM
+handoff is `docs/release/CRM-HANDOFF.md`. **Known limitation:** the Frappe layer is verified against recorded 15.110
+responses and the simulator only; no authenticated real-site session or write has been verified yet (docs/LIMITATIONS.md).
+
+### Added
+- **Desk Like (the list's favorite heart).** Core `LikeToggle` (a `<button aria-pressed>`, not optimistic, pending /
+  error states) and `ListTable` / `ListView` `like`; `FrappeListView` shows it by default for a logged-in user
+  (`like={false}` to opt out, `onLikeError`), toggles through `frappe.desk.like.toggle_like`, updates the cached rows
+  without a reload, and offers Desk's "Liked by me" filter (`_liked_by like %user%`). Simulator support.
+- **Attach / Attach Image upload** in `FrappeField` / `FrappeForm` (`FrappeAttachField`): file picker → `upload_file`,
+  attached to the saved document, private unless the field / DocType makes attachments public, `file_url` stored,
+  pending and error states, image preview, Clear.
+
+
 Work towards 0.4.0 (Frappe-integrated components) on branch `feat/0.4.0-frappe`; see docs/CONTRACT-0.4.md.
 
 ### Already in the published 0.3.0 tarball but missing from this changelog (published content ≠ tag `v0.3.0`)
