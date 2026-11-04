@@ -12,8 +12,8 @@
  * Stored formats (docs `12` §7): Date `YYYY-MM-DD`, Datetime `YYYY-MM-DD HH:mm:ss` (edited in the browser's zone —
  * UNVERIFIED for sites whose system and user zones differ; read-only display converts through formatValue), Time
  * `HH:mm:ss`, Duration seconds, Rating a 0…1 fraction, Check 0/1. Text Editor stores plain sanitized HTML (Desk wraps it
- * in a `ql-editor` div — a convention, not a contract). Not implemented (P2/P3): Attach upload (the URL is editable),
- * Signature, Geolocation, Barcode, Code editor (a monospace textarea), Phone country picker, Autocomplete lists.
+ * in a `ql-editor` div — a convention, not a contract). Attach / Attach Image upload through `upload_file`
+ * (FrappeAttachField). Not implemented (P2/P3): Signature, Geolocation, Barcode, Code editor (a monospace textarea), Phone country picker, Autocomplete lists.
  */
 import * as React from "react";
 import { useLocale } from "../../theme/ThemeProvider";
@@ -28,6 +28,7 @@ import { FieldShell, FIELD_INPUT, FIELD_INVALID, interpolate } from "../../field
 import { NumberInput } from "../../fields/NumberInput";
 import { TimeInput } from "../../fields/TimeInput";
 import { DurationInput } from "../../fields/DurationInput";
+import { FrappeAttachField } from "./FrappeAttachField";
 import { ReadOnlyValue } from "../../fields/ReadOnlyValue";
 import { Rating } from "../../fields/Rating";
 import { ColorInput } from "../../fields/ColorInput";
@@ -200,6 +201,15 @@ export function FrappeField(props: FrappeFieldProps) {
     );
   }
 
+  if (ft === "Attach" || ft === "Attach Image") {
+    // Desk attaches to the form's document (in a grid: the parent), attach.js:80-87
+    const target = parent ?? rowDoc;
+    return shell(
+      <FrappeAttachField id={id} df={df} value={str(value) || null} onChange={(v) => onChange(v)} doctype={str(target.doctype) || bundle?.doctype}
+        docname={str(target.name)} bundle={bundle} invalid={invalid} aria-describedby={error ? errId : undefined} {...aria} />,
+      { noLabelFor: true },
+    );
+  }
   switch (ft) {
     case "Check":
       return shell(<Checkbox {...common} checked={!!Number(value)} onCheckedChange={(c) => onChange(c === true ? 1 : 0)} />, { inline: true });
