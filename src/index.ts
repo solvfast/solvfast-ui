@@ -136,8 +136,8 @@ export type { ListTableProps, ListLikeConfig } from "./list/parts/ListTable";
 export { FilterBuilder, FilterValueInput } from "./list/parts/FilterBuilder";
 export type { FilterBuilderProps, LoadOptions } from "./list/parts/FilterBuilder";
 export { SavedFilters, ColumnManager, QuickFilters, SortMenu, GroupByMenu } from "./list/parts/Toolbar";
-export { ListPagination, BulkActionBar } from "./list/parts/ListFooter";
-export type { BulkAction } from "./list/parts/ListFooter";
+export { ListPagination, BulkActionBar, ListActionsMenu, useBulkActionRunner, resolveBulkActions } from "./list/parts/ListFooter";
+export type { BulkAction, BulkActionContext, BulkActionConfirm } from "./list/parts/ListFooter";
 export {
   applyFilterQuery, activeConditionCount, newCondition, OPERATORS_BY_TYPE, EMPTY_QUERY, getQuickValue, setQuickValue,
   operatorsFor, defaultOperator, operatorLabelKey, TIMESPANS, timespanRange, splitRange, joinRange,
@@ -153,10 +153,10 @@ export { createLocalStorageAdapter } from "./list/model/storage";
 export type { ListPrefs, ListPrefsStorage, SavedFilter, SavedFiltersStorage } from "./list/model/storage";
 
 // 0.4.0 — generic record pieces (Frappe-free). docs/CONTRACT-0.4.md §1
-export { Timeline, filterItems, sortItems, CommentComposer, draftToHtml, htmlToDraft, AssigneeGroup, AssignPicker, LifecycleBar, ActionBar, StatusBadge, LikeToggle } from "./record";
+export { Timeline, filterItems, sortItems, CommentComposer, draftToHtml, htmlToDraft, AssigneeGroup, AssignPicker, AssignDialog, LifecycleBar, ActionBar, StatusBadge, LikeToggle } from "./record";
 export type {
   TimelineProps, TimelineLabels, TimelineFilter, CommentComposerProps, CommentComposerLabels, CommentDraft, AssigneeGroupProps, AssignPickerProps,
-  AssignLabels, LifecycleBarProps, ActionBarProps, ActionBarLabels, StatusBadgeProps, LikeToggleProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
+  AssignLabels, AssignDialogProps, AssignDialogLabels, LifecycleBarProps, ActionBarProps, ActionBarLabels, StatusBadgeProps, LikeToggleProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
   Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./record";
 

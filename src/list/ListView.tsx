@@ -14,7 +14,7 @@ import { loc, type Localized } from "../lib/localized";
 import { useLocale } from "../theme/ThemeProvider";
 import type { ColumnDef } from "./model/columns";
 import { FilterBuilder, type LoadOptions } from "./parts/FilterBuilder";
-import { BulkActionBar, ListPagination, type BulkAction } from "./parts/ListFooter";
+import { BulkActionBar, ListActionsMenu, ListPagination, resolveBulkActions, type BulkAction, type BulkActionContext } from "./parts/ListFooter";
 import { GroupedListTable, ListTable, type ListLikeConfig } from "./parts/ListTable";
 import { ColumnManager, GroupByMenu, QuickFilters, SavedFilters, SortMenu } from "./parts/Toolbar";
 import { useListState, type UseListStateOptions } from "./useListState";
@@ -59,8 +59,26 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   onRetry?: () => void;
   /** Shown when there are no rows and nothing is filtered (default: "No data yet"). */
   emptyMessage?: React.ReactNode;
-  /** Trailing toolbar content, e.g. a "New" button. */
+  /** Trailing toolbar content (always shown). */
   toolbarActions?: React.ReactNode;
+  /**
+   * The page's primary action (e.g. "New" / Desk's "Add {DocType}"), last in the toolbar. In `selectionMode="header"`
+   * it gives way to the Actions menu while rows are selected (Desk's toggle_actions_menu_button, list_view.js:590-598).
+   */
+  primaryAction?: React.ReactNode;
+  /**
+   * Where a selection's actions live. `"bar"` (default, unchanged): the bulk bar above the table. `"header"` (Frappe
+   * Desk): no extra row — the table header shows "{n} items selected" + Clear instead of the column titles, and the toolbar's
+   * `primaryAction` is replaced by an **Actions** menu of `bulkActions` (+ `renderActionsMenu`); `renderBulkActions` content
+   * stays in the toolbar next to it.
+   */
+  selectionMode?: "bar" | "header";
+  /** Header mode: extra Actions-menu content (DropdownMenuItems), e.g. actions the server computes when the menu opens. */
+  renderActionsMenu?: (ctx: BulkActionContext<T>) => React.ReactNode;
+  /** Header mode: the Actions menu opened / closed (Desk asks the server for workflow actions on every opening). */
+  onActionsOpenChange?: (open: boolean) => void;
+  /** Header mode: the Actions button's label (default "Actions"). */
+  actionsLabel?: React.ReactNode;
   controls?: ListViewControls;
   /** Link-field options for filters. */
   loadOptions?: LoadOptions;
@@ -129,7 +147,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     like, onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage,
+    emptyMessage, toolbarActions, primaryAction, selectionMode = "bar", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -142,6 +160,7 @@ export function ListView<T>(props: ListViewProps<T>) {
 
   const filtered = s.activeCount > 0 || !!s.search.trim();
   const tableProps = {
+    selectionHeader: selectable && selectionMode === "header" ? { count: s.selected.size, onClear: s.clearSelection } : undefined,
     columns, rowKey: s.rowKey, sort: s.sort, onSortToggle: s.toggleSort, onRowClick, rowClassName, like,
     selection: selectable ? { isSelected: s.isSelected, toggleRow: s.toggleRow, setRowsSelected: s.setRowsSelected } : undefined,
     loading, error, onRetry,
@@ -160,8 +179,12 @@ export function ListView<T>(props: ListViewProps<T>) {
   };
   const partial = s.mode === "server" && s.grouped && s.rows.length < s.total;
   const selectedKeys = [...s.selected];
-  const selectionSize = s.selected.size;
-  React.useEffect(() => { onSelectionChange?.([...s.selected]); }, [selectionSize]); // eslint-disable-line react-hooks/exhaustive-deps
+  // every change of the selected SET is reported (not only of its size: unchecking A and checking B is a change)
+  const selectionSig = selectedKeys.join("\u0001");
+  React.useEffect(() => { onSelectionChange?.([...s.selected]); }, [selectionSig]); // eslint-disable-line react-hooks/exhaustive-deps
+  const header = selectable && selectionMode === "header";
+  const actionCtx: BulkActionContext<T> = { keys: selectedKeys, rows: header && selectedKeys.length ? s.selectedRows() : [], clear: s.clearSelection };
+  const hasActions = header && selectedKeys.length > 0 && (resolveBulkActions(bulkActions, actionCtx).length > 0 || !!renderActionsMenu);
   const actions = React.useMemo(() => ({
     applyCondition: (field: string, operator: Operator, value: string) =>
       s.setQuery({ ...s.query, conditions: [...s.query.conditions.filter((c) => c.field !== field), { id: `c${Date.now()}`, field, operator, value }] }),
@@ -187,6 +210,10 @@ export function ListView<T>(props: ListViewProps<T>) {
           {c.sortMenu && <SortMenu columns={s.visibleColumns} sort={s.sort} onChange={s.setSort} />}
           {c.columns && <ColumnManager columns={s.columns} visibleKeys={s.visibleKeys} onChange={s.setVisibleKeys} />}
           {toolbarActions}
+          {header && selectedKeys.length > 0 && renderBulkActions?.(actionCtx)}
+          {hasActions
+            ? <ListActionsMenu actions={bulkActions} ctx={actionCtx} extra={renderActionsMenu?.(actionCtx)} label={actionsLabel} onOpenChange={onActionsOpenChange} />
+            : primaryAction}
         </div>
       </div>
 
@@ -201,7 +228,7 @@ export function ListView<T>(props: ListViewProps<T>) {
         </div>
       )}
 
-      {selectable && (bulkActions?.length || renderBulkActions) ? (
+      {selectable && !header && (bulkActions?.length || renderBulkActions) ? (
         <BulkActionBar count={selectedKeys.length} actions={bulkActions} render={renderBulkActions} onClear={s.clearSelection} keys={selectedKeys} rows={s.selectedRows()} />
       ) : null}
 

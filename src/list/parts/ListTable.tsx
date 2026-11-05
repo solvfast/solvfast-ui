@@ -101,6 +101,11 @@ export interface ListTableProps<T> {
   partial?: boolean;
   /** Desk's Like heart and "Liked by me" toggle (omit: no extra column, markup unchanged). */
   like?: ListLikeConfig<T>;
+  /**
+   * Desk's header in selection mode (list_view.js:1613-1634, 740-760): with `count > 0` the column titles give way to
+   * "{n} items selected" and a Clear button, in the same header row (no extra row). Omit: the header never changes.
+   */
+  selectionHeader?: { count: number; onClear: () => void };
 }
 
 /**
@@ -110,7 +115,7 @@ export interface ListTableProps<T> {
  */
 export function ListTable<T>({
   columns, rows, rowKey, sort, onSortToggle, onRowClick, rowClassName, selection, loading, error, onRetry, empty, className,
-  groups, partial, like,
+  groups, partial, like, selectionHeader,
 }: ListTableProps<T>) {
   const { language, t } = useLocale();
   const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
@@ -121,6 +126,24 @@ export function ListTable<T>({
   const likeCell = "hidden w-10 px-2 md:table-cell";
   const allOn = !!selection && shown.length > 0 && shown.every((r) => selection.isSelected(r));
   const someOn = !!selection && !allOn && shown.some((r) => selection.isSelected(r));
+
+  // Desk's shift-click (list_view.js:1400-1421): checks every row between the last clicked checkbox and this one
+  const cursor = React.useRef<string | null>(null);
+  const onCheckClick = (row: T, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selection) return;
+    const k = rowKey(row);
+    if (e.shiftKey && cursor.current && cursor.current !== k) {
+      const i1 = shown.findIndex((r) => rowKey(r) === cursor.current), i2 = shown.findIndex((r) => rowKey(r) === k);
+      if (i1 >= 0 && i2 >= 0) {
+        const [a, b] = i1 < i2 ? [i1, i2] : [i2, i1];
+        const between = shown.slice(a + 1, b);
+        if (between.length) selection.setRowsSelected(between, true);
+      }
+    }
+    cursor.current = k;
+  };
+  const selecting = !!selection && !!selectionHeader && selectionHeader.count > 0;
 
   const renderRow = (row: T) => {
     const on = !!selection?.isSelected(row);
@@ -139,7 +162,7 @@ export function ListTable<T>({
         )}
       >
         {selection && (
-          <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+          <td className="px-3 py-3" onClick={(e) => onCheckClick(row, e)}>
             <Checkbox checked={on} onCheckedChange={() => selection.toggleRow(row)} aria-label={t("selectRow")} />
           </td>
         )}
@@ -195,7 +218,17 @@ export function ListTable<T>({
                   <Checkbox checked={allOn ? true : someOn ? "indeterminate" : false} onCheckedChange={(c) => selection.setRowsSelected(shown, c === true)} aria-label={t("selectAll")} />
                 </th>
               )}
-              {columns.map((c) => {
+              {selecting && (
+                <th colSpan={Math.max(columns.length, 1) + (like ? 1 : 0)} className="px-4 py-1.5 text-start font-medium normal-case tracking-normal" data-selection-header="">
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-foreground" aria-live="polite">{t("listItemsSelected").replace("{n}", String(selectionHeader!.count))}</span>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={selectionHeader!.onClear}>
+                      <X className="h-3.5 w-3.5" aria-hidden /> {t("clearSelection")}
+                    </Button>
+                  </span>
+                </th>
+              )}
+              {!selecting && columns.map((c) => {
                 const active = sort.key === c.key;
                 const label = loc(c.label, language);
                 return (
@@ -209,7 +242,7 @@ export function ListTable<T>({
                   </th>
                 );
               })}
-              {like && (
+              {like && !selecting && (
                 <th className={cn(likeCell, "py-1.5")}>
                   {like.filter ? (
                     <button type="button" aria-pressed={like.filter.active} aria-label={t("likedByMe")} title={t("likedByMe")}
