@@ -101,6 +101,7 @@ export function FrappeListViewPage() {
   const { isRTL } = useLocale();
   const [scenario, setScenario] = React.useState<ListScenario>("default");
   const [session, setSession] = React.useState<SessionKey>("admin");
+  const [layout, setLayout] = React.useState<"bar" | "header">("header");
   const [log, setLog] = React.useState<string[]>([]);
   const [events, setEvents] = React.useState(0);
   const site = useSimSite({
@@ -129,6 +130,9 @@ export function FrappeListViewPage() {
           <Picker legend={l("Session", "الجلسة")} value={session} onChange={setSession} options={[
             { value: "admin", label: l("Administrator — System Manager", "المدير — System Manager") }, { value: "salesOnly", label: l("Sales User only — no right on ToDo (bulk bar offers nothing)", "Sales User فقط — بلا حق على ToDo (شريط الإجراءات فارغ)") },
           ]} />
+          <Picker legend={l("Selection layout", "تخطيط التحديد")} value={layout} onChange={setLayout} options={[
+            { value: "header", label: l("Desk: header + Actions menu (selectionMode=\"header\")", "ديسك: الترويسة + قائمة الإجراءات") }, { value: "bar", label: l("Bar (default)", "الشريط (الافتراضي)") },
+          ]} />
           <div className="flex flex-wrap items-center gap-2">
             <SessionBadge session={session} />
             <Button variant="outline" size="sm" className="gap-1.5" onClick={serverEvent} disabled={scenario !== "default"}>
@@ -145,9 +149,11 @@ export function FrappeListViewPage() {
     bulk={{}}                              // delete / assign, gated by usePermissions()
     serverStorage={{ user }}               // saved filters → List Filter rows; prefs → __UserSettings
     realtime={port} realtimeDebounceMs={400}
-    controls={{ sortMenu: true }} onRowClick={(row) => open(row.name)} onCreate={() => create()} />
+    controls={{ sortMenu: true }} onRowClick={(row) => open(row.name)} onCreate={() => create()}
+    selectionMode="header"                 // Desk: "{n} items selected" in the header, New → Actions menu
+    primaryAction={<Button onClick={create}>New ToDo</Button>} />
 </FrappeProvider>`}>
-          <SimProvider site={site} session={session} key={`${scenario}-${session}`}>
+          <SimProvider site={site} session={session} key={`${scenario}-${session}-${layout}`}>
             <div className="px-4 py-4 md:px-6">
               <FrappeListView<ToDoRow>
                 doctype="ToDo" columns={TODO_COLUMNS} fieldLabels={TODO_LABELS} groupByFields={["status", "priority", "allocated_to"]}
@@ -157,7 +163,8 @@ export function FrappeListViewPage() {
                 controls={{ sortMenu: true }}
                 onRowClick={(r) => push(`onRowClick: ${r.name}`)}
                 onCreate={() => push("onCreate")}
-                toolbarActions={<Button className="shrink-0 gap-2" onClick={() => push("New ToDo clicked (the app routes to a form)")}><Plus className="h-4 w-4" />{isRTL ? "مهمة جديدة" : "New ToDo"}</Button>}
+                selectionMode={layout}
+                {...(() => { const add = <Button className="shrink-0 gap-2" onClick={() => push("New ToDo clicked (the app routes to a form)")}><Plus className="h-4 w-4" />{isRTL ? "مهمة جديدة" : "New ToDo"}</Button>; return layout === "header" ? { primaryAction: add } : { toolbarActions: add }; })()}
               />
             </div>
           </SimProvider>

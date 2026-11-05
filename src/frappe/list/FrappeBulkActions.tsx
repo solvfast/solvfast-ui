@@ -15,9 +15,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../primitives/alert-dialog";
 import { Button } from "../../primitives/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../primitives/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../primitives/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../primitives/dropdown-menu";
 import { Input } from "../../primitives/input";
-import { AssignPicker } from "../../record";
+import { AssignDialog, AssignPicker } from "../../record";
+import type { UserOption } from "../../record/types";
+import type { BulkAction } from "../../list/parts/ListFooter";
 import { TagInput } from "../../fields/TagInput";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { useLocale } from "../../theme/ThemeProvider";
@@ -62,9 +64,7 @@ const LABEL = {
 } as const;
 type Confirmable = "delete" | "submit" | "cancel" | "clear_assignment";
 
-/** `keys` are Frappe DOCUMENT NAMES (sent to the server), not the list's UI row keys: `FrappeListView` resolves its
- *  selection through `documentNamesForKeys`; an app rendering this itself must pass names too. */
-export function FrappeBulkActions<T = Record<string, unknown>>({ client, meta, doctype, keys, rows, docMeta, roles, clear, options, onBusy, onMessage, onExport, exportLabel }: {
+export interface FrappeBulkActionsProps<T> {
   client: FrappeClient; meta: FrappeListMeta; doctype: string; keys: string[]; clear: () => void; options: FrappeBulkOptions; onBusy?: (busy: boolean) => void;
   /** The checked rows (`docstatus` for Print, the row objects for the workflow's common actions — Desk's `get_checked_items()`). */
   rows?: T[];
@@ -77,7 +77,16 @@ export function FrappeBulkActions<T = Record<string, unknown>>({ client, meta, d
   /** Offer Export in Desk's position (the host owns the dialog). Desk offers it to everyone (`list_view.js:2092`). */
   onExport?: () => void;
   exportLabel?: string;
-}) {
+}
+
+/**
+ * Desk's Actions for a selection as DATA: the typed `BulkAction`s (Desk's order and gates, `listActionsMenu`), the
+ * workflow's items (asked from the server each time the menu opens: `onMenuOpenChange`), and the dialogs the actions open
+ * (confirmations, Edit, Add Tags, Print, and — in the Actions menu — Desk's Assign To dialog). `ListView`'s
+ * `selectionMode="header"` renders `actions` in its Actions menu; `FrappeBulkActions` renders the same as bar buttons.
+ * `keys` are Frappe DOCUMENT NAMES (sent to the server), not the list's UI row keys.
+ */
+export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta, doctype, keys, rows, docMeta, roles, clear, options, onBusy, onMessage, onExport, exportLabel }: FrappeBulkActionsProps<T>) {
   const { t } = useLocale();
   const qc = useQueryClient();
   const { session } = useFrappeSettings();
@@ -88,6 +97,7 @@ export function FrappeBulkActions<T = Record<string, unknown>>({ client, meta, d
   const [form, setForm] = React.useState<"edit" | "add_tags" | null>(null);
   const [busy, setBusy] = React.useState<ListActionKind | null>(null);
   const [printing, setPrinting] = React.useState<string[] | null>(null);
+  const [assigning, setAssigning] = React.useState(false);
   const setMessage = (m: string) => onMessage?.(m);
   const [field, setField] = React.useState(meta.editable[0]?.name ?? "");
   const [value, setValue] = React.useState("");
@@ -153,17 +163,127 @@ export function FrappeBulkActions<T = Record<string, unknown>>({ client, meta, d
     }
   };
 
+  const searchUsers = async (q: string): Promise<UserOption[]> =>
+    (await client.searchLink("User", q, { referenceDoctype: doctype })).map((u) => ({ id: u.value, label: u.label || u.value, description: u.description }));
+  const assignTo = (users: UserOption[], d: Parameters<typeof bulkAssign>[4]) => run("assign", () => bulkAssign(client, doctype, keys, users.map((u) => u.id), d));
+  // the same click for a bar button and a menu item (Assign To: the bar keeps its popover; the menu opens Desk's dialog)
+  const trigger = (k: ListActionKind) => {
+    if (k === "edit" || k === "add_tags") setForm(k);
+    else if (k === "export") onExport?.();
+    else if (k === "print") startPrint();
+    // Apply Assignment Rule runs without a confirmation in Desk (list_view.js:1929-1942)
+    else if (k === "assignment_rule") void run(k, () => bulkApplyAssignmentRule(client, doctype, keys));
+    else if (k === "assign") setAssigning(true);
+    else if (k !== "workflow") setAsking(k);
+  };
+  const labelOf = (k: ListActionKind) => (k === "export" && exportLabel ? exportLabel : t(LABEL[k]));
+  const actions: BulkAction<T>[] = kinds.filter((k) => k !== "workflow").map((k) => ({
+    key: k, label: labelOf(k), icon: ICON[k], tone: k === "delete" ? "destructive" : "default", group: k === "delete" ? "delete" : "main",
+    disabled: () => !!busy, run: () => trigger(k),
+  }));
+  // Desk appends the workflow's actions to the menu (list_view.js:163-168) and asks the server for them on every opening
+  const workflowMenu = kinds.includes("workflow") ? (
+    <>
+      <DropdownMenuSeparator />
+      {wf.loading ? <DropdownMenuItem disabled>{t("loading")}</DropdownMenuItem>
+        : wf.actions.length ? wf.actions.map((a) => (
+          <DropdownMenuItem key={a} data-action={`workflow:${a}`} onSelect={() => runWorkflow(a)}>
+            <Workflow className="me-2 h-4 w-4" aria-hidden />{a}
+          </DropdownMenuItem>
+        ))
+        : <DropdownMenuItem disabled>{t("listBulkWorkflowNone")}</DropdownMenuItem>}
+    </>
+  ) : null;
+  const onMenuOpenChange = (open: boolean) => { if (open && kinds.includes("workflow")) void loadWorkflowActions(); };
+  const dialogs = (
+    <>
+        <AlertDialog open={!!asking} onOpenChange={(o) => !o && setAsking(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{asking ? t(LABEL[asking]) : ""}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {asking === "delete" ? t("listBulkDeleteConfirm").replace("{n}", n) : asking === "submit" ? t("listBulkSubmitConfirm").replace("{n}", n)
+                  : asking === "clear_assignment" ? t("listBulkClearAssignmentConfirm") : t("listBulkCancelConfirm").replace("{n}", n)}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+              <AlertDialogAction asChild onClick={() => asking && confirmed(asking)}>
+                <Button variant={asking === "delete" ? "destructive" : "default"}>{t("confirm")}</Button>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+  
+        <Dialog open={!!form} onOpenChange={(o) => !o && setForm(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{form ? t(LABEL[form]) : ""}</DialogTitle></DialogHeader>
+            {form === "edit" ? (
+              <div className="space-y-3">
+                <label className="block space-y-1 text-sm"><span>{t("listBulkField")}</span>
+                  <Select value={field} onValueChange={(v) => { setField(v); setValue(""); }}>
+                    <SelectTrigger aria-label={t("listBulkField")}><SelectValue /></SelectTrigger>
+                    <SelectContent>{meta.editable.map((f) => <SelectItem key={f.name} value={f.name}>{f.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </label>
+                {editField?.options?.length ? (
+                  <Select value={value || "__none__"} onValueChange={(v) => setValue(v === "__none__" ? "" : v)}>
+                    <SelectTrigger aria-label={t("listBulkValue")}><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="__none__">—</SelectItem>{editField.options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                ) : editField?.fieldtype === "Check" ? (
+                  <Select value={value || "__none__"} onValueChange={(v) => setValue(v === "__none__" ? "" : v)}>
+                    <SelectTrigger aria-label={t("listBulkValue")}><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="1">{t("yes")}</SelectItem><SelectItem value="0">{t("no")}</SelectItem></SelectContent>
+                  </Select>
+                ) : (
+                  <Input aria-label={t("listBulkValue")} placeholder={t("listBulkValue")} value={value} onChange={(e) => setValue(e.target.value)} />
+                )}
+              </div>
+            ) : form === "add_tags" ? (
+              // Desk's MultiSelectPills over `frappe.db.get_link_options("Tag", txt)` (bulk_operations.js:429-437); a typed tag
+              // that does not exist yet is accepted — the server creates the Tag (tag.py:92-93)
+              <label className="block space-y-1 text-sm"><span>{t("listBulkTags")}</span>
+                <TagInput aria-label={t("listBulkTags")} value={tags} onChange={setTags} allowCreate
+                  search={async (q) => (await client.searchLink("Tag", q)).map((r) => ({ value: r.value, label: r.label || r.value, description: r.description }))} />
+              </label>
+            ) : null}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setForm(null)}>{t("cancel")}</Button>
+              {/* Tags are required (reqd: true, bulk_operations.js:433) */}
+              <Button onClick={submitForm} disabled={form === "add_tags" && !tags.length}>{form === "add_tags" ? t("listBulkAdd") : t("listBulkApply")}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+  
+        {printing && (
+          <FrappePrintDialog api={api} doctype={doctype} names={printing} meta={docMeta} settings={options.print?.settings} subscribeTask={options.print?.subscribeTask}
+            open onOpenChange={(o) => { if (!o) setPrinting(null); }}
+            onDone={(r) => options.onDone?.("print", { failed: [], queued: !!r.taskId, silent: true }, printing)} />
+        )}
+  
+      <AssignDialog open={assigning} onOpenChange={setAssigning} details count={keys.length} searchUsers={searchUsers}
+        me={session?.user && session.user !== "Guest" ? { id: session.user, label: session.fullName || session.user } : undefined}
+        onAssign={(users, d) => assignTo(users, d)} />
+    </>
+  );
+  const runWorkflow = (a: string) => void run("workflow", () => bulkWorkflowApproval(client, doctype, keys, a), a);
+  return { kinds, actions, workflowMenu, onMenuOpenChange, dialogs, busy, trigger, searchUsers, assignTo, labelOf, wf, loadWorkflowActions, runWorkflow };
+}
+
+/** Desk's Actions as buttons in the selection bar (`selectionMode="bar"`). Same actions and dialogs as `useFrappeBulkActions`. */
+export function FrappeBulkActions<T = Record<string, unknown>>(props: FrappeBulkActionsProps<T>) {
+  const { t } = useLocale();
+  const { kinds, dialogs, busy, trigger, searchUsers, assignTo, labelOf, wf, loadWorkflowActions, runWorkflow } = useFrappeBulkActions<T>(props);
   if (!kinds.length) return null;
   return (
     <>
       {kinds.map((k) => {
         const Icon = ICON[k];
         if (k === "assign") {
-          // Desk's Assign To dialog: search users, comment / due date / priority; applies to every selected document
+          // Desk's Assign To fields (comment / due date / priority) in the bar's popover; applies to every selected document
           return (
-            <AssignPicker key={k} withDetails disabled={!!busy}
-              searchUsers={async (q) => (await client.searchLink("User", q, { referenceDoctype: doctype })).map((u) => ({ id: u.value, label: u.label || u.value, description: u.description }))}
-              onAssign={(users, d) => run("assign", () => bulkAssign(client, doctype, keys, users.map((u) => u.id), d))}
+            <AssignPicker key={k} withDetails disabled={!!busy} searchUsers={searchUsers} onAssign={(users, d) => assignTo(users, d)}
               trigger={<Button size="sm" variant="outline" className="gap-1.5" loading={busy === k} disabled={!!busy}><Icon className="h-4 w-4" /> {t(LABEL[k])}</Button>} />
           );
         }
@@ -176,90 +296,20 @@ export function FrappeBulkActions<T = Record<string, unknown>>({ client, meta, d
               <DropdownMenuContent align="start">
                 {wf.loading ? <DropdownMenuItem disabled>{t("loading")}</DropdownMenuItem>
                   : wf.actions.length ? wf.actions.map((a) => (
-                    <DropdownMenuItem key={a} onSelect={() => void run("workflow", () => bulkWorkflowApproval(client, doctype, keys, a), a)}>{a}</DropdownMenuItem>
+                    <DropdownMenuItem key={a} onSelect={() => runWorkflow(a)}>{a}</DropdownMenuItem>
                   ))
                   : <DropdownMenuItem disabled>{t("listBulkWorkflowNone")}</DropdownMenuItem>}
               </DropdownMenuContent>
             </DropdownMenu>
           );
         }
-        const onClick = k === "edit" || k === "add_tags" ? () => setForm(k)
-          : k === "export" ? () => onExport?.()
-          : k === "print" ? startPrint
-          // Apply Assignment Rule runs without a confirmation in Desk (list_view.js:1929-1942)
-          : k === "assignment_rule" ? () => void run(k, () => bulkApplyAssignmentRule(client, doctype, keys))
-          : () => setAsking(k);
         return (
-          <Button key={k} size="sm" variant={k === "delete" ? "destructive" : "outline"} className="gap-1.5" loading={busy === k} disabled={!!busy} onClick={onClick}>
-            <Icon className="h-4 w-4" /> {k === "export" && exportLabel ? exportLabel : t(LABEL[k])}
+          <Button key={k} size="sm" variant={k === "delete" ? "destructive" : "outline"} className="gap-1.5" loading={busy === k} disabled={!!busy} onClick={() => trigger(k)}>
+            <Icon className="h-4 w-4" /> {labelOf(k)}
           </Button>
         );
       })}
-
-      <AlertDialog open={!!asking} onOpenChange={(o) => !o && setAsking(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{asking ? t(LABEL[asking]) : ""}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {asking === "delete" ? t("listBulkDeleteConfirm").replace("{n}", n) : asking === "submit" ? t("listBulkSubmitConfirm").replace("{n}", n)
-                : asking === "clear_assignment" ? t("listBulkClearAssignmentConfirm") : t("listBulkCancelConfirm").replace("{n}", n)}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction asChild onClick={() => asking && confirmed(asking)}>
-              <Button variant={asking === "delete" ? "destructive" : "default"}>{t("confirm")}</Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={!!form} onOpenChange={(o) => !o && setForm(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{form ? t(LABEL[form]) : ""}</DialogTitle></DialogHeader>
-          {form === "edit" ? (
-            <div className="space-y-3">
-              <label className="block space-y-1 text-sm"><span>{t("listBulkField")}</span>
-                <Select value={field} onValueChange={(v) => { setField(v); setValue(""); }}>
-                  <SelectTrigger aria-label={t("listBulkField")}><SelectValue /></SelectTrigger>
-                  <SelectContent>{meta.editable.map((f) => <SelectItem key={f.name} value={f.name}>{f.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </label>
-              {editField?.options?.length ? (
-                <Select value={value || "__none__"} onValueChange={(v) => setValue(v === "__none__" ? "" : v)}>
-                  <SelectTrigger aria-label={t("listBulkValue")}><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="__none__">—</SelectItem>{editField.options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-                </Select>
-              ) : editField?.fieldtype === "Check" ? (
-                <Select value={value || "__none__"} onValueChange={(v) => setValue(v === "__none__" ? "" : v)}>
-                  <SelectTrigger aria-label={t("listBulkValue")}><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="1">{t("yes")}</SelectItem><SelectItem value="0">{t("no")}</SelectItem></SelectContent>
-                </Select>
-              ) : (
-                <Input aria-label={t("listBulkValue")} placeholder={t("listBulkValue")} value={value} onChange={(e) => setValue(e.target.value)} />
-              )}
-            </div>
-          ) : form === "add_tags" ? (
-            // Desk's MultiSelectPills over `frappe.db.get_link_options("Tag", txt)` (bulk_operations.js:429-437); a typed tag
-            // that does not exist yet is accepted — the server creates the Tag (tag.py:92-93)
-            <label className="block space-y-1 text-sm"><span>{t("listBulkTags")}</span>
-              <TagInput aria-label={t("listBulkTags")} value={tags} onChange={setTags} allowCreate
-                search={async (q) => (await client.searchLink("Tag", q)).map((r) => ({ value: r.value, label: r.label || r.value, description: r.description }))} />
-            </label>
-          ) : null}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setForm(null)}>{t("cancel")}</Button>
-            {/* Tags are required (reqd: true, bulk_operations.js:433) */}
-            <Button onClick={submitForm} disabled={form === "add_tags" && !tags.length}>{form === "add_tags" ? t("listBulkAdd") : t("listBulkApply")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {printing && (
-        <FrappePrintDialog api={api} doctype={doctype} names={printing} meta={docMeta} settings={options.print?.settings} subscribeTask={options.print?.subscribeTask}
-          open onOpenChange={(o) => { if (!o) setPrinting(null); }}
-          onDone={(r) => options.onDone?.("print", { failed: [], queued: !!r.taskId, silent: true }, printing)} />
-      )}
+      {dialogs}
     </>
   );
 }

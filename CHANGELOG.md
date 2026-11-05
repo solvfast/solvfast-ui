@@ -6,6 +6,23 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+### Added (0.4.1-dev — not released)
+- **Desk's selection layout for the List View** (Frappe 15.110 `list_view.js:590-598, 1613-1634, 1855-2127`): `ListView` /
+  `FrappeListView` `selectionMode="header"` — no bar row; the header shows "{n} items selected" + Clear; the toolbar's new
+  `primaryAction` gives way to an **Actions** menu (`ListActionsMenu`) while rows are selected. Default `"bar"`: no change for
+  existing consumers. Shift-click range selection (`:1400-1421`).
+- **Typed bulk actions**: `BulkAction` gains `tone`, `hidden(ctx)`, `disabled(ctx)` (with a reason), `confirm`, `group`;
+  `resolveBulkActions`, `useBulkActionRunner`, `BulkActionContext`, `BulkActionConfirm`.
+- **`AssignDialog`** (Core): Desk's Assign To dialog — users, Assign to me (also for single-assignee hosts), current assignees,
+  optional Complete By / Priority / Comment.
+- **`useFrappeBulkActions`** (`/frappe`): Desk's Actions (order, gates, workflow items asked on every opening, dialogs) as data;
+  `FrappeBulkActions` renders the same as bar buttons. `FrappeListView` `selectionMode="header"` uses it (Assign To → `AssignDialog`).
+
+### Fixed
+- `ListView.onSelectionChange` fired only when the NUMBER of selected rows changed: unchecking A and checking B in one update
+  left a host that mirrors the selection (the CRM does) with A — and its bulk action on the wrong record. It now fires on
+  every change of the selected set.
+
 ## [0.4.0] — 2026-11-04
 
 Frappe-integrated components: the `@solvfast/ui/frappe` entry (client, provider, hooks, `FrappeListView`, `FrappeForm`,

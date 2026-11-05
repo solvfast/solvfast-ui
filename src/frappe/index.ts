@@ -31,8 +31,8 @@ export { queryToTuples, tuplesToQuery, UnstorableQueryError } from "./list/tuple
 export { createFrappeSavedFilters, createFrappeUserSettings } from "./list/storage";
 export { bulkMenu, bulkDelete, bulkSubmitCancelOrUpdate, bulkAssign } from "./list/bulk";
 export type { BulkKind, BulkPermissions, BulkOutcome } from "./list/bulk";
-export { FrappeBulkActions } from "./list/FrappeBulkActions";
-export type { FrappeBulkOptions } from "./list/FrappeBulkActions";
+export { FrappeBulkActions, useFrappeBulkActions } from "./list/FrappeBulkActions";
+export type { FrappeBulkOptions, FrappeBulkActionsProps } from "./list/FrappeBulkActions";
 export { useListRealtime } from "./list/realtime";
 
 // 0.4.0 — record (A4): workflow actions, assignment, timeline, status. docs/CONTRACT-0.4.md

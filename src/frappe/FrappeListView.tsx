@@ -13,7 +13,9 @@ import { useFrappeClient } from "./FrappeProvider";
 import { useLocale } from "../theme/ThemeProvider";
 import { usePermissions } from "./hooks/usePermissions";
 import { useFrappeList, type FrappeListOptions } from "./useFrappeList";
-import { FrappeBulkActions, type FrappeBulkOptions } from "./list/FrappeBulkActions";
+import { FrappeBulkActions, useFrappeBulkActions, type FrappeBulkOptions } from "./list/FrappeBulkActions";
+import type { FrappeListMeta } from "./meta";
+import type { BulkAction } from "../list/parts/ListFooter";
 import { useListRealtime } from "./list/realtime";
 import type { RealtimePort } from "./contract";
 import { createFrappeSavedFilters, createFrappeUserSettings } from "./list/storage";
@@ -52,6 +54,11 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    * only when `permissions` allow it (Export always). Turns `selectable` on. Runs next to the app's own `bulkActions`.
    * `bulk.print` passes the site's Print Settings and a background-print task subscriber; `bulk.hasWorkflow` defaults to
    * the DocType's active Workflow (`__workflow_docs`).
+   *
+   * With `selectionMode="header"` (Desk's own layout, list_view.js:590-598, 1613-1634) the same actions are the items of the
+   * toolbar's Actions menu that replaces `primaryAction` while rows are selected — no bar row; the workflow's actions are
+   * asked from the server each time the menu opens, and Assign To opens Desk's dialog (Assign to me, users, Complete By,
+   * Priority, Comment). The default stays "bar" (0.4.x).
    */
   bulk?: FrappeBulkOptions;
   /** Offers "Create your first {DocType}" in the empty list (Desk: only when the user may create). */
@@ -146,14 +153,17 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   // key → document name of every row shown so far (selection survives paging); reset per DocType
   const effectiveRowKey = (rowKey ?? data.rowKey) as (row: T) => string;
   const nameByKey = React.useMemo(() => new Map<string, string>(), [doctype]); // eslint-disable-line react-hooks/exhaustive-deps
+  const rowByKey = React.useMemo(() => new Map<string, T>(), [doctype]); // eslint-disable-line react-hooks/exhaustive-deps
   for (const r of (data.rows ?? []) as T[]) {
     const n = (r as { name?: unknown }).name;
     if (n !== undefined && n !== null && n !== "") nameByKey.set(effectiveRowKey(r), String(n));
+    rowByKey.set(effectiveRowKey(r), r);
   }
   // bulk gates: the user's rights on the DocType (Desk's `frm.perm`); the `permissions` prop overrides
   const perms = usePermissions(f.bundle);
   const { t, language } = useLocale();
-  const [selectedCount, setSelectedCount] = React.useState(0);
+  const [selectedKeys, setSelectedKeys] = React.useState<string[]>([]);
+  const selectedCount = selectedKeys.length;
   const [bulkBusy, setBulkBusy] = React.useState(false);
   const [bulkMessage, setBulkMessage] = React.useState("");
   useListRealtime({ port: realtime, doctype, enabled: !f.settings?.disable_auto_refresh, isLargeTable: f.meta?.isLargeTable, suppressed: selectedCount > 0 || bulkBusy, debounceMs: realtimeDebounceMs });
@@ -212,6 +222,19 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       );
     };
   }, [bulk, perms, f.meta, f.bundle, f.settings, c, doctype, rest.renderBulkActions, showExport, L.exportEntry, session?.roles, nameByKey, t]);
+  // Desk's header mode: the same actions as data for the ListView's Actions menu (selection keys → document names)
+  const header = rest.selectionMode === "header";
+  const clearRef = React.useRef<() => void>(() => {});
+  const sel = documentNamesForKeys(selectedKeys, nameByKey);
+  const hb = useFrappeBulkActions<T>({
+    client: c, meta: f.meta ?? EMPTY_LIST_META, doctype, keys: sel.names, rows: selectedKeys.map((k) => rowByKey.get(k)).filter((r): r is T => r !== undefined),
+    docMeta: f.bundle?.meta, roles: session?.roles, clear: () => clearRef.current(), onBusy: setBulkBusy, onMessage: setBulkMessage,
+    onExport: showExport ? () => setExporting({ names: sel.names }) : undefined, exportLabel: L.exportEntry,
+    options: { allowEdit: !!f.settings?.allow_edit, ...bulk, hasWorkflow: bulk?.hasWorkflow ?? !!perms.workflow, permissions: bulk ? (bulk.permissions ?? ((p) => perms.can(p))) : undefined },
+  });
+  const headerActions: BulkAction<T>[] | undefined = header && f.meta && (bulk || showExport)
+    ? [...hb.actions.map((a) => (sel.missing.length ? { ...a, disabled: () => t("listBulkUnresolved") } : a)), ...(rest.bulkActions ?? [])]
+    : rest.bulkActions;
   const server = typeof serverStorage === "object" ? serverStorage : serverStorage ? {} : null;
   const storage = React.useMemo(() => {
     if (rest.storage !== undefined || !server || !f.ready) return rest.storage;
@@ -235,12 +258,16 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       emptyAction={rest.emptyAction ?? (onCreate ? { label: t("listCreateFirst").replace("{doctype}", doctype), onClick: onCreate } : undefined)}
       selectable={rest.selectable ?? (bulk ? true : undefined)}
       toolbarActions={menuNode || rest.toolbarActions ? <>{rest.toolbarActions}{menuNode}</> : undefined}
-      renderBulkActions={renderBulk}
-      onSelectionChange={(k) => { setSelectedCount(k.length); rest.onSelectionChange?.(k); }}
+      renderBulkActions={header ? (ctx) => { clearRef.current = ctx.clear; return rest.renderBulkActions?.(ctx); } : renderBulk}
+      bulkActions={headerActions}
+      renderActionsMenu={header && hb.workflowMenu ? (ctx) => <>{hb.workflowMenu}{rest.renderActionsMenu?.(ctx)}</> : rest.renderActionsMenu}
+      onActionsOpenChange={header ? (o) => { hb.onMenuOpenChange(o); rest.onActionsOpenChange?.(o); } : rest.onActionsOpenChange}
+      onSelectionChange={(k) => { setSelectedKeys(k); rest.onSelectionChange?.(k); }}
       {...data}
       like={likeConfig}
       rowKey={rowKey ?? data.rowKey}
     />
+    {header && hb.dialogs}
     {bulkMessage && <p className="mt-2 text-sm text-muted-foreground" role="status">{bulkMessage}</p>}
     {f.bundle && exporting && (
       <FrappeExportDialog api={api} bundle={f.bundle} open onOpenChange={(o) => !o && setExporting(null)} selectedNames={exporting.names}
@@ -252,6 +279,10 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
     </>
   );
 }
+
+/** Placeholder until the DocType's meta is known (no editable fields, not submittable): nothing but Export is offered. */
+const EMPTY_LIST_META = { doctype: "", isSubmittable: false, isLargeTable: false, states: [], childOf: new Map(), editable: [], fieldDefs: {}, hasField: () => false,
+  titleField: "name", searchFields: [], defaultOrderBy: "modified desc", filterFields: [], columns: [], quickFilterFields: [], known: new Set<string>() } as unknown as FrappeListMeta;
 
 /** `_liked_by` is a JSON list of user ids (desk/like.py); anything else counts as nobody. */
 function likedBy(row: unknown): string[] {

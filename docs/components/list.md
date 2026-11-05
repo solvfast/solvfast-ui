@@ -45,6 +45,7 @@ Works without a provider too (it creates one with the default same-origin client
 | `urlFilters` | **Opt-in** filters in the page URL, Desk's format (`?status=Open&priority=["!=","Low"]`; section 4a): `true`, or `{ read, write, routeOptions? }`. |
 | `formatContext` | `FormatContext` for `formatValue` (number/date formats, currencies). Default: the provider's `formatContext`. |
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
+| `selectionMode` / `primaryAction` | 0.4.1: `"header"` = Desk's own selection layout (`list_view.js:590-598, 1613-1634`): no bar row — the header shows "{n} items selected" + Clear, and `primaryAction` (your "Add {DocType}" button) gives way to an **Actions** menu with the `bulk` actions in Desk's order, the workflow's actions appended (asked on every opening) and Assign To as Desk's dialog (`AssignDialog`: Assign to me, users, Complete By, Priority, Comment → `add_multiple`). Default `"bar"` (unchanged). `useFrappeBulkActions` returns the same actions as data. |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
 | `realtime` / `realtimeDebounceMs` | Reload on `list_update` (section 7). |
 | `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right, as Desk's `list_view.js:1703`) and **Export** (always, as Desk — the server refuses without the right). `onImport` replaces the default navigation to Desk's Data Import **list** filtered on the DocType (`/app/data-import?reference_doctype=…`, Desk's `set_route("list","data-import",{reference_doctype})`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `menu={{ reportExport: true }}` adds the opt-in "Export as report" (`export_query`, gated by `canExport` — Desk's List View has no such entry, Phase 27.5); `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
@@ -348,6 +349,17 @@ with the search, filter query, sort, page and visible columns. Props worth knowi
 `filterFields`, `quickFilterFields`, `groupByOptions`, `rowActions`, `bulkActions` / `renderBulkActions`, `controls`, `toolbarActions`, `belowToolbar`, `emptyMessage`, `loading`/`error`/`onRetry`,
 `totalLabel`/`hasMore`/`onTotalClick` (capped or hidden totals), `onSelectionChange`, `storage` (`{ prefs, saved }` adapters; default localStorage), `loadOptions` (link search).
 Custom cells can use `useListActions().applyCondition(field, operator, value)` to filter the list they are in.
+
+**Selection layout (0.4.1).** `selectionMode="bar"` (default, unchanged) shows the bulk bar above the table. `selectionMode="header"` is Frappe Desk's: no extra row; while rows are selected the table header shows "{n} items selected" with a Clear button instead of the column titles, and the toolbar's `primaryAction` (e.g. New) is replaced by an **Actions** menu built from `bulkActions` (+ `renderActionsMenu` items; `onActionsOpenChange`, `actionsLabel`). Shift-click checks a range (Desk `list_view.js:1400-1421`). A `BulkAction` may set `tone: "destructive"`, `hidden(ctx)`, `disabled(ctx)` (a string is the reason shown with the item), `confirm` (AlertDialog first; a function gets the selection) and `group` (a separator between groups); `run(keys, rows)` gets exactly the selected keys. `ListActionsMenu`, `useBulkActionRunner` and `resolveBulkActions` are exported for custom toolbars. `onSelectionChange` fires on every change of the selected set (0.4.0: only when its size changed).
+
+```tsx
+<ListView rows={rows} columns={columns} rowKey={(r) => r.id} selectable selectionMode="header"
+  primaryAction={<Button onClick={create}>New Deal</Button>}
+  bulkActions={[
+    { key: "export", label: "Export", run: (keys) => exportRows(keys) },
+    { key: "delete", label: "Delete", tone: "destructive", group: "z", confirm: (c) => ({ title: `Delete ${c.keys.length}?` }), run: (keys) => remove(keys) },
+  ]} />
+```
 
 ---
 

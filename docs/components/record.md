@@ -88,7 +88,7 @@ text is escaped, newlines become `<br>`. `draftToHtml` / `htmlToDraft` convert b
 mention attributes and images. This one keeps `span.mention[data-id][data-is-group]`, safe `href` / `img src` (http(s), mailto, relative,
 `data:image`), and nothing else. It parses inertly (`DOMParser`). It is exported from `src/record` only, not from the core entry.
 
-### 2.4 `AssigneeGroup` and `AssignPicker`
+### 2.4 `AssigneeGroup`, `AssignPicker` and `AssignDialog`
 
 `AssigneeGroup` props: `assignees`, `onAssign(users, details)`, `onRemove(assignee)`, `canRemove(assignee)` (default: nobody),
 `variant` (`"avatars"` stacked, Desk-like, or `"list"` named rows), `maxVisible` (default 4, then `+n`), `loading`, `heading`, `labels`,
@@ -98,6 +98,12 @@ plus the picker props below. Without `onAssign` there is no add button. `onRemov
 assigned: shown ticked and not selectable, because the server would report them as duplicates), `me` (enables "Assign to me"), `single`,
 `withDetails` (comment, "Complete by" date and priority as in Desk's dialog — DS `Textarea`, `DateField` and `Select` with visible labels and
 hints; left empty, nothing is sent and the server uses today and Medium, `assign_to.py:73-90`), `trigger`, `disabled`, `disabledReason`, `labels`.
+
+`AssignDialog` (0.4.1) is Desk's Assign To dialog as a DS `Dialog` (`form/sidebar/assign_to.js:87-240`) for one or many records: `open` /
+`onOpenChange`, `searchUsers`, `onAssign(users, details)` (a rejection keeps it open with the error), `me` ("Assign to me" — also with `single`,
+where it picks the user as the one assignee), `single` (one user; a hint says it replaces the current assignee), `count` ("{n} records
+selected"), `existing` (current assignees, read-only), `details` (`true` or `{ description, date, priority }` — show only what the host can
+store), `note`, `labels`. `FrappeListView`'s header mode uses it with every detail (→ `assign_to.add_multiple`).
 Search is debounced (250 ms) and keyboard driven (combobox/listbox, arrows + Enter). `labels`: `assignedTo, none, add, search, toMe,
 confirm, description, due, priority, low, medium, high, remove ("Remove {0}"), noMatches, cancel, dueHint, priorityHint, priorityDefault, clearDate`.
 
