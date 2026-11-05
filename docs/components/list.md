@@ -354,7 +354,7 @@ Custom cells can use `useListActions().applyCondition(field, operator, value)` t
 
 ```tsx
 <ListView rows={rows} columns={columns} rowKey={(r) => r.id} selectable selectionMode="header"
-  primaryAction={<Button onClick={create}>New Deal</Button>}
+  primaryAction={<Button onClick={create}>New</Button>}
   bulkActions={[
     { key: "export", label: "Export", run: (keys) => exportRows(keys) },
     { key: "delete", label: "Delete", tone: "destructive", group: "z", confirm: (c) => ({ title: `Delete ${c.keys.length}?` }), run: (keys) => remove(keys) },

@@ -6,7 +6,7 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-### Added (0.4.1-dev — not released)
+### Added (dev builds 0.4.1-dev.1 … dev.2; proposed release version 0.5.0 — additive API and an opt-in visual mode = minor per the policy above; not released)
 - **Desk's selection layout for the List View** (Frappe 15.110 `list_view.js:590-598, 1613-1634, 1855-2127`): `ListView` /
   `FrappeListView` `selectionMode="header"` — no bar row; the header shows "{n} items selected" + Clear; the toolbar's new
   `primaryAction` gives way to an **Actions** menu (`ListActionsMenu`) while rows are selected. Default `"bar"`: no change for
@@ -20,7 +20,7 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ### Fixed
 - `ListView.onSelectionChange` fired only when the NUMBER of selected rows changed: unchecking A and checking B in one update
-  left a host that mirrors the selection (the CRM does) with A — and its bulk action on the wrong record. It now fires on
+  left a host that mirrors the selection with A — and its bulk action on the wrong record. It now fires on
   every change of the selected set.
 
 ## [0.4.0] — 2026-11-04
