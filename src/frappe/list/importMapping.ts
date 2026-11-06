@@ -16,107 +16,20 @@ import type { MetaBundle, DocTypeMeta, FrappeDocField } from "../contract";
 import { NO_VALUE_TYPES, TABLE_TYPES } from "../form/model";
 import type { DataImportStatus, ImportLogRow, ImportPreview, ImportPreviewColumn, ImportType, ImportWarning } from "./import";
 
-/** The mapper's "Don't Import" value — the literal the server tests (`importer.py:884, 926`). */
-export const DONT_IMPORT = "Don't Import";
+/** The mapper's "Don't Import" value — the literal the server tests (`importer.py:884, 926`). Core's. */
+export { DONT_IMPORT } from "../../list/io/ImportParts";
+import { DONT_IMPORT } from "../../list/io/ImportParts";
+import type { GroupedImportWarnings as CoreGroupedImportWarnings, ImportFieldOption as CoreImportFieldOption } from "../../list/io/ImportParts";
 /** The preview's first column (`importer.py:483`): the file's row number, never imported. */
 export const SR_NO = "Sr. No";
 /** Desk shows the import log only below this many log rows, else "Export Import Log" (`data_import.js:519-528`). */
 export const IMPORT_LOG_TABLE_LIMIT = 5000;
 
-// ---- labels ---------------------------------------------------------------------------------------------------------
+// ---- labels (Core: list/io/importLabels) ------------------------------------------------------------------------------
 
-/** Every string of the Data Import components. `{0}`, `{1}` are filled in order (Desk's `__("…{0}…", [a])`). */
-export interface DataImportLabels {
-  title: string; importType: string; insertNew: string; updateExisting: string; submitAfterImport: string; muteEmails: string;
-  downloadTemplate: string; importFile: string; chooseAnotherFile: string; fileHint: string; upload: string; uploading: string; loadingPreview: string;
-  stepUpload: string; stepPreview: string; stepImport: string; stepResult: string; steps: string;
-  preview: string; srNo: string; untitledColumn: string; skipped: string; mappedTo: string; showingFirst: string; noData: string; noPreview: string; imported: string;
-  warnings: string; row: string; column: string; info: string;
-  mapColumns: string; mapHeading: string; dontImport: string; searchFields: string; noFields: string; saveMapping: string; savingMapping: string; cancel: string;
-  startImport: string; retry: string; starting: string; alreadyQueued: string;
-  inProgress: string; queued: string; importProgress: string; importingOf: string; updatingOf: string; skippingOf: string; secondsRemaining: string; minuteRemaining: string; minutesRemaining: string; countsSoFar: string;
-  stoppedByWarnings: string;
-  statusPending: string; statusSuccess: string; statusPartialSuccess: string; statusError: string; statusTimedOut: string;
-  resultInserted1: string; resultInserted: string; resultUpdated1: string; resultUpdated: string;
-  resultInsertedPartial1: string; resultInsertedPartial: string; resultUpdatedPartial1: string; resultUpdatedPartial: string;
-  timedOut: string; errorNoLog: string;
-  exportErroredRows: string; exportImportLog: string; importLog: string; rowNumber: string; status: string; message: string; success: string; failure: string;
-  importedDoc: string; updatedDoc: string; showTraceback: string; hideTraceback: string; showFailedOnly: string; noFailedLogs: string;
-  goToList: string; importAnother: string; close: string; createRefused: string; downloading: string;
-  /** The file picker's button and its empty state (p275: replaces the browser's untranslated "Choose File / No file chosen"). */
-  chooseFile?: string; noFileChosen?: string;
-}
-
-export const DATA_IMPORT_LABELS_EN: DataImportLabels = {
-  title: "Data Import", importType: "Import Type", insertNew: "Insert New Records", updateExisting: "Update Existing Records",
-  submitAfterImport: "Submit After Import", muteEmails: "Don't Send Emails",
-  downloadTemplate: "Download Template", importFile: "Import File", chooseAnotherFile: "Choose another file", fileHint: "CSV, XLS or XLSX", upload: "Upload and Preview", uploading: "Uploading…",
-  loadingPreview: "Loading import file...",
-  stepUpload: "Upload", stepPreview: "Preview", stepImport: "Import", stepResult: "Result", steps: "Import steps",
-  preview: "Preview", srNo: "Sr. No", untitledColumn: "Untitled Column", skipped: "Not imported", mappedTo: "→ {0}",
-  showingFirst: "Showing only first {0} rows out of {1}", noData: "No Data", noPreview: "The server returned no preview for this file.", imported: "Imported",
-  warnings: "Import File Errors and Warnings", row: "Row {0}", column: "Column {0}", info: "Info",
-  mapColumns: "Map Columns", mapHeading: "Map columns from {0} to fields in {1}", dontImport: "Don't Import", searchFields: "Search fields",
-  noFields: "No matching field", saveMapping: "Save Mapping", savingMapping: "Saving…", cancel: "Cancel",
-  startImport: "Start Import", retry: "Retry", starting: "Starting…", alreadyQueued: "An import of this file is already queued on the server.",
-  inProgress: "In Progress", queued: "Queued — waiting for the server to start the import…", importProgress: "Import Progress",
-  importingOf: "Importing {0} of {1}", updatingOf: "Updating {0} of {1}", skippingOf: "Skipping {0} of {1}",
-  secondsRemaining: "About {0} seconds remaining", minuteRemaining: "About {0} minute remaining", minutesRemaining: "About {0} minutes remaining",
-  countsSoFar: "{0} imported, {1} failed, of {2}",
-  stoppedByWarnings: "The server did not import anything: the file has the warnings below. Fix the file and upload it again, or map the columns, then start the import.",
-  statusPending: "Pending", statusSuccess: "Success", statusPartialSuccess: "Partial Success", statusError: "Error", statusTimedOut: "Timed Out",
-  resultInserted1: "Successfully imported 1 record.", resultInserted: "Successfully imported {0} records.",
-  resultUpdated1: "Successfully updated 1 record.", resultUpdated: "Successfully updated {0} records.",
-  resultInsertedPartial1: "Successfully imported {0} record out of {1}. Click on Export Errored Rows, fix the errors and import again.",
-  resultInsertedPartial: "Successfully imported {0} records out of {1}. Click on Export Errored Rows, fix the errors and import again.",
-  resultUpdatedPartial1: "Successfully updated {0} record out of {1}. Click on Export Errored Rows, fix the errors and import again.",
-  resultUpdatedPartial: "Successfully updated {0} records out of {1}. Click on Export Errored Rows, fix the errors and import again.",
-  timedOut: "Import timed out, please re-try.", errorNoLog: "The import failed on the server before any row was logged.",
-  exportErroredRows: "Export Errored Rows", exportImportLog: "Export Import Log", importLog: "Import Log", rowNumber: "Row Number", status: "Status",
-  message: "Message", success: "Success", failure: "Failure", importedDoc: "Successfully imported {0}", updatedDoc: "Successfully updated {0}",
-  showTraceback: "Show Traceback", hideTraceback: "Hide Traceback", showFailedOnly: "Show Only Failed Logs", noFailedLogs: "No failed logs",
-  goToList: "Go to {0} List", importAnother: "Import another file", close: "Close",
-  createRefused: "The server refused to create the Data Import. In Frappe core only the System Manager role may create Data Import documents.",
-  downloading: "Downloading…",
-  chooseFile: "Choose File", noFileChosen: "No file chosen",
-};
-
-export const DATA_IMPORT_LABELS_AR: DataImportLabels = {
-  title: "استيراد البيانات", importType: "نوع الاستيراد", insertNew: "إدراج سجلات جديدة", updateExisting: "تحديث السجلات الموجودة",
-  submitAfterImport: "اعتماد بعد الاستيراد", muteEmails: "عدم إرسال رسائل البريد",
-  downloadTemplate: "تنزيل القالب", importFile: "ملف الاستيراد", chooseAnotherFile: "اختيار ملف آخر", fileHint: "CSV أو XLS أو XLSX", upload: "رفع ومعاينة", uploading: "جارٍ الرفع…",
-  loadingPreview: "جارٍ تحميل ملف الاستيراد...",
-  stepUpload: "الرفع", stepPreview: "المعاينة", stepImport: "الاستيراد", stepResult: "النتيجة", steps: "خطوات الاستيراد",
-  preview: "المعاينة", srNo: "م", untitledColumn: "عمود بلا عنوان", skipped: "لن يُستورد", mappedTo: "← {0}",
-  showingFirst: "عرض أول {0} صفوف فقط من {1}", noData: "لا توجد بيانات", noPreview: "لم يُرجع الخادم معاينة لهذا الملف.", imported: "مستورد",
-  warnings: "أخطاء وتحذيرات ملف الاستيراد", row: "الصف {0}", column: "العمود {0}", info: "معلومة",
-  mapColumns: "ربط الأعمدة", mapHeading: "ربط أعمدة {0} بحقول {1}", dontImport: "عدم الاستيراد", searchFields: "ابحث في الحقول",
-  noFields: "لا يوجد حقل مطابق", saveMapping: "حفظ الربط", savingMapping: "جارٍ الحفظ…", cancel: "إلغاء",
-  startImport: "بدء الاستيراد", retry: "إعادة المحاولة", starting: "جارٍ البدء…", alreadyQueued: "يوجد استيراد لهذا الملف في قائمة انتظار الخادم.",
-  inProgress: "قيد التنفيذ", queued: "في قائمة الانتظار — بانتظار أن يبدأ الخادم الاستيراد…", importProgress: "تقدم الاستيراد",
-  importingOf: "استيراد {0} من {1}", updatingOf: "تحديث {0} من {1}", skippingOf: "تخطي {0} من {1}",
-  secondsRemaining: "يتبقى نحو {0} ثانية", minuteRemaining: "يتبقى نحو {0} دقيقة", minutesRemaining: "يتبقى نحو {0} دقائق",
-  countsSoFar: "{0} مستورد، {1} فاشل، من {2}",
-  stoppedByWarnings: "لم يستورد الخادم شيئًا: في الملف التحذيرات أدناه. أصلح الملف وارفعه مجددًا أو اربط الأعمدة، ثم ابدأ الاستيراد.",
-  statusPending: "معلق", statusSuccess: "نجاح", statusPartialSuccess: "نجاح جزئي", statusError: "خطأ", statusTimedOut: "انتهت المهلة",
-  resultInserted1: "تم استيراد سجل واحد بنجاح.", resultInserted: "تم استيراد {0} سجلات بنجاح.",
-  resultUpdated1: "تم تحديث سجل واحد بنجاح.", resultUpdated: "تم تحديث {0} سجلات بنجاح.",
-  resultInsertedPartial1: "تم استيراد {0} سجل من أصل {1} بنجاح. اضغط «تصدير الصفوف الخاطئة»، أصلح الأخطاء ثم استورد مجددًا.",
-  resultInsertedPartial: "تم استيراد {0} سجلات من أصل {1} بنجاح. اضغط «تصدير الصفوف الخاطئة»، أصلح الأخطاء ثم استورد مجددًا.",
-  resultUpdatedPartial1: "تم تحديث {0} سجل من أصل {1} بنجاح. اضغط «تصدير الصفوف الخاطئة»، أصلح الأخطاء ثم استورد مجددًا.",
-  resultUpdatedPartial: "تم تحديث {0} سجلات من أصل {1} بنجاح. اضغط «تصدير الصفوف الخاطئة»، أصلح الأخطاء ثم استورد مجددًا.",
-  timedOut: "انتهت مهلة الاستيراد، يرجى إعادة المحاولة.", errorNoLog: "فشل الاستيراد على الخادم قبل تسجيل أي صف.",
-  exportErroredRows: "تصدير الصفوف الخاطئة", exportImportLog: "تصدير سجل الاستيراد", importLog: "سجل الاستيراد", rowNumber: "رقم الصف", status: "الحالة",
-  message: "الرسالة", success: "نجاح", failure: "فشل", importedDoc: "تم استيراد {0} بنجاح", updatedDoc: "تم تحديث {0} بنجاح",
-  showTraceback: "عرض التتبع", hideTraceback: "إخفاء التتبع", showFailedOnly: "عرض السجلات الفاشلة فقط", noFailedLogs: "لا توجد سجلات فاشلة",
-  goToList: "الانتقال إلى قائمة {0}", importAnother: "استيراد ملف آخر", close: "إغلاق",
-  createRefused: "رفض الخادم إنشاء مستند استيراد البيانات. في نواة Frappe لا يُنشئ مستندات Data Import إلا دور System Manager.",
-  downloading: "جارٍ التنزيل…",
-  chooseFile: "اختيار ملف", noFileChosen: "لم يُختر أي ملف",
-};
-
-/** `__("…{0}…", [a, b])`: positional placeholders. */
-export const fmt = (template: string, ...args: (string | number)[]): string => template.replace(/\{(\d+)\}/g, (m, i: string) => (args[Number(i)] !== undefined ? String(args[Number(i)]) : m));
+export { DATA_IMPORT_LABELS_EN, DATA_IMPORT_LABELS_AR, fmt } from "../../list/io/importLabels";
+export type { DataImportLabels } from "../../list/io/importLabels";
+import { fmt, type DataImportLabels } from "../../list/io/importLabels";
 
 export function statusLabel(status: DataImportStatus | string | undefined, L: DataImportLabels): string {
   switch (status) {
@@ -135,16 +48,7 @@ export function statusTone(status: DataImportStatus | string | undefined): "succ
 
 // ---- the column picker (data_exporter.js:311-357 + import_preview.js:334-358) --------------------------------------
 
-export interface ImportFieldOption {
-  /** What the map stores: the parent's `fieldname`, or `<table fieldname>.<fieldname>` for a child-table field. */
-  value: string;
-  /** `Label`, or `Label (Table Label)` for a child-table field. */
-  label: string;
-  /** Desk's `description: value`. */
-  description: string;
-  /** The DocType the field belongs to (the child DocType for a table field). */
-  doctype: string;
-}
+export type ImportFieldOption = CoreImportFieldOption;
 
 const truthy = (v: unknown) => !!v && v !== "0";
 /** `exportable_fields` (data_exporter.js:314-326): not a no-value type (layout / display / Table), not lft / rgt, not virtual. */
@@ -264,13 +168,7 @@ export function parseRowIndexes(raw: unknown): number[] {
 
 // ---- warnings (data_import.js:333-406) ------------------------------------------------------------------------------
 
-export interface GroupedImportWarnings {
-  /** Row warnings, by row number ascending (`Object.keys` order of Desk's `warnings_by_row`). */
-  rows: { row: number; items: { field: string | null; message: string; type?: string }[] }[];
-  /** The rest; `col` (1-based `column_number`) gives the header `Column {col} (<header>)`. */
-  other: { col: number | null; header: string | null; message: string; type?: string }[];
-  total: number;
-}
+export type GroupedImportWarnings = CoreGroupedImportWarnings;
 
 /**
  * `show_import_warnings`: the document's `template_warnings` (written by a job that refused to run) followed by the
