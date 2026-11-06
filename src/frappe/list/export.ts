@@ -13,12 +13,13 @@ import type { DocPermissions, DocTypeMeta, FrappeDocField, MetaBundle } from "..
 import { NO_VALUE_TYPES, TABLE_TYPES } from "../form/model";
 import type { FrappeFilter } from "../query";
 import { readableFields } from "../services/permissions";
+import { mandatorySelection as coreMandatorySelection, saveBlob, type ExportField, type ExportGroup } from "../../list/io/export";
 
 export const DOWNLOAD_TEMPLATE_METHOD = "frappe.core.doctype.data_import.data_import.download_template";
 
-export type ExportFileType = "CSV" | "Excel";
-/** `export_records` (data_exporter.js:27-44; data_import.py:192, 200). */
-export type ExportRecords = "all" | "by_filter" | "5_records" | "blank_template";
+/** `file_type` / `export_records` (data_exporter.js:27-44; data_import.py:192, 200) — the Core export's types. */
+export type { ExportFileType, ExportRecords } from "../../list/io/export";
+import type { ExportFileType, ExportRecords } from "../../list/io/export";
 /** Data Import's `import_type`; the Exporter's defaults depend on it (data_exporter.js:45-46, 145-148, 279-290). */
 export type ImportType = "Insert New Records" | "Update Existing Records";
 
@@ -51,7 +52,7 @@ export const selectedNamesFilter = (doctype: string, names: string[]): FrappeFil
 
 // ---- The field picker (data_exporter.js:265-357 `get_multicheck_options` / `get_columns_for_picker`) ----------------
 
-export interface ExportPickerField {
+export interface ExportPickerField extends ExportField {
   fieldname: string;
   label: string;
   fieldtype: string;
@@ -60,7 +61,7 @@ export interface ExportPickerField {
   /** Desk's `danger`: pre-selected by "Select Mandatory" — `reqd` when inserting, the `autoname: field:` field, the ID. */
   mandatory: boolean;
 }
-export interface ExportPickerGroup {
+export interface ExportPickerGroup extends ExportGroup {
   /** The key to send in `exportFields`: the DocType name, or the table fieldname for a child table. */
   key: string;
   doctype: string;
@@ -101,29 +102,13 @@ export function exportPickerGroups(bundle: MetaBundle, o: { importType?: ImportT
   return [parent, ...children];
 }
 
-/** Desk's "Select Mandatory" (data_exporter.js:175-198): the `danger` fields of the DocType and of its `reqd` child tables. */
-export function mandatorySelection(groups: ExportPickerGroup[]): Record<string, string[]> {
-  const out: Record<string, string[]> = {};
-  for (const g of groups) if (g.reqd) out[g.key] = g.fields.filter((f) => f.mandatory).map((f) => f.fieldname);
-  return out;
-}
+/** Desk's "Select Mandatory" (data_exporter.js:175-198): the `danger` fields of the DocType and of its `reqd` child tables (Core `mandatorySelection`). */
+export const mandatorySelection: (groups: ExportPickerGroup[]) => Record<string, string[]> = coreMandatorySelection;
 
 /**
  * Hand a downloaded file to the browser (object URL + a click). Returns false where that is impossible (jsdom, no
  * `URL.createObjectURL`); the caller then keeps the blob. Never builds a file: only saves what the server sent.
  */
 export function saveFile(file: DownloadedFile, doc: Document | undefined = typeof document === "undefined" ? undefined : document): boolean {
-  const u = (globalThis as { URL?: { createObjectURL?: (b: Blob) => string; revokeObjectURL?: (u: string) => void } }).URL;
-  if (!doc || !u?.createObjectURL) return false;
-  const url = u.createObjectURL(file.blob);
-  const a = doc.createElement("a");
-  a.href = url;
-  a.download = file.filename;
-  a.rel = "noopener";
-  a.style.display = "none";
-  doc.body.appendChild(a);
-  a.click();
-  doc.body.removeChild(a);
-  setTimeout(() => u.revokeObjectURL?.(url), 0);
-  return true;
+  return saveBlob(file.blob, file.filename, doc);
 }

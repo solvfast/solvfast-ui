@@ -431,6 +431,27 @@ const en = {
   recDisabled: "Disabled",
   recLoadError: "Could not load activity",
 
+  // ---- 0.5.1: Core Export dialog (ExportDialog; FrappeExportDialog renders it) ----
+  exportTitle: "Export Data",
+  exportFileType: "File Type",
+  exportType: "Export Type",
+  exportAll: "All Records",
+  exportByFilter: "Filtered Records",
+  exportSelected: "Selected Records",
+  exportFiveRecords: "5 Records",
+  exportBlankTemplate: "Blank Template",
+  exportSelectAll: "Select All",
+  exportSelectMandatory: "Select Mandatory",
+  exportUnselectAll: "Unselect All",
+  exportMandatory: "(Mandatory)",
+  exportOneRowMandatory: "(1 row mandatory)",
+  exportExport: "Export",
+  exportCancel: "Cancel",
+  exportDownloading: "Downloading…",
+  exportNothingSelected: "Select at least one field to export.",
+  exportFailed: "The export failed.",
+  exportCountSuffix: "({0})",
+
   // ---- end of 0.4.0 blocks ----
 };
 
@@ -860,6 +881,27 @@ const ar: Messages = {
   recEnabled: "مفعّل",
   recDisabled: "معطّل",
   recLoadError: "تعذّر تحميل النشاط",
+
+  // ---- 0.5.1: Core Export dialog ----
+  exportTitle: "تصدير البيانات",
+  exportFileType: "نوع الملف",
+  exportType: "نوع التصدير",
+  exportAll: "كل السجلات",
+  exportByFilter: "السجلات المصفّاة",
+  exportSelected: "السجلات المحددة",
+  exportFiveRecords: "5 سجلات",
+  exportBlankTemplate: "قالب فارغ",
+  exportSelectAll: "تحديد الكل",
+  exportSelectMandatory: "تحديد الإلزامي",
+  exportUnselectAll: "إلغاء تحديد الكل",
+  exportMandatory: "(إلزامي)",
+  exportOneRowMandatory: "(صف واحد إلزامي)",
+  exportExport: "تصدير",
+  exportCancel: "إلغاء",
+  exportDownloading: "جارٍ التنزيل…",
+  exportNothingSelected: "اختر حقلاً واحداً على الأقل للتصدير.",
+  exportFailed: "فشل التصدير.",
+  exportCountSuffix: "({0})",
 
   // ---- end of 0.4.0 blocks ----
 };

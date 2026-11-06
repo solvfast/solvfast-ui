@@ -170,3 +170,9 @@ export { stripIsolates } from "./record/format";
 // 0.4.0 — nested-set filter operators (Frappe filter.js:32-36)
 export { NESTED_SET_OPERATORS, NESTED_SET_LABEL, isNestedSetOperator, operatorLabel } from "./list/model/filters";
 export type { NestedSetOperator } from "./list/model/filters";
+
+// 0.5.1 — Core Export / Import (the Design System's Export Data dialog and Data Import tool, without a backend)
+export { ExportDialog, useExportDialogLabels } from "./list/io/ExportDialog";
+export type { ExportDialogProps, ExportDialogLabels } from "./list/io/ExportDialog";
+export { mandatorySelection, orderedSelection, buildCsv, parseCsv, saveBlob } from "./list/io/export";
+export type { ExportFileType, ExportRecords, ExportField, ExportGroup, ExportRequest } from "./list/io/export";
