@@ -24,6 +24,8 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 ### Changed (no API change)
 - `FrappeExportDialog` renders the Core `ExportDialog` (same props, same `download_template` request); its labels now
   default to the catalogue (Arabic under `language: "ar"`), and an empty selection shows "Select at least one field".
+- A host re-render with new-but-equal `groups` / adapter no longer resets the user's picks in `ExportDialog` or the
+  unsaved column mapping in `DataImportDialog` (reset only on open or a structural change).
 - Phone widths: the Export / Data Import dialogs (Core and `FrappeDataImport`) keep their content inside the dialog
   (`grid-cols-[minmax(0,1fr)]`): a wide preview grid scrolls horizontally instead of widening the dialog past the screen.
 - `FrappeImportPreview`, `FrappeImportWarnings`, `FrappeColumnMapping` render the Core views; `FrappeDataImport` keeps its

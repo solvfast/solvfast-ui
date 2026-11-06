@@ -94,20 +94,25 @@ export function ExportDialog({
   const L = useExportDialogLabels(labels);
   const hasSelection = !!selectedCount;
   const initialRecords: ExportRecords = defaultRecords ?? (hasSelection ? "by_filter" : "all");
-  // `defaultSelection` is read when the dialog (re)opens or the groups change — a new object per render never resets the picks
+  // The picks are reset when the dialog opens or the groups change STRUCTURALLY (keys / fields) — never because a host
+  // re-render handed new-but-equal `groups` / `defaultSelection` objects (that would wipe what the user checked).
+  const groupsRef = React.useRef(groups);
+  groupsRef.current = groups;
   const defaultSelectionRef = React.useRef(defaultSelection);
   defaultSelectionRef.current = defaultSelection;
-  const initialChecked = React.useCallback((): Record<string, string[]> => {
-    const base = mandatorySelection(groups);
+  const groupsSig = groups.map((g) => `${g.key}\u0001${g.reqd ? 1 : 0}\u0001${g.fields.map((f) => `${f.fieldname}:${f.mandatory ? 1 : 0}`).join(",")}`).join("\u0002");
+  const initialChecked = (): Record<string, string[]> => {
+    const gs = groupsRef.current;
+    const base = mandatorySelection(gs);
     const extraSel = defaultSelectionRef.current;
     if (!extraSel) return base;
     const out: Record<string, string[]> = { ...base };
-    for (const g of groups) {
+    for (const g of gs) {
       const extra = (extraSel[g.key] ?? []).filter((f) => g.fields.some((x) => x.fieldname === f));
       if (extra.length) out[g.key] = [...new Set([...(out[g.key] ?? []), ...extra])];
     }
     return out;
-  }, [groups]);
+  };
   const [fileType, setFileType] = React.useState<ExportFileType>(defaultFileType);
   const [records, setRecords] = React.useState<ExportRecords>(initialRecords);
   const [checked, setChecked] = React.useState<Record<string, string[]>>(initialChecked);
@@ -116,7 +121,7 @@ export function ExportDialog({
   React.useEffect(() => {
     if (open) { setChecked(initialChecked()); setError(null); setRecords(initialRecords); setFileType(defaultFileType); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialChecked, initialRecords]);
+  }, [open, groupsSig, initialRecords]);
 
   const locked = (g: ExportGroup, fieldname: string) => lockMandatory && g.reqd && g.fields.some((f) => f.fieldname === fieldname && f.mandatory);
   const lockedOf = (g: ExportGroup) => (lockMandatory && g.reqd ? g.fields.filter((f) => f.mandatory).map((f) => f.fieldname) : []);

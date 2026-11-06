@@ -114,6 +114,16 @@ export function DataImportDialog({ adapter, description, open, onOpenChange, pre
     return m;
   }, [validation]);
 
+  // the mapper's inputs, memoised on the file / mapping / fields' STRUCTURE: a host re-render (a new-but-equal adapter)
+  // must not reset the picks the user has not saved yet
+  const fieldsSig = adapter.fields.map((f) => `${f.key}\u0001${f.label}\u0001${f.description ?? ""}`).join("\u0002");
+  const fieldsRef = React.useRef(adapter.fields);
+  fieldsRef.current = adapter.fields;
+  const mapColumns = React.useMemo(() => (parsed ? parsed.headers.map((h, j) => ({ index: j + 1, header: h })) : []), [parsed]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const mapOptions = React.useMemo(() => fieldsRef.current.map((f) => ({ value: f.key, label: f.label, description: f.description ?? f.key, doctype: "" })), [fieldsSig]);
+  const mapInitial = React.useMemo(() => (parsed ? Object.fromEntries(parsed.headers.map((_, j) => [j + 1, map[j] ?? DONT_IMPORT])) : {}), [parsed, map]);
+
   const errorMessage = (e: unknown) => (e instanceof Error && e.message ? e.message : typeof e === "string" ? e : String(e));
 
   const upload = async () => {
@@ -255,9 +265,9 @@ export function DataImportDialog({ adapter, description, open, onOpenChange, pre
       {phase === "mapping" && parsed && (
         <div className="space-y-3" data-import-step="mapping">
           <ColumnMappingForm
-            columns={parsed.headers.map((h, j) => ({ index: j + 1, header: h }))}
-            options={adapter.fields.map((f) => ({ value: f.key, label: f.label, description: f.description ?? f.key, doctype: "" }))}
-            initial={Object.fromEntries(parsed.headers.map((_, j) => [j + 1, map[j] ?? DONT_IMPORT]))}
+            columns={mapColumns}
+            options={mapOptions}
+            initial={mapInitial}
             heading={fmt(L.mapHeading, file?.name ?? "", typeof description === "string" ? description : "")}
             labels={L}
             onCancel={() => setPhase("preview")}

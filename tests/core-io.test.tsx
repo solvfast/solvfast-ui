@@ -92,6 +92,21 @@ describe("ExportDialog (Core)", () => {
     expect(close).not.toHaveBeenCalled();
   });
 
+  it("a host re-render with new-but-equal groups keeps the user's picks (reset only on open / a structural change)", () => {
+    const clone = () => GROUPS.map((g) => ({ ...g, fields: g.fields.map((f) => ({ ...f })) }));
+    const ui = (groups: ExportGroup[]) => <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><ExportDialog open onOpenChange={() => {}} groups={groups} onExport={() => {}} defaultSelection={{ contacts: ["email"] }} /></ThemeProvider>;
+    const { rerender } = render(ui(clone()));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Contacts: Phone" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Contacts: Email" }));
+    rerender(ui(clone()));
+    expect(screen.getByRole("checkbox", { name: "Contacts: Phone" }).getAttribute("data-state")).toBe("checked");
+    expect(screen.getByRole("checkbox", { name: "Contacts: Email" }).getAttribute("data-state")).toBe("unchecked");
+    const changed = clone(); changed[0].fields.push({ fieldname: "city", label: "City", reqd: false, mandatory: false });
+    rerender(ui(changed));
+    expect(screen.getByRole("checkbox", { name: "Contacts: Phone" }).getAttribute("data-state")).toBe("unchecked");
+    expect(screen.getByRole("checkbox", { name: "Contacts: Email" }).getAttribute("data-state")).toBe("checked");
+  });
+
   it("Arabic from the catalogue, right-to-left", () => {
     wrap(<ExportDialog open onOpenChange={() => {}} groups={GROUPS} onExport={() => {}} />, "ar");
     const dialog = screen.getByRole("dialog");
@@ -183,6 +198,20 @@ describe("DataImportDialog (Core)", () => {
     await waitFor(() => expect(document.querySelector("[data-import-step=preview]")).toBeTruthy());
     expect(screen.queryByText("Mandatory field Name is not mapped to any column.")).toBeNull();
     expect(document.querySelector("[data-count-ready]")!.getAttribute("data-count-ready")).toBe("1");
+  });
+
+  it("Map Columns: a host re-render (new-but-equal adapter) keeps an unsaved pick", async () => {
+    const ui = () => <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><DataImportDialog adapter={adapterOf()} /></ThemeProvider>;
+    const { rerender } = render(ui());
+    choose(csvFile("Full name,Email\nBob,b@x.io\n"));
+    fireEvent.click(screen.getByRole("button", { name: "Upload and Preview" }));
+    await screen.findByText("contacts.csv: 1 rows, 2 columns");
+    fireEvent.click(screen.getByRole("button", { name: "Map Columns" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Full name" }));
+    fireEvent.click(await screen.findByRole("option", { name: /^Name/ }));
+    expect(screen.getByRole("combobox", { name: "Full name" }).getAttribute("data-value")).toBe("name");
+    rerender(ui());
+    expect(screen.getByRole("combobox", { name: "Full name" }).getAttribute("data-value")).toBe("name");
   });
 
   it("a run that is available: progress, then the result from the run's counts (Partial Success, failed rows)", async () => {
