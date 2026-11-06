@@ -17,6 +17,7 @@ const shell = () => import("./pages/shell");
 const merged = () => import("./pages/merged");
 const chart = () => import("./pages/chart");
 const frappe = () => import("./pages/frappe");
+const io = () => import("./pages/io");
 
 /** Navigation, grouped as on the Design System site. Section bodies load per module, when a section is first opened. */
 export const GROUPS: Group[] = [
@@ -56,6 +57,7 @@ export const GROUPS: Group[] = [
     { id: "list-features", title: l("List View features", "ميزات عرض القائمة"), description: l("Selection and bulk actions, group-by, sort menu, quick filters, row actions and row styles — all opt-in.", "التحديد والإجراءات الجماعية والتجميع وقائمة الفرز والتصفية السريعة وإجراءات الصفوف وتنسيقها — كلها اختيارية."), Component: from(data, "ListFeaturesPage") },
     { id: "list-states", title: l("List View states", "حالات عرض القائمة"), description: l("Loading, empty and error.", "التحميل والفراغ والخطأ."), Component: from(data, "ListStatesPage") },
     { id: "filters", title: l("Filters", "التصفية"), description: l("The filter builder on its own, and the filter model behind it.", "منشئ التصفية وحده، ونموذج التصفية خلفه."), Component: from(data, "FiltersPage") },
+    { id: "export-import", title: l("Export & Import", "التصدير والاستيراد"), description: l("ExportDialog and DataImportDialog from the core entry: the Design System's Export Data dialog and Data Import tool behind an adapter — no Frappe server.", "‏ExportDialog و DataImportDialog من المدخل الأساسي: حوار تصدير البيانات وأداة الاستيراد في نظام التصميم خلف محوّل — بلا خادم فرابيه."), Component: from(io, "CoreIoPage") },
     { id: "frappe-list", title: l("Frappe List View", "عرض قائمة فرابيه"), description: l("FrappeListView on a simulated Frappe site (no network).", "‏FrappeListView على موقع فرابيه محاكى (دون شبكة)."), Component: from(data, "FrappePage") },
   ] },
   { id: "overlays", title: l("Feedback & overlays", "التغذية والطبقات"), icon: Bell, pages: [

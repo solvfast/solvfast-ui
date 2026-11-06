@@ -6,6 +6,27 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+### Added (additive; dev builds 0.5.1-dev.N — not released)
+- **Core `ExportDialog`** (core entry): the Design System's Export Data dialog without a backend — File Type, Export Type
+  (All / Filtered or Selected (n) / 5 Records / Blank Template, optional counts), field groups with label, key and
+  "(Mandatory)", Select All / Select Mandatory / Unselect All, `lockMandatory`, `defaultSelection`, validation (nothing
+  selected), loading, error (`renderError`) and success (closes) states; en / ar labels from the message catalogue
+  (`export*` keys). `onExport({ fileType, records, fields })` — the host writes the file. Utilities: `buildCsv`,
+  `parseCsv`, `saveBlob`, `mandatorySelection`, `orderedSelection`.
+- **Core `DataImportDialog`** (core entry): the Data Import tool's steps (Upload → Preview → Import → Result) behind a
+  `DataImportAdapter` (`parse`, `fields` with mandatory / per-value checks / aliases, `duplicates`, `run` or
+  `runUnavailable: reason`, `template` → the Core ExportDialog). Client-side auto-mapping, per-row validation, duplicate
+  detection (existing records and within the file), column mapper, duplicate handling, progress and the run's result —
+  never a success the run did not report. Model: `autoMapColumns`, `validateImport`, `importableRows`,
+  `importPreviewColumns`. Views: `ImportPreviewTable`, `ImportWarningsPanel`, `ColumnMappingForm`. Labels:
+  `DATA_IMPORT_LABELS_EN/AR` (moved to Core, still exported from `/frappe`), `IMPORT_DIALOG_LABELS_EN/AR`.
+
+### Changed (no API change)
+- `FrappeExportDialog` renders the Core `ExportDialog` (same props, same `download_template` request); its labels now
+  default to the catalogue (Arabic under `language: "ar"`), and an empty selection shows "Select at least one field".
+- `FrappeImportPreview`, `FrappeImportWarnings`, `FrappeColumnMapping` render the Core views; `FrappeDataImport` keeps its
+  server orchestration (every step a server request) on those views.
+
 ## [0.5.0] — 2026-11-06
 
 ### Added (additive API and an opt-in visual mode = minor per the policy above; tested as dev builds 0.4.1-dev.1 … dev.2)
