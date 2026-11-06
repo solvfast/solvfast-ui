@@ -323,6 +323,35 @@ const f = useFrappeList({ doctype: "ToDo" });
 - `useFrappeList().reportExport` = `{ fields (visible columns' real fields, `name` first), filters, or_filters, order_by, shownCount, totalCount }`.
 - **Never a client-built file.** In `FrappeListView`'s ⋯ menu only with `menu={{ reportExport: true }}` (opt-in since dev.34).
 
+### 6b. Core `ExportDialog` and `DataImportDialog` (0.5.1-dev, no backend)
+
+The same Export Data dialog and Data Import tool, from the **core** entry, for an app without a Frappe server.
+`FrappeExportDialog` renders `ExportDialog`; `FrappeImportPreview` / `FrappeImportWarnings` / `FrappeColumnMapping`
+render the Core views (`ImportPreviewTable`, `ImportWarningsPanel`, `ColumnMappingForm`). `FrappeDataImport` keeps its
+server orchestration (every step a server request); `DataImportDialog` orchestrates a client-side import.
+
+```tsx
+<ExportDialog open={open} onOpenChange={setOpen}
+  groups={[{ key: "Contact", label: "Contacts", reqd: true, fields }]}   // fields: { fieldname, label, reqd, mandatory }
+  selectedCount={checked.length} counts={{ all: rows.length, by_filter: filtered.length }} lockMandatory
+  onExport={async ({ fileType, records, fields }) => saveBlob(new Blob([buildCsv(headers, data)]), "contacts.csv")} />
+
+<DataImportDialog open={open} onOpenChange={setOpen} description="Contacts" adapter={{
+  fields: [{ key: "email", label: "Email", mandatory: true, aliases: ["البريد"], validate: (v) => isEmail(v) ? null : "Not a valid email" }],
+  parse: async (file) => { const [headers, ...rows] = parseCsv(await file.text()); return { headers, rows }; },
+  duplicates: { identity: (row) => row.email?.toLowerCase(), existing: (id) => byEmail.get(id)?.name },
+  runUnavailable: "importing needs the backend",          // or run: async ({ rows }, onProgress) => ({ success, failed, errors })
+  template: { groups, onExport: writeTemplate },          // "Download Template" → ExportDialog on Blank Template
+}} />
+```
+
+| | |
+|---|---|
+| Export states | fields with label, key, "(Mandatory)"; Select All / Select Mandatory / Unselect All; `lockMandatory`; nothing selected → Export disabled + "Select at least one field to export."; loading ("Downloading…"); a rejected `onExport` → the error in the dialog (`renderError`); resolved → closed. |
+| Import steps | Upload (Import Type, file, Download Template) → Preview ("{file}: {n} rows, {m} columns", warnings by row / column, counts ready / errors / duplicates, duplicate handling, grid with each column's field, Map Columns) → Import (progress) → Result (the run's counts only). `runUnavailable` → Start Import disabled with the reason, nothing imported, no success. |
+| Labels | Export: the catalogue's `export*` keys (en / ar). Import: `DATA_IMPORT_LABELS_EN/AR` + `IMPORT_DIALOG_LABELS_EN/AR`, by the ThemeProvider language; `labels` overrides. |
+| XLSX | not in the package (no dependency): read / write it in the host with a spreadsheet library. |
+
 ## 7. Realtime refresh
 
 ```tsx
