@@ -108,3 +108,13 @@ npm view @solvfast/ui@0.3.0 version dist.tarball      # 0.3.0, a URL on npm.pkg.
 
 `401`/`403` while installing: the token is not exported in that shell, lacks `read:packages`, isn't SSO-authorised,
 or your account has no access to the package.
+
+## Choosing the version (0.x) — worked example: 0.6.0
+
+Before a release, diff the public surface against the last tag: `git diff vX.Y.Z -- src/index.ts src/frappe/index.ts
+package.json` (exports), and the props / behaviour of the components existing consumers use. Patch = no API and no visual
+change; minor = additive API or an intentional visual change; anything removed or renamed is **BREAKING** (minor bump in
+0.x, labelled). Example: the Core ExportDialog / DataImportDialog work after v0.5.0 added exports to the core entry, left
+`/frappe` exports and `package.json` exports unchanged and changed FrappeExportDialog's default labels (language) and the
+dialogs' phone layout on purpose → **0.6.0**, not 0.5.1 (the dev builds were renumbered 0.6.0-dev.N; CHANGELOG
+[Unreleased] records the reasoning). Dev versions never get a tag; the release commit and tag are made only with the owner.

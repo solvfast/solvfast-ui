@@ -13,8 +13,15 @@ export interface ImportField {
   /** Stable key (what the mapping stores and what the run receives). */
   key: string;
   label: string;
-  /** Must be mapped to a column and filled in every row. */
+  /** Must be mapped to a column and filled in every row (for the import types in `requiredOn`). */
   mandatory?: boolean;
+  /** The import types `mandatory` applies to (e.g. a value required when creating but not when updating). Default: both. */
+  requiredOn?: ImportType[];
+  /**
+   * A conditional requirement: the value must be filled in the rows where `test(row)` holds (`label` names the condition,
+   * e.g. "Lead Type is Inbound"); `on` limits it to some import types (default: both). An unmapped field counts as empty.
+   */
+  requiredWhen?: { test: (row: Record<string, string>) => boolean; label: string; on?: ImportType[] };
   /** Other header texts that match this field (another language's label, a legacy name …). */
   aliases?: string[];
   /** Second line in the column picker. Default: the key. */
@@ -84,7 +91,14 @@ export function mapRow(cells: string[], map: ColumnMap): Record<string, string> 
  * row of the file (same identity). Rows with errors are not ready; duplicates are counted separately (the host decides
  * whether they are skipped).
  */
-export function validateImport(file: ParsedImportFile, map: ColumnMap, fields: ImportField[], L: ImportDialogLabels, duplicates?: ImportDuplicateCheck): ImportValidation {
+/** Whether `f` is unconditionally mandatory for this import type. */
+export const isMandatoryFor = (f: ImportField, importType: ImportType): boolean => !!f.mandatory && (!f.requiredOn || f.requiredOn.includes(importType));
+
+export function validateImport(
+  file: ParsedImportFile, map: ColumnMap, fields: ImportField[], L: ImportDialogLabels, duplicates?: ImportDuplicateCheck,
+  importType: ImportType = "Insert New Records",
+): ImportValidation {
+  const insert = importType === "Insert New Records";
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const other: GroupedImportWarnings["other"] = [];
   file.headers.forEach((h, j) => {
@@ -97,7 +111,7 @@ export function validateImport(file: ParsedImportFile, map: ColumnMap, fields: I
     else seenKeys.set(k, j);
   });
   const mapped = new Set(map.filter(Boolean) as string[]);
-  const missingMandatory = fields.filter((f) => f.mandatory && !mapped.has(f.key)).map((f) => f.key);
+  const missingMandatory = fields.filter((f) => isMandatoryFor(f, importType) && !mapped.has(f.key)).map((f) => f.key);
   for (const k of missingMandatory) other.push({ col: null, header: null, message: fmt(L.mandatoryNotMapped, byKey.get(k)!.label), type: "error" });
 
   const firstRowOf = new Map<string, number>();
@@ -106,9 +120,13 @@ export function validateImport(file: ParsedImportFile, map: ColumnMap, fields: I
     const values = mapRow(cells, map);
     const errors: ImportRowCheck["errors"] = [];
     for (const f of fields) {
-      if (!mapped.has(f.key)) continue;
-      const v = values[f.key] ?? "";
-      if (!v) { if (f.mandatory) errors.push({ field: f.label, message: fmt(L.valueMissing, f.label) }); continue; }
+      const v = mapped.has(f.key) ? values[f.key] ?? "" : "";
+      const when = f.requiredWhen && (!f.requiredWhen.on || f.requiredWhen.on.includes(importType)) && f.requiredWhen.test(values);
+      if (!v) {
+        if (mapped.has(f.key) && isMandatoryFor(f, importType)) errors.push({ field: f.label, message: fmt(L.valueMissing, f.label) });
+        else if (when && !isMandatoryFor(f, importType)) errors.push({ field: f.label, message: fmt(L.valueMissingWhen, f.label, f.requiredWhen!.label) });
+        continue;
+      }
       const problem = f.validate?.(v, values);
       if (problem) errors.push({ field: f.label, message: problem });
     }
@@ -116,10 +134,12 @@ export function validateImport(file: ParsedImportFile, map: ColumnMap, fields: I
     const id = duplicates?.identity(values);
     if (id) {
       const existing = duplicates?.existing?.(id);
-      if (existing) duplicate = { message: fmt(L.duplicateOfExisting, existing), existing: true };
+      // Insert: a row matching an existing record is a duplicate. Update: it is the record to update; no match is an error.
+      if (insert && existing) duplicate = { message: fmt(L.duplicateOfExisting, existing), existing: true };
+      else if (!insert && duplicates?.existing && !existing) errors.push({ field: null, message: fmt(L.notFoundForUpdate, id) });
       else if (firstRowOf.has(id)) duplicate = { message: fmt(L.duplicateInFile, firstRowOf.get(id)!), existing: false };
       if (!firstRowOf.has(id)) firstRowOf.set(id, rowNumber);
-    }
+    } else if (!insert && duplicates?.existing) errors.push({ field: null, message: L.noIdentityForUpdate });
     return { rowNumber, values, errors, duplicate };
   });
 

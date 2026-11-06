@@ -107,6 +107,17 @@ describe("ExportDialog (Core)", () => {
     expect(screen.getByRole("checkbox", { name: "Contacts: Email" }).getAttribute("data-state")).toBe("checked");
   });
 
+  it("defaults: CSV; Filtered Records when the host says the list is filtered; All otherwise; field notes shown", () => {
+    const g: ExportGroup[] = [{ ...GROUPS[0], fields: [...GROUPS[0].fields, { fieldname: "vat", label: "VAT", reqd: false, mandatory: false, note: "(mandatory when Type is B2B)" }] }];
+    const { unmount } = wrap(<ExportDialog open onOpenChange={() => {}} groups={g} onExport={() => {}} filtered counts={{ by_filter: 3 }} />);
+    expect(screen.getByRole("combobox", { name: "File Type" }).textContent).toContain("CSV");
+    expect(screen.getByRole("combobox", { name: "Export Type" }).textContent).toContain("Filtered Records (3)");
+    expect(screen.getByText("(mandatory when Type is B2B)")).toBeTruthy();
+    unmount();
+    wrap(<ExportDialog open onOpenChange={() => {}} groups={g} onExport={() => {}} />);
+    expect(screen.getByRole("combobox", { name: "Export Type" }).textContent).toContain("All Records");
+  });
+
   it("Arabic from the catalogue, right-to-left", () => {
     wrap(<ExportDialog open onOpenChange={() => {}} groups={GROUPS} onExport={() => {}} />, "ar");
     const dialog = screen.getByRole("dialog");
@@ -145,6 +156,31 @@ describe("Import model (Core)", () => {
     expect(unmapped.missingMandatory).toEqual(["name"]);
     expect(unmapped.counts.ready).toBe(0);
     expect(unmapped.warnings.other.some((w) => w.message === "Mandatory field Name is not mapped to any column.")).toBe(true);
+  });
+});
+
+describe("Import model — conditional and create / update requirements (0.6.0)", () => {
+  const F2: ImportField[] = [
+    { key: "name", label: "Name", mandatory: true },
+    { key: "type", label: "Type" },
+    { key: "reg", label: "Registration No", requiredWhen: { test: (r) => r.type === "Inbound", label: "Type is Inbound" } },
+    { key: "value", label: "Value", mandatory: true, requiredOn: ["Update Existing Records"] },
+    { key: "source", label: "Source", mandatory: true, requiredOn: ["Insert New Records"] },
+  ];
+  const file = { headers: ["Name", "Type", "Registration No", "Value", "Source"], rows: [["A", "Inbound", "", "", "web"], ["B", "Outbound", "", "", "web"], ["C", "Inbound", "R-1", "5", ""]] };
+  it("insert: requiredWhen only where the condition holds; requiredOn=insert applies, requiredOn=update does not", () => {
+    const v = validateImport(file, autoMapColumns(file.headers, F2), F2, L);
+    expect(v.rows[0].errors.map((e) => e.message)).toEqual(["Value missing for Registration No (mandatory when Type is Inbound)"]);
+    expect(v.rows[1].errors).toEqual([]);
+    expect(v.rows[2].errors.map((e) => e.message)).toEqual(["Value missing for mandatory field Source"]);
+  });
+  it("update: requiredOn=update applies; an unmapped conditional field counts as empty; rows must match an existing record", () => {
+    const map = autoMapColumns(file.headers, F2); map[2] = null;
+    const v = validateImport(file, map, F2, L, { identity: (r) => r.name, existing: (id) => (id === "A" || id === "C" ? `rec ${id}` : null) }, "Update Existing Records");
+    expect(v.rows[0].errors.map((e) => e.message)).toEqual(["Value missing for Registration No (mandatory when Type is Inbound)", "Value missing for mandatory field Value"]);
+    expect(v.rows[1].errors.map((e) => e.message)).toEqual(["Value missing for mandatory field Value", "No existing record matches B: nothing to update"]);
+    expect(v.rows[2].errors.map((e) => e.message)).toEqual(["Value missing for Registration No (mandatory when Type is Inbound)"]);
+    expect(v.rows.every((r) => !r.duplicate)).toBe(true);
   });
 });
 

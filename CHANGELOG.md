@@ -6,13 +6,28 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-### Added (additive; dev builds 0.5.1-dev.N — not released)
+Version decision: **0.6.0** (minor), not 0.5.1. Reason, checked on the public surface `v0.5.0..HEAD`: `src/index.ts` gains
+new exports (ExportDialog, DataImportDialog, the import model / views / labels, buildCsv / parseCsv / saveBlob …);
+`src/frappe/index.ts` and `package.json` `exports` are unchanged; nothing is removed or renamed (`GroupedImportWarnings` /
+`ImportFieldOption` are now aliases of identical Core types; `ExportDialogLabels` gains optional keys). Behaviour visible to
+existing consumers changes on purpose: `FrappeExportDialog` labels follow the language (Arabic under `ar`), an empty
+selection shows a hint, the File Type resets to CSV on each opening, and both import / export dialogs keep wide content
+inside at phone widths. New public API + intentional visual change = minor under the policy above. Dev builds were numbered
+0.5.1-dev.1 … dev.5 before this check; they continue as 0.6.0-dev.N. No release commit or tag.
+
+### Added (additive; dev builds 0.6.0-dev.N — not released)
 - **Core `ExportDialog`** (core entry): the Design System's Export Data dialog without a backend — File Type, Export Type
   (All / Filtered or Selected (n) / 5 Records / Blank Template, optional counts), field groups with label, key and
   "(Mandatory)", Select All / Select Mandatory / Unselect All, `lockMandatory`, `defaultSelection`, validation (nothing
   selected), loading, error (`renderError`) and success (closes) states; en / ar labels from the message catalogue
   (`export*` keys). `onExport({ fileType, records, fields })` — the host writes the file. Utilities: `buildCsv`,
   `parseCsv`, `saveBlob`, `mandatorySelection`, `orderedSelection`.
+- `ExportDialog`: `filtered` (default Export Type = Selected (n) with a selection, else Filtered Records when the list is
+  filtered, else All Records; never Blank Template unless `defaultRecords` asks), `ExportField.note` (e.g. a conditional or
+  update-only requirement shown after the key).
+- Import requirements: `ImportField.requiredOn` (create-only / update-only mandatory), `ImportField.requiredWhen`
+  (conditional: `{ test, label, on }`), `validateImport(…, importType)` and `isMandatoryFor`; Update Existing Records checks
+  that each row matches an existing record (no duplicate flags then).
 - **Core `DataImportDialog`** (core entry): the Data Import tool's steps (Upload → Preview → Import → Result) behind a
   `DataImportAdapter` (`parse`, `fields` with mandatory / per-value checks / aliases, `duplicates`, `run` or
   `runUnavailable: reason`, `template` → the Core ExportDialog). Client-side auto-mapping, per-row validation, duplicate

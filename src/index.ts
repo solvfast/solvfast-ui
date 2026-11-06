@@ -180,7 +180,7 @@ export { DataImportDialog } from "./list/io/DataImportDialog";
 export type { DataImportDialogProps, DataImportAdapter, ImportRunInput, ImportRunResult } from "./list/io/DataImportDialog";
 export { ImportPreviewTable, ImportWarningsPanel, ColumnMappingForm, DONT_IMPORT, useDataImportLabels, useImportDialogLabels } from "./list/io/ImportParts";
 export type { ImportPreviewTableProps, ImportWarningsPanelProps, ColumnMappingFormProps, ImportColumnView, GroupedImportWarnings, ImportFieldOption } from "./list/io/ImportParts";
-export { autoMapColumns, mapRow, validateImport, importableRows, importPreviewColumns, normalizeHeader } from "./list/io/importModel";
+export { autoMapColumns, mapRow, validateImport, isMandatoryFor, importableRows, importPreviewColumns, normalizeHeader } from "./list/io/importModel";
 export type { ImportField, ImportType, ParsedImportFile, ColumnMap, ImportDuplicateCheck, ImportRowCheck, ImportValidation } from "./list/io/importModel";
 export {
   DATA_IMPORT_LABELS_EN, DATA_IMPORT_LABELS_AR, IMPORT_DIALOG_LABELS_EN, IMPORT_DIALOG_LABELS_AR, fmt as formatImportMessage,

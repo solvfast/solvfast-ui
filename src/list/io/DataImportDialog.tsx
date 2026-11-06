@@ -103,10 +103,11 @@ export function DataImportDialog({ adapter, description, open, onOpenChange, pre
   const uid = React.useId();
 
   const validation = React.useMemo(
-    () => (parsed ? validateImport(parsed, map, adapter.fields, L, adapter.duplicates) : null),
-    [parsed, map, adapter.fields, adapter.duplicates, L],
+    () => (parsed ? validateImport(parsed, map, adapter.fields, L, adapter.duplicates, importType) : null),
+    [parsed, map, adapter.fields, adapter.duplicates, L, importType],
   );
-  const toImport = React.useMemo(() => (validation ? importableRows(validation, importDuplicates) : []), [validation, importDuplicates]);
+  const insert = importType === "Insert New Records";
+  const toImport = React.useMemo(() => (validation ? importableRows(validation, importDuplicates || !insert) : []), [validation, importDuplicates, insert]);
   const columns = React.useMemo(() => (parsed ? importPreviewColumns(parsed, map, adapter.fields) : []), [parsed, map, adapter.fields]);
   const rowStatus = React.useMemo(() => {
     const m = new Map<number, "error" | "duplicate">();
@@ -228,7 +229,7 @@ export function DataImportDialog({ adapter, description, open, onOpenChange, pre
               {adapter.duplicates ? <StatusDot tone={validation.counts.duplicates ? "warning" : "default"} label={<span data-count-duplicates={validation.counts.duplicates}>{fmt(L.summaryDuplicates, validation.counts.duplicates)}</span>} /> : null}
             </div>
             {validation.counts.errors ? <p className="text-muted-foreground">{L.fixErrorsFirst}</p> : null}
-            {adapter.duplicates ? (
+            {adapter.duplicates && insert ? (
               <label className="flex flex-wrap items-center gap-2 pt-1"><span>{L.duplicateHandling}</span>
                 <Select value={importDuplicates ? "import" : "skip"} onValueChange={(v) => setImportDuplicates(v === "import")} disabled={!!busy}>
                   <SelectTrigger aria-label={L.duplicateHandling} className="h-8 w-auto min-w-[12rem]" data-duplicate-handling=""><SelectValue /></SelectTrigger>

@@ -18,6 +18,8 @@ export interface ExportField {
   reqd: boolean;
   /** Pre-selected by "Select Mandatory" and, with `lockMandatory`, always exported. */
   mandatory: boolean;
+  /** Shown after the key (e.g. a conditional or update-only requirement: "mandatory when Type is X"). */
+  note?: string;
 }
 export interface ExportGroup {
   /** The key of this group in the selection (Frappe: the DocType name, or a table fieldname). */

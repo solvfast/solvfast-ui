@@ -106,6 +106,7 @@ export interface ImportDialogExtraLabels {
   duplicateOfExisting: string; duplicateInFile: string; duplicateHandling: string; duplicateSkip: string; duplicateImport: string;
   summary: string; summaryReady: string; summaryErrors: string; summaryDuplicates: string;
   runUnavailable: string; nothingToImport: string; fixErrorsFirst: string; resultFailedRows: string;
+  valueMissingWhen: string; notFoundForUpdate: string; noIdentityForUpdate: string;
 }
 export type ImportDialogLabels = DataImportLabels & ImportDialogExtraLabels;
 
@@ -118,6 +119,8 @@ export const IMPORT_DIALOG_LABELS_EN: ImportDialogExtraLabels = {
   summary: "Validation", summaryReady: "{0} rows ready to import", summaryErrors: "{0} rows with errors", summaryDuplicates: "{0} duplicate rows",
   runUnavailable: "Import is not available here: {0}", nothingToImport: "No row is ready to import.", fixErrorsFirst: "Rows with errors are not imported.",
   resultFailedRows: "Failed rows",
+  valueMissingWhen: "Value missing for {0} (mandatory when {1})", notFoundForUpdate: "No existing record matches {0}: nothing to update",
+  noIdentityForUpdate: "The row does not identify an existing record to update",
 };
 export const IMPORT_DIALOG_LABELS_AR: ImportDialogExtraLabels = {
   fileSummary: "{0}: {1} صف، {2} عمود", readingFile: "جارٍ قراءة الملف…", readFailed: "تعذّرت قراءة الملف: {0}", emptyFile: "لا توجد صفوف في الملف تحت العناوين.",
@@ -128,6 +131,8 @@ export const IMPORT_DIALOG_LABELS_AR: ImportDialogExtraLabels = {
   summary: "التحقق", summaryReady: "{0} صف جاهز للاستيراد", summaryErrors: "{0} صف به أخطاء", summaryDuplicates: "{0} صف مكرر",
   runUnavailable: "الاستيراد غير متاح هنا: {0}", nothingToImport: "لا يوجد صف جاهز للاستيراد.", fixErrorsFirst: "الصفوف التي بها أخطاء لا تُستورد.",
   resultFailedRows: "الصفوف الفاشلة",
+  valueMissingWhen: "قيمة مفقودة للحقل {0} (إلزامي عندما {1})", notFoundForUpdate: "لا يوجد سجل مطابق لـ {0}: لا شيء للتحديث",
+  noIdentityForUpdate: "الصف لا يحدد سجلاً موجوداً لتحديثه",
 };
 
 /** Desk's Data Import indicator colours (`data_import_list.js:15-31`): Success green, Error red, the rest orange. */

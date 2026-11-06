@@ -68,7 +68,10 @@ export interface ExportDialogProps {
   counts?: Partial<Record<ExportRecords, number>>;
   /** The Export Type options offered, in this order. Default: all four. */
   recordOptions?: ExportRecords[];
-  /** Pre-selected Export Type when the dialog opens. Default: "by_filter" with a selection, else "all". */
+  /** The list has an active search / filter: "Filtered Records" is the default when nothing is selected. */
+  filtered?: boolean;
+  /** Pre-selected Export Type when the dialog opens. Default: Selected (n) with a selection, else Filtered Records when
+   *  `filtered`, else All Records. Blank Template is never the default unless asked for here. */
   defaultRecords?: ExportRecords;
   /** File types offered. Default: Excel and CSV. */
   fileTypes?: ExportFileType[];
@@ -88,12 +91,12 @@ export interface ExportDialogProps {
 }
 
 export function ExportDialog({
-  open, onOpenChange, groups, onExport, onDone, description, selectedCount, counts, recordOptions = ALL_RECORDS, defaultRecords, fileTypes = ["Excel", "CSV"],
+  open, onOpenChange, groups, onExport, onDone, description, selectedCount, counts, recordOptions = ALL_RECORDS, filtered, defaultRecords, fileTypes = ["Excel", "CSV"],
   defaultFileType = "CSV", showSelectMandatory = true, unselectKeeps, defaultSelection, lockMandatory = false, renderError, labels, className,
 }: ExportDialogProps) {
   const L = useExportDialogLabels(labels);
   const hasSelection = !!selectedCount;
-  const initialRecords: ExportRecords = defaultRecords ?? (hasSelection ? "by_filter" : "all");
+  const initialRecords: ExportRecords = defaultRecords ?? (hasSelection || filtered ? "by_filter" : "all");
   // The picks are reset when the dialog opens or the groups change STRUCTURALLY (keys / fields) — never because a host
   // re-render handed new-but-equal `groups` / `defaultSelection` objects (that would wipe what the user checked).
   const groupsRef = React.useRef(groups);
@@ -192,7 +195,7 @@ export function ExportDialog({
                     <Checkbox id={id} checked={on} disabled={isLocked} onCheckedChange={(v) => toggle(g.key, f.fieldname, v === true)} aria-label={`${g.label}: ${f.label}`} />
                     <label htmlFor={id} className="leading-tight">
                       <span className={f.mandatory ? "text-destructive" : undefined}>{f.label}</span>
-                      <span className="block text-xs text-muted-foreground">{f.fieldname} {f.reqd ? L.mandatory : ""}</span>
+                      <span className="block text-xs text-muted-foreground">{f.fieldname} {f.reqd ? L.mandatory : ""}{f.note ? <span data-export-note=""> {f.note}</span> : null}</span>
                     </label>
                   </div>
                 );
