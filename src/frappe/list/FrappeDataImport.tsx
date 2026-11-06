@@ -358,7 +358,7 @@ export function FrappeDataImport({ api, doctype, bundle: bundleProp, importType:
   }
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange?.(o)}>
-      <DialogContent className={cn("max-h-[90vh] overflow-y-auto sm:max-w-4xl", className)} data-frappe-import={doctype}>
+      <DialogContent className={cn("max-h-[90vh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-4xl", className)} data-frappe-import={doctype}>
         <DialogHeader>
           <DialogTitle>{L.title}</DialogTitle>
           <DialogDescription>{doctype}</DialogDescription>

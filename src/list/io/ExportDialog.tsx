@@ -150,7 +150,7 @@ export function ExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent className={className ?? "max-h-[85vh] overflow-y-auto sm:max-w-2xl"} data-export-dialog="">
+      <DialogContent className={className ?? "max-h-[85vh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-2xl"} data-export-dialog="">
         <DialogHeader>
           <DialogTitle>{L.title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}

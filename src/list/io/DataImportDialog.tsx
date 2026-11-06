@@ -311,7 +311,7 @@ export function DataImportDialog({ adapter, description, open, onOpenChange, pre
   }
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange?.(o)}>
-      <DialogContent className={cn("max-h-[90vh] overflow-y-auto sm:max-w-4xl", className)} data-data-import="">
+      <DialogContent className={cn("max-h-[90vh] grid-cols-[minmax(0,1fr)] overflow-y-auto sm:max-w-4xl", className)} data-data-import="">
         <DialogHeader>
           <DialogTitle>{L.title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
