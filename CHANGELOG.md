@@ -6,6 +6,8 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-06
+
 Version decision: **0.6.0** (minor), not 0.5.1. Reason, checked on the public surface `v0.5.0..HEAD`: `src/index.ts` gains
 new exports (ExportDialog, DataImportDialog, the import model / views / labels, buildCsv / parseCsv / saveBlob …);
 `src/frappe/index.ts` and `package.json` `exports` are unchanged; nothing is removed or renamed (`GroupedImportWarnings` /

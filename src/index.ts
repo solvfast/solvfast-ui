@@ -171,7 +171,7 @@ export { stripIsolates } from "./record/format";
 export { NESTED_SET_OPERATORS, NESTED_SET_LABEL, isNestedSetOperator, operatorLabel } from "./list/model/filters";
 export type { NestedSetOperator } from "./list/model/filters";
 
-// 0.5.1 — Core Export / Import (the Design System's Export Data dialog and Data Import tool, without a backend)
+// 0.6.0 — Core Export / Import (the Design System's Export Data dialog and Data Import tool, without a backend)
 export { ExportDialog, useExportDialogLabels } from "./list/io/ExportDialog";
 export type { ExportDialogProps, ExportDialogLabels } from "./list/io/ExportDialog";
 export { mandatorySelection, orderedSelection, buildCsv, parseCsv, saveBlob } from "./list/io/export";
