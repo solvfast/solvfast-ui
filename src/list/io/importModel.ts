@@ -19,7 +19,7 @@ export interface ImportField {
   requiredOn?: ImportType[];
   /**
    * A conditional requirement: the value must be filled in the rows where `test(row)` holds (`label` names the condition,
-   * e.g. "Lead Type is Inbound"); `on` limits it to some import types (default: both). An unmapped field counts as empty.
+   * e.g. "Category is A"); `on` limits it to some import types (default: both). An unmapped field counts as empty.
    */
   requiredWhen?: { test: (row: Record<string, string>) => boolean; label: string; on?: ImportType[] };
   /** Other header texts that match this field (another language's label, a legacy name …). */
