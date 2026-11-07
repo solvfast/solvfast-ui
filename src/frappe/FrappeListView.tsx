@@ -30,6 +30,11 @@ import { withFrappeApi } from "./client";
 import { actsAsSystemManagerFor, canExport, canImport } from "./services/permissions";
 import { FrappeReportExportDialog } from "./list/FrappeReportExportDialog";
 import { FrappeExportDialog, type ExportDialogLabels } from "./list/FrappeExportDialog";
+import type { ListQueryState } from "../list/useListState";
+import type { FrappeDoc } from "./contract";
+import { FrappeQuickEntry } from "./form/FrappeQuickEntry";
+import { newDoc, type DefaultsContext } from "./form/model/defaults";
+import { quickEntryFields } from "./form/model/quickEntry";
 
 type Managed = "rows" | "columns" | "rowKey" | "mode" | "total" | "onStateChange" | "loading" | "error" | "onRetry" | "onLoadMore"
   | "totalLabel" | "hasMore" | "onTotalClick" | "searchHint" | "selectionScope" | "filterFields" | "groupByOptions" | "searchFields" | "pageSize" | "fiscalYears" | "loadFiscalYears" | "like";
@@ -116,6 +121,9 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
   /** Where menu entries navigate (Import without `onImport`, User Permissions, Role Permissions Manager, Customize).
    *  Default: `location.assign(url)`. `url` is Desk's route as a URL (`/app/…` with route options as the query string). */
   onNavigate?: (url: string, entry: "import" | "userPermissions" | "rolePermissions" | "customize") => void;
+  /** The applied list state (filters, sort, search, page) after each change — e.g. to carry the filters into another view
+   *  (`FrappeViews` does). P35 integration. */
+  onQueryStateChange?: (state: ListQueryState) => void;
   /** Labels of the Import / Export entries (default: the message catalogue) and of the Export dialog (English by default). */
   ioLabels?: Partial<ExportDialogLabels & { importEntry: string; exportEntry: string; moreActions: string; reportExportEntry: string }>;
 }
@@ -123,7 +131,15 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
 export interface FrappeListCreate {
   label?: string;
   onCreate?: () => void;
+  /** The create dialog. Default (P35 integration, when neither `render` nor `onCreate` / the `onCreate` prop is given):
+   *  `FrappeQuickEntry` for a Quick Entry eligible DocType (`quickEntryFields(meta).eligible`); for any other DocType
+   *  `onOpenFullForm(newDoc)` is called directly when given, else the Quick Entry dialog shows the whole form. */
   render?: (p: { open: boolean; onOpenChange(open: boolean): void; onCreated(doc: Record<string, unknown>): void }) => React.ReactNode;
+  /** The host's full-form route (P35): Quick Entry's "Edit Full Form", and the target of "Add" for a DocType that is not
+   *  Quick Entry eligible — receives the unsaved new document. */
+  onOpenFullForm?: (doc: FrappeDoc) => void;
+  /** New-document defaults for the default Quick Entry (`routeOptions`, `userDefaults`, …). */
+  defaults?: DefaultsContext;
 }
 
 /** Desk's Import route as a URL: the Data Import list with `reference_doctype` as a route option (`router.js:548-566`). */
@@ -155,7 +171,7 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, sidebar, onNavigate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
+function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, sidebar, onNavigate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, onQueryStateChange, ...rest }: FrappeListViewProps<T>) {
   // `columnLimit` defaults ON here: Desk always caps the generated columns by window width (list_view.js:432-444);
   // app-curated `columns` are never capped. `columnLimit={false}` keeps every `in_list_view` column.
   // Like: the session user decides; "Liked by me" narrows the list server-side like Desk's filter (always ANDed)
@@ -313,11 +329,22 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   const mayCreate = create !== false && perms.can("create");
   const [creating, setCreating] = React.useState(false);
   const createCfg = typeof create === "object" ? create : undefined;
-  const startCreate = createCfg?.render ? () => setCreating(true) : (createCfg?.onCreate ?? onCreate);
+  // P35 integration: `create` without render / onCreate → Quick Entry (eligible DocType) or the host's full form
+  const qeDefault = !!createCfg && !createCfg.render && !createCfg.onCreate && !onCreate;
+  const qeEligible = qeDefault && f.bundle ? quickEntryFields(f.bundle.meta).eligible : undefined;
+  const toFullForm = qeDefault && qeEligible === false && createCfg?.onOpenFullForm && f.bundle
+    ? () => createCfg.onOpenFullForm!(newDoc(f.bundle!, { user: session?.user, userFullname: session?.fullName, ...createCfg.defaults }))
+    : undefined;
+  const renderCreate = createCfg?.render ?? (qeDefault && f.bundle && !toFullForm ? (p: { open: boolean; onOpenChange(open: boolean): void; onCreated(doc: Record<string, unknown>): void }) => {
+    const qe = <FrappeQuickEntry doctype={doctype} open={p.open} onOpenChange={p.onOpenChange} onCreated={p.onCreated} defaults={createCfg?.defaults}
+      onOpenFullForm={createCfg?.onOpenFullForm ? (d) => { p.onOpenChange(false); createCfg.onOpenFullForm!(d); } : undefined} />;
+    return client ? <FrappeProvider client={client} serverMessages={false}>{qe}</FrappeProvider> : qe;
+  } : undefined);
+  const startCreate = toFullForm ?? (renderCreate ? () => setCreating(true) : (createCfg?.onCreate ?? onCreate));
   const addButton = mayCreate && createCfg && startCreate ? (
     <Button className="gap-1.5 shrink-0" onClick={startCreate} data-testid="sf-list-add"><Plus className="h-4 w-4" aria-hidden /> {createCfg.label ?? t("listAddDoctype").replace("{doctype}", doctype)}</Button>
   ) : undefined;
-  const createdNode = mayCreate && createCfg?.render ? createCfg.render({
+  const createdNode = mayCreate && renderCreate ? renderCreate({
     open: creating, onOpenChange: setCreating,
     onCreated: () => { setCreating(false); void invalidateFrappeList(queryClient, doctype); },
   }) : null;
@@ -369,6 +396,7 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       onActionsOpenChange={header ? (o) => { hb.onMenuOpenChange(o); rest.onActionsOpenChange?.(o); } : rest.onActionsOpenChange}
       onSelectionChange={(k) => { setSelectedKeys(k); rest.onSelectionChange?.(k); }}
       {...data}
+      onStateChange={onQueryStateChange ? (st: ListQueryState) => { data.onStateChange(st); onQueryStateChange(st); } : data.onStateChange}
       like={likeConfig}
       rowKey={rowKey ?? data.rowKey}
     />

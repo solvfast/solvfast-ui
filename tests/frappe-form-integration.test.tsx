@@ -5,7 +5,6 @@
  * real Frappe site. Test names carry the Form audit row ids (docs/audit/p35/A-form.md).
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import * as React from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
