@@ -66,7 +66,7 @@ SIMULATED backend (`createFixtureTransport` + the P35 list handlers) — **none 
 | LV.G1 / G2 | "Add {DocType}" and the empty-state create, gated by the create right | `FrappeListView create={{ label, onCreate, render }}` (render = e.g. a Quick Entry; `onCreated` reloads) | tests/frappe-list-p35.test.tsx |
 | LV.I4 | Page-size picker | `pageSizes`, `useListState().setPageSize`, `ListPrefs.pageSize` | both |
 | G5 (CRM) | Select all matching | `selectAllMatching`, `BulkActionContext.allMatching`, `BulkAction.allMatching`; Frappe: Export by filters | both |
-| G1 (CRM) | Card layout on phones | `layout="cards" | "auto"`, `ColumnDef.mobile` | tests/list-p35.test.tsx |
+| G1 (CRM) | Card layout on phones | `layout="cards"` or `"auto"`, `ColumnDef.mobile` | tests/list-p35.test.tsx |
 | LV.C9 / C11 / C12 | Saved filters: Is Global, delete confirmation, duplicate names | `SavedFilters canSaveGlobal`, `SavedFiltersStorage.save(…, { global })`, `SavedFilter.global` | both |
 | LV.J4–J7 / J11 | List menu: User Permissions, Role Permissions Manager, Customize, List Settings | `menu` keys, `onNavigate`, `FrappeListSettingsDialog` → `save_listview_settings` | tests/frappe-list-p35.test.tsx |
 | LV.F1 | Bulk Edit value control per fieldtype | `BulkEditValue`, `bulkEditValue` | tests/frappe-list-p35.test.tsx |
