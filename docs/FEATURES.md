@@ -23,15 +23,15 @@ Source: **S** Sear only · **P** PMO only · **B** both, consolidated · **A** a
 | F10 | Client filter evaluation | B | `applyFilterQuery` | ✅ tested (every operator × type × AND/OR against both upstream engines) |
 | F11 | Frappe filter translation | B + A | Sear's translator + PMO's type coercion; unknown fields dropped; whole-day Datetime; AND → `filters`, OR → `or_filters` | ✅ tested (5.4; equal to Sear's on its operators) |
 | F12 | Search, several fields, debounced | B + A | `searchFields` (client default: first text column; Frappe default: title + `search_fields` + ID); `searchDebounceMs` (server 300 ms) | ✅ tested (client and Frappe: one request per pause) |
-| F13 | Pagination with the glass pager | S | Sear's pager markup + pill styles; 20 per page | ✅ tested + parity |
+| F13 | Pagination with the glass pager | S | Sear's pager markup + pill styles; 20 per page by default; P35: optional page-length buttons (`pageSizes`, Desk's 20 / 100 / 500 / 2500 by default in `FrappeListView`), the choice saved with the prefs | ✅ tested + parity (`LV.I4` in tests/list-p35.test.tsx, tests/frappe-list-p35.test.tsx) |
 | F14 | Quick filters: any type, field picker, saved choice | P | `quickFilterFields`; picker opt-in (`controls.quickFiltersCustomizable`); choice persisted | ✅ tested |
 | F15 | Advanced filter with a searchable field picker | B | Sear's layout + PMO's searchable picker (styled as Sear's select) | ✅ tested + parity |
 | F16 | Value inputs: date picker, async link | P + A | glass `DateField` (YYYY-MM-DD); `loadOptions` with 300 ms debounce; Frappe: stock `search_link` on the link's DocType | ✅ tested |
-| F17 | Saved filters | B / X | one UI over `SavedFiltersStorage` (sync or async); localStorage default, per view and per user | ✅ tested (PMO's server DocType is an app adapter) |
+| F17 | Saved filters | B / X | one UI over `SavedFiltersStorage` (sync or async); localStorage default, per view and per user; P35: removal asks first, a duplicate name is refused (the localStorage adapter too — it used to replace), optional per-save "Is Global" (`savedFiltersGlobal`) with a global marker | ✅ tested (PMO's server DocType is an app adapter; `LV.C9` / `LV.C11` / `LV.C12`) |
 | F18 | Column manager | B + A | PMO's (Frappe CRM's) picker since 0.3.0: rows dragged by a grip (mouse, touch, pen) or moved with ↑/↓ on the grip, × removes, **Add column** lists every other field (searchable), locked columns stay first | ✅ tested; differs from Sear by design (below) |
-| F19 | Group-by | P + A | `groupByOptions`, `GroupByMenu`, collapsible groups with counts, empty group last; all groups in one table, so they share the header's column order and widths (horizontal scroll when narrow) | ✅ tested (structure in unit tests; widths measured in the browser, `e2e/list-groups.mjs`) |
+| F19 | Group-by | P + A | `groupByOptions`, `GroupByMenu`, collapsible groups with counts, empty group last; all groups in one table, so they share the header's column order and widths (horizontal scroll when narrow); P35: `groupOf` may return several buckets (a row listed in each, e.g. per assignee / tag) | ✅ tested (structure in unit tests; widths measured in the browser, `e2e/list-groups.mjs`) |
 | F20 | Row selection | P + A | `selectable`; rules C3 | ✅ tested |
-| F21 | Bulk action bar | A | `bulkActions` (`run(keys, rows)`) or `renderBulkActions` | ✅ tested |
+| F21 | Bulk actions on the selection | A | `bulkActions` (`run(keys, rows)`) or `renderBulkActions`; shown in a bar above the table (`selectionMode="bar"`, still the default) or, Desk-like and intended by the design system, as the toolbar's **Actions** menu with "{n} items selected" in the header (`selectionMode="header"`, no separate bar); P35: "Select all {n} matching" (`selectAllMatching`, header mode) — only `allMatching` actions run then | ✅ tested (tests/list-selection-header.test.tsx; `G5` in tests/list-p35.test.tsx) |
 | F22 | Keyboard rows | P | rows focusable, Enter opens | ✅ tested |
 | F23 | Conditional row styling | P | `rowClassName` | ✅ tested |
 | F24 | Row actions | A | `rowActions`: Sear's delete-button look, a fixed last column, optional confirm dialog (red for destructive actions; the app's `onSelect` does the work), per-row `hidden` | ✅ tested; parity except the intended Actions difference (below) |
@@ -41,17 +41,36 @@ Source: **S** Sear only · **P** PMO only · **B** both, consolidated · **A** a
 | F28 | Empty state | B | the app's `emptyMessage` (any content: icon, call to action) when nothing exists; the generic message when filters hide everything (PMO's rule) | ✅ tested + parity |
 | F29 | Error state with retry | P | `error` + `onRetry`; no pager or total while erroring; Frappe: the server's message (403, 417, 5xx, network) | ✅ tested |
 | F30 | Client data mode | B | `mode="client"` (default): no network | ✅ tested |
-| F31 | Frappe data mode (stock REST) | S | `@solvfast/ui/frappe`: `FrappeListView`, `useFrappeList`, session cookie + CSRF, four stock methods (docs/FRAPPE.md) | ✅ passed against simulated requests; **real-site validation deferred (not done)** |
+| F31 | Frappe data mode (stock REST) | S | `@solvfast/ui/frappe`: `FrappeListView`, `useFrappeList`, session cookie + CSRF; rows from `frappe.desk.reportview.get`, count from `reportview.get_count`, meta from `getdoctype`, plus the bulk / import / export / sidebar methods listed in docs/components/list.md | ✅ passed against simulated requests and recorded read responses; **real-site validation deferred (not done)** |
 | F32 | Base filters | S | `baseFilters`, AND-ed into list and count; changing them clears the selection | ✅ tested (5.4) |
 | F33 | Metadata (`in_list_view`, `in_standard_filter`, `title_field`, standard fields ID / Created On / Last Updated) | S | `buildFrappeListMeta` (equal to Sear's on regular fields); standard-field labels localized; Dynamic Link filtered as text | ✅ tested (5.4) |
 | F34 | Responsive and RTL | B | horizontal scroll inside the card; toolbar buttons wrap on phones; logical properties | ✅ `e2e/list-mobile.mjs` (page fits 360/390 px, en/ar); Arabic parity shots |
 | F35 | i18n | A | list messages in ar/en, overridable through `ThemeProvider` messages; every filter control named; Frappe: `fieldLabels` for DocField labels | ✅ tested |
 | F36 | Save-filter feedback | A | `onFilterSaved(filter)`, `onSavedFiltersError(error, action)` | ✅ tested |
-| F37 | Permission gating | X | the app passes `selectable`, `bulkActions`, `rowActions` per permission | — |
+| F37 | Permission gating | X / A | generic `ListView`: the app passes `selectable`, `bulkActions`, `rowActions` per permission. `FrappeListView` gates from the session's roles × DocPerms: bulk actions, Import, "Add {DocType}" and the empty-state create (create right, P35), the System-Manager menu entries (P35) | Frappe entry ✅ tested (`LV.G1`, `LV.J4`) |
 | F38 | Derived / renamed fields | X | column `render` | — |
 | F39 | Hand-written access control | X | stock DocPerm | — |
 | F40 | Per-DocType custom endpoints | X | stock REST | — |
 | F41 | Visual look | S | Sear is the reference | ✅ parity (docs/VALIDATION.md) |
+
+## P35 additions (Desk parity, 0.7.x)
+
+Test names start with the List audit row (docs/audit/p35/B-list.md) or the CRM gap (D-crm.md). Evidence: unit / RTL tests and the
+SIMULATED backend (`createFixtureTransport` + the P35 list handlers) — **none on a real site**.
+
+| Row | Feature | In `@solvfast/ui` | Tests |
+|---|---|---|---|
+| LV.E3 | Workflow state in the indicator, from the DocType | `indicatorWorkflowFromMeta`; `FrappeListOptions.workflow` defaults to it (`false` = off) | tests/frappe-list-p35.test.tsx |
+| LV.B13 / B14 / D2–D4 / E7 | Assigned To and Tags | `_assign` / `_user_tags` filter fields (`FilterField.operators`: like / not like / is), per-user / per-tag grouping, User labels by full name, Tags cell (`rowMeta.tags`) | tests/frappe-list-p35.test.tsx, tests/list-p35.test.tsx |
+| LV.D6 / D7 / D11 / J8 | Group-by sidebar with server counts, tag stats, Toggle Sidebar | Core `GroupBySidebar` + `ListView aside` / `asideOpen`; Frappe `sidebar` prop, `useGroupByCounts`, `useTagStats`, `FrappeGroupBySidebar` | both |
+| LV.G1 / G2 | "Add {DocType}" and the empty-state create, gated by the create right | `FrappeListView create={{ label, onCreate, render }}` (render = e.g. a Quick Entry; `onCreated` reloads) | tests/frappe-list-p35.test.tsx |
+| LV.I4 | Page-size picker | `pageSizes`, `useListState().setPageSize`, `ListPrefs.pageSize` | both |
+| G5 (CRM) | Select all matching | `selectAllMatching`, `BulkActionContext.allMatching`, `BulkAction.allMatching`; Frappe: Export by filters | both |
+| G1 (CRM) | Card layout on phones | `layout="cards"` or `"auto"`, `ColumnDef.mobile` | tests/list-p35.test.tsx |
+| LV.C9 / C11 / C12 | Saved filters: Is Global, delete confirmation, duplicate names | `SavedFilters canSaveGlobal`, `SavedFiltersStorage.save(…, { global })`, `SavedFilter.global` | both |
+| LV.J4–J7 / J11 | List menu: User Permissions, Role Permissions Manager, Customize, List Settings | `menu` keys, `onNavigate`, `FrappeListSettingsDialog` → `save_listview_settings` | tests/frappe-list-p35.test.tsx |
+| LV.F1 | Bulk Edit value control per fieldtype | `BulkEditValue`, `bulkEditValue` | tests/frappe-list-p35.test.tsx |
+| LV.F8 / F9 / A9 | Submit / Cancel click-through; a custom field as column / quick filter / filter | (tests only) | tests/frappe-list-p35.test.tsx |
 
 ## Intentional visual differences from Sear
 

@@ -7,7 +7,8 @@
  * - SortMenu, GroupByMenu: PMO's SortControl (with "Clear sort") and GroupByControl.
  */
 import * as React from "react";
-import { ArrowDown, ArrowDownUp, ArrowUp, Bookmark, Check, Columns3, GripVertical, Layers, Lock, Plus, Save, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowDownUp, ArrowUp, Bookmark, Check, Columns3, Globe, GripVertical, Layers, Lock, Plus, Save, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../primitives/alert-dialog";
 import { Button } from "../../primitives/button";
 import { Checkbox } from "../../primitives/checkbox";
 import { DateField } from "../../primitives/date-time-field";
@@ -29,15 +30,25 @@ import type { ColumnDef } from "../model/columns";
 import { getQuickValue, setQuickValue, type FilterField, type FilterQuery } from "../model/filters";
 import type { GroupByOption } from "../model/group";
 import type { SortState } from "../model/sort";
-import type { SavedFilter } from "../model/storage";
+import type { SaveFilterOptions, SavedFilter } from "../model/storage";
 
-export function SavedFilters({ saved, activeCount, onApply, onSave, onDelete }: {
-  saved: SavedFilter[]; activeCount: number; onApply: (f: SavedFilter) => void; onSave: (label: string) => void; onDelete: (id: string) => void;
+export function SavedFilters({ saved, activeCount, onApply, onSave, onDelete, canSaveGlobal }: {
+  saved: SavedFilter[]; activeCount: number; onApply: (f: SavedFilter) => void; onSave: (label: string, opts?: SaveFilterOptions) => void; onDelete: (id: string) => void;
+  /** Offer Desk's "Is Global" checkbox (System Managers, list_filter.js:6, 40-46, 142-144). */
+  canSaveGlobal?: boolean;
 }) {
   const { t } = useLocale();
   const [label, setLabel] = React.useState("");
+  const [global, setGlobal] = React.useState(false);
+  const [removing, setRemoving] = React.useState<SavedFilter | null>(null);
+  const [open, setOpen] = React.useState(false);
+  const name = label.trim();
+  // Desk: "Duplicate Filter Name" and Enter does nothing (list_filter.js:127, 135-137)
+  const duplicate = !!name && saved.some((s) => s.label === name);
+  const save = () => { if (!name || duplicate || activeCount === 0) return; onSave(name, global ? { global: true } : undefined); setLabel(""); setGlobal(false); };
   return (
-    <Popover>
+    // the confirmation takes the focus; the list of saved filters stays open behind it
+    <Popover open={open} onOpenChange={(o) => { if (!o && removing) return; setOpen(o); }}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5"><Bookmark className="h-4 w-4" /> {t("saved")}</Button>
       </PopoverTrigger>
@@ -45,9 +56,10 @@ export function SavedFilters({ saved, activeCount, onApply, onSave, onDelete }: 
         {saved.length > 0 ? (
           <div className="mb-2 space-y-0.5">
             {saved.map((s) => (
-              <div key={s.id} className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent">
+              <div key={s.id} className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent" data-saved-filter={s.id}>
                 <button className="flex-1 truncate text-start text-sm" onClick={() => onApply(s)}>{s.label}</button>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => onDelete(s.id)} aria-label={t("remove")}>
+                {s.global && <span title={t("listSavedGlobal")} className="text-muted-foreground" data-global=""><Globe className="h-3.5 w-3.5" aria-hidden /><span className="sr-only">{t("listSavedGlobal")}</span></span>}
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setRemoving(s)} aria-label={`${t("remove")} ${s.label}`}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -56,13 +68,34 @@ export function SavedFilters({ saved, activeCount, onApply, onSave, onDelete }: 
         ) : (
           <p className="mb-2 px-2 py-1 text-xs text-muted-foreground">{t("noSavedFilters")}</p>
         )}
-        <div className="flex items-center gap-1.5 border-t border-border pt-2">
-          <Input className="h-8" placeholder={t("saveCurrentAs")} value={label} onChange={(e) => setLabel(e.target.value)} />
-          <Button size="icon" className="h-8 w-8 shrink-0" disabled={!label.trim() || activeCount === 0} onClick={() => { onSave(label.trim()); setLabel(""); }} aria-label={t("saveCurrentAs")}>
-            <Save className="h-4 w-4" />
-          </Button>
+        <div className="space-y-1.5 border-t border-border pt-2">
+          <div className="flex items-center gap-1.5">
+            <Input className="h-8" placeholder={t("saveCurrentAs")} value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") save(); }} aria-invalid={duplicate || undefined} />
+            <Button size="icon" className="h-8 w-8 shrink-0" disabled={!name || duplicate || activeCount === 0} onClick={save} aria-label={t("saveCurrentAs")}>
+              <Save className="h-4 w-4" />
+            </Button>
+          </div>
+          {duplicate && <p className="px-1 text-xs text-destructive" role="status">{t("listSavedDuplicate")}</p>}
+          {canSaveGlobal && name && (
+            <label className="flex items-center gap-2 px-1 text-xs"><Checkbox checked={global} onCheckedChange={(c) => setGlobal(c === true)} aria-label={t("listSavedIsGlobal")} /> {t("listSavedIsGlobal")}</label>
+          )}
         </div>
       </PopoverContent>
+      {/* Desk confirms before removing a saved filter (list_filter.js:104-117) */}
+      <AlertDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("listSavedDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("listSavedDeleteConfirm").replace("{name}", removing?.label ?? "")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction asChild onClick={() => { const r = removing; setRemoving(null); if (r) onDelete(r.id); }}>
+              <Button variant="destructive">{t("remove")}</Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Popover>
   );
 }

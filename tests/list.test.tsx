@@ -500,7 +500,9 @@ describe("F17 saved filters", () => {
     expect(bodyRows()).toHaveLength(20);
     fireEvent.click(within(popover()).getByRole("button", { name: "Twos" }));
     expect(bodyRows()).toHaveLength(7);
-    await act(async () => { fireEvent.click(within(popover()).getByRole("button", { name: "Remove" })); });
+    // P35 (LV.C11): Desk confirms first (list_filter.js:104-117)
+    fireEvent.click(within(popover()).getByRole("button", { name: "Remove Twos" }));
+    await act(async () => { fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove" })); });
     expect(adapter.items).toHaveLength(0);
     expect(within(popover()).getByText("No saved filters")).toBeTruthy();
   });
@@ -524,9 +526,10 @@ describe("F17 saved filters", () => {
     const alice = createLocalStorageAdapter({ userKey: "alice" }).saved;
     const bob = createLocalStorageAdapter({ userKey: "bob" }).saved;
     alice.save("tasks", "Mine", { conjunction: "and", conditions: [] });
-    alice.save("tasks", "Mine", { conjunction: "or", conditions: [] }); // same name replaces
+    // P35 (LV.C12): a same name is rejected, as the Frappe adapter and Desk do (it used to replace silently)
+    expect(() => alice.save("tasks", "Mine", { conjunction: "or", conditions: [] })).toThrow(/already exists/);
     expect(alice.list("tasks")).toHaveLength(1);
-    expect((alice.list("tasks") as SavedFilter[])[0].query.conjunction).toBe("or");
+    expect((alice.list("tasks") as SavedFilter[])[0].query.conjunction).toBe("and");
     expect(alice.list("bugs")).toHaveLength(0);
     expect(bob.list("tasks")).toHaveLength(0);
   });

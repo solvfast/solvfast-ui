@@ -38,14 +38,16 @@ export interface FrappeExportDialogProps {
   /** After the server answered with a file (already handed to the browser when possible). */
   onDone?: (file: DownloadedFile) => void;
   labels?: Partial<ExportDialogLabels>;
+  /** Pre-selected Export Type (e.g. "by_filter" for the list's "all matching records" selection). Default: Desk's. */
+  defaultRecords?: "all" | "by_filter" | "5_records" | "blank_template";
 }
 
-export function FrappeExportDialog({ api, bundle, open, onOpenChange, selectedNames, filters, levels, importType = "Insert New Records", onDone, labels }: FrappeExportDialogProps) {
+export function FrappeExportDialog({ api, bundle, open, onOpenChange, selectedNames, filters, levels, importType = "Insert New Records", onDone, labels, defaultRecords: preset }: FrappeExportDialogProps) {
   const doctype = bundle.meta.name;
   const groups = React.useMemo(() => exportPickerGroups(bundle, { importType, levels }), [bundle, importType, levels]);
   const hasSelection = !!selectedNames?.length;
   // Desk: `blank_template` when exporting for an insert, else `all`; the list's Actions → Export presets `by_filter`
-  const defaultRecords = hasSelection ? "by_filter" : importType === "Insert New Records" ? "blank_template" : "all";
+  const defaultRecords = preset ?? (hasSelection ? "by_filter" : importType === "Insert New Records" ? "blank_template" : "all");
   const unselectKeeps = React.useMemo(
     () => Object.fromEntries(groups.map((g) => [g.key, importType === "Update Existing Records" && g.fields.some((f) => f.fieldname === "name") ? ["name"] : []])),
     [groups, importType],

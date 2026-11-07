@@ -98,10 +98,30 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   emptyFilteredMessage?: React.ReactNode;
   /** Content between the toolbar and the table (e.g. a row of state chips). */
   belowToolbar?: React.ReactNode;
+  /**
+   * A side panel next to the list (Desk's list sidebar, e.g. a `GroupBySidebar`), at the inline start; it stacks above the
+   * list on narrow screens. Rendered inside the list's `ListActionsContext`, so it can apply / remove conditions.
+   */
+  aside?: React.ReactNode;
+  /** Show the `aside` (default true when given) — Desk's "Toggle Sidebar". */
+  asideOpen?: boolean;
+  /**
+   * `selectionMode="header"`: once every row on the page is checked, the header offers "Select all {n} matching" (D-crm
+   * G5). Then `BulkActionContext.allMatching` is set and only actions marked `allMatching: true` run (they must act on the
+   * query, not on `keys`); the others are shown disabled. Unchecking a row, Clear, or a query change ends it. Default off.
+   */
+  selectAllMatching?: boolean;
+  /** Saved filters: offer "Is Global" when saving (Desk: System Managers only, list_filter.js:6). Default false. */
+  savedFiltersGlobal?: boolean;
+  /** The table, or one card per row (`"cards"`), or cards on phones only (`"auto"`) — `ListTable`'s `layout`. Default "table". */
+  layout?: "table" | "cards" | "auto";
   /** Called when the set of selected rows changes (keys). */
   onSelectionChange?: (keys: string[]) => void;
   /** Makes the total a button (Desk: click "1,000+" to count exactly). */
   onTotalClick?: () => void;
+  /** Page lengths the user may choose in the pager (Desk: 20 / 100 / 500 / 2500, base_list.js:374-418); the choice is
+   *  stored with the list prefs (`storage`). Omit: no picker (the fixed `pageSize`). */
+  pageSizes?: number[];
   className?: string;
 }
 
@@ -147,7 +167,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     like, onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, primaryAction, selectionMode = "bar", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage,
+    emptyMessage, toolbarActions, primaryAction, selectionMode = "bar", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage, pageSizes, aside, asideOpen, selectAllMatching, layout, savedFiltersGlobal,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -160,7 +180,11 @@ export function ListView<T>(props: ListViewProps<T>) {
 
   const filtered = s.activeCount > 0 || !!s.search.trim();
   const tableProps = {
-    selectionHeader: selectable && selectionMode === "header" ? { count: s.selected.size, onClear: s.clearSelection } : undefined,
+    selectionHeader: selectable && selectionMode === "header" ? {
+      count: s.selected.size, onClear: s.clearSelection,
+      matching: selectAllMatching && !s.grouped ? { total: s.total, label: totalLabel || undefined, active: s.allMatching, onSelect: s.selectAllMatching } : undefined,
+    } : undefined,
+    layout,
     columns, rowKey: s.rowKey, sort: s.sort, onSortToggle: s.toggleSort, onRowClick, rowClassName, like,
     selection: selectable ? { isSelected: s.isSelected, toggleRow: s.toggleRow, setRowsSelected: s.setRowsSelected } : undefined,
     loading, error, onRetry,
@@ -183,16 +207,21 @@ export function ListView<T>(props: ListViewProps<T>) {
   const selectionSig = selectedKeys.join("\u0001");
   React.useEffect(() => { onSelectionChange?.([...s.selected]); }, [selectionSig]); // eslint-disable-line react-hooks/exhaustive-deps
   const header = selectable && selectionMode === "header";
-  const actionCtx: BulkActionContext<T> = { keys: selectedKeys, rows: header && selectedKeys.length ? s.selectedRows() : [], clear: s.clearSelection };
+  const actionCtx: BulkActionContext<T> = {
+    keys: selectedKeys, rows: header && selectedKeys.length ? s.selectedRows() : [], clear: s.clearSelection,
+    ...(header && selectAllMatching && s.allMatching ? { allMatching: { total: s.total } } : {}),
+  };
   const hasActions = header && selectedKeys.length > 0 && (resolveBulkActions(bulkActions, actionCtx).length > 0 || !!renderActionsMenu);
   const actions = React.useMemo(() => ({
     applyCondition: (field: string, operator: Operator, value: string) =>
       s.setQuery({ ...s.query, conditions: [...s.query.conditions.filter((c) => c.field !== field), { id: `c${Date.now()}`, field, operator, value }] }),
+    removeCondition: (field: string) => s.setQuery({ ...s.query, conditions: s.query.conditions.filter((c) => c.field !== field) }),
+    query: s.query,
   }), [s.query]); // eslint-disable-line react-hooks/exhaustive-deps
+  const showAside = !!aside && asideOpen !== false;
 
-  return (
-    <ListActionsContext.Provider value={actions}>
-    <div className={cn("space-y-3 sf-datagrid", className)}>
+  const body = (
+    <div className={cn("space-y-3 sf-datagrid", showAside && "min-w-0 flex-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
         {c.search && (
           <div className="relative max-w-xs flex-1">
@@ -204,7 +233,7 @@ export function ListView<T>(props: ListViewProps<T>) {
         {/* Sear's group with `flex-wrap justify-end`: on a phone its buttons wrap instead of widening the page (Sear's
             list page was 506 px wide at 390 px). One line wherever they fit, as in Sear. */}
         <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
-          {c.savedFilters && s.canSave && <SavedFilters saved={s.saved} activeCount={s.activeCount} onApply={s.applySaved} onSave={s.saveCurrent} onDelete={s.removeSaved} />}
+          {c.savedFilters && s.canSave && <SavedFilters saved={s.saved} activeCount={s.activeCount} onApply={s.applySaved} onSave={s.saveCurrent} onDelete={s.removeSaved} canSaveGlobal={savedFiltersGlobal} />}
           {c.filter && <FilterBuilder fields={s.filterFields} query={s.query} onChange={s.setQuery} activeCount={s.activeCount} loadOptions={loadOptions} fiscalYears={props.fiscalYears} loadFiscalYears={props.loadFiscalYears} />}
           {s.groupByOptions.length > 0 && <GroupByMenu options={s.groupByOptions} value={s.groupBy} onChange={s.setGroupBy} />}
           {c.sortMenu && <SortMenu columns={s.visibleColumns} sort={s.sort} onChange={s.setSort} />}
@@ -237,8 +266,18 @@ export function ListView<T>(props: ListViewProps<T>) {
       {/* The pager must be the last child (pill styles, styles/src/sf-overrides.css); while grouped there is no paging (rule
           C1), and with an error there is nothing to page or count, so an empty element keeps those selectors from
           matching anything else. */}
-      {s.grouped || error ? <div hidden /> : <ListPagination total={s.total} totalLabel={totalLabel} onTotalClick={onTotalClick} page={s.page} hasPrev={s.hasPrev} hasNext={s.hasNext || (!!hasMore && s.mode === "server" && s.rows.length >= s.pageSize)} onPage={s.setPage} />}
+      {s.grouped || error ? <div hidden /> : <ListPagination total={s.total} totalLabel={totalLabel} onTotalClick={onTotalClick} page={s.page} hasPrev={s.hasPrev} hasNext={s.hasNext || (!!hasMore && s.mode === "server" && s.rows.length >= s.pageSize)} onPage={s.setPage}
+        pageSize={s.pageSize} pageSizes={pageSizes} onPageSize={pageSizes?.length ? s.setPageSize : undefined} />}
     </div>
+  );
+  return (
+    <ListActionsContext.Provider value={actions}>
+      {showAside ? (
+        <div className="flex flex-col gap-4 md:flex-row md:items-start" data-sf-list-layout="">
+          <aside className="w-full shrink-0 md:sticky md:top-2 md:w-56">{aside}</aside>
+          {body}
+        </div>
+      ) : body}
     </ListActionsContext.Provider>
   );
 }

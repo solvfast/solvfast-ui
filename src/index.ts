@@ -214,3 +214,11 @@ export type {
   ListViewType, ViewOption, ViewUnavailableReason, ViewSwitcherProps, ViewToolbarProps, ViewToolbarControls, ImageGridProps, ImageViewProps,
   KanbanBoardProps, KanbanColumn, KanbanMove, CalendarMonthProps, CalendarEvent,
 } from "./list/views";
+
+// P35 list
+export { GroupBySidebar } from "./list/parts/GroupBySidebar";
+export type { GroupBySidebarProps, GroupBySidebarSection, GroupBySidebarItem } from "./list/parts/GroupBySidebar";
+export type { GroupBucket } from "./list/model/group";
+export type { SaveFilterOptions } from "./list/model/storage";
+export type { SelectionMatching } from "./list/parts/ListTable";
+export type { ListActions } from "./list/ListActionsContext";

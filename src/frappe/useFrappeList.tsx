@@ -17,13 +17,13 @@ import { FrappeError, type DocMeta, type FrappeClient } from "./client";
 import { useFrappeClient, useFrappeSettings } from "./FrappeProvider";
 import { buildFrappeListMeta, restrictMetaToReadable, type ListDocMeta } from "./meta";
 import { buildListRequest, type FrappeFilter } from "./query";
-import { rowMetaColumns } from "./list/cells";
+import { parseTags, rowMetaColumns } from "./list/cells";
 import { FrappeErrorState } from "./feedback/FrappeErrorState";
 import { formatValue, type FormatContext } from "./services/format";
 import { useFormatContext } from "./FrappeProvider";
 import type { DocPerm, MetaBundle } from "./contract";
 import { rolePermissions } from "./services/permissions";
-import { hasIndicator, indicatorFields, type IndicatorConfig, type IndicatorWorkflow } from "./list/indicator";
+import { hasIndicator, indicatorFields, indicatorWorkflowFromMeta, type IndicatorConfig, type IndicatorWorkflow } from "./list/indicator";
 import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser } from "./list/reportview";
 import { applyColumnSettings, capDefaultColumns, deskColumnLimit, fetchListSettings, listedFields } from "./list/settings";
 import { filtersToUrl, parseUrlFilters, type ParsedUrlFilters } from "./list/urlFilters";
@@ -115,9 +115,13 @@ export interface FrappeListOptions<T> {
    * manager, hidden at first (0.3.x lists look as before). `true`: shown by default. `false`: none. An object turns
    * single columns off.
    */
-  rowMeta?: boolean | { indicator?: boolean; assignees?: boolean; comments?: boolean; likes?: boolean };
-  /** The DocType's Workflow, for the indicator (Desk reads it from `frappe.boot`). */
-  workflow?: IndicatorWorkflow;
+  rowMeta?: boolean | { indicator?: boolean; assignees?: boolean; comments?: boolean; likes?: boolean; tags?: boolean };
+  /**
+   * The DocType's Workflow, for the indicator. Default: derived from the DocType's active Workflow (getdoctype's
+   * `__workflow_docs`, `indicatorWorkflowFromMeta`) as Desk's `frappe.workflow.setup` does; `false` = never show the
+   * workflow state (status / docstatus only).
+   */
+  workflow?: IndicatorWorkflow | false;
   /** `listview_settings.get_indicator` equivalent. */
   getIndicator?: IndicatorConfig["getIndicator"];
   /** Read List View Settings (`get_list_settings`). Default true. */
@@ -151,6 +155,7 @@ export interface FrappeListOptions<T> {
 }
 
 type Row = Record<string, unknown>;
+const parseJsonList = (v: unknown): string[] => { if (Array.isArray(v)) return v.map(String); try { const l = JSON.parse(String(v || "[]")) as unknown; return Array.isArray(l) ? l.map(String).filter(Boolean) : []; } catch { return []; } };
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
@@ -171,21 +176,23 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   // a field's label: the app's `fieldLabels`, else the label of a curated column showing that field, else the DocType's
   const curatedLabel = React.useMemo(() => new Map((o.columns ?? []).map((c) => [fieldOf(c), c.label])), [o.columns]);
   const label = React.useCallback((name: string, fallbackLabel: Localized) => loc(o.fieldLabels?.[name] ?? curatedLabel.get(name) ?? fallbackLabel, language), [o.fieldLabels, curatedLabel, language]);
+  const metaWorkflow = React.useMemo(() => indicatorWorkflowFromMeta(m.doc as never), [m.doc]);
+  const workflow = o.workflow === false ? undefined : (o.workflow ?? metaWorkflow);
   const indicatorCfg = React.useMemo<IndicatorConfig | null>(() => {
     if (!meta || o.rowMeta === false || (typeof o.rowMeta === "object" && o.rowMeta.indicator === false)) return null;
     const cfg: IndicatorConfig = {
-      isSubmittable: meta.isSubmittable, workflow: o.workflow, states: meta.states, hasField: meta.hasField, getIndicator: o.getIndicator,
+      isSubmittable: meta.isSubmittable, workflow, states: meta.states, hasField: meta.hasField, getIndicator: o.getIndicator,
       words: { draft: t("listDraft"), cancelled: t("listCancelled"), submitted: t("listSubmitted"), enabled: t("yes"), disabled: t("no") },
     };
     return hasIndicator(cfg) ? cfg : null;
-  }, [meta, o.rowMeta, o.workflow, o.getIndicator, t]);
+  }, [meta, o.rowMeta, workflow, o.getIndicator, t]);
   const rm = o.rowMeta === false ? {} : typeof o.rowMeta === "object" ? o.rowMeta : {};
   const commentsOff = !!settings?.disable_comment_count;
   const curated = !!o.columns?.length;
   const widthCap = o.columnLimit === true && !curated;
   const widthLimit = useDeskColumnLimit(widthCap && !(Number(settings?.total_fields) > 0));
   // Desk counts a Status slot whenever the DocType has an indicator, whatever the package draws (`rowMeta`)
-  const deskIndicator = React.useMemo(() => !!meta && hasIndicator({ isSubmittable: meta.isSubmittable, workflow: o.workflow, states: meta.states, hasField: meta.hasField, getIndicator: o.getIndicator }), [meta, o.workflow, o.getIndicator]);
+  const deskIndicator = React.useMemo(() => !!meta && hasIndicator({ isSubmittable: meta.isSubmittable, workflow, states: meta.states, hasField: meta.hasField, getIndicator: o.getIndicator }), [meta, workflow, o.getIndicator]);
   const columns = React.useMemo<ColumnDef<T>[]>(() => {
     const generated = (meta?.columns ?? []).map((c) => ({ ...c, label: label(c.key, c.label) })) as unknown as ColumnDef<T>[];
     // Desk always puts the Subject (title field, else the ID) first and shows it (list_view.js:375-486). Apps that curate
@@ -194,11 +201,11 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     const subject = !o.columns?.length ? generated.filter((c) => c.key === subjectKey).map((c) => ({ ...c, hidden: false })) : [];
     const rest = subject.length ? generated.filter((c) => c.key !== subjectKey) : generated;
     const merged = mergeColumns(o.columns ?? [], [...subject, ...rest]);
-    const on = (k: "assignees" | "comments" | "likes") => o.rowMeta !== false && rm[k] !== false && (k !== "comments" || !commentsOff) && !!meta?.hasField(k === "assignees" ? "_assign" : k === "comments" ? "_comments" : "_liked_by");
+    const on = (k: "assignees" | "comments" | "likes" | "tags") => o.rowMeta !== false && rm[k] !== false && (k !== "comments" || !commentsOff) && !!meta?.hasField(k === "assignees" ? "_assign" : k === "comments" ? "_comments" : k === "tags" ? "_user_tags" : "_liked_by");
     const extra = rowMetaColumns({
-      indicator: indicatorCfg, assignees: on("assignees"), comments: on("comments"), likes: on("likes"), userInfo,
+      indicator: indicatorCfg, assignees: on("assignees"), comments: on("comments"), likes: on("likes"), tags: on("tags"), userInfo,
       hidden: o.rowMeta !== true,
-      labels: { indicator: t("listIndicator"), assigned: t("listAssigned"), comments: t("listComments"), likes: t("listLikes") },
+      labels: { indicator: t("listIndicator"), assigned: t("listAssigned"), comments: t("listComments"), likes: t("listLikes"), tags: t("listTags") },
     });
     // Desk's order: subject, status indicator, the DocType's own columns, then assignees / comments / likes
     const withIndicator = extra.indicator ? [merged[0], extra.indicator as unknown as ColumnDef<T>, ...merged.slice(1)].filter(Boolean) : merged;
@@ -226,7 +233,7 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     const rawTitle = (m.doc as { title_field?: string } | undefined)?.title_field;
     return capDefaultColumns(ordered, {
       limit: Number(settings?.total_fields) || widthLimit, subjectKey: subjectKey ?? "name", hasIndicator: deskIndicator,
-      settingsFields: listedFields(settings), uncounted: ["_assign", "_comments", "_liked_by"],
+      settingsFields: listedFields(settings), uncounted: ["_assign", "_comments", "_liked_by", "_user_tags"],
       nameColumn: !o.hideNameColumn && !!rawTitle && rawTitle !== "name" && meta.hasField(rawTitle),
     });
   }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, userNames, commentsOff, settings, t, widthCap, widthLimit, deskIndicator, o.hideNameColumn, m.doc]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -338,18 +345,27 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   }, [req, meta, state, columns, rows.length, countOff, count.data]);
   const titleLabel = filterFields.find((f) => f.name === meta?.titleField)?.label ?? meta?.titleField ?? "";
 
+  // Group by: one bucket per value; "Assigned To" (`_assign`, JSON list) and "Tags" (`_user_tags`, ",a,b") put a row in one
+  // bucket PER user / tag, as Desk's sidebar counts them (listview.py:33-60, reportview.py:750-765); User links (owner,
+  // modified_by, Link → User) are labelled with the user's full name, as the cells are.
+  const userLabel = React.useCallback((id: string) => userInfo[id]?.fullname || userNames[id] || formatCtx.linkTitles?.[`User::${id}`] || id, [userInfo, userNames, formatCtx.linkTitles]);
   const groupByOptions = React.useMemo<GroupByOption<T>[]>(() => (o.groupByFields ?? []).filter((f) => meta?.known.has(f)).map((f) => {
     const isCheck = meta?.fieldtypes.get(f) === "Check";
+    const df = meta?.fieldDefs[f];
+    const isUser = f === "owner" || f === "modified_by" || (df?.fieldtype === "Link" && df.options === "User");
+    const none = { key: "__none__", label: f === "_user_tags" ? t("listNoTags") : t("listNotSet") };
     return {
       key: f,
       label: filterFields.find((x) => x.name === f)?.label ?? f,
       groupOf: (row: T) => {
         const v = (row as Row)[f];
-        if (v === null || v === undefined || v === "") return { key: "__none__", label: "—" };
-        return { key: String(v), label: isCheck ? (v ? t("yes") : t("no")) : String(v) };
+        if (f === "_assign") { const users = parseJsonList(v); return users.length ? users.map((u) => ({ key: u, label: userLabel(u) })) : none; }
+        if (f === "_user_tags") { const tags = parseTags(v); return tags.length ? tags.map((tag) => ({ key: tag, label: tag })) : none; }
+        if (v === null || v === undefined || v === "") return none;
+        return { key: String(v), label: isCheck ? (v ? t("yes") : t("no")) : isUser ? userLabel(String(v)) : String(v) };
       },
     };
-  }), [o.groupByFields, meta, filterFields, t]);
+  }), [o.groupByFields, meta, filterFields, t, userLabel]);
 
   const loadOptions = React.useMemo(() => frappeLinkSearch(client, o.doctype), [client, o.doctype]);
 

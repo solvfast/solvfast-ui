@@ -21,7 +21,7 @@ import { fieldOf, filterFieldsFromColumns, type ColumnDef } from "./model/column
 import { EMPTY_QUERY, activeConditionCount, applyFilterQuery, type FilterField, type FilterQuery, type FiscalYear } from "./model/filters";
 import { groupRows, type GroupByOption, type RowGroup } from "./model/group";
 import { sortRows, type SortState } from "./model/sort";
-import { createLocalStorageAdapter, type ListPrefs, type ListPrefsStorage, type SavedFilter, type SavedFiltersStorage } from "./model/storage";
+import { createLocalStorageAdapter, type ListPrefs, type ListPrefsStorage, type SaveFilterOptions, type SavedFilter, type SavedFiltersStorage } from "./model/storage";
 
 export interface ListQueryState {
   search: string;
@@ -49,7 +49,7 @@ export interface UseListStateOptions<T> {
   searchFields?: string[];
   /** Debounce before search and filter edits take effect (typing). Default: 300 ms in server mode, none in client mode. */
   searchDebounceMs?: number;
-  /** Default 20 (Sear). */
+  /** Default 20 (Sear). The user's choice (`setPageSize`, stored with the prefs) wins. */
   pageSize?: number;
   defaultSort?: SortState;
   groupByOptions?: GroupByOption<T>[];
@@ -90,7 +90,6 @@ function useDebounced<V>(value: V, ms: number): V {
 export function useListState<T>(opts: UseListStateOptions<T>) {
   const { language } = useLocale();
   const { rows, columns, rowKey, mode = "client", viewKey } = opts;
-  const pageSize = opts.pageSize ?? 20;
   const prefsStore = opts.storage === null ? null : opts.storage?.prefs === undefined ? local().prefs : opts.storage.prefs;
   const savedStore = opts.storage === null ? null : opts.storage?.saved === undefined ? local().saved : opts.storage.saved;
   const initial = React.useMemo<ListPrefs>(() => (viewKey && prefsStore ? prefsStore.load(viewKey) : {}), [viewKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -124,8 +123,12 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   const [sort, setSortState] = React.useState<SortState>(initial.sort ?? opts.defaultSort ?? DEFAULT_SORT);
   const [groupBy, setGroupByState] = React.useState<string>(initial.groupBy ?? "none");
   const [page, setPage] = React.useState(0);
+  const [chosenPageSize, setChosenPageSize] = React.useState<number | undefined>(() => (initial.pageSize && initial.pageSize > 0 ? initial.pageSize : undefined));
+  const pageSize = chosenPageSize ?? opts.pageSize ?? 20;
   const [quickFields, setQuickFieldsState] = React.useState<string[]>(initial.quick ?? opts.quickFilterFields ?? []);
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set());
+  // "Select all {n} matching" (D-crm G5): every record of the current query, not only the loaded rows
+  const [allMatching, setAllMatching] = React.useState(false);
 
   const persist = (patch: Partial<ListPrefs>) => {
     if (!viewKey || !prefsStore) return;
@@ -162,6 +165,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   // C3: prune the selection when the result set changes underneath it
   const keysOfFiltered = React.useMemo(() => new Set(filtered.map(rowKey)), [filtered, rowKey]);
   React.useEffect(() => {
+    setAllMatching(false);
     setSelected((prev) => {
       if (!prev.size) return prev;
       if (mode === "server") return new Set();
@@ -194,6 +198,8 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   const setVisibleKeys = (keys: string[]) => { setChosenColumns(true); setVisibleKeysState(keys); persist({ visible: keys }); };
   const setGroupBy = (key: string) => { setGroupByState(key); setPage(0); persist({ groupBy: key }); };
   const setQuickFields = (names: string[]) => { setQuickFieldsState(names); persist({ quick: names }); };
+  /** Desk's paging buttons (base_list.js:374-418): a new page length starts again at page 1; remembered with the prefs. */
+  const setPageSize = (n: number) => { if (!(n > 0)) return; setChosenPageSize(n); setPage(0); persist({ pageSize: n }); };
   // adapters may throw or reject; either way the error goes to `onSavedFiltersError`
   const update = <R,>(run: () => R | Promise<R>, action: "save" | "remove", then: (r: R) => void) => {
     Promise.resolve().then(run).then(then).catch((e) => opts.onSavedFiltersError?.(e, action));
@@ -204,24 +210,29 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
     search, setSearch, query, setQuery, activeCount: activeConditionCount(query),
     sort, setSort, toggleSort,
     groupBy, setGroupBy, groupByOptions: opts.groupByOptions ?? [], groups, grouped,
-    rows: pageRows, total, page, setPage, pageSize,
+    rows: pageRows, total, page, setPage, pageSize, setPageSize,
     hasPrev: !grouped && page > 0,
     hasNext: !grouped && (page + 1) * pageSize < total,
     quickFields, setQuickFields,
     // selection
     selected,
     isSelected: (row: T) => selected.has(rowKey(row)),
-    toggleRow: (row: T) => setSelected((prev) => { const n = new Set(prev); const k = rowKey(row); n.has(k) ? n.delete(k) : n.add(k); return n; }),
+    toggleRow: (row: T) => { if (selected.has(rowKey(row))) setAllMatching(false); setSelected((prev) => { const n = new Set(prev); const k = rowKey(row); n.has(k) ? n.delete(k) : n.add(k); return n; }); },
     /** Select / unselect exactly these rows (the visible page, or one group). */
-    setRowsSelected: (list: T[], on: boolean) => setSelected((prev) => { const n = new Set(prev); for (const r of list) (on ? n.add(rowKey(r)) : n.delete(rowKey(r))); return n; }),
-    clearSelection: () => setSelected(new Set()),
+    setRowsSelected: (list: T[], on: boolean) => { if (!on) setAllMatching(false); setSelected((prev) => { const n = new Set(prev); for (const r of list) (on ? n.add(rowKey(r)) : n.delete(rowKey(r))); return n; }); },
+    clearSelection: () => { setAllMatching(false); setSelected(new Set()); },
+    /** True after `selectAllMatching()`: the selection stands for every record matching the query (`total`), until a row
+     *  is unchecked, the selection is cleared, or the query / search / scope changes. */
+    allMatching,
+    /** Select the loaded rows and mark the selection as "all matching records". */
+    selectAllMatching: () => { setSelected((prev) => { const n = new Set(prev); for (const r of pageRows) n.add(rowKey(r)); return n; }); setAllMatching(true); },
     selectedRows: () => (mode === "server" ? rows : filtered).filter((r) => selected.has(rowKey(r))),
     // saved filters
     saved,
     applySaved: (f: SavedFilter) => setQuery(f.query),
-    saveCurrent: (label: string) => {
+    saveCurrent: (label: string, saveOpts?: SaveFilterOptions) => {
       if (!viewKey || !savedStore) return;
-      update(() => savedStore.save(viewKey, label, query), "save", (list) => {
+      update(() => (saveOpts ? savedStore.save(viewKey, label, query, saveOpts) : savedStore.save(viewKey, label, query)), "save", (list) => {
         setSaved(list);
         const f = list.find((x) => x.label === label);
         if (f) opts.onFilterSaved?.(f);

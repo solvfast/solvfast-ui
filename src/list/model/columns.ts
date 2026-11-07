@@ -32,6 +32,9 @@ export interface ColumnDef<T> {
   options?: { value: string; label: string }[];
   /** Field names this column already represents (dedupes generated columns — PMO `metaFields`). */
   metaFields?: string[];
+  /** Card layout (`ListTable layout="cards"`, phones): `"primary"` = the card's title (default: the first column),
+   *  `false` = not shown on the card. */
+  mobile?: "primary" | false;
 }
 
 export const fieldOf = <T,>(c: ColumnDef<T>) => c.field ?? c.key;

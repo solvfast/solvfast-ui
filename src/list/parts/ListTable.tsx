@@ -105,7 +105,57 @@ export interface ListTableProps<T> {
    * Desk's header in selection mode (list_view.js:1613-1634, 740-760): with `count > 0` the column titles give way to
    * "{n} items selected" and a Clear button, in the same header row (no extra row). Omit: the header never changes.
    */
-  selectionHeader?: { count: number; onClear: () => void };
+  selectionHeader?: { count: number; onClear: () => void; matching?: SelectionMatching };
+  /**
+   * `"table"` (default): the table. `"cards"`: one card per row (phones — D-crm G1): the primary column as the card's
+   * title, the other columns as label / value lines (`ColumnDef.mobile`: `"primary"` picks the title column, `false`
+   * leaves a column out of the card). `"auto"`: cards below 768 px (`matchMedia`), the table otherwise. Selection, row
+   * click, groups, likes and the selection header work in both.
+   */
+  layout?: "table" | "cards" | "auto";
+}
+
+/** "Select all {n} matching" in the selection header (D-crm G5). */
+export interface SelectionMatching {
+  /** Records matching the query (all pages). */
+  total: number;
+  /** How to show `total` (e.g. "1,000+"). */
+  label?: string;
+  /** All matching records are selected. */
+  active: boolean;
+  onSelect: () => void;
+}
+
+/** "{n} items selected" / "All {n} matching records selected", the "Select all {n} matching" offer, and Clear. */
+function SelectionHeaderContent({ count, onClear, matching, allShownSelected }: { count: number; onClear: () => void; matching?: SelectionMatching; allShownSelected: boolean }) {
+  const { t } = useLocale();
+  const n = matching?.label ?? String(matching?.total ?? "");
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span className="text-sm text-foreground" aria-live="polite">
+        {matching?.active ? t("listAllMatchingSelected").replace("{n}", n) : t("listItemsSelected").replace("{n}", String(count))}
+      </span>
+      {matching && !matching.active && allShownSelected && matching.total > count && (
+        <Button type="button" variant="text" size="sm" className="h-7 px-1 text-xs" onClick={matching.onSelect} data-select-all-matching="">
+          {t("listSelectAllMatching").replace("{n}", n)}
+        </Button>
+      )}
+      <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={onClear}>
+        <X className="h-3.5 w-3.5" aria-hidden /> {t("clearSelection")}
+      </Button>
+    </span>
+  );
+}
+
+const PHONE_QUERY = "(max-width: 767px)";
+function usePhone(enabled: boolean): boolean {
+  const subscribe = React.useCallback((notify: () => void) => {
+    if (!enabled || typeof window === "undefined" || !window.matchMedia) return () => {};
+    const mq = window.matchMedia(PHONE_QUERY);
+    mq.addEventListener?.("change", notify);
+    return () => mq.removeEventListener?.("change", notify);
+  }, [enabled]);
+  return React.useSyncExternalStore(subscribe, () => enabled && typeof window !== "undefined" && !!window.matchMedia && window.matchMedia(PHONE_QUERY).matches, () => false);
 }
 
 /**
@@ -115,9 +165,11 @@ export interface ListTableProps<T> {
  */
 export function ListTable<T>({
   columns, rows, rowKey, sort, onSortToggle, onRowClick, rowClassName, selection, loading, error, onRetry, empty, className,
-  groups, partial, like, selectionHeader,
+  groups, partial, like, selectionHeader, layout = "table",
 }: ListTableProps<T>) {
   const { language, t } = useLocale();
+  const phone = usePhone(layout === "auto");
+  const cards = layout === "cards" || (layout === "auto" && phone);
   const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
   const toggleGroup = (key: string) => setCollapsed((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
   const shown = groups ? groups.flatMap((g) => (collapsed.has(g.key) ? [] : g.rows)) : rows;
@@ -145,11 +197,12 @@ export function ListTable<T>({
   };
   const selecting = !!selection && !!selectionHeader && selectionHeader.count > 0;
 
-  const renderRow = (row: T) => {
+  // a row can sit in several groups (multi-bucket `groupOf`): its React key carries the group
+  const renderRow = (row: T, group?: string) => {
     const on = !!selection?.isSelected(row);
     return (
       <tr
-        key={rowKey(row)}
+        key={group === undefined ? rowKey(row) : `${group}\u0000${rowKey(row)}`}
         tabIndex={onRowClick ? 0 : undefined}
         onClick={() => onRowClick?.(row)}
         onKeyDown={(e) => { if (onRowClick && e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); }}
@@ -202,10 +255,92 @@ export function ListTable<T>({
             </button>
           </td>
         </tr>
-        {open && g.rows.map(renderRow)}
+        {open && g.rows.map((r) => renderRow(r, g.key))}
       </tbody>
     );
   };
+
+  if (cards) {
+    // phones (D-crm G1): a card per row — the primary column as the title, the others as label / value lines
+    const primary = columns.find((c) => c.mobile === "primary") ?? columns.find((c) => c.mobile !== false && c.key !== "__actions") ?? columns[0];
+    const details = columns.filter((c) => c !== primary && c.mobile !== false);
+    const cell = (c: ColumnDef<T>, row: T) => (c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} />);
+    const renderCard = (row: T, group?: string) => {
+      const on = !!selection?.isSelected(row);
+      return (
+        <li key={group === undefined ? rowKey(row) : `${group}\u0000${rowKey(row)}`} data-card="" data-selected={selection ? String(on) : undefined}
+          tabIndex={onRowClick ? 0 : undefined} onClick={() => onRowClick?.(row)}
+          onKeyDown={(e) => { if (onRowClick && e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); }}
+          className={cn("flex items-start gap-3 border-b border-border px-3 py-3 last:border-0", onRowClick && "cursor-pointer outline-none hover:bg-accent/50 focus-visible:bg-accent/60", on && "bg-primary/5", rowClassName?.(row))}>
+          {selection && (
+            <div className="pt-0.5" onClick={(e) => onCheckClick(row, e)}>
+              <Checkbox checked={on} onCheckedChange={() => selection.toggleRow(row)} aria-label={t("selectRow")} />
+            </div>
+          )}
+          <div className="min-w-0 flex-1 space-y-1.5">
+            {primary && <div className="text-sm font-medium text-foreground">{cell(primary, row)}</div>}
+            {details.length > 0 && (
+              <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                {details.map((c) => (
+                  <React.Fragment key={c.key}>
+                    <dt className="truncate text-muted-foreground">{loc(c.label, language)}</dt>
+                    <dd className="min-w-0 truncate" onClick={c.key === "__actions" ? (e) => e.stopPropagation() : undefined}>{cell(c, row)}</dd>
+                  </React.Fragment>
+                ))}
+              </dl>
+            )}
+          </div>
+          {like && (
+            <div onClick={(e) => e.stopPropagation()} data-like-cell="">
+              <LikeToggle liked={like.isLiked(row)} title={like.likedByTitle?.(row)} disabled={like.disabled?.(row)}
+                onToggle={(next) => like.onToggle(row, next)} onError={(err) => like.onError?.(err, row)} />
+            </div>
+          )}
+        </li>
+      );
+    };
+    const state = (loading && !any) ? (
+      <ul aria-hidden className="divide-y divide-border">{Array.from({ length: 4 }).map((_, i) => <li key={i} className="space-y-2 p-3"><Skeleton className="h-4 w-40" /><Skeleton className="h-3 w-24" /></li>)}</ul>
+    ) : !loading && React.isValidElement(error) ? (
+      <div className="p-6">{error}</div>
+    ) : !loading && error ? (
+      <div className="flex flex-col items-center gap-3 p-8 text-center" role="alert">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="h-5 w-5" /></div>
+        <p className="text-sm text-muted-foreground">{error === true ? t("loadError") : error}</p>
+        {onRetry && <Button variant="outline" size="sm" onClick={onRetry}>{t("retry")}</Button>}
+      </div>
+    ) : !any ? (
+      <div className="p-8 text-center text-sm text-muted-foreground">{empty ?? t("noData")}</div>
+    ) : null;
+    return (
+      <Card className={cn("overflow-hidden", className)} data-layout="cards">
+        {selection && any && (
+          <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground" data-selection-header={selecting ? "" : undefined}>
+            <Checkbox checked={allOn ? true : someOn ? "indeterminate" : false} onCheckedChange={(c) => selection.setRowsSelected(shown, c === true)} aria-label={t("selectAll")} />
+            {selecting && <SelectionHeaderContent count={selectionHeader!.count} onClear={selectionHeader!.onClear} matching={selectionHeader!.matching} allShownSelected={allOn} />}
+          </div>
+        )}
+        {state ?? (groups ? groups.map((g) => {
+          const open = !collapsed.has(g.key);
+          const gAll = !!selection && g.rows.length > 0 && g.rows.every((r) => selection.isSelected(r));
+          const gSome = !!selection && !gAll && g.rows.some((r) => selection.isSelected(r));
+          return (
+            <section key={g.key} data-group={g.key}>
+              <div data-group-header="" className="flex items-center gap-3 border-y border-border bg-muted/20 px-3 py-2">
+                {selection && <Checkbox checked={gAll ? true : gSome ? "indeterminate" : false} onCheckedChange={(c) => selection.setRowsSelected(g.rows, c === true)} aria-label={t("selectGroup").replace("{group}", g.label)} />}
+                <button type="button" onClick={() => toggleGroup(g.key)} aria-expanded={open} className="flex items-center gap-2 rounded-md text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4 rtl:rotate-180" />}
+                  <span>{g.label}</span>
+                  <span className="rounded-full bg-muted px-2 text-xs font-normal text-muted-foreground">{g.rows.length}{partial ? "+" : ""}</span>
+                </button>
+              </div>
+              {open && <ul>{g.rows.map((r) => renderCard(r, g.key))}</ul>}
+            </section>
+          );
+        }) : <ul>{rows.map((r) => renderCard(r))}</ul>)}
+      </Card>
+    );
+  }
 
   return (
     <Card className={cn("overflow-hidden", className)}>
@@ -220,12 +355,7 @@ export function ListTable<T>({
               )}
               {selecting && (
                 <th colSpan={Math.max(columns.length, 1) + (like ? 1 : 0)} className="px-4 py-1.5 text-start font-medium normal-case tracking-normal" data-selection-header="">
-                  <span className="inline-flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-foreground" aria-live="polite">{t("listItemsSelected").replace("{n}", String(selectionHeader!.count))}</span>
-                    <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={selectionHeader!.onClear}>
-                      <X className="h-3.5 w-3.5" aria-hidden /> {t("clearSelection")}
-                    </Button>
-                  </span>
+                  <SelectionHeaderContent count={selectionHeader!.count} onClear={selectionHeader!.onClear} matching={selectionHeader!.matching} allShownSelected={allOn} />
                 </th>
               )}
               {!selecting && columns.map((c) => {
@@ -283,7 +413,7 @@ export function ListTable<T>({
                 <tr><td colSpan={colCount} className="py-12 text-center text-muted-foreground">{empty ?? t("noData")}</td></tr>
               )}
             </tbody>
-          ) : groups ? groups.map(renderGroup) : <tbody>{rows.map(renderRow)}</tbody>}
+          ) : groups ? groups.map(renderGroup) : <tbody>{rows.map((r) => renderRow(r))}</tbody>}
         </table>
       </div>
     </Card>

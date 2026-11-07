@@ -13,15 +13,32 @@ import { Card } from "../../primitives/card";
 import { loc, type Localized } from "../../lib/localized";
 import { useLocale } from "../../theme/ThemeProvider";
 
-export function ListPagination({ total, totalLabel, onTotalClick, page, hasPrev, hasNext, onPage }: { total: number; totalLabel?: string; onTotalClick?: () => void; page: number; hasPrev: boolean; hasNext: boolean; onPage: (p: number) => void }) {
-  const { t, direction } = useLocale();
+export function ListPagination({ total, totalLabel, onTotalClick, page, hasPrev, hasNext, onPage, pageSize, pageSizes, onPageSize }: {
+  total: number; totalLabel?: string; onTotalClick?: () => void; page: number; hasPrev: boolean; hasNext: boolean; onPage: (p: number) => void;
+  /** Desk's page-length buttons (base_list.js:374-418: 20 / 100 / 500 / 2500): offered when `pageSizes` and `onPageSize` are given. */
+  pageSize?: number; pageSizes?: number[]; onPageSize?: (n: number) => void;
+}) {
+  const { t, direction, language } = useLocale();
   const Prev = direction === "rtl" ? ChevronRight : ChevronLeft;
   const Next = direction === "rtl" ? ChevronLeft : ChevronRight;
+  const totalNode = totalLabel === "" ? <span /> : onTotalClick
+    ? <button type="button" className="rounded-sm underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={t("listCountExact")} onClick={onTotalClick}>{t("total")}: {totalLabel ?? total}</button>
+    : <span>{t("total")}: {totalLabel ?? total}</span>;
+  const sizes = pageSizes?.length && onPageSize ? (
+    <div role="group" aria-label={t("listPageSize")} className="inline-flex items-center gap-0.5 rounded-md border border-border p-0.5" data-page-sizes="">
+      {pageSizes.map((n) => (
+        <button key={n} type="button" aria-pressed={n === pageSize} onClick={() => n !== pageSize && onPageSize(n)} dir="ltr"
+          className={cn("rounded px-2 py-0.5 text-xs tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            n === pageSize ? "bg-accent font-medium text-foreground" : "hover:text-foreground")}>
+          {n.toLocaleString(language === "ar" ? "ar-EG" : "en-US")}
+        </button>
+      ))}
+    </div>
+  ) : null;
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground">
-      {totalLabel === "" ? <span /> : onTotalClick
-        ? <button type="button" className="rounded-sm underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={t("listCountExact")} onClick={onTotalClick}>{t("total")}: {totalLabel ?? total}</button>
-        : <span>{t("total")}: {totalLabel ?? total}</span>}
+      {/* the page buttons must stay the LAST child (pill styles, styles/src/sf-overrides.css) */}
+      {sizes ? <div className="flex flex-wrap items-center gap-3">{totalNode}{sizes}</div> : totalNode}
       <div className="flex items-center gap-1">
         <Button variant="outline" size="icon" className="h-8 w-8" disabled={!hasPrev} onClick={() => onPage(page - 1)} aria-label={t("prevPage")}><Prev className="h-4 w-4" /></Button>
         <span className="px-2" aria-current="page">{page + 1}</span>
@@ -31,8 +48,12 @@ export function ListPagination({ total, totalLabel, onTotalClick, page, hasPrev,
   );
 }
 
-/** What a bulk action sees: the selected row keys, the selected rows the list has loaded, and a way to clear the selection. */
-export interface BulkActionContext<T> { keys: string[]; rows: T[]; clear: () => void }
+/**
+ * What a bulk action sees: the selected row keys, the selected rows the list has loaded, and a way to clear the selection.
+ * `allMatching` is set when the user chose "Select all {n} matching" (`ListView selectAllMatching`): the action is asked to
+ * act on EVERY record that matches the list's current query (`total` of them), not only on `keys` (the loaded rows).
+ */
+export interface BulkActionContext<T> { keys: string[]; rows: T[]; clear: () => void; allMatching?: { total: number } }
 
 /**
  * One action on the selected rows. In the bar (`selectionMode="bar"`) it is a button; in Desk's header mode
@@ -45,7 +66,14 @@ export interface BulkAction<T> {
   label: Localized;
   icon?: React.ComponentType<{ className?: string }>;
   variant?: "default" | "outline" | "destructive" | "secondary";
-  run: (keys: string[], rows: T[]) => void | Promise<void>;
+  /** `ctx` is passed only when all matching records are selected (`ctx.allMatching`). */
+  run: (keys: string[], rows: T[], ctx?: BulkActionContext<T>) => void | Promise<void>;
+  /**
+   * The action can act on every record matching the query ("Select all {n} matching": `ctx.allMatching` — e.g. by sending
+   * the list's filters instead of names). Actions without it are offered DISABLED while all matching records are selected:
+   * running them on the loaded keys only would silently act on fewer records than the user chose.
+   */
+  allMatching?: boolean;
   /** "destructive": the destructive look (bar button and menu item) and a destructive confirm button. */
   tone?: "default" | "destructive";
   /** Not offered for this selection. */
@@ -59,9 +87,11 @@ export interface BulkAction<T> {
 }
 export interface BulkActionConfirm { title: Localized; description?: Localized; confirmLabel?: Localized }
 
-/** The actions offered for a selection (`hidden` applied) with their disabled state. */
-export function resolveBulkActions<T>(actions: BulkAction<T>[] | undefined, ctx: BulkActionContext<T>): { action: BulkAction<T>; disabled: boolean; reason?: string }[] {
+/** The actions offered for a selection (`hidden` applied) with their disabled state. With `ctx.allMatching`, actions that
+ *  cannot act on all matching records are disabled with `opts.allMatchingReason`. */
+export function resolveBulkActions<T>(actions: BulkAction<T>[] | undefined, ctx: BulkActionContext<T>, opts: { allMatchingReason?: string } = {}): { action: BulkAction<T>; disabled: boolean; reason?: string }[] {
   return (actions ?? []).filter((a) => !a.hidden?.(ctx)).map((a) => {
+    if (ctx.allMatching && !a.allMatching) return { action: a, disabled: true, reason: opts.allMatchingReason ?? "Not available for all matching records" };
     const d = a.disabled?.(ctx);
     return { action: a, disabled: !!d, reason: typeof d === "string" ? d : undefined };
   });
@@ -80,7 +110,7 @@ export function BulkActionBar<T>({ count, actions, render, onClear, keys, rows }
       <span className="text-sm font-medium" aria-live="polite">{t("selectedCount").replace("{n}", String(count))}</span>
       <div className="h-5 w-px bg-border" />
       {render?.(ctx)}
-      {resolveBulkActions(actions, ctx).map(({ action: a, disabled, reason }) => {
+      {resolveBulkActions(actions, ctx, { allMatchingReason: t("listAllMatchingUnsupported") }).map(({ action: a, disabled, reason }) => {
         const Icon = a.icon;
         return (
           <Button key={a.key} size="sm" variant={a.variant ?? (a.tone === "destructive" ? "destructive" : "outline")} className="gap-1.5" loading={runner.busy === a.key}
@@ -107,7 +137,8 @@ export function useBulkActionRunner<T>() {
   const [asking, setAsking] = React.useState<{ action: BulkAction<T>; ctx: BulkActionContext<T>; confirm: BulkActionConfirm } | null>(null);
   const exec = async (a: BulkAction<T>, ctx: BulkActionContext<T>) => {
     setBusy(a.key);
-    try { await a.run(ctx.keys, ctx.rows); } finally { setBusy(null); }
+    // the context is passed only for an "all matching" selection: older actions keep their exact (keys, rows) call
+    try { await (ctx.allMatching ? a.run(ctx.keys, ctx.rows, ctx) : a.run(ctx.keys, ctx.rows)); } finally { setBusy(null); }
   };
   const request = (a: BulkAction<T>, ctx: BulkActionContext<T>) => {
     const c = typeof a.confirm === "function" ? a.confirm(ctx) : a.confirm;
@@ -145,7 +176,7 @@ export function ListActionsMenu<T>({ actions, ctx, extra, label, onOpenChange, a
 }) {
   const { language, t } = useLocale();
   const runner = useBulkActionRunner<T>();
-  const items = resolveBulkActions(actions, ctx);
+  const items = resolveBulkActions(actions, ctx, { allMatchingReason: t("listAllMatchingUnsupported") });
   return (
     <>
       <DropdownMenu onOpenChange={onOpenChange}>

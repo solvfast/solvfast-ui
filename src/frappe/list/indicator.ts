@@ -5,6 +5,8 @@
  * clicking the pill applies. UNVERIFIED: how a host loads the Workflow (Desk reads `frappe.boot`); pass it as `workflow`.
  */
 import { colourTone, guessColour as guessColourCore, resolveIndicator, toListTone } from "../services/indicator";
+import { workflowFromMeta } from "../client";
+import type { DocTypeMeta } from "../contract";
 
 export type IndicatorTone = "success" | "warning" | "destructive" | "info" | "brand" | "muted";
 export interface Indicator { label: string; color: string; tone: IndicatorTone; filter?: [field: string, value: string | number] }
@@ -62,4 +64,22 @@ export function hasIndicator(c: Pick<IndicatorConfig, "isSubmittable" | "workflo
 /** Row fields the indicator reads. */
 export function indicatorFields(c: Pick<IndicatorConfig, "workflow" | "hasField">): string[] {
   return ["docstatus", ...["status", "enabled", "disabled"].filter(c.hasField), ...(c.workflow ? [c.workflow.stateField] : [])];
+}
+
+/**
+ * The indicator's workflow, derived from the DocType as Desk does: `frappe.workflow.setup` (model/workflow.js:10-21) reads
+ * the active Workflow (getdoctype's `__workflow_docs`) — `workflow_state_field`, `override_status`, and the states with
+ * `avoid_status_override`; the colour comes from the Workflow State's `style` (indicator.js:44-60). `undefined` when the
+ * DocType has no active workflow.
+ */
+export function indicatorWorkflowFromMeta(meta: DocTypeMeta | undefined): IndicatorWorkflow | undefined {
+  const wf = workflowFromMeta(meta) as (ReturnType<typeof workflowFromMeta> & { override_status?: unknown }) | null;
+  if (!wf || !wf.workflow_state_field) return undefined;
+  const states = wf.states as (typeof wf.states[number] & { avoid_status_override?: unknown })[];
+  return {
+    stateField: wf.workflow_state_field,
+    styles: Object.fromEntries(states.map((s) => [s.state, s.style || undefined])),
+    overrideStatus: !!Number(wf.override_status ?? 0),
+    avoidStatusOverride: states.filter((s) => !!Number(s.avoid_status_override ?? 0)).map((s) => s.state),
+  };
 }
