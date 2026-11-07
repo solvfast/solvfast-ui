@@ -20,6 +20,7 @@ import { toFrappeError, type DownloadedFile, type FrappeFilesTransport, type Fra
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, FrappeDocField, PermType, WorkflowInfo } from "../contract";
 import type { FrappeSession } from "../services/permissions";
 import { createPermissionEngine, permissionError, type PermissionEngine, type SimulatedPermissions } from "./permissions";
+import { workstreamHandlers } from "./handlers";
 import { parseCsv, parseTemplate, payloadsOf, previewOf, type ParsedTemplate } from "./importer";
 import { fieldCurrency, formatDate, formatDatetime, formatDuration, formatNumber, formatTime, numberFormatPrecision, type FormatContext } from "../services/format";
 
@@ -1368,6 +1369,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       if (P) P.assertDoc(di, "read");
       return { message: (importLogs.get(di.name) ?? []).slice(0, 5000).map((l) => ({ success: l.success, docname: l.docname, messages: l.messages, exception: l.exception, row_indexes: l.row_indexes })) };
     },
+    ...workstreamHandlers,
     ...options.handlers,
   };
 

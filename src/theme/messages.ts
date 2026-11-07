@@ -1,6 +1,7 @@
 /** The package's own chrome strings (ar/en). Consumers override per key via <ThemeProvider messages>.
  *  Strings match what Sear / PMO show; t() falls back to the key for unknown keys. */
 export type Language = "ar" | "en";
+import { wsEn, wsAr } from "./messages-ws";
 
 const en = {
   toggleTheme: "Toggle theme",
@@ -453,6 +454,7 @@ const en = {
   exportCountSuffix: "({0})",
 
   // ---- end of 0.4.0 blocks ----
+  ...wsEn,
 };
 
 export type Messages = typeof en;
@@ -904,6 +906,7 @@ const ar: Messages = {
   exportCountSuffix: "({0})",
 
   // ---- end of 0.4.0 blocks ----
+  ...wsAr,
 };
 
 export const defaultMessages: Record<Language, Messages> = { en, ar };
