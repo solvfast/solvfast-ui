@@ -586,7 +586,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     else if (a === "Amend") amend();
   };
   fns.current = {
-    save: (a) => save(a ?? ((store.getDoc().docstatus ?? 0) === 1 ? "Update" : "Save"), true),
+    // frm.save checks the right first (form.js validate_form_action): Save → write (create for a new doc), Submit / Update
+    // → submit; nothing without permissions or with saveDisabled
+    save: async (a) => {
+      const d = store.getDoc();
+      const action: SaveAction = a ?? ((d.docstatus ?? 0) === 1 ? "Update" : "Save");
+      const allowed = action === "Save" ? !props.saveDisabled && (d.__islocal ? can("create") || can("write") : can("write")) : can("submit");
+      return allowed ? save(action, true) : false;
+    },
     checkMandatory: mandatoryOk,
     flash: (key) => flash(t(key)),
   };

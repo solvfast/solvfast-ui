@@ -57,6 +57,7 @@ export function FrappeQuickEntry({ doctype, open, onOpenChange, defaults, onCrea
   const qe = React.useMemo(() => (bundle ? quickEntryFields(bundle.meta) : null), [bundle]);
   const names = React.useMemo(() => new Set(qe?.fields.map((f) => f.fieldname)), [qe]);
   const permissions = usePermissions(bundle, doc ?? undefined);
+  const canSave = !!permissions.can?.("create", 0);
   const [nested, nestedHost] = useQuickEntryHost(onOpenFullForm ? (d) => onOpenFullForm(d) : undefined);
 
   // a fresh document per opening
@@ -107,7 +108,7 @@ export function FrappeQuickEntry({ doctype, open, onOpenChange, defaults, onCrea
           {onOpenFullForm && bundle && doc
             ? <Button type="button" variant="ghost" onClick={() => { onOpenFullForm(ctrl.current?.doc ?? doc); onOpenChange(false); }}>{t("formEditFullForm")}</Button>
             : <span />}
-          <Button type="button" disabled={!bundle || !doc} loading={busy} onClick={() => void run()}>{t("formSave")}</Button>
+          <Button type="button" disabled={!bundle || !doc || !canSave} loading={busy} onClick={() => void run()}>{t("formSave")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

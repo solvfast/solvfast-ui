@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import todoEn from "./fixtures/real-15.110/todo.en.json";
 import userEn from "./fixtures/real-15.110/user.en.json";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
-import { createFrappeClient, type FrappeApi, type FrappeTransport } from "../src/frappe/client";
+import { createFrappeClient, linkTitlesOf, type FrappeApi, type FrappeTransport, type LoadedDocWithTitles } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
@@ -64,7 +64,7 @@ export interface SetupOpts {
 }
 
 type Ui = React.ReactElement | ((client: FrappeApi) => React.ReactElement);
-const MEMO_DOCS = [{ doctype: "Memo", name: "MEMO-1", title: "Hello", kind: "A", note: "n", docstatus: 0, modified: "2026-11-01 10:00:00" }];
+const MEMO_DOCS: FrappeDoc[] = [{ doctype: "Memo", name: "MEMO-1", title: "Hello", kind: "A", note: "n", docstatus: 0, modified: "2026-11-01 10:00:00" }];
 
 export function setup(ui: Ui, opts: SetupOpts = {}) {
   const transport = createFixtureTransport({
@@ -380,5 +380,155 @@ describe("K1 / K2 custom buttons and the Create dropdown (frm.add_custom_button)
     expect(await screen.findByRole("button", { name: "Once" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Once" })).toBeNull());
+  });
+});
+
+const FLOW: DocTypeMeta = {
+  name: "Flow Memo", is_submittable: 1, autoname: "hash", title_field: "title",
+  fields: [
+    { fieldname: "title", fieldtype: "Data", label: "Title", reqd: 1 },
+    { fieldname: "reason", fieldtype: "Data", label: "Reason", mandatory_depends_on: "eval:doc.title == 'Plan'" },
+    { fieldname: "workflow_state", fieldtype: "Link", label: "Workflow State", options: "Workflow State", hidden: 1 },
+  ],
+  permissions: [{ role: "System Manager", permlevel: 0, read: 1, write: 1, create: 1, submit: 1, cancel: 1 }],
+};
+const FLOW_WF = {
+  name: "Flow", document_type: "Flow Memo", workflow_state_field: "workflow_state",
+  states: [{ state: "Draft", doc_status: "0", allow_edit: "System Manager" }, { state: "Approved", doc_status: "1", allow_edit: "System Manager" }],
+  transitions: [{ state: "Draft", action: "Approve", next_state: "Approved", allowed: "System Manager" }],
+};
+const flowSetup = (over: Partial<FrappeDoc>, ui: React.ReactElement) => setup(ui, {
+  meta: { "Flow Memo": [FLOW] }, workflows: { "Flow Memo": FLOW_WF as never },
+  docs: { "Flow Memo": [{ doctype: "Flow Memo", name: "FM-1", title: "Plan", reason: "", docstatus: 0, workflow_state: "Draft", modified: "2026-11-01 10:00:00", owner: "Administrator", ...over }] },
+});
+const openActions = async () => fireEvent.keyDown(await screen.findByRole("button", { name: "Actions" }), { key: "Enter" });
+
+describe("F2 / I1-I2 workflow action: check_mandatory → before_workflow_action → apply → after_workflow_action (form/workflow.js:96-121)", () => {
+  it("I2 a mandatory_depends_on field left empty blocks the transition: Missing Fields, nothing sent, no event", async () => {
+    const before = vi.fn();
+    const { calls } = flowSetup({}, <FrappeForm doctype="Flow Memo" name="FM-1" guardUnload={false} events={{ before_workflow_action: before }} />);
+    await openActions();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Approve" }));
+    expect(await screen.findByRole("dialog", { name: "Missing Fields" })).toBeTruthy();
+    await tick(20);
+    expect(calls("frappe.model.workflow.apply_workflow")).toHaveLength(0);
+    expect(before).not.toHaveBeenCalled();
+  });
+
+  it("I2 with the value: before_workflow_action sees frm.selectedWorkflowAction, apply_workflow is sent, then after_workflow_action", async () => {
+    const order: string[] = [];
+    const events = {
+      before_workflow_action: (frm: FormController) => { order.push(`before:${frm.selectedWorkflowAction}`); },
+      after_workflow_action: (frm: FormController) => { order.push(`after:${frm.selectedWorkflowAction}:${String(frm.doc.workflow_state)}`); },
+    };
+    const { calls } = flowSetup({ reason: "budget" }, <FrappeForm doctype="Flow Memo" name="FM-1" guardUnload={false} events={events} />);
+    await openActions();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Approve" }));
+    await waitFor(() => expect(order).toEqual(["before:Approve", "after:null:Approved"]));
+    expect(calls("frappe.model.workflow.apply_workflow")).toHaveLength(1);
+    expect(calls("frappe.model.workflow.apply_workflow")[0].args.action).toBe("Approve");
+  });
+
+  it("I2 negative: before_workflow_action returning false stops the action (nothing sent)", async () => {
+    const { calls } = flowSetup({ reason: "budget" }, <FrappeForm doctype="Flow Memo" name="FM-1" guardUnload={false} events={{ before_workflow_action: () => false }} />);
+    await openActions();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Approve" }));
+    await tick(30);
+    expect(calls("frappe.model.workflow.apply_workflow")).toHaveLength(0);
+  });
+
+  it("I8 a new document of a workflow DocType starts in the default state for its docstatus (model/workflow.js:28-38)", async () => {
+    const { calls } = flowSetup({}, <FrappeForm doctype="Flow Memo" guardUnload={false} />);
+    typeInto(await screen.findByRole("textbox", { name: /Title/ }), "Other");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(calls("frappe.desk.form.save.savedocs")).toHaveLength(1));
+    expect(parsed(calls("frappe.desk.form.save.savedocs")[0].args.doc).workflow_state).toBe("Draft");
+  });
+});
+
+const VISIT: DocTypeMeta = {
+  name: "Visit", autoname: "hash", title_field: "subject",
+  fields: [
+    { fieldname: "subject", fieldtype: "Data", label: "Subject" },
+    { fieldname: "contact", fieldtype: "Link", label: "Contact", options: "Contact" },
+  ],
+  permissions: [{ role: "Sales User", permlevel: 0, read: 1, write: 1, create: 1 }],
+};
+const visitDocs = { Visit: [{ doctype: "Visit", name: "V-1", subject: "Call", contact: "C-0001", modified: "2026-11-01 10:00:00", owner: "Administrator" }] };
+
+describe("F3 / F10 getdoc's _link_titles reach the link-title cache (load.py:62, 425-480)", () => {
+  // the simulator's getdoc answers `_link_titles: {}`; a real site fills it for show_title_field_in_link targets
+  // (Contact is one in 15.110: contact.en.json "show_title_field_in_link": 1) — the response is shaped here as load.py does
+  const withTitles = (t: FrappeTransport): FrappeTransport => async (m, a) => {
+    const r = await t(m, a);
+    return m === "frappe.desk.form.load.getdoc" && a.doctype === "Visit" ? { ...r, _link_titles: { "Contact::C-0001": "Ann Contact" } } : r;
+  };
+  it("F10 a saved form shows the title of its Link value without searching", async () => {
+    const { calls } = setup(<FrappeForm doctype="Visit" name="V-1" guardUnload={false} />, { meta: { Visit: [VISIT] }, docs: visitDocs, wrap: withTitles });
+    await waitFor(() => expect((screen.getByRole("combobox", { name: /Contact/ }) as HTMLInputElement).value).toBe("Ann Contact"));
+    expect(calls("frappe.desk.search.search_link")).toHaveLength(0);
+  });
+  it("F10 negative: without _link_titles the raw name is shown", async () => {
+    setup(<FrappeForm doctype="Visit" name="V-1" guardUnload={false} />, { meta: { Visit: [VISIT] }, docs: visitDocs });
+    await waitFor(() => expect((screen.getByRole("combobox", { name: /Contact/ }) as HTMLInputElement).value).toBe("C-0001"));
+  });
+  it("F10 the client keeps them: getDoc → linkTitles and docinfo._link_titles", async () => {
+    const t = createFixtureTransport({ meta: { Visit: [VISIT] }, docs: visitDocs });
+    const api = createFrappeClient({ transport: withTitles(t) });
+    const loaded = await api.getDoc("Visit", "V-1") as LoadedDocWithTitles;
+    expect(loaded.linkTitles).toEqual({ "Contact::C-0001": "Ann Contact" });
+    expect(loaded.docinfo._link_titles).toEqual({ "Contact::C-0001": "Ann Contact" });
+    expect(linkTitlesOf({ _link_titles: { bad: "x", "A::b": "", "A::c": "C" } })).toEqual({ "A::c": "C" });
+  });
+});
+
+const CONTACT_LITE: DocTypeMeta = {
+  name: "Contact", autoname: "hash", quick_entry: 0, title_field: "first_name",
+  fields: [{ fieldname: "first_name", fieldtype: "Data", label: "First Name", reqd: 1 }],
+  permissions: [{ role: "Reader", permlevel: 0, read: 1 }, { role: "Maker", permlevel: 0, read: 1, create: 1 }],
+};
+const visitView = () => view({ bundle: bundleOf(VISIT), doc: visitDocs.Visit[0] as FrappeDoc });
+
+describe("F4 / F6, F8 Link: 'Create a new X' needs the target's create right, the open link its read right (link.js:323-334)", () => {
+  const focusLink = async () => {
+    const box = screen.getByRole("combobox", { name: /Contact/ });
+    act(() => (box as HTMLInputElement).focus());
+    fireEvent.change(box, { target: { value: "An" } });
+    await tick(600); // the 500 ms search debounce
+    return box;
+  };
+  it("F8 the open-record link shows for a role with read on the target, not for one without (rule 9: no roles → none)", async () => {
+    for (const [roles, expected] of [[["Reader"], true], [["Nobody"], false], [undefined, false]] as const) {
+      const { calls } = setup(visitView().el, { meta: { Visit: [VISIT], Contact: [CONTACT_LITE] }, docs: visitDocs, session: { user: "u@x", ...(roles ? { roles: [...roles] } : {}) } });
+      if (roles) await waitFor(() => expect(calls("frappe.desk.form.load.getdoctype").some((c) => c.args.doctype === "Contact")).toBe(true));
+      await tick(20);
+      expect(!!document.querySelector('a[href="/app/contact/C-0001"]'), String(roles)).toBe(expected);
+      if (!roles) expect(calls("frappe.desk.form.load.getdoctype")).toHaveLength(0); // nothing to evaluate: no request
+      cleanup();
+    }
+  });
+  it("F6 'Create a new Contact' is offered with create + onCreateNew; not without the create right; the app's canCreate decides alone", async () => {
+    const onCreateNew = vi.fn();
+    const cases: Array<[string[], Partial<FormServices>, boolean]> = [
+      [["Maker"], { onCreateNew }, true],
+      [["Reader"], { onCreateNew }, false],
+      [["Reader"], { onCreateNew, canCreate: () => true }, true],
+    ];
+    for (const [roles, services, expected] of cases) {
+      setup(visitView().el, { meta: { Visit: [VISIT], Contact: [CONTACT_LITE] }, docs: visitDocs, session: { user: "u@x", roles }, services });
+      await focusLink();
+      await tick(40);
+      expect(!!screen.queryByRole("option", { name: "Create a new Contact" }), `${roles} ${Object.keys(services)}`).toBe(expected);
+      cleanup();
+    }
+    expect(onCreateNew).not.toHaveBeenCalled();
+  });
+  it("F6 the Administrator gets 'Create a new X' without a meta request when the app handles it", async () => {
+    const onCreateNew = vi.fn();
+    const { calls } = setup(visitView().el, { meta: { Visit: [VISIT], Contact: [CONTACT_LITE] }, docs: visitDocs, services: { onCreateNew } });
+    await focusLink();
+    fireEvent.click(await screen.findByRole("option", { name: "Create a new Contact" }));
+    expect(onCreateNew).toHaveBeenCalledWith(expect.objectContaining({ doctype: "Contact" }));
+    expect(calls("frappe.desk.form.load.getdoctype")).toHaveLength(0);
   });
 });
