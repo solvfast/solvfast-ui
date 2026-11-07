@@ -35,21 +35,25 @@ Works without a provider too (it creates one with the default same-origin client
 | `fieldLabels` | `{ fieldname: string \| {en, ar} }` for generated columns and filter fields (DocField labels arrive untranslated). |
 | `baseFilters` | `[field, op, value][]` AND-ed into every request (a scope). Changing them clears the selection. |
 | `searchFields` | Default: title field + the DocType's `search_fields` + `name`. Search uses `or_filters` (one list; with "Match any" filters it narrows to the title field and says so). |
-| `pageSize` / `groupByFields` / `chunkSize` | Page size (default 20). Group-by is opt-in and groups the loaded rows (chunks of `chunkSize`, "Load more"). |
+| `pageSize` / `pageSizes` / `groupByFields` / `chunkSize` | Page size (default 20). P35: `pageSizes` defaults to Desk's 20 / 100 / 500 / 2500 (`base_list.js:374-418`; `pageSizes={[]}` hides the picker); the choice is kept with the prefs (`user_settings` `List.sf_ui.pageSize` with `serverStorage` — Desk itself keeps no page length). Group-by is opt-in and groups the loaded rows (chunks of `chunkSize`, "Load more"); `_assign` / `_user_tags` group per user / per tag (a row sits in each of its groups), User fields are labelled with full names. |
 | `quickFilterFields` | Override the quick-filter fields (`[]` = none; filters stay in the Filter popover). |
-| `rowMeta` | Indicator / assignees / comment count / likes columns. Default: offered in the column manager, hidden. `true`: shown. `false`: none. `{ comments: false }` turns single ones off. |
-| `workflow` / `getIndicator` | Inputs of the indicator (section 5). |
+| `rowMeta` | Indicator / tags / assignees / comment count / likes columns. Default: offered in the column manager, hidden. `true`: shown. `false`: none. `{ comments: false }` / `{ tags: false }` turns single ones off. The Tags cell shows `_user_tags`; clicking a tag filters by it. |
+| `workflow` / `getIndicator` | Inputs of the indicator (section 5). P35: `workflow` defaults to the DocType's active Workflow (`indicatorWorkflowFromMeta`); `workflow={false}` turns it off. |
 | `listSettings` | Read List View Settings (default `true`). |
-| `columnLimit` / `hideNameColumn` | **Opt-in** Desk default columns (Phase 27, section 3): without curated `columns`, cap them to List View Settings `total_fields`, else 4 / 6 / 10 slots by window width (≤ 1366 px / default / ≥ 1920 px), following resizes, and append the ID column (`hideNameColumn` turns it off). |
+| `columnLimit` / `hideNameColumn` | Desk default columns (Phase 27, section 3) — **on by default in `FrappeListView`** (`columnLimit={false}` opts out), opt-in in `useFrappeList`: without curated `columns`, cap them to List View Settings `total_fields`, else 4 / 6 / 10 slots by window width (≤ 1366 px / default / ≥ 1920 px), following resizes, and append the ID column (`hideNameColumn` turns it off). |
 | `treeDoctypes` | Link targets that are trees (nested set): their Link fields offer Descendants Of / Ancestors Of … (section 2). The DocType itself and its child tables are detected from their metas. |
 | `urlFilters` | **Opt-in** filters in the page URL, Desk's format (`?status=Open&priority=["!=","Low"]`; section 4a): `true`, or `{ read, write, routeOptions? }`. |
 | `formatContext` | `FormatContext` for `formatValue` (number/date formats, currencies). Default: the provider's `formatContext`. |
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
-| `selectionMode` / `primaryAction` | 0.4.1: `"header"` = Desk's own selection layout (`list_view.js:590-598, 1613-1634`): no bar row — the header shows "{n} items selected" + Clear, and `primaryAction` (your "Add {DocType}" button) gives way to an **Actions** menu with the `bulk` actions in Desk's order, the workflow's actions appended (asked on every opening) and Assign To as Desk's dialog (`AssignDialog`: Assign to me, users, Complete By, Priority, Comment → `add_multiple`). Default `"bar"` (unchanged). `useFrappeBulkActions` returns the same actions as data. |
+| `selectionMode` / `primaryAction` | 0.4.1: `"header"` = Desk's own selection layout (`list_view.js:590-598, 1613-1634`) and the design system's intended one: no bar row — the header shows "{n} items selected" + Clear, and `primaryAction` (or the built-in "Add {DocType}") gives way to an **Actions** menu with the `bulk` actions in Desk's order, the workflow's actions appended (asked on every opening) and Assign To as Desk's dialog (`AssignDialog`: Assign to me, users, Complete By, Priority, Comment → `add_multiple`). The **default is still `"bar"`** (a bulk bar above the table, 0.4.x; changing the default is an open owner decision). `useFrappeBulkActions` returns the same actions as data. |
+| `selectAllMatching` | P35, header mode: once the page is fully checked the header offers "Select all {n} matching" (section 6). |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
 | `realtime` / `realtimeDebounceMs` | Reload on `list_update` (section 7). |
-| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right, as Desk's `list_view.js:1703`) and **Export** (always, as Desk — the server refuses without the right). `onImport` replaces the default navigation to Desk's Data Import **list** filtered on the DocType (`/app/data-import?reference_doctype=…`, Desk's `set_route("list","data-import",{reference_doctype})`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `menu={{ reportExport: true }}` adds the opt-in "Export as report" (`export_query`, gated by `canExport` — Desk's List View has no such entry, Phase 27.5); `ioLabels` localizes them and the Export dialog (English by default). Section 6a. |
-| `onCreate` | Offers "Create your first {DocType}" in the empty list. Empty states follow Desk (`list_view.js:497-537`): "You haven't created a {DocType} yet" (+ the create action) when nothing exists; "No {DocType} found with matching filters" (+ Clear filters) when filters or search hide everything. |
+| `create` | P35: Desk's "Add {DocType}" (`list_view.js:279-296`) as the primary action, **only with the create right** (level-0 `create` from `session.roles`; unknown roles → hidden, rule 9). `{ label?, onCreate?, render? }`: `render({ open, onOpenChange, onCreated })` is a dialog the list opens (e.g. a Quick Entry); `onCreated(doc)` reloads the list (`invalidateFrappeList`) and closes it. `false` = never (no empty-state create either). An app `primaryAction` still wins. |
+| `sidebar` | P35, opt-in: Desk's list sidebar (section 5a) — group-by counts from the server and tag stats; adds "Toggle Sidebar" to the menu. |
+| `onNavigate` | P35: where menu entries navigate (`(url, entry)`), default `location.assign(url)` — Import (without `onImport`), User Permissions, Role Permissions Manager, Customize. |
+| `onImport` / `menu` / `ioLabels` | The list's "⋯" menu: **Import** (when `canImport`: DocType `allow_import` and System Manager or the level-0 `import` right, as Desk's `list_view.js:1703`) and **Export** (always, as Desk — the server refuses without the right). `onImport` replaces the default navigation to Desk's Data Import **list** filtered on the DocType (`/app/data-import?reference_doctype=…`, Desk's `set_route("list","data-import",{reference_doctype})`). `menu={{ import: false }}` / `{ export: false }` / `false` hides entries; `menu={{ reportExport: true }}` adds the opt-in "Export as report" (`export_query`, gated by `canExport` — Desk's List View has no such entry, Phase 27.5); `ioLabels` localizes them and the Export dialog (English by default). Section 6a. P35: for System Managers (the Administrator user included) the menu also has **User Permissions** (`/app/user-permission?allow=<doctype>`), **Role Permissions Manager** (`/app/permission-manager?doctype=<doctype>`), **Customize** (`/app/customize-form?doc_type=<doctype>`, or `/app/doctype/<doctype>` for a custom DocType) and **List Settings** (section 3), as `list_view.js:1714-1785`; `menu={{ userPermissions: false }}` etc. turns one off. Desk gates Customize on creating Custom Field + Property Setter, which stock Frappe grants to System Manager / Administrator only. |
+| `onCreate` | Offers "Create your first {DocType}" in the empty list — P35: **only with the create right** (before 0.7 it was offered to everyone, although the prop doc said otherwise). Empty states follow Desk (`list_view.js:497-537`): "You haven't created a {DocType} yet" (+ the create action) when nothing exists; "No {DocType} found with matching filters" (+ Clear filters) when filters or search hide everything. |
 | `belowToolbar` | A node between the toolbar and the table (e.g. state chips). |
 | `rowKey`, `client`, `fiscalYears`, `storage`, … | `rowKey` default `row.name`. It is the UI identity (selection, kept across pages); every server request (bulk actions, Export, workflow) uses the document `name`, resolved through `documentNamesForKeys` (0.4.0-dev.34). `storage` (explicit) wins over `serverStorage`. |
 
@@ -111,18 +115,23 @@ const { count, capped } = await reportviewCount(client, "ToDo", { filters: [["st
 `frappe.desk.listview.get_list_settings` is read (whitelisted, no permission check; answers `null` when none exists or the call fails — the list works without it).
 Honoured: `disable_count`, `disable_comment_count` (no `with_comment_count`, no comments column), `disable_auto_refresh` (no realtime),
 `total_fields` and `fields` (JSON `[{fieldname}]`: the title column first, then those in order; `status_field` is the indicator; at most `total_fields` visible;
-the rest stay in the column manager), `allow_edit` (bulk Edit/Delete with a workflow). **The user's own column choice still wins.** Writing the settings is a
-Desk admin concern (it flips `in_list_view` through Property Setters) and is not reproduced.
+the rest stay in the column manager), `allow_edit` (bulk Edit/Delete with a workflow), `disable_sidebar_stats` (no tag stats in the sidebar). **The user's own column choice still wins.**
+
+**Writing them (P35, SIMULATED only).** The menu's **List Settings** (System Managers, `list_view.js:1772-1785`) opens `FrappeListSettingsDialog` (Desk's
+`list_settings.js`): the fields in order (subject first and fixed, `status_field` not removable), "Maximum Number of Fields", Add field, and the checks.
+Save → `frappe.desk.doctype.list_view_settings.list_view_settings.save_listview_settings(doctype, listview_settings, removed_listview_fields)`
+(`list_view_settings.py:29-46`, which also flips `in_list_view` through Property Setters); the list then uses the saved row from the response (Desk's
+`refresh_columns`) and reloads the meta. Not exercised on a real site (a write).
 
 `fetchListSettings(client, doctype)` and `applyColumnSettings(columns, settings, titleField)` are exported.
 
-**Desk's default columns (`columnLimit`, opt-in, Phase 27).** Desk caps `this.columns` with `slice(0, total_fields || width)`
+**Desk's default columns (`columnLimit`, Phase 27; default on in `FrappeListView`, opt-in in `useFrappeList`).** Desk caps `this.columns` with `slice(0, total_fields || width)`
 where width = 4 at `innerWidth <= 1366`, 10 at `>= 1920`, else 6 (`list_view.js:433-444`). What counts, in order:
 
 | Slot | Desk (`list_view.js`) | Package (`capDefaultColumns`) |
 |---|---|---|
 | 1 | Subject: title field, else ID (`:381-395`) | the subject column — always shown |
-| 2 | Tag (`:396-399`) — always in the list, rendered hidden (`:709`, `:799-809`) | an empty slot (the package draws no tag column) |
+| 2 | Tag (`:396-399`) — always in the list, rendered hidden (`:709`, `:799-809`) | an empty slot (the package's Tags cell is a row-metadata column, uncounted) |
 | 3 | Status, when `frappe.has_indicator` (`:401-407`); with List View Settings `fields`, only if they list `status_field` | the indicator column when shown; otherwise the `status` field column (Desk drops `status` when it has an indicator, `:414-416`); otherwise an empty slot |
 | 4… | `in_list_view` fields (not virtual, not the title), or List View Settings `fields` in their order | the other visible columns, in order |
 | after the cap | ID, when `title_field` is set and is not `name` and `hide_name_column` is off (`:446-457`) | the `name` column, shown after the last kept column (`hideNameColumn` turns it off) |
@@ -146,11 +155,15 @@ Adapters for the generic list's `storage` prop (also usable alone):
 
 | Adapter | Backend | Notes |
 |---|---|---|
-| `createFrappeSavedFilters(client, { user, meta, global? })` → `SavedFiltersStorage` | `List Filter` rows: `frappe.client.get_list` (mine + global: `for_user` = user or empty), `frappe.client.insert`, `frappe.client.delete` | Filters are stored as Desk's 4-tuples `[doctype, field, op, value]`, so Desk can load them. **AND only:** an OR query is refused (`UnstorableQueryError`). Duplicate names are rejected. `global: true` stores `for_user = ""` (Desk offers it to System Managers). `List Filter` is readable by every Desk User (personal vs shared is a client-side split in Desk too). |
-| `createFrappeUserSettings(client, { doctype, initial, meta })` → `ListPrefsStorage` | `user_settings` from `getdoctype`; saved with `frappe.model.utils.user_settings.save(doctype, user_settings)` (500 ms debounce, skipped when unchanged) | Sort and filters use Desk's keys (`List.sort_by`, `List.sort_order`, `List.filters`); the package's extras (columns, quick filters, group-by) live in `List.sf_ui`. Restores the filters on load (`persistQuery`). |
+| `createFrappeSavedFilters(client, { user, meta, global? })` → `SavedFiltersStorage` | `List Filter` rows: `frappe.client.get_list` (mine + global: `for_user` = user or empty), `frappe.client.insert`, `frappe.client.delete` | Filters are stored as Desk's 4-tuples `[doctype, field, op, value]`, so Desk can load them. **AND only:** an OR query is refused (`UnstorableQueryError`). Duplicate names are rejected. P35: `save(viewKey, label, query, { global: true })` stores `for_user = ""` per save — the list's **Is Global** checkbox, offered to System Managers / the Administrator only (`list_filter.js:6, 40-46`; `ListView savedFiltersGlobal`, which `FrappeListView` sets from the session); listed filters carry `global` (a globe marker). The adapter-wide `global: true` option (0.6.0) still makes every save global. `List Filter` is readable by every Desk User (personal vs shared is a client-side split in Desk too). |
+| `createFrappeUserSettings(client, { doctype, initial, meta })` → `ListPrefsStorage` | `user_settings` from `getdoctype`; saved with `frappe.model.utils.user_settings.save(doctype, user_settings)` (500 ms debounce, skipped when unchanged) | Sort and filters use Desk's keys (`List.sort_by`, `List.sort_order`, `List.filters`); the package's extras (columns, quick filters, group-by, P35 page size) live in `List.sf_ui`. Restores the filters on load (`persistQuery`). |
 
 `tuplesToQuery` / `queryToTuples` convert between the two models (nested-set operators included); tuples on unknown fields or unsupported operators are dropped (as Desk drops invalid saved filters).
 **UNVERIFIED:** that Desk's deep merge keeps the `sf_ui` key.
+
+**Saved-filter UI (Core `SavedFilters`, P35).** Removing asks first ("Are you sure you want to remove the {name} filter?", `list_filter.js:104-117`); a
+name that already exists shows "Duplicate Filter Name" and cannot be saved (`list_filter.js:127, 135-137`). The localStorage adapter now **rejects** a
+duplicate name like the Frappe adapter (before 0.7 it silently replaced the old filter).
 
 ### 4a. URL filters (`urlFilters`, opt-in, Phase 27)
 
@@ -190,7 +203,25 @@ its value. With `columnLimit`, a DocType with an indicator spends Desk's Status 
   workflow={{ stateField: "workflow_state", styles: { Approved: "Success", Rejected: "Danger" } }} />
 ```
 
-**Needs:** the `Workflow` is passed in (`workflow` prop); Desk reads it from `frappe.boot`, which a React page does not have (UNVERIFIED how a host should load it).
+**Workflow (P35).** By default the workflow comes from the DocType: getdoctype's `__workflow_docs` (`indicatorWorkflowFromMeta`, as Desk's
+`frappe.workflow.setup`, `model/workflow.js:10-21`) — state field, Workflow State styles, `override_status`, `avoid_status_override` — and the state
+field is requested with the rows. A `workflow` prop overrides it; `workflow={false}` drops it.
+
+---
+
+## 5a. Assigned To, Tags and the group-by sidebar (P35)
+
+- **Filter fields.** Desk's std fields "Assigned To" (`_assign`) and "Tags" (`_user_tags`) are filter fields (`model.js:120-137`) with only
+  `like` / `not like` / `is` (`FilterField.operators`), the value picked from User / Tag; a condition is sent as `["_assign", "like", "%user%"]`.
+- **Grouping.** `groupByFields={["_assign", "_user_tags", "owner"]}`: one group per user / tag (Core `GroupByOption.groupOf` may return several
+  buckets; selection stays keyed by the row), rows without a value under "Not Set" / "No Tags", User fields labelled with full names.
+- **Sidebar** (`sidebar`, opt-in; Core `GroupBySidebar` in `ListView`'s `aside`): "Assigned To", "Created By" and `user_settings.group_by_fields`
+  (or `sidebar.fields`) with counts from `frappe.desk.listview.get_group_by_count(doctype, current_filters, field)` (`listview.py:33-89`; the
+  field's own condition removed first, zero counts / Guest / Administrator dropped, the session user first as "Me", `list_sidebar_group_by.js:163-188`),
+  and tag stats from `frappe.desk.reportview.get_sidebar_stats` (`reportview.py:623-696`) unless `disable_sidebar_stats`. A value filters the list
+  (`_assign like %u%`, `= v`, "Not Set" → `is not set`; a tag → `_user_tags like %tag%`, "No Tags" → `not like %,%`); the applied value again removes it.
+  "Toggle Sidebar" in the menu. Counts ignore an OR query (the method takes AND filters only). SIMULATED handlers only; no real-site evidence.
+  Hooks: `useGroupByCounts`, `useTagStats`; component `FrappeGroupBySidebar`.
 
 ---
 
@@ -202,13 +233,14 @@ its value. With `columnLimit`, a DocType with an indicator spends Desk's Status 
 <FrappeListView doctype="Sales Invoice" bulk={{ print: { settings: boot.print_settings, subscribeTask } }} />  // Print Settings from your boot
 ```
 
-Desk's Actions menu (`list_view.js:1855-2128`) as buttons in the selection bar, which sits above the table (sticky) so it never scrolls away, **in Desk's
+Desk's Actions menu (`list_view.js:1855-2128`) — with `selectionMode="header"` as Desk's **Actions** dropdown in the toolbar (the header shows
+"{n} items selected"; no extra row), with the default `"bar"` as buttons in a selection bar above the table (sticky, so it never scrolls away) — **in Desk's
 order** (`:2088-2128`, workflow last `:163-168`). The gate is `usePermissions(bundle).can()` (session roles + the DocType's permissions); the `permissions` prop
 (a rights map or `can(ptype)`) overrides it. **No rights → no actions** (Export excepted, as in Desk). Phase 27 (SIMULATED tests only: `tests/list-actions.test.tsx`).
 
 | Action | Shown when | Endpoint |
 |---|---|---|
-| Edit | an editable field exists, `write`, and no workflow (or `allow_edit`) | `frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs` (`action: "update"`, `data: {field: value}`) |
+| Edit | an editable field exists, `write`, and no workflow (or `allow_edit`) | `frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs` (`action: "update"`, `data: {field: value}`). P35: the value is the field's own control (`BulkEditValue`: Select, Check, Link search, Date, Datetime, Time, number, text — `bulk_operations.js:381-404`); empty → `null` with Desk's "You have not entered a value" note; numbers are sent as numbers. |
 | Export | always (Desk, `:2092`; section 6a) | opens the Export dialog on the checked names |
 | Assign to | `read` (Desk offers it to everyone, `list_view.js:2095`; the server requires read on each document, `assign_to.py:67-68`) | `frappe.desk.form.assign_to.add_multiple` (`bulk_assign`, `re_assign`); user picked with `AssignPicker` (searches `search_link` on `User`) with comment, due date, priority |
 | Clear Assignment | `read` (Desk: everyone, `:2097`) — confirms with Desk's "Are you sure you want to clear the assignments?" | `frappe.desk.form.assign_to.remove_multiple` (`names`, and Desk's `ignore_permissions: true` — the server then checks no permission; at most 5 open assignments per document are cancelled, `assign_to.py:25-38, 182-192`) |
@@ -236,6 +268,11 @@ the dialog says the job is queued (the server saves the PDF as a private File) �
 Methods that answer nothing per document — delete, clear assignment, assignment rule, tags, workflow approval — say "Action: N requested — the server reports
 failures in its messages" (`listBulkRequested`); an enqueued job says "queued, will run in the background". The list reloads and the selection clears unless
 everything failed; a refusal (403 …) shows the server's message and changes nothing. `onDone(kind, outcome, names, action?)` / `onError(error, kind)` report each action.
+
+**Select all matching (P35, `selectAllMatching`, header mode).** Once every row on the page is checked, the header offers "Select all {n} matching".
+Then the actions get `ctx.allMatching = { total }`: only actions marked `allMatching: true` run — in `FrappeListView` that is **Export**, which exports by the
+list's filters (`by_filter` with the current filters, not names); every other Frappe bulk method takes document names, so those items are shown disabled with
+the reason, and the workflow items are hidden. Unchecking a row, Clear, or a query / search change ends it. Desk has no such mode.
 
 Functions: `listActionsMenu` (every item, Desk order), `bulkMenu` (the five dev.26 kinds), `bulkDelete`, `bulkSubmitCancelOrUpdate`, `bulkAssign`,
 `bulkClearAssignment`, `bulkApplyAssignmentRule`, `bulkAddTags`, `commonTransitionActions`, `bulkWorkflowApproval`, `workflowDocs`, `checkPrintable`,
@@ -323,7 +360,7 @@ const f = useFrappeList({ doctype: "ToDo" });
 - `useFrappeList().reportExport` = `{ fields (visible columns' real fields, `name` first), filters, or_filters, order_by, shownCount, totalCount }`.
 - **Never a client-built file.** In `FrappeListView`'s ⋯ menu only with `menu={{ reportExport: true }}` (opt-in since dev.34).
 
-### 6b. Core `ExportDialog` and `DataImportDialog` (0.5.1-dev, no backend)
+### 6c. Core `ExportDialog` and `DataImportDialog` (0.5.1-dev, no backend)
 
 The same Export Data dialog and Data Import tool, from the **core** entry, for an app without a Frappe server.
 `FrappeExportDialog` renders `ExportDialog`; `FrappeImportPreview` / `FrappeImportWarnings` / `FrappeColumnMapping`
@@ -377,9 +414,16 @@ import { ListView, type ColumnDef } from "@solvfast/ui";
 with the search, filter query, sort, page and visible columns. Props worth knowing: `columns` (`ColumnDef`: `key`, `label`, `field`, `type`, `fieldtype`, `render`, `hidden`, `sortable`, `filterable`, `metaFields`),
 `filterFields`, `quickFilterFields`, `groupByOptions`, `rowActions`, `bulkActions` / `renderBulkActions`, `controls`, `toolbarActions`, `belowToolbar`, `emptyMessage`, `loading`/`error`/`onRetry`,
 `totalLabel`/`hasMore`/`onTotalClick` (capped or hidden totals), `onSelectionChange`, `storage` (`{ prefs, saved }` adapters; default localStorage), `loadOptions` (link search).
-Custom cells can use `useListActions().applyCondition(field, operator, value)` to filter the list they are in.
+Custom cells can use `useListActions().applyCondition(field, operator, value)` to filter the list they are in (P35: also `removeCondition(field)` and the current `query`).
 
-**Selection layout (0.4.1).** `selectionMode="bar"` (default, unchanged) shows the bulk bar above the table. `selectionMode="header"` is Frappe Desk's: no extra row; while rows are selected the table header shows "{n} items selected" with a Clear button instead of the column titles, and the toolbar's `primaryAction` (e.g. New) is replaced by an **Actions** menu built from `bulkActions` (+ `renderActionsMenu` items; `onActionsOpenChange`, `actionsLabel`). Shift-click checks a range (Desk `list_view.js:1400-1421`). A `BulkAction` may set `tone: "destructive"`, `hidden(ctx)`, `disabled(ctx)` (a string is the reason shown with the item), `confirm` (AlertDialog first; a function gets the selection) and `group` (a separator between groups); `run(keys, rows)` gets exactly the selected keys. `ListActionsMenu`, `useBulkActionRunner` and `resolveBulkActions` are exported for custom toolbars. `onSelectionChange` fires on every change of the selected set (0.4.0: only when its size changed).
+**P35 additions (all optional; defaults unchanged):** `pageSizes` (the pager's page-length buttons, the choice kept in `ListPrefs.pageSize`;
+`useListState().setPageSize`), `aside` / `asideOpen` (a side panel such as `GroupBySidebar`, inside the list's `ListActionsContext`),
+`selectAllMatching` (header mode; `useListState().allMatching` / `selectAllMatching()`; `BulkActionContext.allMatching`, `BulkAction.allMatching`;
+`run(keys, rows, ctx)` gets the context only for an all-matching selection), `layout="table" | "cards" | "auto"` (one card per row on phones;
+`ColumnDef.mobile`: `"primary"` = the card title, `false` = not on the card), `savedFiltersGlobal` (the Is Global checkbox; `SavedFiltersStorage.save`
+takes `{ global }`), `GroupByOption.groupOf` returning several buckets, `FilterField.operators`.
+
+**Selection layout (0.4.1).** `selectionMode="bar"` (still the default) shows the bulk bar above the table. `selectionMode="header"` is Frappe Desk's and the layout the design system intends (no separate bulk bar): no extra row; while rows are selected the table header shows "{n} items selected" with a Clear button instead of the column titles, and the toolbar's `primaryAction` (e.g. New) is replaced by an **Actions** menu built from `bulkActions` (+ `renderActionsMenu` items; `onActionsOpenChange`, `actionsLabel`). Shift-click checks a range (Desk `list_view.js:1400-1421`). A `BulkAction` may set `tone: "destructive"`, `hidden(ctx)`, `disabled(ctx)` (a string is the reason shown with the item), `confirm` (AlertDialog first; a function gets the selection) and `group` (a separator between groups); `run(keys, rows)` gets exactly the selected keys (P35: plus `ctx` for an all-matching selection, see above). `ListActionsMenu`, `useBulkActionRunner` and `resolveBulkActions` are exported for custom toolbars. `onSelectionChange` fires on every change of the selected set (0.4.0: only when its size changed).
 
 ```tsx
 <ListView rows={rows} columns={columns} rowKey={(r) => r.id} selectable selectionMode="header"
@@ -394,13 +438,16 @@ Custom cells can use `useListActions().applyCondition(field, operator, value)` t
 
 ## 9. Known limitations (not reproduced)
 
-- The width-based column cap and URL filters are opt-in options of `useFrappeList` / `FrappeListView` (`columnLimit`, `urlFilters`); the default 90-day recency filter on large tables; List View Settings editing.
-- Nested-set operators need the app to name tree Link targets the page has no meta for (`treeDoctypes`); they filter nothing in client mode. The group-by sidebar with server counts (`get_group_by_count`), tag stats (`get_sidebar_stats`) and "assigned to me" counters are not reproduced.
+- URL filters are opt-in (`urlFilters`); the width-based column cap is on by default in `FrappeListView` but opt-in in `useFrappeList` (`columnLimit`). The default 90-day recency filter on large tables (`disable_automatic_recency_filters`) is not reproduced.
+- Nested-set operators need the app to name tree Link targets the page has no meta for (`treeDoctypes`); they filter nothing in client mode.
+- Sidebar (P35): opt-in; the "Edit" dialog for `user_settings.group_by_fields` (Desk's `make_group_by_fields_modal`) is not reproduced (the app passes `sidebar.fields`); counts ignore OR queries; "assigned to me" counters are not reproduced.
 - URL filters: the package keeps non-filter query parameters (Desk replaces the whole string); OR queries, search text and sort are not written.
-- Bulk actions are buttons in the selection bar, not Desk's Actions dropdown; Print's background completion (`task_complete`) needs a host `subscribeTask`, and its draft / cancelled filter needs the site's Print Settings from the host. The Report view itself, Kanban, Calendar and the other Desk views are not reproduced (the CRM keeps its own); report-view export (`export_query`) is available as `downloadReportExport` / `FrappeReportExportDialog`.
-- Import: the preview grid, column mapper and import-log table of Desk's Data Import form (functions only, section 6a); progress is polled, not realtime.
+- Selection: the default is still `"bar"`; `selectionMode="header"` gives Desk's Actions dropdown. "Select all matching" can run only query-based actions (Export in `FrappeListView`). Print's background completion (`task_complete`) needs a host `subscribeTask`, and its draft / cancelled filter needs the site's Print Settings from the host.
+- Views: the Report view itself, Kanban, Calendar and the other Desk views are not part of this layer; report-view export (`export_query`) is available as `downloadReportExport` / `FrappeReportExportDialog`.
+- Create: the package draws "Add {DocType}"; the dialog behind it is the app's (`create.render`, e.g. a Quick Entry) or a route (`create.onCreate`).
+- Import: progress is polled, not realtime (the preview, column mapping and log are `FrappeDataImport`'s, section 6a).
 - Export: the in-dialog filter editor and record-count message.
 - Permlevel columns are dropped only when the session's roles are known; without them the header of an unreadable field is still offered (the server strips the values).
-- Saved filters cannot store OR conjunctions. Realtime is a full reload, not Desk's by-name refresh.
+- Saved filters cannot store OR conjunctions. Realtime is a full reload, not Desk's by-name refresh. "Edit DocType" (System Manager + developer mode) is not in the menu (the session carries no `developer_mode`).
 - Owner columns resolve names through a `User` read; a site that hides the User list shows ids.
-- Simulated only: all behaviour above is tested against recorded shapes and the fixture transport, never a live site.
+- Simulated only: all behaviour above is tested against recorded shapes and the fixture transport, never a live site. New P35 server calls (`get_group_by_count`, `get_sidebar_stats`, `save_listview_settings`) have SIMULATED handlers only.
