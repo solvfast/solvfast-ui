@@ -30,3 +30,6 @@ export {
 export type { NumberFormatInfo, RoundingMethod } from "./lib/number";
 export { parseTimeText, toTimeString, formatTimeText, secondsToDuration, durationToSeconds, formatDuration } from "./lib/time";
 export type { TimeParts, DurationParts, DurationOptions, DurationUnits } from "./lib/time";
+// P35 core
+export { FileDropzone, fileMatchesAccept, formatFileSize, validateFiles } from "./FileDropzone";
+export type { FileDropzoneProps, FileDropzoneLabels, FileRejection, FileRejectionReason } from "./FileDropzone";

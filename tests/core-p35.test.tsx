@@ -6,7 +6,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import {
-  AssigneeGroup, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
+  AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
   type LifecycleStateItem,
 } from "../src";
 
@@ -138,5 +138,94 @@ describe("CORE.G7 LifecycleBar per-step state", () => {
     const items = container.querySelectorAll("li[data-step]");
     expect(items[2].textContent).toContain("تم تخطّيها");
     expect(items[3].textContent).toContain("فشلت");
+  });
+});
+
+describe("CORE.G14 FileDropzone", () => {
+  const mk = (name: string, size: number, type: string) => new File([new Uint8Array(size)], name, { type, lastModified: 1 });
+  const pdf = mk("brief.pdf", 2_000, "application/pdf");
+  const png = mk("logo.png", 500, "image/png");
+  const big = mk("huge.pdf", 5 * 1024 * 1024, "application/pdf");
+  const exe = mk("tool.exe", 10, "application/octet-stream");
+  const input = (c: HTMLElement) => c.querySelector("input[type=file]") as HTMLInputElement;
+
+  it("CORE.G14 accept matching: extensions, exact MIME and wildcards", () => {
+    expect(fileMatchesAccept(pdf, ".pdf,image/*")).toBe(true);
+    expect(fileMatchesAccept(png, ".pdf,image/*")).toBe(true);
+    expect(fileMatchesAccept(exe, ".pdf,image/*")).toBe(false);
+    expect(fileMatchesAccept(pdf, "application/pdf")).toBe(true);
+    expect(fileMatchesAccept(exe, "")).toBe(true);
+    expect(formatFileSize(1536)).toBe("1.5 KB");
+    expect(formatFileSize(5 * 1024 * 1024)).toBe("5 MB");
+    expect(validateFiles([pdf, pdf, png], [], { multiple: true, maxFiles: 1 }).rejected.map((r) => r.reason)).toEqual(["count"]);
+  });
+  it("CORE.G14 picks through the hidden input; validates type and size with messages; lists and removes", () => {
+    const change = vi.fn(); const added = vi.fn(); const reject = vi.fn();
+    const { container } = wrap(<FileDropzone multiple accept=".pdf,image/*" maxSize={1024 * 1024} onChange={change} onFilesAdded={added} onReject={reject} />);
+    expect(input(container).accept).toBe(".pdf,image/*");
+    expect(input(container).multiple).toBe(true);
+    fireEvent.change(input(container), { target: { files: [pdf, big, exe, png] } });
+    expect(added).toHaveBeenCalledWith([pdf, png]);
+    expect(change).toHaveBeenLastCalledWith([pdf, png]);
+    expect(reject.mock.calls[0][0].map((r: { reason: string }) => r.reason)).toEqual(["size", "type"]);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("“huge.pdf” is larger than 1 MB.");
+    expect(alert.textContent).toContain("“tool.exe” is not an accepted file type.");
+    const list = screen.getByRole("list", { name: "Chosen files" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(list.textContent).toContain("2 KB");
+    fireEvent.click(screen.getByRole("button", { name: "Remove brief.pdf" }));
+    expect(change).toHaveBeenLastCalledWith([png]);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("CORE.G14 drag and drop: highlights while dragging, adds dropped files; single mode replaces and takes the first", () => {
+    const change = vi.fn();
+    wrap(<FileDropzone onChange={change} />);
+    const zone = screen.getByRole("button", { name: "Drag a file here or click to browse" });
+    fireEvent.dragEnter(zone, { dataTransfer: { files: [pdf], types: ["Files"] } });
+    expect(zone.getAttribute("data-dragging")).toBe("true");
+    expect(zone.textContent).toContain("Drop to add");
+    fireEvent.drop(zone, { dataTransfer: { files: [pdf, png], types: ["Files"] } });
+    expect(zone.hasAttribute("data-dragging")).toBe(false);
+    expect(change).toHaveBeenLastCalledWith([pdf]);
+    fireEvent.drop(zone, { dataTransfer: { files: [png], types: ["Files"] } });
+    expect(change).toHaveBeenLastCalledWith([png]);
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+  });
+  it("CORE.G14 keyboard: the zone is focusable and Enter / Space open the file dialog; disabled is not", () => {
+    const { container, rerender } = wrap(<FileDropzone />);
+    const click = vi.spyOn(input(container), "click").mockImplementation(() => {});
+    const zone = screen.getByRole("button", { name: /Drag a file/ });
+    expect(zone.tabIndex).toBe(0);
+    zone.focus();
+    expect(document.activeElement).toBe(zone);
+    fireEvent.keyDown(zone, { key: "Enter" });
+    fireEvent.keyDown(zone, { key: " " });
+    expect(click).toHaveBeenCalledTimes(2);
+    rerender(<ThemeProvider><FileDropzone disabled /></ThemeProvider>);
+    const z2 = screen.getByRole("button", { name: /Drag a file/ });
+    expect(z2.tabIndex).toBe(-1);
+    expect(z2.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.keyDown(z2, { key: "Enter" });
+    fireEvent.drop(z2, { dataTransfer: { files: [pdf], types: ["Files"] } });
+    expect(click).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("list")).toBeNull();
+  });
+  it("CORE.G14 maxFiles caps a multiple zone; controlled value is respected", () => {
+    const change = vi.fn();
+    const { container } = wrap(<FileDropzone multiple maxFiles={2} value={[pdf]} onChange={change} />);
+    fireEvent.change(input(container), { target: { files: [png, mk("c.txt", 3, "text/plain")] } });
+    expect(change).toHaveBeenLastCalledWith([pdf, png]);
+    expect(screen.getByRole("alert").textContent).toContain("“c.txt” was not added: at most 2 files.");
+    // controlled: the parent did not update `value`, so the list still shows one file
+    expect(screen.getAllByRole("listitem").filter((li) => li.hasAttribute("data-file-row"))).toHaveLength(1);
+  });
+  it("CORE.G14 Arabic / RTL chrome and messages", () => {
+    const { container } = wrap(<FileDropzone multiple accept=".pdf" maxSize={1024} />, "ar");
+    expect(screen.getByRole("button", { name: "اسحب الملفات إلى هنا أو انقر للاستعراض" })).toBeTruthy();
+    fireEvent.change(input(container), { target: { files: [exe, pdf] } });
+    const alert = screen.getByRole("alert").textContent ?? "";
+    expect(alert).toContain("«tool.exe» ليس من أنواع الملفات المقبولة.");
+    expect(alert).toContain("«brief.pdf» أكبر من ١ ك.ب.");
   });
 });

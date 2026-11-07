@@ -3,8 +3,29 @@ export const coreEn = {
   // LifecycleBar (G7): screen-reader suffix of a skipped / failed state
   coreStepSkipped: "Skipped",
   coreStepFailed: "Failed",
+  // FileDropzone (G14)
+  coreFileDropPrompt: "Drag files here or click to browse",
+  coreFileDropPromptSingle: "Drag a file here or click to browse",
+  coreFileDropActive: "Drop to add",
+  coreFileAccepted: "Accepted: {types}",
+  coreFileMaxSize: "Up to {size} each",
+  coreFileRejectType: "“{name}” is not an accepted file type.",
+  coreFileRejectSize: "“{name}” is larger than {size}.",
+  coreFileRejectCount: "“{name}” was not added: at most {max} files.",
+  coreFileRemove: "Remove {name}",
+  coreFileList: "Chosen files",
 };
 export const coreAr: { [K in keyof typeof coreEn]: string } = {
   coreStepSkipped: "تم تخطّيها",
   coreStepFailed: "فشلت",
+  coreFileDropPrompt: "اسحب الملفات إلى هنا أو انقر للاستعراض",
+  coreFileDropPromptSingle: "اسحب ملفاً إلى هنا أو انقر للاستعراض",
+  coreFileDropActive: "أفلِت للإضافة",
+  coreFileAccepted: "المقبول: {types}",
+  coreFileMaxSize: "حتى {size} للملف",
+  coreFileRejectType: "«{name}» ليس من أنواع الملفات المقبولة.",
+  coreFileRejectSize: "«{name}» أكبر من {size}.",
+  coreFileRejectCount: "لم يُضَف «{name}»: الحد الأقصى {max} ملفات.",
+  coreFileRemove: "إزالة {name}",
+  coreFileList: "الملفات المختارة",
 };
