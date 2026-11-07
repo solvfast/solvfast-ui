@@ -132,7 +132,7 @@ const { levels, can, fieldStatus, displayStatus, workflow, workflowReadOnly, kno
   `false` (`permissionsKnown`): show "permissions unknown", not "forbidden" — and pass `session.roles`
   (`frappe.user_roles` in Desk, `frappe.auth.get_logged_user` + roles from boot in an SPA). Before dev.26 a new doc was
   optimistic (read / write / create) and permlevels > 0 were inferred.
-- **Administrator** (verified in Frappe 15.110 source, `docs/release/PERMISSION-AUDIT.md` §6): `session.user ===
+- **Administrator** (verified in Frappe 15.110 source, `docs/release/PERMISSION-AUDIT.md` (repository only) §6): `session.user ===
   "Administrator"` gets every right at every permlevel, **with or without `session.roles`** — the server never checks
   further (permissions.py:107-109, :273-275; document.py:756, :788) and its roles are every Role record
   (`get_roles`, :506-507). The "Administrator" *role* on another user is just a role (its DocPerm rows; perm.js:59-61 only
@@ -158,7 +158,7 @@ const { levels, can, fieldStatus, displayStatus, workflow, workflowReadOnly, kno
 
 The server is the authority: these reproduce Desk's UX; nothing is skipped because the client checked it. The full
 action-by-action audit (which right gates what, what the server checks, how a refusal surfaces) is
-`docs/release/PERMISSION-AUDIT.md`.
+`docs/release/PERMISSION-AUDIT.md` (repository only).
 
 ## 6. Formatting: `formatValue` / `FormatContext`
 

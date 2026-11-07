@@ -282,7 +282,7 @@ Messages: the `frappe:list` block of `src/theme/messages.ts` (en + ar).
 
 ### 6a. Import and Export (Phase 26) — server-authorised, SIMULATED only
 
-Full parity table and verdict: `docs/release/LISTVIEW-FRAPPE-PARITY.md`. Nothing here has run against a site (Import writes; Export is an unapproved read).
+Full parity table and verdict: `docs/release/LISTVIEW-FRAPPE-PARITY.md` (repository only). Nothing here has run against a site (Import writes; Export is an unapproved read).
 
 **Gates.** Import: `canImport(meta, roles, levels[0])` (`services/permissions.ts`, Desk's `model.js:434-442`) — `allow_import` AND (System Manager OR
 level-0 `import`); needs `session.roles` (without them Import is not offered). Import is a DocType-level right: never read it off a document's `docinfo`
@@ -333,7 +333,7 @@ Props that matter: `bundle` (optional — else read with `api.getMetaBundle`), `
 `data_import_refresh`; completion still comes from the poll), `onFinished`, `onGoToList`, `docHref`, `labels` (English and Arabic defaults, `DATA_IMPORT_LABELS_EN` /
 `_AR`; the package catalogue has no keys for them yet), `exportLabels`. State lives in the component: closing the dialog keeps the import and its poll; unmounting stops
 polling, never the server's job. Not reproduced: Google Sheets URL, "Report Error", changing the import type after the Data Import exists, frappe-datatable features,
-re-reading the preview after a run (imported rows are greyed only from a preview answer that carries the log). Parity rows: `docs/release/LISTVIEW-FRAPPE-PARITY.md` §2.
+re-reading the preview after a run (imported rows are greyed only from a preview answer that carries the log). Parity rows: `docs/release/LISTVIEW-FRAPPE-PARITY.md` (repository only) §2.
 
 ---
 

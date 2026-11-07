@@ -249,6 +249,11 @@ Two pre-existing breaks in the check scripts were fixed; both failed on 0.6.0 to
 
 CRM commands and results are in §E and `CRM-MIGRATION.md`.
 
+**Production untouched (checked read-only after all P35 work):**
+- Live's 5 P34 source files still equal `127c0b4`.
+- `serve_fast/www/serve-fast.html` still serves `index-CXY7PzhL.js`.
+- No file under Live's `frontend/src`, `public/serve-fast` or `www` is newer than the P34 deploy (18:55:00Z).
+
 **Evidence levels:** unit tests and the simulator, plus the existing recorded real 15.110 read responses. **No real-site run.**
 
 ## H. Release readiness
@@ -260,7 +265,7 @@ CRM commands and results are in §E and `CRM-MIGRATION.md`.
     - SearchCombobox `search` and `onSelect` are optional.
     - `Messages` has new keys.
     - `FormController`, `DocStore` and `FormServices` have new members.
-  - **32 behaviour changes** are listed in `CHANGELOG.md`. Examples:
+  - **Behaviour changes:** `CHANGELOG.md` "Changed" has the full list (the 32 from the integration report plus two Form items). Examples:
     - FrappeForm shows the ⋯ menu and Connections tab by default.
     - FrappeListView shows the page-size picker by default.
     - System Managers get the Desk menu entries.
@@ -271,6 +276,7 @@ CRM commands and results are in §E and `CRM-MIGRATION.md`.
     - Unsupported fieldtypes are read-only.
     - The local saved-filter adapter rejects duplicate names.
     - Empty groups are labelled "Not Set" / "No Tags".
+  - **Rule for new defaults:** a Desk-parity addition became the default only where no current consumer is affected. The CRM renders the Core `ListView`, not `FrappeForm` / `FrappeListView`, so that covers the form menu, the Connections tab, the page-size picker, the Desk menu entries and the workflow indicator. `selectionMode` was held back because it changes the layout of a component the CRM already renders.
   - **Before a release:** decide the owner questions below, then do a real-site validation pass (`e2e/frappe-site/` is prepared but has never run).
 - **CRM:**
   - `crm/p35-ds-adoption` (`d244b64`) is deployable with the current 0.6.0, subject to the usual approval, backup, drill and smoke procedure.

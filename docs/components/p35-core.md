@@ -1,6 +1,6 @@
 # P35 core — generic capabilities from the CRM audit
 
-The CRM audit (`docs/audit/p35/D-crm.md` §3c) listed capabilities the CRM implements itself because the Design System lacked
+The CRM audit (`docs/audit/p35/D-crm.md` (repository only) §3c) listed capabilities the CRM implements itself because the Design System lacked
 them. This page documents the **Core** (Frappe-free, `@solvfast/ui`) versions added in P35. Everything is **additive and
 optional**: without the new props the components render exactly as in 0.6.0. All new chrome strings are in
 `src/theme/messages-ws/core.ts` (keys `core…`, English and Arabic) and can be overridden per key through
