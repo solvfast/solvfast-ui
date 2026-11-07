@@ -7,7 +7,7 @@ import * as React from "react";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Users } from "lucide-react";
 import {
-  MonthInput, formatMonthValue, parseMonthValue, RichTextEditor, type RichTextEditorHandle, LinkInput, IconStatCard, EmptyState, Button, type Suggestion, Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
+  Stepper, type StepperStep, MonthInput, formatMonthValue, parseMonthValue, RichTextEditor, type RichTextEditorHandle, LinkInput, IconStatCard, EmptyState, Button, type Suggestion, Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
   type LifecycleStateItem,
 } from "../src";
 
@@ -506,5 +506,68 @@ describe("CORE.G20 MonthInput (month granularity)", () => {
     expect(dialog.querySelector("[data-year]")!.textContent).toBe("٢٠٢٧");
     fireEvent.click(dialog.querySelector("[data-month='9']")!); // Enter / Space on a <button> fire click
     expect(change).toHaveBeenLastCalledWith("2027-09");
+  });
+});
+
+describe("CORE.N8 Stepper overflow cue + followCurrent", () => {
+  const steps: StepperStep[] = Array.from({ length: 10 }, (_, i) => ({ label: `Step ${i + 1}`, state: i < 4 ? "done" : i === 4 ? "current" : "upcoming" }));
+  const layout = (el: HTMLElement, o: { scrollWidth: number; clientWidth: number; scrollLeft: number }) => {
+    Object.defineProperty(el, "scrollWidth", { configurable: true, get: () => o.scrollWidth });
+    Object.defineProperty(el, "clientWidth", { configurable: true, get: () => o.clientWidth });
+    Object.defineProperty(el, "scrollLeft", { configurable: true, get: () => o.scrollLeft, set: (v) => { o.scrollLeft = v; } });
+  };
+  it("CORE.N8 shows a cue on each side with hidden steps; the chevron scrolls by a page; the strip is keyboard focusable", () => {
+    const geo = { scrollWidth: 1000, clientWidth: 400, scrollLeft: 0 };
+    const scrollBy = vi.fn();
+    const { container } = wrap(<Stepper steps={steps} ariaLabel="Wizard" overflowCue />);
+    const ol = container.querySelector("ol")!;
+    layout(ol, geo);
+    (ol as unknown as { scrollBy: typeof scrollBy }).scrollBy = scrollBy;
+    fireEvent.scroll(ol);
+    expect(container.querySelector("[data-overflow-cue='after']")).toBeTruthy();
+    expect(container.querySelector("[data-overflow-cue='before']")).toBeNull();
+    geo.scrollLeft = 300; fireEvent.scroll(ol);
+    expect(container.querySelector("[data-overflow-cue='before']")).toBeTruthy();
+    fireEvent.click(container.querySelector("[data-overflow-cue='after'] button")!);
+    expect(scrollBy).toHaveBeenLastCalledWith({ left: 240, behavior: "smooth" });
+    geo.scrollLeft = 600; fireEvent.scroll(ol);
+    expect(container.querySelector("[data-overflow-cue='after']")).toBeNull();
+    expect(ol.tabIndex).toBe(0);
+    expect(container.querySelector("[data-overflow-cue]")!.getAttribute("aria-hidden")).toBe("true");
+  });
+  it("CORE.N8 RTL: 'after' scrolls toward the left (negative), the cue sits on the left", () => {
+    const geo = { scrollWidth: 1000, clientWidth: 400, scrollLeft: -300 };
+    const scrollBy = vi.fn();
+    const { container } = wrap(<Stepper steps={steps} ariaLabel="Wizard" overflowCue />, "ar");
+    const ol = container.querySelector("ol")!;
+    layout(ol, geo);
+    (ol as unknown as { scrollBy: typeof scrollBy }).scrollBy = scrollBy;
+    fireEvent.scroll(ol);
+    const after = container.querySelector("[data-overflow-cue='after']")!;
+    expect(after.className).toContain("left-0");
+    fireEvent.click(after.querySelector("button")!);
+    expect(scrollBy).toHaveBeenLastCalledWith({ left: -240, behavior: "smooth" });
+  });
+  it("CORE.N8 followCurrent centres the current step in the strip (scrolls the strip, not the page)", () => {
+    const proto = HTMLOListElement.prototype as unknown as Record<string, unknown>;
+    const scrollBy = vi.fn();
+    Object.defineProperty(proto, "scrollWidth", { configurable: true, get: () => 1000 });
+    Object.defineProperty(proto, "clientWidth", { configurable: true, get: () => 400 });
+    proto.scrollBy = scrollBy;
+    const rect = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const cur = this.getAttribute("aria-current") === "step";
+      return { left: cur ? 600 : 0, width: cur ? 100 : 400, top: 0, height: 40, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    });
+    try {
+      wrap(<Stepper steps={steps} ariaLabel="Wizard" followCurrent />);
+      expect(scrollBy).toHaveBeenCalledWith({ left: 650 - 200 });
+    } finally {
+      delete proto.scrollWidth; delete proto.clientWidth; delete proto.scrollBy; rect.mockRestore();
+    }
+  });
+  it("CORE.N8 without the props the markup is unchanged (no wrapper, not focusable)", () => {
+    const { container } = wrap(<Stepper steps={steps} ariaLabel="Wizard" />);
+    expect(container.querySelector("[data-stepper-rail]")).toBeNull();
+    expect(container.querySelector("ol")!.hasAttribute("tabindex")).toBe(false);
   });
 });

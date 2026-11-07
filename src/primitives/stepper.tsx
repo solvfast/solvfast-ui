@@ -1,4 +1,5 @@
-import { Check, X } from 'lucide-react';
+import * as React from 'react';
+import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { loc, type Localized } from '../lib/localized';
 import { useLocale } from '../theme/ThemeProvider';
@@ -20,6 +21,11 @@ import { useLocale } from '../theme/ThemeProvider';
  *  - an ERROR step is carried by an X icon + supporting text (`note`) + `srNote`, never by colour alone
  *  - steps are buttons, clickable only when `clickable` is set and `onJump` is provided
  *  - tints use `/10` because `/12` is not on Tailwind 3's opacity scale and emits no CSS (CONSUMING.md B7)
+ *
+ * P35 (D-crm N8), opt-in: `overflowCue` shows a fade + chevron on each side that has steps scrolled out of view (the
+ * strip scrolls sideways when the steps do not fit; the chevrons scroll it by a page and are a mouse aid — the strip
+ * itself becomes focusable so the keyboard can scroll it); `followCurrent` scrolls the strip (never the page) so the
+ * current step is centred whenever it changes. Without them the markup is unchanged.
  */
 
 export type StepState = 'done' | 'current' | 'error' | 'upcoming';
@@ -41,17 +47,75 @@ export function Stepper({
   ariaLabel,
   onJump,
   className,
+  overflowCue,
+  followCurrent,
 }: {
   steps: StepperStep[];
   ariaLabel: Localized;
   onJump?: (index: number) => void;
   className?: string;
+  /** P35: fades + chevrons on the sides with hidden steps (put outer spacing on a parent, not in `className`). */
+  overflowCue?: boolean;
+  /** P35: keep the current step centred in the strip when it changes. */
+  followCurrent?: boolean;
 }) {
-  const { language } = useLocale();
-  return (
+  const { language, isRTL } = useLocale();
+  const ol = React.useRef<HTMLOListElement>(null);
+  const [hidden, setHidden] = React.useState({ before: false, after: false });
+  const currentIndex = steps.findIndex((s) => s.state === 'current');
+  const enhanced = !!(overflowCue || followCurrent);
+
+  React.useLayoutEffect(() => {
+    const rail = ol.current;
+    if (!rail || !enhanced) return;
+    if (followCurrent) {
+      const cur = rail.querySelector('[aria-current="step"]') as HTMLElement | null;
+      if (cur && rail.scrollWidth - rail.clientWidth > 2) {
+        const r = rail.getBoundingClientRect(); const c = cur.getBoundingClientRect();
+        rail.scrollBy?.({ left: c.left + c.width / 2 - (r.left + r.width / 2) });
+      }
+    }
+    if (!overflowCue) return;
+    const update = () => {
+      const max = rail.scrollWidth - rail.clientWidth;
+      const pos = Math.abs(rail.scrollLeft); // RTL scrollLeft runs negative
+      const next = { before: max > 2 && pos > 2, after: max > 2 && pos < max - 2 };
+      setHidden((h) => (h.before === next.before && h.after === next.after ? h : next));
+    };
+    update();
+    rail.addEventListener('scroll', update, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : undefined;
+    ro?.observe(rail);
+    return () => { rail.removeEventListener('scroll', update); ro?.disconnect(); };
+  }, [enhanced, overflowCue, followCurrent, currentIndex, steps.length]);
+
+  const scrollPage = (toward: 'before' | 'after') => {
+    const rail = ol.current;
+    if (!rail) return;
+    const page = Math.max(160, rail.clientWidth * 0.6);
+    rail.scrollBy?.({ left: (toward === 'after' ? 1 : -1) * (isRTL ? -1 : 1) * page, behavior: 'smooth' });
+  };
+  const cue = (side: 'before' | 'after') => {
+    const atLeft = (side === 'before') !== isRTL;
+    const Icon = atLeft ? ChevronLeft : ChevronRight;
+    return (
+      <div aria-hidden data-overflow-cue={side}
+        className={cn('pointer-events-none absolute inset-y-0 flex w-14 items-center rounded-2xl from-background via-background/80 to-transparent',
+          atLeft ? 'left-0 justify-start bg-gradient-to-r ps-1' : 'right-0 justify-end bg-gradient-to-l pe-1')}>
+        <button type="button" tabIndex={-1} onClick={() => scrollPage(side)}
+          className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm hover:text-foreground">
+          <Icon className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  };
+
+  const strip = (
     <ol
+      ref={ol}
       aria-label={loc(ariaLabel, language)}
-      className={cn('sf-glass flex items-center gap-1 overflow-x-auto !rounded-2xl p-3', className)}
+      tabIndex={overflowCue ? 0 : undefined}
+      className={cn('sf-glass flex items-center gap-1 overflow-x-auto !rounded-2xl p-3', overflowCue && 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}
     >
       {steps.map((s, i) => {
         const interactive = Boolean(s.clickable && onJump);
@@ -115,6 +179,14 @@ export function Stepper({
         );
       })}
     </ol>
+  );
+  if (!overflowCue) return strip;
+  return (
+    <div className="relative" data-stepper-rail="">
+      {strip}
+      {hidden.before ? cue('before') : null}
+      {hidden.after ? cue('after') : null}
+    </div>
   );
 }
 
