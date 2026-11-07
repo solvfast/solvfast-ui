@@ -205,7 +205,7 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   const showExport = menuOn.export !== false && !!f.bundle;
   // Report-view export (export_query): Desk's report view offers it only with `frappe.model.can_export` (report_view.js:1646)
   const showReportExport = menuOn.reportExport === true && !!f.bundle && !!f.reportExport && canExport(session, perms.levels[0]);
-  const [exporting, setExporting] = React.useState<{ names?: string[] } | null>(null);
+  const [exporting, setExporting] = React.useState<{ names?: string[]; allMatching?: boolean } | null>(null);
   const [reportExporting, setReportExporting] = React.useState(false);
   const L = { importEntry: t("listMenuImport"), exportEntry: t("listBulkExport"), moreActions: t("listMenuMore"), reportExportEntry: t("listMenuReportExport"), ...ioLabels };
   // Desk: frappe.set_route("list", "data-import", { reference_doctype }) — the Data Import LIST (list_view.js:1703-1712)
@@ -263,7 +263,11 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
     options: { allowEdit: !!f.settings?.allow_edit, ...bulk, hasWorkflow: bulk?.hasWorkflow ?? !!perms.workflow, permissions: bulk ? (bulk.permissions ?? ((p) => perms.can(p))) : undefined },
   });
   const headerActions: BulkAction<T>[] | undefined = header && f.meta && (bulk || showExport)
-    ? [...hb.actions.map((a) => (sel.missing.length ? { ...a, disabled: () => t("listBulkUnresolved") } : a)), ...(rest.bulkActions ?? [])]
+    ? [...hb.actions.map((a): BulkAction<T> => (a.key === "export"
+      // "Select all {n} matching": Export is the one Desk action that can act on the query — the exporter by the current
+      // filters (exporter.py; `FrappeExportDialog` without names). Every other Frappe bulk method takes document names.
+      ? { ...a, allMatching: true, disabled: sel.missing.length ? (ctx) => (ctx.allMatching ? false : t("listBulkUnresolved")) : a.disabled, run: (k, r, ctx) => (ctx?.allMatching ? setExporting({ allMatching: true }) : a.run(k, r, ctx)) }
+      : sel.missing.length ? { ...a, disabled: () => t("listBulkUnresolved") } : a)), ...(rest.bulkActions ?? [])]
     : rest.bulkActions;
   // Create: Desk shows "Add {DocType}" and the empty-state create only with `frappe.model.can_create` (list_view.js:279-296, 497-537)
   const mayCreate = create !== false && perms.can("create");
@@ -319,7 +323,7 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       toolbarActions={menuNode || rest.toolbarActions ? <>{rest.toolbarActions}{menuNode}</> : undefined}
       renderBulkActions={header ? (ctx) => { clearRef.current = ctx.clear; return rest.renderBulkActions?.(ctx); } : renderBulk}
       bulkActions={headerActions}
-      renderActionsMenu={header && hb.workflowMenu ? (ctx) => <>{hb.workflowMenu}{rest.renderActionsMenu?.(ctx)}</> : rest.renderActionsMenu}
+      renderActionsMenu={header && hb.workflowMenu ? (ctx) => <>{ctx.allMatching ? null : hb.workflowMenu}{rest.renderActionsMenu?.(ctx)}</> : rest.renderActionsMenu}
       onActionsOpenChange={header ? (o) => { hb.onMenuOpenChange(o); rest.onActionsOpenChange?.(o); } : rest.onActionsOpenChange}
       onSelectionChange={(k) => { setSelectedKeys(k); rest.onSelectionChange?.(k); }}
       {...data}
@@ -330,7 +334,7 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
     {createdNode}
     {bulkMessage && <p className="mt-2 text-sm text-muted-foreground" role="status">{bulkMessage}</p>}
     {f.bundle && exporting && (
-      <FrappeExportDialog api={api} bundle={f.bundle} open onOpenChange={(o) => !o && setExporting(null)} selectedNames={exporting.names}
+      <FrappeExportDialog api={api} bundle={f.bundle} open onOpenChange={(o) => !o && setExporting(null)} selectedNames={exporting.names} defaultRecords={exporting.allMatching ? "by_filter" : undefined}
         filters={f.request?.filters} levels={perms.known ? perms.levels : undefined} labels={ioLabels} />
     )}
     {f.bundle && f.reportExport && reportExporting && (

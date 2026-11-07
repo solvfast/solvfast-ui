@@ -48,8 +48,12 @@ export function ListPagination({ total, totalLabel, onTotalClick, page, hasPrev,
   );
 }
 
-/** What a bulk action sees: the selected row keys, the selected rows the list has loaded, and a way to clear the selection. */
-export interface BulkActionContext<T> { keys: string[]; rows: T[]; clear: () => void }
+/**
+ * What a bulk action sees: the selected row keys, the selected rows the list has loaded, and a way to clear the selection.
+ * `allMatching` is set when the user chose "Select all {n} matching" (`ListView selectAllMatching`): the action is asked to
+ * act on EVERY record that matches the list's current query (`total` of them), not only on `keys` (the loaded rows).
+ */
+export interface BulkActionContext<T> { keys: string[]; rows: T[]; clear: () => void; allMatching?: { total: number } }
 
 /**
  * One action on the selected rows. In the bar (`selectionMode="bar"`) it is a button; in Desk's header mode
@@ -62,7 +66,14 @@ export interface BulkAction<T> {
   label: Localized;
   icon?: React.ComponentType<{ className?: string }>;
   variant?: "default" | "outline" | "destructive" | "secondary";
-  run: (keys: string[], rows: T[]) => void | Promise<void>;
+  /** `ctx` is passed only when all matching records are selected (`ctx.allMatching`). */
+  run: (keys: string[], rows: T[], ctx?: BulkActionContext<T>) => void | Promise<void>;
+  /**
+   * The action can act on every record matching the query ("Select all {n} matching": `ctx.allMatching` — e.g. by sending
+   * the list's filters instead of names). Actions without it are offered DISABLED while all matching records are selected:
+   * running them on the loaded keys only would silently act on fewer records than the user chose.
+   */
+  allMatching?: boolean;
   /** "destructive": the destructive look (bar button and menu item) and a destructive confirm button. */
   tone?: "default" | "destructive";
   /** Not offered for this selection. */
@@ -76,9 +87,11 @@ export interface BulkAction<T> {
 }
 export interface BulkActionConfirm { title: Localized; description?: Localized; confirmLabel?: Localized }
 
-/** The actions offered for a selection (`hidden` applied) with their disabled state. */
-export function resolveBulkActions<T>(actions: BulkAction<T>[] | undefined, ctx: BulkActionContext<T>): { action: BulkAction<T>; disabled: boolean; reason?: string }[] {
+/** The actions offered for a selection (`hidden` applied) with their disabled state. With `ctx.allMatching`, actions that
+ *  cannot act on all matching records are disabled with `opts.allMatchingReason`. */
+export function resolveBulkActions<T>(actions: BulkAction<T>[] | undefined, ctx: BulkActionContext<T>, opts: { allMatchingReason?: string } = {}): { action: BulkAction<T>; disabled: boolean; reason?: string }[] {
   return (actions ?? []).filter((a) => !a.hidden?.(ctx)).map((a) => {
+    if (ctx.allMatching && !a.allMatching) return { action: a, disabled: true, reason: opts.allMatchingReason ?? "Not available for all matching records" };
     const d = a.disabled?.(ctx);
     return { action: a, disabled: !!d, reason: typeof d === "string" ? d : undefined };
   });
@@ -97,7 +110,7 @@ export function BulkActionBar<T>({ count, actions, render, onClear, keys, rows }
       <span className="text-sm font-medium" aria-live="polite">{t("selectedCount").replace("{n}", String(count))}</span>
       <div className="h-5 w-px bg-border" />
       {render?.(ctx)}
-      {resolveBulkActions(actions, ctx).map(({ action: a, disabled, reason }) => {
+      {resolveBulkActions(actions, ctx, { allMatchingReason: t("listAllMatchingUnsupported") }).map(({ action: a, disabled, reason }) => {
         const Icon = a.icon;
         return (
           <Button key={a.key} size="sm" variant={a.variant ?? (a.tone === "destructive" ? "destructive" : "outline")} className="gap-1.5" loading={runner.busy === a.key}
@@ -124,7 +137,8 @@ export function useBulkActionRunner<T>() {
   const [asking, setAsking] = React.useState<{ action: BulkAction<T>; ctx: BulkActionContext<T>; confirm: BulkActionConfirm } | null>(null);
   const exec = async (a: BulkAction<T>, ctx: BulkActionContext<T>) => {
     setBusy(a.key);
-    try { await a.run(ctx.keys, ctx.rows); } finally { setBusy(null); }
+    // the context is passed only for an "all matching" selection: older actions keep their exact (keys, rows) call
+    try { await (ctx.allMatching ? a.run(ctx.keys, ctx.rows, ctx) : a.run(ctx.keys, ctx.rows)); } finally { setBusy(null); }
   };
   const request = (a: BulkAction<T>, ctx: BulkActionContext<T>) => {
     const c = typeof a.confirm === "function" ? a.confirm(ctx) : a.confirm;
@@ -162,7 +176,7 @@ export function ListActionsMenu<T>({ actions, ctx, extra, label, onOpenChange, a
 }) {
   const { language, t } = useLocale();
   const runner = useBulkActionRunner<T>();
-  const items = resolveBulkActions(actions, ctx);
+  const items = resolveBulkActions(actions, ctx, { allMatchingReason: t("listAllMatchingUnsupported") });
   return (
     <>
       <DropdownMenu onOpenChange={onOpenChange}>

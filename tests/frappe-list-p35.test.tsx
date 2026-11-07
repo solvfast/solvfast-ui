@@ -102,7 +102,9 @@ export function simBackend(over: { docs?: Record<string, unknown[]>; workflow?: 
 
 type Session = { user: string; fullName?: string; roles?: string[] } | undefined;
 export function mountSim(transport: FixtureTransport, props: Partial<FrappeListViewProps<Record<string, unknown>>> = {}, session: Session = { user: "u@x.com", roles: ["System Manager"] }) {
-  const client = createFrappeClient({ transport });
+  const downloads: { method: string; args: Record<string, unknown> }[] = [];
+  const files = { ...transport.files, download: async (method: string, args: Record<string, unknown>) => { downloads.push({ method, args }); return transport.files.download(method, args); } };
+  const client = createFrappeClient({ transport, files });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
     <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
@@ -113,7 +115,7 @@ export function mountSim(transport: FixtureTransport, props: Partial<FrappeListV
   );
   const calls = (method: string) => transport.store.calls.filter((c) => c.method === method);
   const lastGet = () => { const c = calls("frappe.desk.reportview.get"); return c[c.length - 1]?.args as Record<string, unknown>; };
-  return { view, qc, calls, lastGet };
+  return { view, qc, calls, lastGet, downloads };
 }
 const parsed = (v: unknown) => (typeof v === "string" ? JSON.parse(v) : v);
 
@@ -334,5 +336,44 @@ describe("LV.D6 / LV.D7 / LV.D11 / LV.J8 group-by sidebar with server counts, ta
     await waitFor(() => expect(bodyRows()).toHaveLength(4));
     expect(screen.queryByRole("navigation", { name: t("listSidebar") })).toBeNull();
     expect(calls("frappe.desk.listview.get_group_by_count")).toHaveLength(0);
+  });
+});
+
+describe("G5 'Select all matching' on FrappeListView (header mode): only the query-based Export runs", () => {
+  it("G5 Export posts by_filter with the list's FILTERS (not names) for all matching records; name-based actions are disabled (SIMULATED)", async () => {
+    Object.assign(URL, { createObjectURL: () => "blob:x", revokeObjectURL: () => {} });
+    const { downloads } = mountSim(simBackend(), {
+      selectionMode: "header", bulk: {}, selectAllMatching: true, pageSize: 2, pageSizes: [],
+      initialQuery: { conjunction: "and", conditions: [{ id: "s", field: "status", operator: "equals", value: "Closed" }] },
+    });
+    await waitFor(() => expect(bodyRows()).toHaveLength(2));
+    fireEvent.click(within(document.querySelector("thead")!).getByRole("checkbox", { name: en("selectAll") }));
+    fireEvent.click(await screen.findByRole("button", { name: t("listSelectAllMatching").replace("{n}", "3") }));
+    openMenu(await screen.findByTestId("sf-list-actions"));
+    const del = await screen.findByRole("menuitem", { name: /Print/ }); // Memo has a workflow: no Edit / Delete (list_view.js:1881-1886)
+    expect(del.getAttribute("data-disabled")).not.toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: /^\s*Export\s*$/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Select All" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Export" }));
+    await waitFor(() => expect(downloads).toHaveLength(1));
+    expect(downloads[0].args.export_records).toBe("by_filter");
+    expect(JSON.parse(String(downloads[0].args.export_filters))).toEqual([["status", "=", "Closed"]]);
+  });
+});
+
+describe("LV.I4 page size on FrappeListView", () => {
+  it("LV.I4 Desk's 20 / 100 / 500 / 2500 by default; a choice changes page_length and is saved in user_settings List.sf_ui.pageSize (SIMULATED)", async () => {
+    const transport = simBackend();
+    const { lastGet, calls } = mountSim(transport, { storage: undefined, serverStorage: { user: "u@x.com" } });
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    expect(lastGet().page_length).toBe(20);
+    const group = screen.getByRole("group", { name: t("listPageSize") });
+    expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual(["20", "100", "500", "2,500"]);
+    fireEvent.click(within(group).getByRole("button", { name: "500" }));
+    await waitFor(() => expect(lastGet().page_length).toBe(500));
+    await waitFor(() => expect(calls("frappe.model.utils.user_settings.save").length).toBeGreaterThan(0), { timeout: 3000 });
+    const saved = JSON.parse(String(calls("frappe.model.utils.user_settings.save").at(-1)!.args.user_settings));
+    expect(saved.List.sf_ui.pageSize).toBe(500);
   });
 });

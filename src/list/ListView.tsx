@@ -105,6 +105,14 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   aside?: React.ReactNode;
   /** Show the `aside` (default true when given) — Desk's "Toggle Sidebar". */
   asideOpen?: boolean;
+  /**
+   * `selectionMode="header"`: once every row on the page is checked, the header offers "Select all {n} matching" (D-crm
+   * G5). Then `BulkActionContext.allMatching` is set and only actions marked `allMatching: true` run (they must act on the
+   * query, not on `keys`); the others are shown disabled. Unchecking a row, Clear, or a query change ends it. Default off.
+   */
+  selectAllMatching?: boolean;
+  /** The table, or one card per row (`"cards"`), or cards on phones only (`"auto"`) — `ListTable`'s `layout`. Default "table". */
+  layout?: "table" | "cards" | "auto";
   /** Called when the set of selected rows changes (keys). */
   onSelectionChange?: (keys: string[]) => void;
   /** Makes the total a button (Desk: click "1,000+" to count exactly). */
@@ -157,7 +165,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     like, onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, primaryAction, selectionMode = "bar", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage, pageSizes, aside, asideOpen,
+    emptyMessage, toolbarActions, primaryAction, selectionMode = "bar", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage, pageSizes, aside, asideOpen, selectAllMatching, layout,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -170,7 +178,11 @@ export function ListView<T>(props: ListViewProps<T>) {
 
   const filtered = s.activeCount > 0 || !!s.search.trim();
   const tableProps = {
-    selectionHeader: selectable && selectionMode === "header" ? { count: s.selected.size, onClear: s.clearSelection } : undefined,
+    selectionHeader: selectable && selectionMode === "header" ? {
+      count: s.selected.size, onClear: s.clearSelection,
+      matching: selectAllMatching && !s.grouped ? { total: s.total, label: totalLabel || undefined, active: s.allMatching, onSelect: s.selectAllMatching } : undefined,
+    } : undefined,
+    layout,
     columns, rowKey: s.rowKey, sort: s.sort, onSortToggle: s.toggleSort, onRowClick, rowClassName, like,
     selection: selectable ? { isSelected: s.isSelected, toggleRow: s.toggleRow, setRowsSelected: s.setRowsSelected } : undefined,
     loading, error, onRetry,
@@ -193,7 +205,10 @@ export function ListView<T>(props: ListViewProps<T>) {
   const selectionSig = selectedKeys.join("\u0001");
   React.useEffect(() => { onSelectionChange?.([...s.selected]); }, [selectionSig]); // eslint-disable-line react-hooks/exhaustive-deps
   const header = selectable && selectionMode === "header";
-  const actionCtx: BulkActionContext<T> = { keys: selectedKeys, rows: header && selectedKeys.length ? s.selectedRows() : [], clear: s.clearSelection };
+  const actionCtx: BulkActionContext<T> = {
+    keys: selectedKeys, rows: header && selectedKeys.length ? s.selectedRows() : [], clear: s.clearSelection,
+    ...(header && selectAllMatching && s.allMatching ? { allMatching: { total: s.total } } : {}),
+  };
   const hasActions = header && selectedKeys.length > 0 && (resolveBulkActions(bulkActions, actionCtx).length > 0 || !!renderActionsMenu);
   const actions = React.useMemo(() => ({
     applyCondition: (field: string, operator: Operator, value: string) =>

@@ -127,6 +127,8 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   const pageSize = chosenPageSize ?? opts.pageSize ?? 20;
   const [quickFields, setQuickFieldsState] = React.useState<string[]>(initial.quick ?? opts.quickFilterFields ?? []);
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set());
+  // "Select all {n} matching" (D-crm G5): every record of the current query, not only the loaded rows
+  const [allMatching, setAllMatching] = React.useState(false);
 
   const persist = (patch: Partial<ListPrefs>) => {
     if (!viewKey || !prefsStore) return;
@@ -163,6 +165,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   // C3: prune the selection when the result set changes underneath it
   const keysOfFiltered = React.useMemo(() => new Set(filtered.map(rowKey)), [filtered, rowKey]);
   React.useEffect(() => {
+    setAllMatching(false);
     setSelected((prev) => {
       if (!prev.size) return prev;
       if (mode === "server") return new Set();
@@ -214,10 +217,15 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
     // selection
     selected,
     isSelected: (row: T) => selected.has(rowKey(row)),
-    toggleRow: (row: T) => setSelected((prev) => { const n = new Set(prev); const k = rowKey(row); n.has(k) ? n.delete(k) : n.add(k); return n; }),
+    toggleRow: (row: T) => { if (selected.has(rowKey(row))) setAllMatching(false); setSelected((prev) => { const n = new Set(prev); const k = rowKey(row); n.has(k) ? n.delete(k) : n.add(k); return n; }); },
     /** Select / unselect exactly these rows (the visible page, or one group). */
-    setRowsSelected: (list: T[], on: boolean) => setSelected((prev) => { const n = new Set(prev); for (const r of list) (on ? n.add(rowKey(r)) : n.delete(rowKey(r))); return n; }),
-    clearSelection: () => setSelected(new Set()),
+    setRowsSelected: (list: T[], on: boolean) => { if (!on) setAllMatching(false); setSelected((prev) => { const n = new Set(prev); for (const r of list) (on ? n.add(rowKey(r)) : n.delete(rowKey(r))); return n; }); },
+    clearSelection: () => { setAllMatching(false); setSelected(new Set()); },
+    /** True after `selectAllMatching()`: the selection stands for every record matching the query (`total`), until a row
+     *  is unchecked, the selection is cleared, or the query / search / scope changes. */
+    allMatching,
+    /** Select the loaded rows and mark the selection as "all matching records". */
+    selectAllMatching: () => { setSelected((prev) => { const n = new Set(prev); for (const r of pageRows) n.add(rowKey(r)); return n; }); setAllMatching(true); },
     selectedRows: () => (mode === "server" ? rows : filtered).filter((r) => selected.has(rowKey(r))),
     // saved filters
     saved,
