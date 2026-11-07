@@ -55,6 +55,7 @@ export const viewsEn = {
   reportSaved: "{field} saved",
   reportReadOnly: "Read-only",
   reportRowsWithChildren: "One row per child row",
+  reportShowTotals: "Show totals",
 };
 export const viewsAr: { [K in keyof typeof viewsEn]: string } = {
   viewList: "قائمة",
@@ -106,4 +107,5 @@ export const viewsAr: { [K in keyof typeof viewsEn]: string } = {
   reportSaved: "تم حفظ {field}",
   reportReadOnly: "للقراءة فقط",
   reportRowsWithChildren: "صف لكل صف فرعي",
+  reportShowTotals: "إظهار المجاميع",
 };

@@ -5,3 +5,6 @@ export { useFrappeViewList, patchCachedRows } from "./useFrappeViewList";
 export type { FrappeViewListOptions, ViewRequest } from "./useFrappeViewList";
 export { FrappeImageView } from "./FrappeImageView";
 export type { FrappeImageViewProps } from "./FrappeImageView";
+export { FrappeReportView } from "./FrappeReportView";
+export type { FrappeReportViewProps } from "./FrappeReportView";
+export { isCellEditable, columnTotals, INLINE_EDIT_TYPES } from "./report";
