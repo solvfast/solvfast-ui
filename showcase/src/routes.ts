@@ -100,3 +100,12 @@ export const GROUPS: Group[] = [
 ];
 
 export const PAGES = GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g })));
+
+// P35 views
+const views = () => import("./pages/views");
+{
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = { id: "frappe-views", title: l("List views", "عروض القائمة"), description: l("SIMULATED: the view switcher and the Report, Image, Kanban and Calendar views on the in-browser simulator, plus the Core KanbanBoard and CalendarMonth.", "محاكاة: مبدّل العروض وعروض التقرير والصور وكانبان والتقويم على المحاكي داخل المتصفّح، مع KanbanBoard و CalendarMonth الأساسيين."), Component: from(views, "ViewsPage") };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}
