@@ -235,7 +235,8 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   // pushes it unconditionally (list_view.js:2075-2092) — owner decision Phase 27 #1, reversing the Phase 26 rule D.1
   // gate: the server is the authority (exporter.py:116-126 `can_export`) and FrappeExportDialog shows its refusal as a
   // permission error (FrappeErrorState), with no file and no success.
-  const { session } = useFrappeSettings();
+  const settings = useFrappeSettings();
+  const { session } = settings;
   const menuOn = menu === false
     ? { import: false, export: false, reportExport: false, userPermissions: false, rolePermissions: false, customize: false, listSettings: false }
     : { import: true, export: true, reportExport: false, userPermissions: true, rolePermissions: true, customize: true, listSettings: true, ...(typeof menu === "object" ? menu : {}) };
@@ -333,7 +334,7 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   const qeDefault = !!createCfg && !createCfg.render && !createCfg.onCreate && !onCreate;
   const qeEligible = qeDefault && f.bundle ? quickEntryFields(f.bundle.meta).eligible : undefined;
   const toFullForm = qeDefault && qeEligible === false && createCfg?.onOpenFullForm && f.bundle
-    ? () => createCfg.onOpenFullForm!(newDoc(f.bundle!, { user: session?.user, userFullname: session?.fullName, ...createCfg.defaults }))
+    ? () => createCfg.onOpenFullForm!(newDoc(f.bundle!, { user: session?.user, userFullname: session?.fullName, userDefaults: settings.userDefaults, ...createCfg.defaults }))
     : undefined;
   const renderCreate = createCfg?.render ?? (qeDefault && f.bundle && !toFullForm ? (p: { open: boolean; onOpenChange(open: boolean): void; onCreated(doc: Record<string, unknown>): void }) => {
     const qe = <FrappeQuickEntry doctype={doctype} open={p.open} onOpenChange={p.onOpenChange} onCreated={p.onCreated} defaults={createCfg?.defaults}

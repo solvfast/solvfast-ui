@@ -36,6 +36,9 @@ export interface FrappeSettings {
   session?: FrappeSession;
   translations?: TranslationDictionary;
   formatContext?: FormatContext;
+  /** New-document user defaults (Desk `frappe.defaults.get_user_defaults`, from boot — `userDefaultsFromBoot`). P35:
+   *  FrappeForm, FrappeQuickEntry and FrappeListView's default create apply them unless they are given their own. */
+  userDefaults?: Record<string, string | string[]>;
 }
 const SettingsContext = React.createContext<FrappeSettings>({});
 const EMPTY: FormatContext = {};
@@ -84,13 +87,16 @@ export interface FrappeProviderProps {
    * identity. Explicit props win.
    */
   boot?: FrappeBoot;
+  /** New-document user defaults for every form below (P35). Default: `boot.userDefaults` (from `readFrappeBoot()`), else
+   *  an outer provider's. `false`: none (forms then use only what they are given — `newDocDefaults.userDefaults`). */
+  userDefaults?: Record<string, string | string[]> | false;
   /** Route alert messages (`alert: 1`, e.g. "Saved") elsewhere, e.g. to `toast()` from "@solvfast/ui/toast". Default:
    *  the built-in alert region. */
   onAlert?: (message: FrappeMessage) => void;
   children: React.ReactNode;
 }
 
-export function FrappeProvider({ client, queryClient, session, translations, formatContext, boot, serverMessages = "show", onAlert, children }: FrappeProviderProps) {
+export function FrappeProvider({ client, queryClient, session, translations, formatContext, boot, userDefaults, serverMessages = "show", onAlert, children }: FrappeProviderProps) {
   const existing = React.useContext(QueryClientContext);
   const [own] = React.useState(() => queryClient ?? (existing ? undefined : createFrappeQueryClient()));
   // one FrappeApi per client: hooks (useFrappeApi) and the server-message subscription then share the same object,
@@ -105,8 +111,9 @@ export function FrappeProvider({ client, queryClient, session, translations, for
       session: session ?? boot?.session ?? outer.session,
       translations: translations ?? boot?.translations ?? outer.translations,
       formatContext: formatContext ?? boot?.formatContext ?? outer.formatContext,
+      userDefaults: userDefaults === false ? undefined : userDefaults ?? boot?.userDefaults ?? outer.userDefaults,
     }),
-    [session, translations, formatContext, boot, outer],
+    [session, translations, formatContext, boot, outer, userDefaults],
   );
   const source = serverMessages === "show" ? value : undefined;
   let inner = <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>;

@@ -64,8 +64,8 @@ export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "d
   doctype: string;
   /** A saved document's name; omit (or pass a `new-…` name) for a new document. */
   name?: string;
-  /** Defaults for a new document: route options, user defaults (`userDefaults` — e.g. `readFrappeBoot().userDefaults`),
-   *  typed name (`nameField`). */
+  /** Defaults for a new document: route options, user defaults (`userDefaults` — default: the FrappeProvider's, i.e.
+   *  `boot.userDefaults`; P35), typed name (`nameField`). */
   newDocDefaults?: DefaultsContext;
   /** Quick Entry's "Edit Full Form" / a not-eligible target (P35): route to the full form with this unsaved document. */
   onOpenFullForm?: (doc: FrappeDoc) => void;
@@ -95,7 +95,7 @@ export { FormSkeleton } from "./FormSkeleton";
 import { FormSkeleton } from "./FormSkeleton";
 
 export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu, connections, ...rest }: FrappeFormProps) {
-  const { session } = useFrappeSettings();
+  const { session, userDefaults } = useFrappeSettings();
   const { t } = useLocale();
   const meta = useMetaBundle(doctype);
   const creating = isNewName(name);
@@ -106,9 +106,9 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu
   const [fresh, setFresh] = React.useState<FrappeDoc | null>(null);
   React.useEffect(() => {
     if (creating && bundle && !fresh) {
-      setFresh(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, ...newDocDefaults }));
+      setFresh(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, userDefaults, ...newDocDefaults }));
     }
-  }, [creating, bundle, fresh, session, newDocDefaults]);
+  }, [creating, bundle, fresh, session, newDocDefaults, userDefaults]);
   const [saved, setSaved] = React.useState<FrappeDoc | null>(null);
   // P35: a document the menu opened in this form (Duplicate / New) — unsaved, until it is saved or the route changes
   const [local, setLocal] = React.useState<FrappeDoc | null>(null);
@@ -161,7 +161,7 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu
     return (
       <FrappeRecordMenu {...opts} bundle={bundle} doc={ctx.doc} docinfo={docinfo} dirty={ctx.dirty}
         onDuplicate={opts.onDuplicate ?? ((copy) => openLocal(copy, "duplicate"))}
-        onNew={opts.onNew ?? (() => openLocal(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, ...newDocDefaults }), "new"))}
+        onNew={opts.onNew ?? (() => openLocal(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, userDefaults, ...newDocDefaults }), "new"))}
         onReload={ctx.reload}
         onShowConnections={connOpts && ctx.tabs.includes("extra:connections") ? () => ctx.showTab("extra:connections") : undefined}
         undo={{ canUndo: ctx.frm.canUndo, canRedo: ctx.frm.canRedo, onUndo: () => ctx.frm.undo(), onRedo: () => ctx.frm.redo() }} />
@@ -177,7 +177,7 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu
       doc={doc}
       docinfo={docinfo}
       permissions={permissions}
-      defaults={{ user: session?.user, ...rest.defaults }}
+      defaults={{ user: session?.user, userDefaults, ...rest.defaults }}
       menu={menuSlot}
       extraTabs={extraTabs}
       onSave={async (d, action) => { const r = await save.mutateAsync({ doc: d, action }); setSaved(r); setLocal(null); return r; }}

@@ -9,7 +9,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { createFrappeClient } from "../src/frappe/client";
-import { FrappeProvider } from "../src/frappe/FrappeProvider";
+import { FrappeProvider, type FrappeProviderProps } from "../src/frappe/FrappeProvider";
+import { readFrappeBoot } from "../src/frappe/services/boot";
 import type { DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureTransport, type SimulatedPermissions } from "../src/frappe/testing";
 import { FrappeForm, type FrappeFormProps } from "../src/frappe/form";
@@ -35,11 +36,12 @@ const DEAL: DocTypeMeta = {
 } as DocTypeMeta;
 const DEAL_NOTE: DocTypeMeta = { name: "Deal Note", autoname: "hash", permissions: [SM], fields: [{ fieldname: "deal", fieldtype: "Link", options: "Deal", label: "Deal" }] };
 const MEMO: DocTypeMeta = { name: "Memo", autoname: "hash", permissions: [SM], fields: [{ fieldname: "subject", fieldtype: "Data", label: "Subject" }] };
+const VISIT: DocTypeMeta = { name: "Visit", autoname: "hash", permissions: [SM], fields: [{ fieldname: "memo", fieldtype: "Link", options: "Memo", label: "Memo" }, { fieldname: "note", fieldtype: "Data", label: "Note" }] };
 const T = "2026-11-02 09:00:00.000000";
 
 function site(permissions: SimulatedPermissions = { user: "sara@x.org", roles: ["System Manager"] }) {
   return createFixtureTransport({
-    meta: { Deal: [DEAL], "Deal Note": [DEAL_NOTE], Memo: [MEMO] },
+    meta: { Deal: [DEAL], "Deal Note": [DEAL_NOTE], Memo: [MEMO], Visit: [VISIT] },
     docs: {
       Deal: [{ doctype: "Deal", name: "D-1", title: "Big order", email_id: "client@x.org", docstatus: 0, owner: "sara@x.org", modified: T, creation: T }] as FrappeDoc[],
       "Deal Note": [{ doctype: "Deal Note", name: "N-1", deal: "D-1" }, { doctype: "Deal Note", name: "N-2", deal: "D-1" }] as FrappeDoc[],
@@ -49,12 +51,12 @@ function site(permissions: SimulatedPermissions = { user: "sara@x.org", roles: [
 }
 const calls = (t: FixtureTransport, method: string) => t.store.calls.filter((c) => c.method === method);
 
-function mount(t: FixtureTransport, props: Partial<FrappeFormProps> & { doctype?: string; name?: string } = {}) {
+function mount(t: FixtureTransport, props: Partial<FrappeFormProps> & { doctype?: string; name?: string } = {}, provider: Partial<FrappeProviderProps> = {}) {
   const client = createFrappeClient({ transport: t, files: t.files });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <FrappeProvider client={client} queryClient={qc} session={t.store.session} serverMessages={false}>
+      <FrappeProvider client={client} queryClient={qc} session={t.store.session} serverMessages={false} {...provider}>
         <ThemeProvider><FrappeForm doctype="Deal" name="D-1" {...props} /></ThemeProvider>
       </FrappeProvider>
     </QueryClientProvider>,
@@ -230,5 +232,26 @@ describe("P35 integration — FrappeForm menu + connections (SIMULATED)", () => 
     const l = labels(menu);
     for (const x of ["Duplicate", "Rename", "Delete", "Print", "Email", "Customize", "New Deal"]) expect(l).not.toContain(x);
     expect(l).toEqual(expect.arrayContaining(["Links", "Copy to Clipboard", "Reload"]));
+  });
+});
+
+describe("P35 integration — FrappeProvider user defaults reach new documents (SIMULATED)", () => {
+  const boot = readFrappeBoot({ user: "sara@x.org", roles: ["System Manager"], defaults: { Memo: "M-1" } })!;
+  const memo = () => screen.findByRole("combobox", { name: /Memo/ }) as Promise<HTMLInputElement>;
+  it("FV.E2 FV.D8 boot user defaults pre-fill a new document's Link without newDocDefaults; userDefaults={false} opts out", async () => {
+    const t = site();
+    const a = mount(t, { doctype: "Visit", name: undefined }, { boot, session: t.store.session });
+    await waitFor(async () => expect((await memo()).value).toBe("M-1"));
+    a.unmount();
+    const b = mount(t, { doctype: "Visit", name: undefined }, { boot, session: t.store.session, userDefaults: false });
+    await memo();
+    await new Promise((r) => setTimeout(r, 50));
+    expect((await memo()).value).toBe("");
+    b.unmount();
+    // the form's own newDocDefaults.userDefaults still win
+    mount(t, { doctype: "Visit", name: undefined, newDocDefaults: { userDefaults: {} } }, { userDefaults: { Memo: "M-1" } });
+    await memo();
+    await new Promise((r) => setTimeout(r, 50));
+    expect((await memo()).value).toBe("");
   });
 });
