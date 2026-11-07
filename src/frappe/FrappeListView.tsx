@@ -19,10 +19,12 @@ import type { BulkAction } from "../list/parts/ListFooter";
 import { useListRealtime } from "./list/realtime";
 import type { RealtimePort } from "./contract";
 import { createFrappeSavedFilters, createFrappeUserSettings } from "./list/storage";
-import { Download, FileSpreadsheet, MoreHorizontal, PanelLeft, Plus, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, MoreHorizontal, PanelLeft, Plus, Settings2, ShieldCheck, Upload, Wrench } from "lucide-react";
+import { FrappeListSettingsDialog } from "./list/FrappeListSettingsDialog";
+import { hasIndicator as hasIndicatorFn, indicatorWorkflowFromMeta } from "./list/indicator";
 import { DEFAULT_SIDEBAR_GROUP_BY, FrappeGroupBySidebar } from "./list/FrappeGroupBySidebar";
 import { Button } from "../primitives/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../primitives/dropdown-menu";
 import { useFrappeSettings } from "./FrappeProvider";
 import { withFrappeApi } from "./client";
 import { actsAsSystemManagerFor, canExport, canImport } from "./services/permissions";
@@ -102,7 +104,18 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    */
   /** `reportExport: true` adds "Export as report" (Report-view `export_query`, gated by `canExport` as Desk's report view,
    *  report_view.js:1646). Off by default: Desk's List View has no such entry (Phase 27.5 decision review). */
-  menu?: boolean | { import?: boolean; export?: boolean; reportExport?: boolean };
+  /**
+   * P35 — Desk's other menu entries (list_view.js:1714-1785), each on by default and offered only to System Managers
+   * (the Administrator user included): `userPermissions` (`/app/user-permission?allow=<doctype>`), `rolePermissions`
+   * (`/app/permission-manager?doctype=<doctype>`), `customize` (`/app/customize-form?doc_type=<doctype>`, or the DocType
+   * form for a custom DocType — Desk gates it on creating Custom Field and Property Setter, which stock Frappe grants to
+   * System Manager / Administrator only), `listSettings` (the List Settings dialog, `save_listview_settings`). `false`
+   * turns one off; `menu={false}` turns every entry off.
+   */
+  menu?: boolean | { import?: boolean; export?: boolean; reportExport?: boolean; userPermissions?: boolean; rolePermissions?: boolean; customize?: boolean; listSettings?: boolean };
+  /** Where menu entries navigate (Import without `onImport`, User Permissions, Role Permissions Manager, Customize).
+   *  Default: `location.assign(url)`. `url` is Desk's route as a URL (`/app/…` with route options as the query string). */
+  onNavigate?: (url: string, entry: "import" | "userPermissions" | "rolePermissions" | "customize") => void;
   /** Labels of the Import / Export entries (default: the message catalogue) and of the Export dialog (English by default). */
   ioLabels?: Partial<ExportDialogLabels & { importEntry: string; exportEntry: string; moreActions: string; reportExportEntry: string }>;
 }
@@ -128,6 +141,13 @@ export function documentNamesForKeys(keys: readonly string[], nameByKey: Readonl
 /** Desk's page lengths (base_list.js:375). FrappeListView offers them by default; `pageSizes={[]}` hides the picker. */
 export const DESK_PAGE_SIZES = [20, 100, 500, 2500];
 
+/** Desk's `set_route("list", "user-permission", { allow })` as a URL (list_view.js:1714-1722; router.js:431-440, 548-566). */
+export const userPermissionsUrl = (doctype: string) => `/app/user-permission?allow=${encodeURIComponent(doctype)}`;
+/** Desk's `set_route("permission-manager", { doctype })` as a URL (list_view.js:1725-1733). */
+export const rolePermissionsUrl = (doctype: string) => `/app/permission-manager?doctype=${encodeURIComponent(doctype)}`;
+/** Desk's Customize (list_view.js:1735-1754): the DocType form for a custom DocType, else Customize Form with `doc_type`. */
+export const customizeUrl = (doctype: string, custom = false) => (custom ? `/app/doctype/${encodeURIComponent(doctype)}` : `/app/customize-form?doc_type=${encodeURIComponent(doctype)}`);
+
 export const dataImportListUrl = (doctype: string) => `/app/data-import?reference_doctype=${encodeURIComponent(doctype)}`;
 
 export function FrappeListView<T = Record<string, unknown>>(props: FrappeListViewProps<T>) {
@@ -135,7 +155,7 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, sidebar, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
+function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, sidebar, onNavigate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
   // `columnLimit` defaults ON here: Desk always caps the generated columns by window width (list_view.js:432-444);
   // app-curated `columns` are never capped. `columnLimit={false}` keeps every `in_list_view` column.
   // Like: the session user decides; "Liked by me" narrows the list server-side like Desk's filter (always ANDed)
@@ -200,7 +220,22 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   // gate: the server is the authority (exporter.py:116-126 `can_export`) and FrappeExportDialog shows its refusal as a
   // permission error (FrappeErrorState), with no file and no success.
   const { session } = useFrappeSettings();
-  const menuOn = menu === false ? { import: false, export: false, reportExport: false } : { import: true, export: true, reportExport: false, ...(typeof menu === "object" ? menu : {}) };
+  const menuOn = menu === false
+    ? { import: false, export: false, reportExport: false, userPermissions: false, rolePermissions: false, customize: false, listSettings: false }
+    : { import: true, export: true, reportExport: false, userPermissions: true, rolePermissions: true, customize: true, listSettings: true, ...(typeof menu === "object" ? menu : {}) };
+  // Desk: `frappe.user_roles.includes("System Manager")` (list_view.js:1714-1733, 1772-1776); Customize needs create on
+  // Custom Field + Property Setter (:1735-1754) — System Manager / Administrator in stock Frappe
+  const sysManager = actsAsSystemManagerFor(session) && !!f.bundle;
+  const navEntries = ([
+    ["userPermissions", menuOn.userPermissions, t("listMenuUserPermissions"), userPermissionsUrl(doctype)],
+    ["rolePermissions", menuOn.rolePermissions, t("listMenuRolePermissions"), rolePermissionsUrl(doctype)],
+    ["customize", menuOn.customize, t("listMenuCustomize"), customizeUrl(doctype, !!(f.bundle?.meta as { custom?: unknown } | undefined)?.custom)],
+  ] as const).filter(([, on]) => on !== false && sysManager);
+  const showListSettings = menuOn.listSettings !== false && sysManager && !!f.meta;
+  const [listSettingsOpen, setListSettingsOpen] = React.useState(false);
+  const navigate = (url: string, entry: "import" | "userPermissions" | "rolePermissions" | "customize") => {
+    if (onNavigate) onNavigate(url, entry); else if (typeof location !== "undefined") location.assign(url);
+  };
   const showImport = menuOn.import !== false && canImport(f.bundle?.meta, session, perms.levels[0]);
   const showExport = menuOn.export !== false && !!f.bundle;
   // Report-view export (export_query): Desk's report view offers it only with `frappe.model.can_export` (report_view.js:1646)
@@ -209,11 +244,11 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   const [reportExporting, setReportExporting] = React.useState(false);
   const L = { importEntry: t("listMenuImport"), exportEntry: t("listBulkExport"), moreActions: t("listMenuMore"), reportExportEntry: t("listMenuReportExport"), ...ioLabels };
   // Desk: frappe.set_route("list", "data-import", { reference_doctype }) — the Data Import LIST (list_view.js:1703-1712)
-  const doImport = onImport ?? (() => { if (typeof location !== "undefined") location.assign(dataImportListUrl(doctype)); });
+  const doImport = onImport ?? (() => navigate(dataImportListUrl(doctype), "import"));
   // Desk's sidebar (opt-in) and its "Toggle Sidebar" menu entry (list_view.js:1756-1762)
   const sidebarCfg = sidebar ? (typeof sidebar === "object" ? sidebar : {}) : null;
   const [sidebarOpen, setSidebarOpen] = React.useState(sidebarCfg?.open !== false);
-  const menuNode = showImport || showExport || sidebarCfg ? (
+  const menuNode = showImport || showExport || sidebarCfg || navEntries.length || showListSettings ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon" aria-label={L.moreActions} data-testid="sf-list-menu"><MoreHorizontal className="h-4 w-4" /></Button>
@@ -222,7 +257,12 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
         {showImport && <DropdownMenuItem onSelect={() => doImport()}><Upload className="me-2 h-4 w-4" /> {L.importEntry}</DropdownMenuItem>}
         {showExport && <DropdownMenuItem onSelect={() => setExporting({})}><Download className="me-2 h-4 w-4" /> {L.exportEntry}</DropdownMenuItem>}
         {showReportExport && <DropdownMenuItem onSelect={() => setReportExporting(true)}><FileSpreadsheet className="me-2 h-4 w-4" /> {L.reportExportEntry}</DropdownMenuItem>}
+        {(navEntries.length > 0 || sidebarCfg || showListSettings) && (showImport || showExport || showReportExport) && <DropdownMenuSeparator />}
+        {navEntries.map(([key, , label, url]) => (
+          <DropdownMenuItem key={key} data-menu={key} onSelect={() => navigate(url, key)}>{key === "customize" ? <Wrench className="me-2 h-4 w-4" /> : <ShieldCheck className="me-2 h-4 w-4" />} {label}</DropdownMenuItem>
+        ))}
         {sidebarCfg && <DropdownMenuItem onSelect={() => setSidebarOpen((o) => !o)}><PanelLeft className="me-2 h-4 w-4" /> {t("listToggleSidebar")}</DropdownMenuItem>}
+        {showListSettings && <DropdownMenuItem data-menu="listSettings" onSelect={() => setListSettingsOpen(true)}><Settings2 className="me-2 h-4 w-4" /> {t("listMenuListSettings")}</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
   ) : null;
@@ -334,6 +374,10 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
     />
     {header && hb.dialogs}
     {createdNode}
+    {showListSettings && f.bundle && listSettingsOpen && (
+      <FrappeListSettingsDialog client={c} doctype={doctype} meta={f.bundle.meta as never} settings={f.settings} open onOpenChange={setListSettingsOpen}
+        hasIndicator={!!f.meta && hasIndicatorFn({ isSubmittable: f.meta.isSubmittable, workflow: workflow === undefined ? indicatorWorkflowFromMeta(f.bundle.meta) : workflow || undefined, states: f.meta.states, hasField: f.meta.hasField, getIndicator })} />
+    )}
     {bulkMessage && <p className="mt-2 text-sm text-muted-foreground" role="status">{bulkMessage}</p>}
     {f.bundle && exporting && (
       <FrappeExportDialog api={api} bundle={f.bundle} open onOpenChange={(o) => !o && setExporting(null)} selectedNames={exporting.names} defaultRecords={exporting.allMatching ? "by_filter" : undefined}

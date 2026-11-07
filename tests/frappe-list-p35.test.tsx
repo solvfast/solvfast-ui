@@ -411,3 +411,83 @@ describe("LV.C9 saved filters on the server: per-save Is Global (System Manager 
     expect(within(pop()).queryByRole("checkbox", { name: t("listSavedIsGlobal") })).toBeNull();
   });
 });
+
+describe("LV.J4 / LV.J5 / LV.J6 / LV.J7 / LV.J11 list menu: Desk's System-Manager entries and List Settings", () => {
+  const menuItems = async () => { openMenu(await screen.findByTestId("sf-list-menu")); return (await screen.findAllByRole("menuitem")).map((m) => m.textContent!.trim()); };
+
+  it("LV.J4 / LV.J5 / LV.J6 / LV.J11 a System Manager gets User Permissions, Role Permissions Manager, Customize, List Settings; each navigates to Desk's route", async () => {
+    const onNavigate = vi.fn();
+    mountSim(simBackend(), { onNavigate });
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    const items = await menuItems();
+    expect(items).toEqual(expect.arrayContaining([t("listMenuUserPermissions"), t("listMenuRolePermissions"), t("listMenuCustomize"), t("listMenuListSettings")]));
+    for (const [label, url, entry] of [
+      [t("listMenuUserPermissions"), "/app/user-permission?allow=Memo", "userPermissions"],
+      [t("listMenuRolePermissions"), "/app/permission-manager?doctype=Memo", "rolePermissions"],
+      [t("listMenuCustomize"), "/app/customize-form?doc_type=Memo", "customize"],
+    ] as const) {
+      if (!screen.queryByRole("menu")) openMenu(screen.getByTestId("sf-list-menu"));
+      fireEvent.click(await screen.findByRole("menuitem", { name: label }));
+      expect(onNavigate).toHaveBeenLastCalledWith(url, entry);
+    }
+  });
+
+  it("LV.J6 Customize on a custom DocType opens the DocType form (list_view.js:1745-1747); Import goes through onNavigate too", async () => {
+    const onNavigate = vi.fn();
+    const transport = createFixtureTransport({ meta: { Memo: [{ ...MEMO, custom: 1, allow_import: 1 } as DocTypeMeta] }, docs: { Memo: MEMOS, User: USERS }, user: "u@x.com" } as never);
+    mountSim(transport, { onNavigate });
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    openMenu(await screen.findByTestId("sf-list-menu"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: t("listMenuCustomize") }));
+    expect(onNavigate).toHaveBeenLastCalledWith("/app/doctype/Memo", "customize");
+    openMenu(screen.getByTestId("sf-list-menu"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: en("listMenuImport") }));
+    expect(onNavigate).toHaveBeenLastCalledWith("/app/data-import?reference_doctype=Memo", "import");
+  });
+
+  it("LV.J4 negative controls: a Reader, unknown roles, and menu={{ userPermissions: false }} do not get those entries", async () => {
+    for (const [session, props] of [
+      [{ user: "r@x.com", roles: ["Reader"] }, {}],
+      [{ user: "r@x.com" }, {}],
+      [{ user: "u@x.com", roles: ["System Manager"] }, { menu: { userPermissions: false } }],
+    ] as const) {
+      mountSim(simBackend(), props as never, session as Session);
+      await waitFor(() => expect(bodyRows()).toHaveLength(4));
+      const items = await menuItems();
+      expect(items).not.toContain(t("listMenuUserPermissions"));
+      if (!("menu" in props)) expect(items).not.toContain(t("listMenuListSettings"));
+      else expect(items).toContain(t("listMenuRolePermissions"));
+      cleanup();
+    }
+  });
+
+  it("LV.J7 List Settings: remove / add fields and a check → save_listview_settings with Desk's arguments; the list uses the saved row (SIMULATED)", async () => {
+    const transport = simBackend();
+    const { calls, lastGet } = mountSim(transport, {});
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    openMenu(await screen.findByTestId("sf-list-menu"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: t("listMenuListSettings") }));
+    const dialog = await screen.findByRole("dialog", { name: t("listSettingsTitle").replace("{doctype}", "Memo") });
+    const listed = () => [...dialog.querySelectorAll("[data-list-settings-fields] li")].map((li) => li.getAttribute("data-fieldname"));
+    expect(listed()).toEqual(["title", "status_field", "status"]); // subject, Status (workflow → indicator), in_list_view fields
+    fireEvent.click(within(dialog).getByRole("button", { name: t("listSettingsRemoveField").replace("{field}", "Status") })); // the DocType's own Status field
+    expect(listed()).toEqual(["title", "status_field"]);
+    openMenu(within(dialog).getByRole("combobox", { name: t("listSettingsAddField") }));
+    fireEvent.click(await screen.findByRole("option", { name: "Amount" }));
+    expect(listed()).toEqual(["title", "status_field", "amount"]);
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: t("listSettingsDisableCount") }));
+    fireEvent.click(within(dialog).getByRole("button", { name: t("listSettingsSave") }));
+    await waitFor(() => expect(calls("frappe.desk.doctype.list_view_settings.list_view_settings.save_listview_settings")).toHaveLength(1));
+    const args = calls("frappe.desk.doctype.list_view_settings.list_view_settings.save_listview_settings")[0].args;
+    expect(args.doctype).toBe("Memo");
+    expect(JSON.parse(String(args.removed_listview_fields))).toEqual(["status"]);
+    const values = JSON.parse(String(args.listview_settings));
+    expect(values).toMatchObject({ disable_count: 1, disable_comment_count: 0, total_fields: "4" });
+    expect(JSON.parse(values.fields).map((f: { fieldname: string }) => f.fieldname)).toEqual(["title", "status_field", "amount"]);
+    // SIMULATED server effect: in_list_view flipped on the stored meta (Property Setters, list_view_settings.py:49-85)
+    expect(transport.store.meta.Memo[0].fields.find((f) => f.fieldname === "amount")!.in_list_view).toBe(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(parsed(lastGet().fields)).toContain("amount"));
+    expect([...document.querySelectorAll("thead th")].map((h) => h.textContent!.trim())).toEqual(["Title", "Status", "Amount"]);
+  });
+});
