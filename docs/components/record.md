@@ -389,7 +389,8 @@ Desk's print page — `print_format`, `no_letterhead`, `letterhead`, `settings`)
 - `<FrappeConnections meta doc canRead? canCreate? onOpenList? listHref? onNew? labelFor?>` — **permissions:** the server checks READ on
   this document but counts linked DocTypes with `frappe.get_all` (no permission filter); Desk hides unreadable DocTypes from boot
   `can_read`. Pass `canRead` to do the same; without it every DocType the dashboard lists is shown.
-- Integration with `FrappeFormView`: an entry in the form's `extraTabs` slot (form workstream), e.g.
+- Integration: `FrappeForm` adds it as its "Connections" tab by default (P35 integration — `connections={false}` / options,
+  forms.md §2.4); with `FrappeFormView` alone, an entry in `extraTabs`, e.g.
   `{ key: "connections", label: t("r35Connections"), render: () => <FrappeConnections meta={bundle.meta} doc={doc} … /> }`.
 
 **`<FrappeEmailComposer>`** (email.ts) — `EmailComposer` in a dialog. Defaults (form.js:1286-1295): subject "{DocType}: {name}",
@@ -406,13 +407,14 @@ Templates: the names from `frappe.client.get_list("Email Template")` (or `templa
 | Method | Simulator | Needs a real site for |
 |---|---|---|
 | `frappe.desk.notifications.get_open_count` | counts stored rows by the dashboard's link field (+ dynamic link), capped at 100; `open_count` always 0; internal links from the doc | `override_doctype_dashboards`, notification-config open counts, statement timeouts ("?"), `timeline_data` |
-| `frappe.www.printview.get_html_and_style` | read check, Print Settings draft / cancelled rule (from a stored "Print Settings" single); a labelled placeholder **without values** | real Jinja print formats, letterheads, `print_hide` rendering, styles |
+| `frappe.www.printview.get_html_and_style` | read check, Print Settings draft / cancelled rule (a stored "Print Settings" single, else the transport's `printSettings` option); a labelled placeholder **without values** | real Jinja print formats, letterheads, `print_hide` rendering, styles |
 | `frappe.utils.print_format.download_pdf` | **not simulated** (the file server refuses it; the showcase links do nothing) | the PDF itself |
 | `frappe.core.doctype.communication.email.make` | email right, address validation, a Communication **recorded** — nothing queued or sent | Email Account, queueing / sending, `send_me_a_copy`, read receipts, attachments of the print |
 | `…email_template.get_email_template` | `{{ field }}` / `{{ doc.field }}` substitution only | Jinja rendering |
 | `…reminder.create_new_reminder` | past time refused, Reminder stored | scheduling (`send_reminders`), Notification Log |
 | `frappe.rename_doc`, `frappe.client.delete` | (existing simulator handlers) | linked-document updates, merge semantics, delete checks of linked documents |
 
-Simulator limitations of these handlers: permission checks are **role-only** (session roles × DocPerm rows at permlevel 0 when
-`createFixtureTransport(…, { permissions })` is on — no if_owner, User Permissions or shares); the simulator's `get_docinfo` does not
-list stored Communications, so a sent e-mail does not appear in the simulated timeline (the docinfo query is re-requested).
+Simulator (P35 integration): these handlers use the transport's own permission engine when
+`createFixtureTransport(…, { permissions })` is on (DocPerm × roles, if_owner, User Permissions, shares — through the handler context
+`FixtureContext`, third handler argument), its `printSettings` option (a stored "Print Settings" single wins) and its clock; the
+simulated `get_docinfo` / `get_communications` list stored Communications, so a sent e-mail appears in the simulated timeline.
