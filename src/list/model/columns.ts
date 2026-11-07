@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import type { FieldType, FilterField } from "./filters";
 import type { Localized } from "../../lib/localized";
+import type { Tone } from "../../record/types";
 
 export interface ColumnDef<T> {
   key: string;
@@ -35,6 +36,14 @@ export interface ColumnDef<T> {
   /** Card layout (`ListTable layout="cards"`, phones): `"primary"` = the card's title (default: the first column),
    *  `false` = not shown on the card. */
   mobile?: "primary" | false;
+  /** P35 (G17): a status column — the default cell is a `StatusBadge` with the row's configured `color` (any CSS colour
+   *  or palette token, e.g. a lifecycle stage's colour) and/or semantic `tone`; empty values keep the "—" cell. A custom
+   *  `render` still wins. */
+  status?: {
+    color?: (value: unknown, row: T) => string | null | undefined;
+    tone?: (value: unknown, row: T) => Tone | undefined;
+    variant?: "pill" | "dot";
+  };
 }
 
 export const fieldOf = <T,>(c: ColumnDef<T>) => c.field ?? c.key;

@@ -12,6 +12,7 @@
 import * as React from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Heart, X } from "lucide-react";
 import { Badge } from "../../primitives/badge";
+import { StatusBadge } from "../../record/StatusBadge";
 import { Button } from "../../primitives/button";
 import { Card } from "../../primitives/card";
 import { Checkbox } from "../../primitives/checkbox";
@@ -42,9 +43,13 @@ const htmlToText = (html: string) =>
 
 /** Type-aware default cell — Sear's `Cell` (lib/data-grid/cell-render.tsx) by Frappe fieldtype, falling back to the
  *  column `type` (PMO MetaCell). Numbers and dates are `dir="ltr"` so Arabic pages keep digits readable. */
-export function DefaultCell<T>({ value, col }: { value: unknown; col: ColumnDef<T> }) {
+export function DefaultCell<T>({ value, col, row }: { value: unknown; col: ColumnDef<T>; row?: T }) {
   const { language, t } = useLocale();
   if (value === null || value === undefined || value === "") return <span className="text-muted-foreground">—</span>;
+  // P35 (G17): status columns render a StatusBadge with the row's configured colour / tone
+  if (col.status && row !== undefined) {
+    return <StatusBadge label={String(value)} color={col.status.color?.(value, row)} tone={col.status.tone?.(value, row)} variant={col.status.variant} />;
+  }
   const ft = col.fieldtype ?? ({ number: "Float", date: "Date", boolean: "Check", select: "Select", link: "Link" } as Record<string, string>)[col.type ?? ""];
   switch (ft) {
     case "Check": {
@@ -221,7 +226,7 @@ export function ListTable<T>({
         )}
         {columns.map((c) => (
           <td key={c.key} className={cn("px-4 py-3", c.align === "end" && "text-end", c.className)}>
-            {c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} />}
+            {c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} row={row} />}
           </td>
         ))}
         {like && (
@@ -264,7 +269,7 @@ export function ListTable<T>({
     // phones (D-crm G1): a card per row — the primary column as the title, the others as label / value lines
     const primary = columns.find((c) => c.mobile === "primary") ?? columns.find((c) => c.mobile !== false && c.key !== "__actions") ?? columns[0];
     const details = columns.filter((c) => c !== primary && c.mobile !== false);
-    const cell = (c: ColumnDef<T>, row: T) => (c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} />);
+    const cell = (c: ColumnDef<T>, row: T) => (c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} row={row} />);
     const renderCard = (row: T, group?: string) => {
       const on = !!selection?.isSelected(row);
       return (
