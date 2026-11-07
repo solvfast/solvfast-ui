@@ -1,17 +1,17 @@
 /**
  * SIMULATED handlers added by the P35 "record" workstream. Each handler cites the Frappe 15.110 source of its response
  * shape (paths relative to `apps/frappe/frappe/`). They reproduce REQUEST and RESPONSE SHAPES only:
- *  - permission checks are a ROLE-ONLY approximation (`roleAllows`): with `createFixtureTransport(…, { permissions })`
- *    the session's evaluated roles (`store.session.roles`) against the DocType's DocPerm rows at permlevel 0 — no
- *    if_owner, User Permissions, shares or controller hooks (the handler API receives the store, not the transport's
- *    permission engine). Without `permissions`, or when the client is not told the roles, nothing is refused;
+ *  - permission checks go through the transport's own SIMULATED permission engine (P35 integration: `ctx.assertDoc`,
+ *    DocPerm rows × roles, if_owner, User Permissions, shares, controller hooks — see ../permissions.ts) when
+ *    `createFixtureTransport(…, { permissions })` is used; without `permissions` nothing is refused;
+ *  - Print Settings and the clock are the transport's (`ctx.printSettings()`: a stored "Print Settings" single, else
+ *    `options.printSettings`; `ctx.now()` / `ctx.stamp()` from `options.now`);
  *  - nothing is rendered, sent or scheduled: the print preview is a labelled placeholder WITHOUT document values (as the
  *    simulated PDF / export files), the e-mail is only recorded as a Communication, the reminder is only stored.
  */
 import { toFrappeError, type FrappeResponse } from "../../client";
-import type { DocPerm, DocTypeMeta, FrappeDoc, PermType } from "../../contract";
-import type { FixtureHandler, FixtureStore } from "../fixtureTransport";
-import { permissionError } from "../permissions";
+import type { DocTypeMeta, FrappeDoc } from "../../contract";
+import type { FixtureContextHandler, FixtureStore } from "../fixtureTransport";
 
 type Row = Record<string, unknown>;
 const sm = (...messages: Row[]) => JSON.stringify(messages.map((m) => JSON.stringify(m)));
@@ -22,8 +22,6 @@ const parse = (v: unknown): unknown => { if (typeof v !== "string") return v; tr
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const on = (v: unknown) => v === true || v === 1 || v === "1";
-const pad = (n: number) => String(n).padStart(2, "0");
-const stamp = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.000000`;
 const hash = () => { let s = ""; while (s.length < 10) s += Math.random().toString(36).slice(2); return s.slice(0, 10); };
 
 const metaOf = (store: FixtureStore, doctype: string): DocTypeMeta | undefined => store.meta[doctype]?.[0];
@@ -38,27 +36,9 @@ function getDoc(store: FixtureStore, doctype: string, name: unknown): FrappeDoc 
   return doc;
 }
 
-/** ROLE-ONLY approximation of `frappe.has_permission` (see the header). True when permissions are not simulated. */
-export function roleAllows(store: FixtureStore, doctype: string, ptype: PermType): boolean {
-  const s = store.session;
-  if (!s || s.user === "Administrator" || !s.roles) return true;
-  const perms = (metaOf(store, doctype)?.permissions ?? []) as DocPerm[];
-  if (!perms.length) return true; // a DocType the simulator has no rows for: not simulated
-  return perms.some((p) => !Number(p.permlevel ?? 0) && s.roles!.includes(p.role) && on((p as unknown as Row)[ptype]));
-}
-const assertRole = (store: FixtureStore, doc: FrappeDoc, ptype: PermType) => {
-  if (!roleAllows(store, doc.doctype, ptype)) throw permissionError(undefined, [`No permission for ${doc.doctype} ${doc.name} (${ptype}) — SIMULATED role check`], true);
-};
-
-/** Print Settings as the server reads them (a "Print Settings" single in the store), else the DocType defaults. */
-function printSettings(store: FixtureStore): { allow_print_for_draft: boolean; allow_print_for_cancelled: boolean } {
-  const s = store.docs.get("Print Settings")?.get("Print Settings") as Row | undefined;
-  return { allow_print_for_draft: s?.allow_print_for_draft === undefined ? true : on(s.allow_print_for_draft), allow_print_for_cancelled: on(s?.allow_print_for_cancelled) };
-}
-
 const LAYOUT = new Set(["Section Break", "Column Break", "Tab Break", "HTML", "Heading", "Fold", "Button", "Image", "Page Break"]);
 
-export const recordHandlers: Record<string, FixtureHandler> = {
+export const recordHandlers: Record<string, FixtureContextHandler> = {
   /**
    * desk/notifications.py:244-314 `get_open_count` → `_get_linked_document_counts`: READ on the document
    * (`doc.check_permission()`), the dashboard from the meta (`get_dashboard_data`, model/meta.py:652-720 — here the
@@ -68,10 +48,10 @@ export const recordHandlers: Record<string, FixtureHandler> = {
    * (`get_doc_count` limit=100, :358-367), WITHOUT the linked DocTypes' permissions (frappe.get_all). `open_count` is 0
    * (the simulator has no notification config, `get_filters_for` :237-241). No `timeline_data`.
    */
-  "frappe.desk.notifications.get_open_count": (a, store) => {
+  "frappe.desk.notifications.get_open_count": (a, store, ctx) => {
     const doctype = String(a.doctype ?? "");
     const doc = getDoc(store, doctype, a.name);
-    assertRole(store, doc, "read");
+    ctx.assertDoc(doc, "read");
     const d = ((metaOf(store, doctype)?.__dashboard ?? {}) as Row);
     const transactions = (Array.isArray(d.transactions) ? d.transactions : []) as { items?: string[] }[];
     const raw = parse(a.items);
@@ -106,11 +86,11 @@ export const recordHandlers: Record<string, FixtureHandler> = {
   /**
    * www/printview.py:304-341 `get_html_and_style(doc, name, print_format, no_letterhead, letterhead, trigger_print,
    * style, settings)`: `doc` + `name` or a JSON document; `document.check_permission()` (read); the draft / cancelled
-   * rule of `get_rendered_template` (:137-142, Print Settings — here a stored "Print Settings" single, default draft
-   * allowed / cancelled not); answers `{ html, style }`. The HTML is a SIMULATED placeholder: the format / letterhead
+   * rule of `get_rendered_template` (:137-142, Print Settings — `ctx.printSettings()`: a stored "Print Settings" single,
+   * else the transport's `printSettings` option; default draft allowed / cancelled not); answers `{ html, style }`. The HTML is a SIMULATED placeholder: the format / letterhead
    * requested and the LABELS of the printable fields (not `print_hide`) — never document values.
    */
-  "frappe.www.printview.get_html_and_style": (a, store) => {
+  "frappe.www.printview.get_html_and_style": (a, store, ctx) => {
     let posted: FrappeDoc;
     if (typeof a.name === "string" && a.name) posted = getDoc(store, String(a.doc), a.name);
     else {
@@ -121,10 +101,10 @@ export const recordHandlers: Record<string, FixtureHandler> = {
       const stored = store.docs.get(d.doctype)?.get(String(d.name ?? ""));
       if (stored) posted = { ...posted, docstatus: stored.docstatus };
     }
-    assertRole(store, posted, "read");
+    ctx.assertDoc(posted, "read");
     const meta = metaOf(store, posted.doctype);
     if (on(meta?.is_submittable)) {
-      const s = printSettings(store);
+      const s = ctx.printSettings();
       const ds = Number(posted.docstatus ?? 0);
       if (ds === 0 && !s.allow_print_for_draft) fail(403, "PermissionError", "Not allowed to print draft documents");
       if (ds === 2 && !s.allow_print_for_cancelled) fail(403, "PermissionError", "Not allowed to print cancelled documents");
@@ -152,19 +132,20 @@ export const recordHandlers: Record<string, FixtureHandler> = {
    * has_attachment), File attachments recorded (`add_attachments`, :240-270). Answer `{ name, emails_not_sent_to }`
    * (:200). SIMULATED: nothing is queued or sent (no Email Account, no Email Queue); `emails_not_sent_to` is "".
    */
-  "frappe.core.doctype.communication.email.make": (a, store) => {
+  "frappe.core.doctype.communication.email.make": (a, store, ctx) => {
     const doctype = String(a.doctype ?? "");
     const doc = getDoc(store, doctype, a.name);
-    if (!roleAllows(store, doctype, "email")) throw permissionError(undefined, [`No permission for ${doctype} ${doc.name} (email) — SIMULATED role check`], true);
+    ctx.assertDoc(doc, "email");
     const split = (v: unknown) => String(v ?? "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
     const valid = (e: string) => /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test((/<([^<>]+)>\s*$/.exec(e)?.[1] ?? e).trim());
     for (const e of [...split(a.recipients), ...split(a.cc), ...split(a.bcc)]) if (!valid(e)) fail(417, "InvalidEmailAddressError", `${e} is not a valid Email Address`);
     const attachments = (parse(a.attachments) as unknown[] | null) ?? [];
     const name = hash();
-    const ts = stamp();
+    const ts = ctx.stamp();
     const comm = {
-      doctype: "Communication", name, subject: a.subject ?? null, content: a.content ?? null, sender: a.sender || store.user, sender_full_name: a.sender_full_name ?? null,
+      doctype: "Communication", name, subject: a.subject ?? null, content: a.content ?? null, sender: a.sender || ctx.user, sender_full_name: a.sender_full_name ?? null,
       recipients: a.recipients || null, cc: a.cc || null, bcc: a.bcc || null, communication_medium: "Email", sent_or_received: "Sent", communication_type: "Communication",
+      communication_date: ts, delivery_status: "Sent",
       reference_doctype: doctype, reference_name: doc.name, email_template: a.email_template || null, read_receipt: on(a.read_receipt) ? 1 : 0,
       has_attachment: Array.isArray(attachments) && attachments.length ? 1 : 0, attachments: JSON.stringify(attachments), print_format: a.print_format ?? null,
       send_me_a_copy: on(a.send_me_a_copy) ? 1 : 0, status: "Linked", owner: store.user, creation: ts, modified: ts, modified_by: store.user, docstatus: 0,
@@ -192,13 +173,13 @@ export const recordHandlers: Record<string, FixtureHandler> = {
    * user; a time in the past → "Reminder cannot be created in past." (ValidationError, 417). `description` / `remind_at`
    * are mandatory (reminder.json). SIMULATED: stored only; nothing is scheduled (`send_reminders` never runs).
    */
-  "frappe.automation.doctype.reminder.reminder.create_new_reminder": (a, store) => {
+  "frappe.automation.doctype.reminder.reminder.create_new_reminder": (a, store, ctx) => {
     if (!String(a.remind_at ?? "").trim() || !String(a.description ?? "").trim()) fail(417, "MandatoryError", "[Reminder]: remind_at, description");
     const at = new Date(String(a.remind_at).replace(" ", "T"));
     if (Number.isNaN(at.getTime())) fail(417, "ValidationError", `${String(a.remind_at)} is not a valid datetime`);
-    if (at.getTime() < Date.now()) fail(417, "ValidationError", "Reminder cannot be created in past.");
+    if (at.getTime() < ctx.now().getTime()) fail(417, "ValidationError", "Reminder cannot be created in past.");
     const name = hash();
-    const ts = stamp();
+    const ts = ctx.stamp();
     const reminder = {
       doctype: "Reminder", name, user: store.user, remind_at: String(a.remind_at), description: String(a.description), reminder_doctype: a.reminder_doctype ?? null,
       reminder_docname: a.reminder_docname ?? null, notified: 0, owner: store.user, creation: ts, modified: ts, modified_by: store.user, docstatus: 0, idx: 0,

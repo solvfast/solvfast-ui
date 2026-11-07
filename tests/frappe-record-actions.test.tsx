@@ -361,7 +361,7 @@ describe("Connections: meta.__dashboard + get_open_count", () => {
     expect(calls(t, "frappe.desk.notifications.get_open_count")).toHaveLength(0);
     cleanup();
     mount(t, <FrappeConnections meta={DEAL} doc={stored(t, "Deal", "D-1")!} />);
-    expect(await screen.findByText(/No permission for Deal D-1/)).toBeTruthy();
+    expect(await screen.findByText(/No permission for Deal/)).toBeTruthy(); // the simulator's permission engine (P35 integration)
     expect(screen.getByRole("button", { name: "Open the Deal Note list" })).toBeTruthy();
   });
   it("FV.M3 the Deal dashboard counts Deal Notes per deal (SIMULATED get_open_count) and opens the filtered list", async () => {
@@ -415,7 +415,7 @@ describe("FrappeEmailComposer on the SIMULATED backend", () => {
     cleanup();
     mount(t, <FrappeEmailComposer doc={stored(t, "Deal", "D-1")!} open onOpenChange={() => {}} templates={[]} docinfo={{ attachments: [] } as never} />);
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    expect(await screen.findByText(/No permission for Deal D-1 \(email\)/)).toBeTruthy();
+    expect(await screen.findByText(/No permission for Deal/)).toBeTruthy(); // frappe.has_permission(Deal, email) via the engine
     expect(t.store.docs.get("Communication")?.size ?? 0).toBe(0);
   });
   it("FV.O8 after sending, the document's docinfo query is invalidated (get_docinfo requested again) so the timeline can refresh", async () => {

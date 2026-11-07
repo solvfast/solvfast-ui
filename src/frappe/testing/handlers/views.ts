@@ -1,9 +1,9 @@
 /**
  * SIMULATED handlers added by the P35 "views" workstream. Each handler cites the Frappe 15.110 source of its response
- * shape. They see only `(args, store)` — none of the simulator's internal helpers — so they read and write
- * `store.docs` directly and DO NOT evaluate permissions (the opt-in permission engine is not reachable from here): on a
- * site, kanban_board.py:110 / :137 and calendar.py:25-26 check the session's rights; the UI gates on the client-side
- * rights (`usePermissions`) and the server stays the authority. Nothing here is evidence of Frappe behaviour.
+ * shape. P35 integration: they use the transport's context (`ctx`) — its row filter (`ctx.rows`: every simulated
+ * operator, child-table conditions, and with `createFixtureTransport(…, { permissions })` the session's row
+ * permissions), its permission checks (`ctx.assertDoctype`: kanban_board.py:137 write, calendar.py:25-26 read) and its
+ * clock. Nothing here is evidence of Frappe behaviour.
  *
  * Also: `KANBAN_BOARD_FIXTURE_META` (Kanban Board + Kanban Board Column, a subset of
  * frappe/desk/doctype/kanban_board/kanban_board.json and kanban_board_column/kanban_board_column.json) — spread it
@@ -12,61 +12,40 @@
  */
 import type { DocTypeMeta, FixtureBackend, FrappeDoc } from "../../contract";
 import { toFrappeError } from "../../client";
-import type { FixtureHandler, FixtureStore } from "../fixtureTransport";
+import type { FixtureContext, FixtureContextHandler, FixtureStore } from "../fixtureTransport";
 
 type Row = Record<string, unknown>;
 const KB = "frappe.desk.doctype.kanban_board.kanban_board";
 const parse = (v: unknown): unknown => { if (typeof v !== "string") return v; try { return JSON.parse(v); } catch { return v; } };
 const sm = (message: string) => JSON.stringify([JSON.stringify({ message, indicator: "red", raise_exception: 1 })]);
 const fail = (status: number, exc_type: string, message: string): never => { throw toFrappeError(status, { exc_type, _server_messages: sm(message) }); };
-const pad = (n: number, w = 2) => String(n).padStart(w, "0");
-const stamp = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}000`; };
 const docOf = (store: FixtureStore, doctype: string, name: unknown): FrappeDoc => store.docs.get(doctype)?.get(String(name)) ?? fail(404, "DoesNotExistError", `${doctype} ${String(name)} not found`);
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
-const touch = (store: FixtureStore, doc: FrappeDoc) => { doc.modified = stamp(); doc.modified_by = store.user; };
+const touch = (ctx: FixtureContext, doc: FrappeDoc) => { doc.modified = ctx.stamp(); doc.modified_by = ctx.user; };
 
-/** One filter on one row — the operators the views send to get_events (SIMULATED subset). */
-function test(v: unknown, op: string, value: unknown): boolean {
-  const s = (x: unknown) => String(x ?? "");
-  const blank = v === null || v === undefined || v === "";
-  const like = (pat: string) => new RegExp(`^${pat.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".")}$`, "is").test(s(v));
-  switch (op.toLowerCase()) {
-    case "=": return s(v) === s(value);
-    case "!=": return s(v) !== s(value);
-    case "like": return like(s(value));
-    case "not like": return !like(s(value));
-    case "in": return (Array.isArray(value) ? value : s(value).split(",")).map((x) => s(x).trim()).includes(s(v));
-    case "not in": return !(Array.isArray(value) ? value : s(value).split(",")).map((x) => s(x).trim()).includes(s(v));
-    case ">": return !blank && s(v) > s(value);
-    case "<": return !blank && s(v) < s(value);
-    case ">=": return !blank && s(v) >= s(value);
-    case "<=": return !blank && s(v) <= s(value);
-    case "between": { const [a, b] = value as string[]; return !blank && s(v) >= s(a) && s(v) <= (s(b).length === 10 ? `${s(b)} 23:59:59.999999` : s(b)); }
-    case "is": return s(value) === "set" ? !blank : blank;
-    default: return fail(417, "ValidationError", `SIMULATED: operator "${op}" is not simulated by get_events`);
-  }
-}
-
-export const viewsHandlers: Record<string, FixtureHandler> = {
+export const viewsHandlers: Record<string, FixtureContextHandler> = {
   /**
    * kanban_board.py:68-75 `get_kanban_boards(doctype)` → `frappe.get_list("Kanban Board", fields=[name, filters,
    * reference_doctype, private], filters={reference_doctype})`, with the permission query of :48-55 (private boards only
    * for their owner, all for Administrator).
    */
-  [`${KB}.get_kanban_boards`]: (a, store) => {
-    const boards = [...(store.docs.get("Kanban Board")?.values() ?? [])]
-      .filter((b) => b.reference_doctype === a.doctype && (store.user === "Administrator" || !Number(b.private) || b.owner === store.user));
+  [`${KB}.get_kanban_boards`]: (a, store, ctx) => {
+    // frappe.get_list (ctx.rows: the session's row permissions when simulated) when the Kanban Board meta is loaded
+    const all = store.meta["Kanban Board"] ? ctx.rows("Kanban Board", { filters: { reference_doctype: a.doctype } }) : [...(store.docs.get("Kanban Board")?.values() ?? [])];
+    const boards = all.filter((b) => b.reference_doctype === a.doctype && (ctx.user === "Administrator" || !Number(b.private) || b.owner === ctx.user));
     return { message: boards.map((b) => ({ name: b.name, filters: b.filters ?? null, reference_doctype: b.reference_doctype, private: Number(b.private ?? 0) })) };
   },
   /**
    * kanban_board.py:131-161 `update_order_for_single_card(board_name, docname, from_colname, to_colname, old_index,
    * new_index)`: move the name between the columns' `order` JSON lists (insert at new_index the item popped at old_index
    * of the source column, :147-151), save the board, then `frappe.set_value(doctype, docname, field_name, to_colname)`.
-   * Answers the board (`{message: board}`, read by kanban_board.bundle.js:190-200). Write permission (:137) NOT simulated.
+   * Answers the board (`{message: board}`, read by kanban_board.bundle.js:190-200). `frappe.has_permission(doctype,
+   * "write", throw=True)` (:137) through the simulated engine when permissions are on.
    */
-  [`${KB}.update_order_for_single_card`]: (a, store) => {
+  [`${KB}.update_order_for_single_card`]: (a, store, ctx) => {
     const board = docOf(store, "Kanban Board", a.board_name);
     const doctype = String(board.reference_doctype);
+    ctx.assertDoctype(doctype, "write");
     const columns = (board.columns as Row[] | undefined) ?? [];
     const col = (name: unknown) => { const i = columns.findIndex((c) => c.column_name === name); return { i, order: i < 0 ? [] : ((parse(columns[i].order) as string[] | null) ?? []) }; };
     const from = col(a.from_colname), to = col(a.to_colname);
@@ -79,19 +58,19 @@ export const viewsHandlers: Record<string, FixtureHandler> = {
     }
     columns[from.i].order = JSON.stringify(fromOrder);
     columns[to.i].order = JSON.stringify(to.order);
-    touch(store, board);
+    touch(ctx, board);
     const target = docOf(store, doctype, a.docname);
     target[String(board.field_name)] = a.to_colname;
-    touch(store, target);
+    touch(ctx, target);
     return { message: clone(board) };
   },
   /**
    * calendar.py:31-57 `get_events(doctype, start, end, field_map, filters=None, fields=None)`: the fields default to
    * start / end / title / name (+ the first Color field, :37-47); the range test is `ifnull(start,'0001-01-01') <= end`
    * and `ifnull(end,'2199-12-31') >= start` (:49-55); answers `frappe.get_list(...)` — a list of dicts. Read permission
-   * (:25-26) and User Permissions NOT simulated; filters use a small operator subset.
+   * (:25-26) and the list filters / row permissions through the transport (`ctx`).
    */
-  "frappe.desk.calendar.get_events": (a, store) => {
+  "frappe.desk.calendar.get_events": (a, store, ctx) => {
     const doctype = String(a.doctype);
     const bundle = Object.values(store.meta).flat();
     const meta = bundle.find((m) => m.name === doctype) ?? fail(404, "DoesNotExistError", `DocType ${doctype} not found`);
@@ -100,13 +79,12 @@ export const viewsHandlers: Record<string, FixtureHandler> = {
     let fields = (parse(a.fields) as string[] | null) ?? [map.start, map.end, map.title, "name"];
     if (color) fields = [...fields, color];
     fields = [...new Set(fields.filter(Boolean))];
-    const filters = ((parse(a.filters) as unknown[][] | null) ?? []).filter(Array.isArray);
+    ctx.assertDoctype(doctype, "read");
     const start = String(a.start), end = String(a.end);
-    const rows = [...(store.docs.get(doctype)?.values() ?? [])].filter((d) => {
+    const rows = ctx.rows(doctype, { filters: a.filters ?? [] }).filter((d) => {
       const s = String(d[map.start] ?? "") || "0001-01-01 00:00:00";
       const e = String(d[map.end] ?? "") || "2199-12-31 00:00:00";
-      if (!(s <= end && e >= start)) return false;
-      return filters.every((f) => { const [field, op, value] = f.length === 4 ? f.slice(1) : f; return test(d[String(field)], String(op), value); });
+      return s <= end && e >= start;
     });
     return { message: rows.map((d) => Object.fromEntries(fields.map((f) => [f, d[f] ?? null]))) };
   },
