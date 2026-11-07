@@ -32,7 +32,8 @@
  * come from A4's record layer (FrappeForm renders them; FrappeFormView takes `workflowActionsShown`).
  */
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "../../primitives/avatar";
 import { cn } from "../../lib/cn";
 import { useLocale } from "../../theme/ThemeProvider";
 import { Badge } from "../../primitives/badge";
@@ -127,9 +128,23 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   /** The form's controller (`frm`) for code outside the events. */
   controllerRef?: React.MutableRefObject<FormController | null>;
   className?: string;
+  // ---- P35 slots (fixed contract: other workstreams build on them) ----
+  /** Rendered in the header action area, after the primary action (e.g. a "⋯" menu). */
+  menu?: React.ReactNode;
+  /** Extra tabs appended after the form's own tabs (Connections, Activity …). A form without Tab Breaks then shows its
+   *  fields under a "Details" tab. `render` runs only while the tab is active. */
+  extraTabs?: Array<{ key: string; label: string; render: () => React.ReactNode }>;
+  /** Only the meta fields (breaks included) it accepts take part in the layout (Quick Entry uses it). Hidden / permission
+   *  statuses still apply; the mandatory check still covers every required field — keep required fields in. */
+  fieldFilter?: (df: FrappeDocField) => boolean;
+  /** Desk's keyboard shortcuts while this form is the topmost one mounted: Ctrl/⌘+S runs the visible primary action
+   *  (desk.js `trigger_primary_action`), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo (outside text inputs).
+   *  Default true; false registers nothing. */
+  hotkeys?: boolean;
 }
 
 type Overrides = Record<string, FieldOverrides>;
+const initials = (text: string) => text.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 const asList = (f: string | string[]) => (Array.isArray(f) ? f : [f]);
 
 export function FrappeFormView(props: FrappeFormViewProps) {
@@ -290,7 +305,13 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   }, [doc.name, version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- layout, visibility, collapse ----
-  const layout = React.useMemo(() => buildLayout(meta, { isNew: !!doc.__islocal }), [meta, doc.__islocal]);
+  const fieldFilterRef = React.useRef(props.fieldFilter);
+  fieldFilterRef.current = props.fieldFilter;
+  const hasFieldFilter = !!props.fieldFilter;
+  const layout = React.useMemo(
+    () => buildLayout(meta, { isNew: !!doc.__islocal, fieldFilter: hasFieldFilter ? (df) => fieldFilterRef.current?.(df) ?? true : undefined }),
+    [meta, doc.__islocal, hasFieldFilter],
+  );
   const fieldStatus = (df: FrappeDocField) => {
     const e = eff.get(df.fieldname) ?? df;
     if (df.fieldname === "__newname") return doc.__islocal && permissions ? "Write" : "None"; // no permissions: nothing to name (P2-1)
@@ -304,7 +325,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     return tab.sections.some(sectionVisible);
   };
   const visibleTabs = layout.tabs.filter(tabVisible);
-  const currentTab = visibleTabs.find((tb) => tb.key === activeTab) ?? visibleTabs[0];
+  const extraTabs = (props.extraTabs ?? []).map((x) => ({ ...x, tabKey: `extra:${x.key}` }));
+  const activeExtra = extraTabs.find((x) => x.tabKey === activeTab);
+  const currentTab = activeExtra ? undefined : visibleTabs.find((tb) => tb.key === activeTab) ?? visibleTabs[0];
+  const tabCount = visibleTabs.length + extraTabs.length;
 
   React.useEffect(() => {
     const next: Record<string, boolean> = {};
@@ -527,6 +551,16 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       avoidStatusOverride: (st) => !!recWorkflow.states.find((x) => x.state === st)?.avoid_status_override,
     } : null,
   });
+  // header image (Desk: the sidebar image from meta.image_field, form_sidebar.js) — undefined: no image_field
+  const imageSrc = meta.image_field ? String(doc[String(meta.image_field)] ?? "") : undefined;
+  // "See on Website" (form.js:1149-1158): a saved website generator whose server `__onload` says it is published. Without
+  // `__onload` (a doc not read through getdoc): `has_web_view` + the DocType's `is_published_field` + a route.
+  const onload = (doc.__onload ?? {}) as { is_website_generator?: unknown; published?: unknown };
+  const route = typeof doc.route === "string" ? doc.route.replace(/^\/+/, "") : "";
+  const published = onload.is_website_generator
+    ? !!onload.published
+    : !!meta.has_web_view && !!meta.is_published_field && !!Number(doc[String(meta.is_published_field)] ?? 0);
+  const webRoute = !doc.__islocal && route && published ? `/${route}` : null;
   const BUILTIN: Record<string, string> = { notSaved: t("formNotSaved"), draft: t("formDraft"), cancelled: t("formCancelled"), submitted: t("formSubmitted") };
   const TONE_VARIANT = { success: "success", warning: "warning", danger: "destructive", info: "info", brand: "brand", neutral: "outline" } as const;
   const indicator = ind ? { text: (ind.builtin && BUILTIN[ind.builtin]) || s.translate(bundle, ind.label), variant: TONE_VARIANT[ind.tone] } : null;
@@ -593,9 +627,20 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     <div className={cn("min-w-0 space-y-5", className)} onKeyDown={onKeyDown} data-doctype={meta.name}>
       {!props.hideToolbar && (
         <div className="flex flex-wrap items-center gap-3">
+          {imageSrc !== undefined && (
+            <Avatar className="size-10" data-form-image={imageSrc || undefined}>
+              {imageSrc && <AvatarImage src={imageSrc} alt="" />}
+              <AvatarFallback aria-hidden>{initials(htmlToText(String(titleField || "")) || doc.name)}</AvatarFallback>
+            </Avatar>
+          )}
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-lg font-semibold">{title}</h2>
             {!doc.__islocal && !!titleField && titleField !== doc.name && meta.autoname !== "hash" && <p className="truncate text-xs text-muted-foreground">{doc.name}</p>}
+            {webRoute && (
+              <a href={webRoute} target="_blank" rel="noopener noreferrer" data-web-link className="inline-flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline">
+                {t("formSeeOnWebsite")}<ExternalLink className="size-3" aria-hidden />
+              </a>
+            )}
           </div>
           {indicator && <Badge variant={indicator.variant}>{indicator.text}</Badge>}
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
@@ -611,6 +656,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
               {actionLabel(actions.primary)}
             </Button>
           )}
+          {props.menu}
         </div>
       )}
 
@@ -633,14 +679,16 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </div>
       )}
 
-      {visibleTabs.length > 1 && (
-        <Tabs value={currentTab?.key} onValueChange={(v) => setActiveTab(v)}>
+      {tabCount > 1 && (
+        <Tabs value={activeExtra?.tabKey ?? currentTab?.key} onValueChange={(v) => setActiveTab(v)}>
           <TabsList className="max-w-full overflow-x-auto">
             {visibleTabs.map((tab) => <TabsTrigger key={tab.key} value={tab.key}>{tabLabel(tab)}</TabsTrigger>)}
+            {extraTabs.map((x) => <TabsTrigger key={x.tabKey} value={x.tabKey} data-extra-tab={x.key}>{x.label}</TabsTrigger>)}
           </TabsList>
         </Tabs>
       )}
-      {currentTab && <div className="space-y-8" role={visibleTabs.length > 1 ? "tabpanel" : undefined}>{currentTab.sections.map(renderSection)}</div>}
+      {activeExtra && <div className="space-y-8" role="tabpanel" data-extra-tab-panel={activeExtra.key}>{activeExtra.render()}</div>}
+      {currentTab && <div className="space-y-8" role={tabCount > 1 ? "tabpanel" : undefined}>{currentTab.sections.map(renderSection)}</div>}
 
       <Dialog open={!!missing} onOpenChange={(o) => { if (!o) setMissing(null); }}>
         <DialogContent>
