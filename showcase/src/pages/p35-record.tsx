@@ -2,13 +2,13 @@
  * P35 record — the form "⋯" menu, form print, Connections and the e-mail composer on the SIMULATED site
  * (playground/src/demo/sim-site.ts, createFixtureTransport). Every server answer is the in-browser simulator's
  * (shapes from Frappe 15.110; src/frappe/testing/handlers/record.ts); permission decisions are its approximation.
- * The wiring next to the form uses FrappeForm's existing `toolbarExtra` slot and a tab strip around it — the dedicated
- * `menu` / `extraTabs` slots of FrappeFormView belong to another workstream; FrappeFormView itself is not edited.
+ * P35 integration: FrappeForm renders the menu (FrappeRecordMenu in FrappeFormView's `menu` slot) and the Connections tab
+ * (FrappeConnections in `extraTabs`) by default; the page passes only the host callbacks.
  */
 import * as React from "react";
-import { Badge, Button, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from "@ui";
+import { Button, Skeleton } from "@ui";
 import {
-  FrappeConnections, FrappeEmailComposer, FrappeForm, FrappeFormPrint, FrappeRecordMenu, useDoc, useMetaBundle, type DocTypeMeta, type FrappeDoc,
+  FrappeConnections, FrappeEmailComposer, FrappeForm, FrappeFormPrint, useDoc, useMetaBundle, type DocTypeMeta, type FrappeDoc,
 } from "@ui/frappe";
 import { TRAVEL, TRAVEL_COMPANION } from "../../../playground/src/demo/sim-site";
 import { Example, Section } from "../doc/Doc";
@@ -46,43 +46,18 @@ function useRecordSite(session: SessionKey) {
 }
 
 function MenuNextToForm({ onLog }: { onLog: (s: string) => void }) {
-  const tr = useTr();
-  const bundle = useMetaBundle("Travel Request");
-  const q = useDoc("Travel Request", "TR-0001");
-  const [dirty, setDirty] = React.useState(false);
-  const [tab, setTab] = React.useState("form");
-  if (q.error) return <Badge variant="destructive">{q.error.message}</Badge>;
-  if (!bundle.data || !q.data) return <Skeleton className="h-64 w-full" />;
-  const doc = q.data.doc;
-  const menu = (
-    <FrappeRecordMenu
-      bundle={bundle.data} doc={doc} docinfo={q.data.docinfo} dirty={dirty}
-      onShowConnections={() => setTab("connections")}
-      onDuplicate={(copy) => onLog(`onDuplicate → local copy ${copy.name} (not saved; FrappeFormView cannot open an in-memory copy yet — WS1)`)}
-      onRenamed={(n) => onLog(`onRenamed → ${n} (frappe.rename_doc, SIMULATED)`)}
-      onDeleted={() => onLog("onDeleted → frappe.client.delete answered (SIMULATED)")}
-      onReload={async () => { await q.refetch(); onLog("onReload → getdoc re-read"); }}
-      onNew={() => onLog("onNew → the host routes to a new Travel Request")}
-      onCustomize={(href) => onLog(`onCustomize → ${href} (a Desk URL; not opened in the showcase)`)}
-      writeClipboard={async (text) => { onLog(`Copy to Clipboard → ${text.length} characters of JSON`); try { await navigator.clipboard?.writeText(text); } catch { /* the showcase may lack clipboard access */ } }}
-      emailProps={{ onSent: (r) => onLog(`email.make → Communication ${r.name} recorded by the simulator (nothing was sent)`) }}
-      onReminderCreated={(r) => onLog(`create_new_reminder → Reminder ${r.name ?? ""} at ${r.remindAt} (stored by the simulator; nothing scheduled)`)}
-    />
-  );
   return (
-    <Tabs value={tab} onValueChange={setTab}>
-      <TabsList>
-        <TabsTrigger value="form">{tr(l("Form", "النموذج"))}</TabsTrigger>
-        <TabsTrigger value="connections">{tr(l("Connections", "الارتباطات"))}</TabsTrigger>
-      </TabsList>
-      <TabsContent value="form">
-        <FrappeForm doctype="Travel Request" name="TR-0001" guardUnload={false} toolbarExtra={menu} onDirtyChange={setDirty} />
-      </TabsContent>
-      <TabsContent value="connections">
-        <FrappeConnections meta={bundle.data.meta} doc={doc}
-          onOpenList={(d, f) => onLog(`onOpenList(${d}, ${JSON.stringify(f)})`)} onNew={(d, f) => onLog(`onNew(${d}, ${JSON.stringify(f)})`)} />
-      </TabsContent>
-    </Tabs>
+    <FrappeForm doctype="Travel Request" name="TR-0001" guardUnload={false}
+      menu={{
+        onOpened: (d, via) => onLog(`${via === "duplicate" ? "Duplicate" : "New"} → ${d.name} opened in the form (unsaved; Save inserts it in the simulator)`),
+        onRenamed: (n) => onLog(`onRenamed → ${n} (frappe.rename_doc, SIMULATED; the host routes to the new name)`),
+        onDeleted: () => onLog("onDeleted → frappe.client.delete answered (SIMULATED; the host routes away)"),
+        onCustomize: (href) => onLog(`onCustomize → ${href} (a Desk URL; not opened in the showcase)`),
+        writeClipboard: async (text) => { onLog(`Copy to Clipboard → ${text.length} characters of JSON`); try { await navigator.clipboard?.writeText(text); } catch { /* the showcase may lack clipboard access */ } },
+        emailProps: { onSent: (r) => onLog(`email.make → Communication ${r.name} recorded by the simulator (nothing was sent)`) },
+        onReminderCreated: (r) => onLog(`create_new_reminder → Reminder ${r.name ?? ""} at ${r.remindAt} (stored by the simulator; nothing scheduled)`),
+      }}
+      connections={{ onOpenList: (d, f) => onLog(`onOpenList(${d}, ${JSON.stringify(f)})`), onNew: (d, f) => onLog(`onNew(${d}, ${JSON.stringify(f)})`) }} />
   );
 }
 
@@ -118,17 +93,16 @@ export function RecordActionsPage() {
       ]} note={l(
         "SIMULATED backend operations: rename, delete, the print preview (a labelled placeholder without values), connection counts, e-mail (recorded as a Communication, never sent) and reminders are answered by the in-browser simulator. The PDF and Full Page links point at a real site's URLs and do nothing here. Nothing on this page ran against a real Frappe site.",
         "عمليات خلفية محاكاة: إعادة التسمية والحذف ومعاينة الطباعة (عنصر نائب موسوم بلا قيم) وأعداد الارتباطات والبريد (يُسجَّل كـ Communication ولا يُرسل أبداً) والتذكيرات يجيب عنها المحاكي داخل المتصفّح. روابط PDF والصفحة الكاملة تشير إلى عناوين موقع حقيقي ولا تعمل هنا. لم يُشغَّل شيء في هذه الصفحة على موقع فرابيه حقيقي.")} />
-      <Section title={l("Form ⋯ menu next to the form, and a Connections tab", "قائمة ⋯ بجوار النموذج وتبويب الارتباطات")}
-        description={l("FrappeRecordMenu in FrappeForm's toolbarExtra slot; FrappeConnections in a tab around the form. Switch the session: Data Entry has no delete / print / email right, Sales User is read-only — the menu follows Desk's toolbar.js rules and the simulated server still re-checks every action.",
-          "FrappeRecordMenu في خانة toolbarExtra من FrappeForm؛ و FrappeConnections في تبويب حول النموذج. بدّل الجلسة: إدخال البيانات بلا حذف أو طباعة أو بريد، ومستخدم المبيعات للقراءة فقط — تتبع القائمة قواعد toolbar.js في ديسك والخادم المحاكى يعيد التحقق من كل إجراء.")}>
+      <Section title={l("The form's ⋯ menu and Connections tab", "قائمة ⋯ في النموذج وتبويب الارتباطات")}
+        description={l("FrappeForm's default menu (FrappeRecordMenu) and Connections tab (FrappeConnections): Duplicate / New open the document in the form, Reload re-reads it, Undo / Redo follow the form's history, Links switches to the Connections tab. Switch the session: Data Entry has no delete / print / email right, Sales User is read-only — the menu follows Desk's toolbar.js rules and the simulated server still re-checks every action.",
+          "القائمة الافتراضية في FrappeForm (FrappeRecordMenu) وتبويب الارتباطات (FrappeConnections): النسخ والجديد يفتحان المستند في النموذج، وإعادة التحميل تعيد قراءته، والتراجع والإعادة يتبعان سجلّ النموذج، والروابط تنتقل إلى تبويب الارتباطات. بدّل الجلسة: إدخال البيانات بلا حذف أو طباعة أو بريد، ومستخدم المبيعات للقراءة فقط — تتبع القائمة قواعد toolbar.js في ديسك والخادم المحاكى يعيد التحقق من كل إجراء.")}>
         <SimulatedPermissionStrip />
         <Picker legend={l("Session", "الجلسة")} value={session} onChange={(v) => { setSession(v); setLog([]); }}
           options={[{ value: "admin", label: l("System Manager", "مدير النظام") }, { value: "dataEntry", label: l("Data Entry", "إدخال البيانات") }, { value: "sales", label: l("Sales User", "مستخدم المبيعات") }]} />
         <SessionBadge session={session} />
-        <Example code={`<FrappeForm doctype="Travel Request" name="TR-0001" toolbarExtra={
-  <FrappeRecordMenu bundle={bundle} doc={doc} dirty={dirty} onShowConnections={() => setTab("connections")}
-    onDuplicate={openCopy} onRenamed={goTo} onDeleted={back} onReload={refetch} onNew={newDoc} />} />
-<FrappeConnections meta={bundle.meta} doc={doc} onOpenList={openList} onNew={newLinked} />`}>
+        <Example code={`<FrappeForm doctype="Travel Request" name="TR-0001"
+  menu={{ onOpened, onRenamed: goTo, onDeleted: back }}          // default ON; menu={false} removes it
+  connections={{ onOpenList: openList, onNew: newLinked }} />    // default ON with a dashboard; connections={false}`}>
           <SimProvider site={site} key={session}><MenuNextToForm onLog={onLog} /></SimProvider>
         </Example>
         <Readout label="callbacks:">{log.length ? log.join("\n") : "—"}</Readout>

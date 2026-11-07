@@ -1,6 +1,6 @@
 {
   "name": "@solvfast/ui",
-  "version": "0.6.0",
+  "version": "0.7.0-dev.1",
   "description": "SOLV FAST product UI kit — Sear's design: primitives, app shell (Navbar, Sidebar) and List View, with an optional Frappe layer.",
   "license": "UNLICENSED",
   "repository": {
@@ -25,7 +25,9 @@
     "docs/components/foundation.md",
     "docs/components/forms.md",
     "docs/components/list.md",
-    "docs/components/record.md"
+    "docs/components/record.md",
+    "docs/components/views.md",
+    "docs/components/p35-core.md"
   ],
   "exports": {
     ".": {

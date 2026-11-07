@@ -56,6 +56,9 @@ description is the 0.6.0 row. The `avatars` variant is unchanged.
   ones, so a configured yellow or navy stays readable (not measured against WCAG for every colour). Pure CSS: it follows the
   nearest `.dark` scope, no build step, no theme lookup in JS.
 - The label is always shown: colour is never the only carrier.
+- **ListView status columns (P35 integration):** `ColumnDef.status = { color?(value, row), tone?(value, row), variant? }` makes
+  the default cell a `StatusBadge` with the row's configured colour / tone (a custom `render` still wins; empty values keep "—").
+  Without `status` the 0.6.0 Select badge is rendered. `DefaultCell` takes an optional `row` for it.
 
 ## LifecycleBar — per-step state (G7)
 
@@ -140,6 +143,9 @@ For a Frappe Attach field keep `FrappeAttachField` (`@solvfast/ui/frappe`).
 heading inside a `role="group"` (labelled by the heading); results without a group are listed without one. **Order your
 results by group.** The keyboard order stays flat (ArrowDown moves across groups). `icon` (an icon or avatar, ~16–20 px)
 leads the option. Without either field the list is the 0.6.0 markup.
+
+**TagInput after creating a tag (P35 integration, CRM M7):** Enter (or a trailing comma) that creates a tag from the typed text
+now also closes the suggestion list — the "No results" list no longer stays open over what is below (e.g. a popover's Apply).
 
 ## IconStatCard — trend (G23)
 

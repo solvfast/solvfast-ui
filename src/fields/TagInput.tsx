@@ -134,7 +134,7 @@ export function TagInput({
               onFocus={() => { if (search && !text) sugg.query("", true); }}
               onChange={(e) => {
                 const v = e.target.value;
-                if (canCreate && v.endsWith(",")) { setText(""); void add(v.slice(0, -1)); return; }
+                if (canCreate && v.endsWith(",")) { setText(""); sugg.close(); void add(v.slice(0, -1)); return; }
                 setText(v);
                 if (search) sugg.query(v);
               }}
@@ -155,6 +155,9 @@ export function TagInput({
                   e.preventDefault();
                   const typed = text;
                   setText("");
+                  // P35 (CRM M7): the tag is created — close the suggestion list ("No results") so it no longer covers
+                  // what is below (e.g. a popover's Apply button)
+                  sugg.close();
                   void add(typed);
                 }
               }}

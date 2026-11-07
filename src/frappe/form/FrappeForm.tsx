@@ -8,6 +8,11 @@
  * transitions for the user — FrappeWorkflowActions in the toolbar replacing Save / Submit / Cancel (toolbar.js:593,
  * 668-699). Cancel posts the workflow state field and its current value (save.js:48-52). Cancel pre-flight:
  * `get_submitted_linked_docs` / `cancel_all_linked_docs`; Amend is disabled when `is_document_amended`.
+ * P35 integration (Desk parity, default ON): the "⋯" menu is `FrappeRecordMenu` in the view's `menu` slot — Duplicate /
+ * New open the local copy / new document in this form (as Amend does), Reload = the form's reload, Undo / Redo = the
+ * controller's history, Print / Email / Remind Me = the package's dialogs, Links = the Connections tab; `menu={false}`
+ * removes it, an options object configures it, any other node replaces it. The Connections tab (`FrappeConnections`)
+ * is added through `extraTabs` when the DocType has a dashboard (`connectionsFromMeta`); `connections={false}` removes it.
  */
 import * as React from "react";
 import { isAdministrator, rolePermissions } from "../services/permissions";
@@ -25,13 +30,42 @@ import { FrappeFormView, type FrappeFormViewProps, type LinkedDoc } from "./Frap
 import type { FormController } from "./events";
 import { FrappeFormServices } from "./services";
 import { useQuickEntryHost } from "./FrappeQuickEntry";
+import type { FrappeFormMenuContext } from "./FrappeFormView";
+import { FrappeRecordMenu, type FrappeRecordMenuProps } from "../record/FrappeRecordMenu";
+import { FrappeConnections, type FrappeConnectionsProps } from "../record/FrappeConnections";
+import { connectionsFromMeta } from "../record/connections";
+import { useLocale } from "../../theme/ThemeProvider";
 
-export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "doc" | "docinfo" | "permissions" | "onSave" | "onCancelDoc"> {
+/** Configuration of FrappeForm's default "⋯" menu (`FrappeRecordMenu`). Host callbacks given here replace the built-in
+ *  wiring of that entry (e.g. `onDuplicate` / `onNew` to route instead of opening the document in this form). */
+export interface FrappeFormMenuOptions extends Partial<Pick<FrappeRecordMenuProps,
+  "exclude" | "extra" | "printSettings" | "onDuplicate" | "onRenamed" | "onDeleted" | "onNew" | "onPrint" | "onEmail" | "onRemind" | "onCustomize"
+  | "deskUrl" | "onCopied" | "writeClipboard" | "printProps" | "emailProps" | "onReminderCreated" | "className">> {
+  /** The built-in Duplicate / New opened this unsaved document in the form (route to it if the app routes by name). */
+  onOpened?: (doc: FrappeDoc, via: "duplicate" | "new") => void;
+}
+/** Configuration of FrappeForm's Connections tab (`FrappeConnections`). */
+export interface FrappeFormConnectionsOptions extends Partial<Omit<FrappeConnectionsProps, "meta" | "doc">> {
+  /** Tab label. Default "Connections" (translated). */
+  label?: string;
+}
+
+const isMenuOptions = (m: unknown): m is FrappeFormMenuOptions =>
+  typeof m === "object" && m !== null && !React.isValidElement(m) && !(Symbol.iterator in m);
+
+export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "doc" | "docinfo" | "permissions" | "onSave" | "onCancelDoc" | "menu"> {
+  /** The "⋯" menu (P35, default ON): omitted / `true` / an options object → `FrappeRecordMenu` wired to this form;
+   *  `false` → none; any other node (or a `(ctx) => node` function) → rendered instead. */
+  menu?: boolean | FrappeFormMenuOptions | React.ReactNode | ((ctx: FrappeFormMenuContext) => React.ReactNode);
+  /** The Connections tab (P35, default ON when the DocType has a dashboard — `connectionsFromMeta`): `false` → none;
+   *  an options object → passed to `FrappeConnections` (`onOpenList`, `listHref`, `onNew`, `canRead`, `canCreate`, …).
+   *  It comes before the app's own `extraTabs`. */
+  connections?: boolean | FrappeFormConnectionsOptions;
   doctype: string;
   /** A saved document's name; omit (or pass a `new-…` name) for a new document. */
   name?: string;
-  /** Defaults for a new document: route options, user defaults (`userDefaults` — e.g. `readFrappeBoot().userDefaults`),
-   *  typed name (`nameField`). */
+  /** Defaults for a new document: route options, user defaults (`userDefaults` — default: the FrappeProvider's, i.e.
+   *  `boot.userDefaults`; P35), typed name (`nameField`). */
   newDocDefaults?: DefaultsContext;
   /** Quick Entry's "Edit Full Form" / a not-eligible target (P35): route to the full form with this unsaved document. */
   onOpenFullForm?: (doc: FrappeDoc) => void;
@@ -60,8 +94,9 @@ export function canCancelDoctype(meta: DocTypeMeta, session: SessionLike): boole
 export { FormSkeleton } from "./FormSkeleton";
 import { FormSkeleton } from "./FormSkeleton";
 
-export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, ...rest }: FrappeFormProps) {
-  const { session } = useFrappeSettings();
+export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu, connections, ...rest }: FrappeFormProps) {
+  const { session, userDefaults } = useFrappeSettings();
+  const { t } = useLocale();
   const meta = useMetaBundle(doctype);
   const creating = isNewName(name);
   const loaded = useDoc(doctype, creating ? undefined : name);
@@ -71,12 +106,17 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, ...r
   const [fresh, setFresh] = React.useState<FrappeDoc | null>(null);
   React.useEffect(() => {
     if (creating && bundle && !fresh) {
-      setFresh(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, ...newDocDefaults }));
+      setFresh(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, userDefaults, ...newDocDefaults }));
     }
-  }, [creating, bundle, fresh, session, newDocDefaults]);
+  }, [creating, bundle, fresh, session, newDocDefaults, userDefaults]);
   const [saved, setSaved] = React.useState<FrappeDoc | null>(null);
-  const doc = saved && (!loaded.data || saved.modified !== loaded.data.doc.modified) ? saved : loaded.data?.doc ?? fresh;
-  const permissions = usePermissions(bundle, doc ?? undefined, loaded.data?.docinfo);
+  // P35: a document the menu opened in this form (Duplicate / New) — unsaved, until it is saved or the route changes
+  const [local, setLocal] = React.useState<FrappeDoc | null>(null);
+  React.useEffect(() => { setLocal(null); }, [doctype, name]);
+  const doc = local ?? (saved && (!loaded.data || saved.modified !== loaded.data.doc.modified) ? saved : loaded.data?.doc ?? fresh);
+  // the loaded docinfo belongs to the loaded name only (not to a duplicate, a new document or a saved amendment)
+  const docinfo = doc && loaded.data && doc.name === loaded.data.doc.name ? loaded.data.docinfo : undefined;
+  const permissions = usePermissions(bundle, doc ?? undefined, docinfo);
   const api = useFrappeApi();
   const wf = useWorkflow({ doc: doc ?? undefined, user: session?.user ?? "", roles: session?.roles, enabled: !!doc });
   // "Create a new X" on a quick-entry eligible target opens FrappeQuickEntry (unless the app handles onCreateNew)
@@ -108,6 +148,26 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, ...r
   if (!creating && loaded.isError) return <FrappeErrorState error={loaded.error} onRetry={() => void loaded.refetch()} />;
   if (!bundle || !doc) return <FormSkeleton />;
 
+  const openLocal = (d: FrappeDoc, via: "duplicate" | "new") => { setLocal(d); menuOpts?.onOpened?.(d, via); };
+  const menuOpts: FrappeFormMenuOptions | null = menu === undefined || menu === true ? {} : isMenuOptions(menu) ? menu : null;
+  const connOpts: FrappeFormConnectionsOptions | null = connections === false || !connectionsFromMeta(bundle.meta)
+    ? null : typeof connections === "object" ? connections : {};
+  const { label: connLabel, ...connProps } = connOpts ?? {};
+  const extraTabs = connOpts
+    ? [{ key: "connections", label: connLabel ?? t("r35Connections"), render: () => <FrappeConnections {...connProps} meta={bundle.meta} doc={doc} /> }, ...(rest.extraTabs ?? [])]
+    : rest.extraTabs;
+  const menuSlot = menuOpts ? (ctx: FrappeFormMenuContext) => {
+    const { onOpened: _o, ...opts } = menuOpts;
+    return (
+      <FrappeRecordMenu {...opts} bundle={bundle} doc={ctx.doc} docinfo={docinfo} dirty={ctx.dirty}
+        onDuplicate={opts.onDuplicate ?? ((copy) => openLocal(copy, "duplicate"))}
+        onNew={opts.onNew ?? (() => openLocal(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, userDefaults, ...newDocDefaults }), "new"))}
+        onReload={ctx.reload}
+        onShowConnections={connOpts && ctx.tabs.includes("extra:connections") ? () => ctx.showTab("extra:connections") : undefined}
+        undo={{ canUndo: ctx.frm.canUndo, canRedo: ctx.frm.canRedo, onUndo: () => ctx.frm.undo(), onRedo: () => ctx.frm.redo() }} />
+    );
+  } : menu === false ? undefined : (menu as FrappeFormViewProps["menu"]);
+
   return (
     <FrappeFormServices value={quickEntry}>
     <FrappeFormView
@@ -115,10 +175,12 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, ...r
       controllerRef={ctrlRef}
       bundle={bundle}
       doc={doc}
-      docinfo={loaded.data?.docinfo}
+      docinfo={docinfo}
       permissions={permissions}
-      defaults={{ user: session?.user, ...rest.defaults }}
-      onSave={async (d, action) => { const r = await save.mutateAsync({ doc: d, action }); setSaved(r); return r; }}
+      defaults={{ user: session?.user, userDefaults, ...rest.defaults }}
+      menu={menuSlot}
+      extraTabs={extraTabs}
+      onSave={async (d, action) => { const r = await save.mutateAsync({ doc: d, action }); setSaved(r); setLocal(null); return r; }}
       onCancelDoc={async (d) => {
         const w = permissions.workflow;
         const state = w ? d[w.workflow_state_field] : undefined;
@@ -126,7 +188,8 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, ...r
         setSaved(r);
         return r;
       }}
-      onReload={creating ? undefined : async () => {
+      // a reload re-reads the loaded name: not offered for a new document, a local copy or another saved name (amendment)
+      onReload={creating || local || (loaded.data && doc.name !== loaded.data.doc.name) ? undefined : async () => {
         const r = await loaded.refetch();
         const data = r.data as unknown as (FrappeDoc & { doc?: FrappeDoc }) | undefined;
         setSaved(null);

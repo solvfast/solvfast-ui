@@ -2,49 +2,18 @@
  * SIMULATED handlers added by the P35 "list" workstream. Each handler cites the Frappe 15.110 source of its response shape.
  * They are request/response-shape stand-ins for tests and the Showcase, never evidence of server behaviour.
  *
- * Limitation (out of this module's reach): workstream handlers receive only the store, not the transport's own row
- * filter, so the filters below go through a small local matcher (=, !=, like, not like, in, not in, is set / not set,
- * >, <, >=, <=, between) over the parent DocType's columns. Child-table (4-tuple) conditions and the simulator's
- * opt-in permission evaluation are NOT applied here.
+ * Rows come from the transport's own row filter (`ctx.rows`, P35 integration): every simulated operator, child-table
+ * (4-tuple) conditions and — with `createFixtureTransport(…, { permissions })` — only the rows the session may read
+ * (`frappe.get_list` applies permissions in both server methods; 403 without read).
  */
-import type { FixtureHandler, FixtureStore } from "../fixtureTransport";
+import type { FixtureContextHandler } from "../fixtureTransport";
 import { toFrappeError } from "../../client";
 
 type Row = Record<string, unknown>;
 const parse = (v: unknown): unknown => { if (typeof v !== "string") return v; try { return JSON.parse(v); } catch { return v; } };
-const likeRe = (pattern: string) => new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".")}$`, "is");
 const blank = (v: unknown) => v === null || v === undefined || v === "";
 
-function matches(v: unknown, op: string, value: unknown): boolean {
-  const list = () => (Array.isArray(value) ? value : String(value).split(",")).map((x) => String(x).trim());
-  switch (op.toLowerCase()) {
-    case "=": return String(v ?? "") === String(value ?? "");
-    case "!=": return String(v ?? "") !== String(value ?? "");
-    case "like": return likeRe(String(value)).test(String(v ?? ""));
-    case "not like": return !likeRe(String(value)).test(String(v ?? ""));
-    case "in": return list().includes(String(v ?? ""));
-    case "not in": return !list().includes(String(v ?? ""));
-    case ">": return !blank(v) && String(v) > String(value);
-    case "<": return !blank(v) && String(v) < String(value);
-    case ">=": return !blank(v) && String(v) >= String(value);
-    case "<=": return !blank(v) && String(v) <= String(value);
-    case "between": { const [a, b] = value as string[]; return !blank(v) && String(v) >= String(a) && String(v) <= (String(b).length === 10 ? `${b} 23:59:59.999999` : String(b)); }
-    case "is": return String(value) === "set" ? !blank(v) : blank(v);
-    default: return true; // operators the list never sends to these methods
-  }
-}
-
-/** The DocType's documents that pass AND-ed `[field, op, value]` filters (3-tuples, or 4-tuples naming the DocType itself). */
-function filtered(store: FixtureStore, doctype: string, raw: unknown): Row[] {
-  const f = parse(raw);
-  const filters = (Array.isArray(f) ? f : f && typeof f === "object" ? Object.entries(f as Row).map(([k, v]) => (Array.isArray(v) ? [k, v[0], v[1]] : [k, "=", v])) : [])
-    .filter(Array.isArray)
-    .map((x) => (x.length === 4 ? (x[0] === doctype ? [x[1], x[2], x[3]] : null) : x))
-    .filter((x): x is [string, string, unknown] => !!x);
-  return [...(store.docs.get(doctype)?.values() ?? [])].filter((d) => filters.every(([field, op, value]) => matches((d as Row)[String(field).replace(/`/g, "").split(".").pop()!], String(op), value)));
-}
-
-export const listHandlers: Record<string, FixtureHandler> = {
+export const listHandlers: Record<string, FixtureContextHandler> = {
   /**
    * `frappe.desk.listview.get_group_by_count(doctype, current_filters, field)` — frappe/desk/listview.py:33-89:
    * - `assigned_to`: open (status != Cancelled) ToDos of System Users whose `reference_name` is one of the filtered
@@ -54,11 +23,13 @@ export const listHandlers: Record<string, FixtureHandler> = {
    *   count desc (:62-71); for `owner` the session user moves to the top (:73-84); at most 50.
    * Unknown field → ValueError("Field does not belong to doctype") (:62-63).
    */
-  "frappe.desk.listview.get_group_by_count": (a, store) => {
+  "frappe.desk.listview.get_group_by_count": (a, store, ctx) => {
     const doctype = String(a.doctype);
     const field = String(a.field);
-    const rows = filtered(store, doctype, a.current_filters);
-    const byCount = (m: Map<string | null, number>) => [...m.entries()].map(([name, count]) => ({ name, count })).sort((x, y) => y.count - x.count);
+    const rows = ctx.rows(doctype, { filters: a.current_filters }) as Row[];
+    // count desc; ties by value (SQL leaves their order open — a deterministic SIMULATED choice), "no value" last
+    const byCount = (m: Map<string | null, number>) => [...m.entries()].map(([name, count]) => ({ name, count }))
+      .sort((x, y) => y.count - x.count || (x.name === null ? 1 : y.name === null ? -1 : x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
     if (field === "assigned_to") {
       const names = new Set(rows.map((r) => String(r.name)));
       const users = store.docs.get("User");
@@ -93,10 +64,10 @@ export const listHandlers: Record<string, FixtureHandler> = {
    * (`scrub_user_tags`, :750-765), then `["No Tags", n]` is appended (:672-683); other columns: `[value, count]` rows of
    * non-empty values.
    */
-  "frappe.desk.reportview.get_sidebar_stats": (a, store) => {
+  "frappe.desk.reportview.get_sidebar_stats": (a, _store, ctx) => {
     const doctype = String(a.doctype);
     const columns = (parse(a.stats) as string[] | undefined) ?? [];
-    const rows = filtered(store, doctype, a.filters);
+    const rows = ctx.rows(doctype, { filters: a.filters }) as Row[];
     const stats: Record<string, [string, number][]> = {};
     for (const column of columns) {
       if (column === "_user_tags") {

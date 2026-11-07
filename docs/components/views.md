@@ -63,9 +63,9 @@ import { availableViews, useFrappeAvailableViews, FrappeViews } from "@solvfast/
     In all three cases the reason is "not implemented".
 - `useFrappeAvailableViews(doctype)` combines the meta with `get_kanban_boards`.
 - `FrappeViews` renders the switcher and the chosen view. It never renders a view that is not available.
-- When the user switches views, the filters and sort of the Report, Image, Kanban or Calendar view carry over through
-  `initialQuery` / `defaultSort` (each view reports its applied state through `onQueryStateChange`).
-  **Limitation:** filters set in the List view do not carry over, because `FrappeListView` does not report its state.
+- When the user switches views, the filters and sort of the List, Report, Image, Kanban or Calendar view carry over through
+  `initialQuery` / `defaultSort` (each view reports its applied state through `onQueryStateChange`; `FrappeListView` has it
+  since the P35 integration).
 
 ## 2. Shared row source — `useFrappeViewList`
 
@@ -240,10 +240,13 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
 
 | Method | Frappe 15.110 source | Simulated | Not simulated |
 |---|---|---|---|
-| `kanban_board.get_kanban_boards` | kanban_board.py:68-75, :48-55 | boards of the DocType; private boards are visible only to their owner and Administrator | permission engine |
-| `kanban_board.update_order_for_single_card` | kanban_board.py:131-161 | column order splice, board saved, the document's `field_name` set; answers the board | write check (:137); Python's `UnboundLocalError` for an unknown column is simulated as a 417 |
-| `frappe.desk.calendar.get_events` | calendar.py:31-57 | default fields + Color, the `ifnull` range test, filters (operator subset); answers a list of dicts | read check (:25-26), User Permissions |
+| `kanban_board.get_kanban_boards` | kanban_board.py:68-75, :48-55 | boards of the DocType (through the transport's row filter / permission engine when the Kanban Board meta is loaded); private boards are visible only to their owner and Administrator | — |
+| `kanban_board.update_order_for_single_card` | kanban_board.py:131-161 | write check on the DocType (:137, permission engine when on), column order splice, board saved, the document's `field_name` set; answers the board | Python's `UnboundLocalError` for an unknown column is simulated as a 417 |
+| `frappe.desk.calendar.get_events` | calendar.py:31-57 | read check (:25-26), default fields + Color, the `ifnull` range test, the list filters and row permissions through the transport's own filter; answers a list of dicts | — |
 
+P35 integration: the handlers use the transport's handler context (`FixtureContext`: permission engine, row filter, clock); the
+permission checks apply only with `createFixtureTransport(…, { permissions })`.
+`KANBAN_BOARD_FIXTURE_META`, `VIEWS_DEMO_META` and `viewsDemoBackend` are exported from `@solvfast/ui/frappe/testing`.
 `KANBAN_BOARD_FIXTURE_META` contains Kanban Board and Kanban Board Column, a subset of the shipped JSONs.
 `viewsDemoBackend()` provides a demo site: Product with images, and Project Task with a Kanban Board on `status`.
 Neither is evidence of Frappe behaviour.

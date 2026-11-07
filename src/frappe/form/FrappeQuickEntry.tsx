@@ -46,7 +46,7 @@ export interface FrappeQuickEntryProps {
 
 export function FrappeQuickEntry({ doctype, open, onOpenChange, defaults, onCreated, onOpenFullForm }: FrappeQuickEntryProps) {
   const { t } = useLocale();
-  const { session } = useFrappeSettings();
+  const { session, userDefaults } = useFrappeSettings();
   const s = useFormServices();
   const meta = useMetaBundle(open ? doctype : undefined);
   const bundle = meta.data;
@@ -63,8 +63,8 @@ export function FrappeQuickEntry({ doctype, open, onOpenChange, defaults, onCrea
   // a fresh document per opening
   React.useEffect(() => {
     if (!open) { setDoc(null); return; }
-    if (bundle && !doc) setDoc(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, ...defaults }));
-  }, [open, bundle, doc, session, defaults]);
+    if (bundle && !doc) setDoc(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, userDefaults, ...defaults }));
+  }, [open, bundle, doc, session, defaults, userDefaults]);
   // not eligible: Desk opens the full form (quick_entry.js:43-52) — once per opening (inline callbacks re-run the effect)
   const handedOver = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -102,7 +102,7 @@ export function FrappeQuickEntry({ doctype, open, onOpenChange, defaults, onCrea
                   hideToolbar
                   guardUnload={false}
                   controllerRef={ctrl}
-                  defaults={{ user: session?.user, ...defaults }}
+                  defaults={{ user: session?.user, userDefaults, ...defaults }}
                   fieldFilter={filtered ? (df) => names.has(df.fieldname) : undefined}
                   onSave={async (d, action) => save.mutateAsync({ doc: d, action })}
                   onSaved={(saved) => { onCreated(saved); onOpenChange(false); }}

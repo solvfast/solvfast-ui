@@ -4,8 +4,8 @@
  * FrappeKanbanView or FrappeCalendarView. The filters and sort of the view being left are carried into the next one
  * (`initialQuery` / `defaultSort`), as Desk keeps the filter area when switching (list_view_select.js:40-49).
  *
- * Carried from: Report, Image, Kanban, Calendar. NOT from the List view: FrappeListView does not report its applied
- * state (its `onStateChange` is managed), so leaving the List view starts the next view unfiltered.
+ * Carried from every view: Report, Image, Kanban, Calendar and (P35 integration) the List view, through
+ * `FrappeListView`'s `onQueryStateChange`.
  */
 import * as React from "react";
 import { QueryClientContext, useQuery } from "@tanstack/react-query";
@@ -83,6 +83,6 @@ function Inner({ doctype, client, view: controlled, defaultView = "list", onView
     case "calendar":
       return <FrappeCalendarView key="calendar" doctype={doctype} client={client} fieldMap={calendar || undefined} {...shared} {...calendarView} toolbarLeading={<>{switcher}{calendarView?.toolbarLeading}</>} />;
     default:
-      return <FrappeListView<Row> key="list" doctype={doctype} client={client} initialQuery={carried.current?.query} defaultSort={sort} {...list} toolbarActions={<>{switcher}{list?.toolbarActions}</>} />;
+      return <FrappeListView<Row> key="list" doctype={doctype} client={client} initialQuery={carried.current?.query} defaultSort={sort} {...list} onQueryStateChange={(st) => { remember(st); list?.onQueryStateChange?.(st); }} toolbarActions={<>{switcher}{list?.toolbarActions}</>} />;
   }
 }

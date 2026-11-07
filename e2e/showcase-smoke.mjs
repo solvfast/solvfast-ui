@@ -12,7 +12,9 @@ import { chromium } from "playwright-core";
 const BASE = process.argv[2] ?? "http://127.0.0.1:4850/";
 const SHOTS = process.argv[3];
 const PAGES = [...fs.readFileSync(new URL("../showcase/src/routes.ts", import.meta.url), "utf8")
-  .matchAll(/\{ id: "([a-z-]+)", title: [^\n]*Component: from\(/g)].map((m) => m[1]);
+  // every page object (one line or several, ids with digits — the P35 pages appended at the end included): an `id`
+  // followed by `Component: from(` with no other `id:` in between (a group's id is followed by its first page's)
+  .matchAll(/\bid: "([a-z0-9-]+)",(?:(?!\bid: ")[\s\S])*?Component: from\(/g)].map((m) => m[1]);
 const HERO = "overview";
 if (SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
 
@@ -401,6 +403,8 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
   await check("frappe list view: scenarios, session, realtime event, bulk bar", async () => {
     const sec = await go(page, "frappe-list-view");
     await sec.locator("tbody tr").first().waitFor({ timeout: 10_000 });
+    // the page starts in Desk's header layout (Actions menu); this check drives the selection BAR
+    await sec.locator(`[aria-label="${T("Selection layout", "تخطيط التحديد")}"]`).getByRole("radio", { name: T("Bar (default)", "الشريط (الافتراضي)") }).click();
     await sec.getByRole("button", { name: T("Simulate server event (list_update)", "محاكاة حدث من الخادم (list_update)") }).click();
     await sec.getByText(/realtime: list_update/).waitFor();
     await page.waitForFunction(() => /Server event #1/.test(document.querySelector("#frappe-list-view-content tbody")?.textContent ?? ""), null, { timeout: 5000 });
@@ -542,11 +546,13 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
   });
   await check("frappe import/export: Export for everyone, Import → FrappeDataImport on the simulated server, 403s in the dialog", async () => {
     const sec = await go(page, "frappe-import-export");
+    // the Export dialog's button follows the page language (it was matched as /^Export$/ in both languages — stale)
+    const EXPORT_BUTTON = new RegExp(`^${T("Export", "تصدير")}$`);
     const list = sec.getByTestId("io-list");
     await list.locator("tbody tr").first().waitFor({ timeout: 10_000 });
     await list.getByTestId("sf-list-menu").click();
     await page.getByRole("menuitem", { name: T("Export", "تصدير"), exact: true }).click();
-    await page.getByRole("dialog").getByRole("button", { name: /^Export$/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: EXPORT_BUTTON }).click();
     await sec.getByText(/download frappe\.core\.doctype\.data_import\.data_import\.download_template/).first().waitFor({ timeout: 5000 });
     // Import (System Manager): FrappeDataImport — upload a DEMO CSV, the simulated server previews and imports (1 of 3 rows valid)
     await list.getByTestId("sf-list-menu").click();
@@ -560,7 +566,7 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await dlg.waitFor({ state: "hidden", timeout: 5000 });
     // a user with no role on Travel Request: the simulated server refuses the export
     await sec.getByRole("button", { name: /server refuses|الخادم يرفض/ }).click();
-    await page.getByRole("dialog").getByRole("button", { name: /^Export$/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: EXPORT_BUTTON }).click();
     await page.getByRole("dialog").getByText(/Not permitted|غير مسموح/).first().waitFor({ timeout: 5000 });
     await page.keyboard.press("Escape");
     // Sales User: Export offered (Desk), Import not; exporting records → the simulated server's 403 in the dialog
@@ -573,7 +579,7 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     await page.keyboard.press("Escape");
     await list.locator("tbody tr").first().getByRole("checkbox").click();
     await list.getByRole("button", { name: T("Export", "تصدير"), exact: true }).first().click();
-    await page.getByRole("dialog").getByRole("button", { name: /^Export$/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: EXPORT_BUTTON }).click();
     await page.getByRole("dialog").getByText(/Not permitted|غير مسموح/).first().waitFor({ timeout: 5000 });
     await page.keyboard.press("Escape");
   });

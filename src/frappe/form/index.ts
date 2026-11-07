@@ -4,9 +4,9 @@
  * src/frappe/index.ts.
  */
 export { FrappeForm } from "./FrappeForm";
-export type { FrappeFormProps } from "./FrappeForm";
+export type { FrappeFormProps, FrappeFormMenuOptions, FrappeFormConnectionsOptions } from "./FrappeForm";
 export { FrappeFormView } from "./FrappeFormView";
-export type { FrappeFormViewProps, FormPermissions, LinkedDoc, SaveAction as FormSaveAction } from "./FrappeFormView";
+export type { FrappeFormViewProps, FrappeFormMenuContext, FormPermissions, LinkedDoc, SaveAction as FormSaveAction } from "./FrappeFormView";
 export { FrappeField, dataOptionInvalid } from "./FrappeField";
 export type { FrappeFieldProps } from "./FrappeField";
 export { FrappeLinkField, FrappeDynamicLinkField, parseLinkFilters, mergeLinkFilters } from "./FrappeLinkField";

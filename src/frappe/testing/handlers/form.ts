@@ -1,4 +1,4 @@
 /** SIMULATED handlers added by the P35 "form" workstream. Each handler cites the Frappe 15.110 source of its response shape. */
-import type { FixtureHandler } from "../fixtureTransport";
+import type { FixtureContextHandler } from "../fixtureTransport";
 
-export const formHandlers: Record<string, FixtureHandler> = {};
+export const formHandlers: Record<string, FixtureContextHandler> = {};

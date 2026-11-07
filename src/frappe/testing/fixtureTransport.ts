@@ -26,7 +26,37 @@ import { fieldCurrency, formatDate, formatDatetime, formatDuration, formatNumber
 
 type Row = Record<string, unknown>;
 type Filter = [string, string, unknown] | [string, string, string, unknown];
-export type FixtureHandler = (args: Record<string, unknown>, backend: FixtureStore) => FrappeResponse | Promise<FrappeResponse>;
+/** A simulated method. The transport always passes the third argument (P35): the context below — older two-argument
+ *  handlers keep working unchanged. */
+export type FixtureHandler = (args: Record<string, unknown>, backend: FixtureStore, ctx?: FixtureContext) => FrappeResponse | Promise<FrappeResponse>;
+/** A handler written against the context (the package's own workstream handlers). */
+export type FixtureContextHandler = (args: Record<string, unknown>, backend: FixtureStore, ctx: FixtureContext) => FrappeResponse | Promise<FrappeResponse>;
+
+/**
+ * What a handler can use besides the store (P35) — the transport's OWN machinery, so handlers do not approximate it:
+ * the opt-in permission engine, the row filter of `get_list` / `reportview.get` and the transport's options. SIMULATED.
+ */
+export interface FixtureContext {
+  /** The permission engine when `options.permissions` is given; null = the historical "every right" simulator. */
+  permissions: PermissionEngine | null;
+  /** `permissions?.assertDoc(doc, ptype)`: 403 without the right (P on); nothing is refused when permissions are off. */
+  assertDoc(doc: FrappeDoc, ptype?: PermType): void;
+  /** `permissions?.assertDoctype(doctype, ptype)` (`frappe.has_permission(doctype, ptype, throw=True)`). */
+  assertDoctype(doctype: string, ptype?: PermType): void;
+  /** The rows of a list query as `frappe.get_list` returns them here: `filters` / `or_filters` (dict or lists, child-table
+   *  4-tuples included, every simulated operator), `order_by`, and — P on — only the rows the session may read (403
+   *  without read; `ignorePermissions` skips that as `ignore_permissions=True`). Unknown fields → DataError (417). */
+  rows(doctype: string, args: Record<string, unknown>, opts?: { ignorePermissions?: boolean }): FrappeDoc[];
+  /** Print Settings as the server reads them: a stored "Print Settings" single wins over `options.printSettings`;
+   *  default drafts allowed, cancelled not. */
+  printSettings(): { allow_print_for_draft: boolean; allow_print_for_cancelled: boolean };
+  /** The transport's clock (`options.now`) and a Frappe timestamp from it. */
+  now(): Date;
+  stamp(): string;
+  /** The session user. */
+  user: string;
+  options: Readonly<FixtureOptions>;
+}
 
 export interface FixtureOptions {
   /** Extra or overriding methods (custom whitelisted methods, controller methods via "run_doc_method:<method>"). */
@@ -424,13 +454,34 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     return table(doctype).get(String(name)) ?? notFound(`${doctype} ${String(name)}`);
   }
 
+  /** `_get_communications` (load.py:264-276, get_communication_data :279-345): the stored Communications of type
+   *  Communication / Feedback / Automated Message referencing the document (Communication Links are not simulated),
+   *  newest `communication_date` first, Desk's columns, `attachments` = the Files attached to each (JSON). P35. */
+  function communicationsOf(doctype: string, name: string, start = 0, limit = 20): Row[] {
+    const files = [...(store.docs.get("File")?.values() ?? [])];
+    return [...(store.docs.get("Communication")?.values() ?? [])]
+      .filter((c) => c.reference_doctype === doctype && c.reference_name === name && ["Communication", "Feedback", "Automated Message"].includes(String(c.communication_type ?? "Communication")))
+      .sort((x, y) => cmp(y.communication_date ?? y.creation, x.communication_date ?? x.creation))
+      .slice(start, start + limit)
+      .map((c) => {
+        const row: Row = Object.fromEntries(["name", "communication_type", "communication_medium", "comment_type", "communication_date", "content", "sender", "sender_full_name", "cc", "bcc", "creation", "subject", "delivery_status", "_liked_by", "reference_doctype", "reference_name", "read_by_recipient", "rating", "recipients"].map((k) => [k, (c as Row)[k] ?? null]));
+        if (["Communication", "Automated Message"].includes(String(row.communication_type))) {
+          row.attachments = JSON.stringify(files.filter((f) => f.attached_to_doctype === "Communication" && f.attached_to_name === c.name).map((f) => ({ file_url: f.file_url, is_private: f.is_private })));
+        }
+        return row;
+      });
+  }
+
   function docinfo(doctype: string, name: string) {
     const meta = requireMeta(doctype);
+    const all = communicationsOf(doctype, name, 0, 21);
+    const communications = all.filter((c) => c.communication_type !== "Automated Message");
+    const automated_messages = all.filter((c) => c.communication_type === "Automated Message");
     const comments = [...store.comments.values()].filter((c) => c.reference_doctype === doctype && c.reference_name === name);
     const byType = (...types: string[]) => comments.filter((c) => types.includes(String(c.comment_type))).map(clone);
     const assignments = [...store.todos.values()].filter((t) => t.reference_type === doctype && t.reference_name === name && t.status === "Open")
       .map((t) => ({ name: t.name, owner: t.allocated_to, description: t.description, status: t.status }));
-    const users = new Set<string>([user, ...comments.map((c) => String(c.owner)), ...assignments.map((a) => String(a.owner))]);
+    const users = new Set<string>([user, ...comments.map((c) => String(c.owner)), ...assignments.map((a) => String(a.owner)), ...communications.map((c) => String(c.sender ?? ""))]);
     const doc = table(doctype).get(name);
     if (doc?.owner) users.add(String(doc.owner));
     if (doc?.modified_by) users.add(String(doc.modified_by));
@@ -438,7 +489,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     const shared = doc && P ? P.docShares(doc) : [];
     for (const s of shared) if (s.user) users.add(String(s.user)); // load.py:492
     return {
-      doctype, name, attachments: [], communications: [], automated_messages: [], views: [], shared, milestones: [],
+      doctype, name, attachments: [], communications, automated_messages, views: [], shared, milestones: [],
       versions: meta.track_changes ? [...table("Version").values()].filter((v) => v.ref_doctype === doctype && v.docname === name).slice(-10).reverse().map((v) => ({ name: v.name, owner: v.owner, creation: v.creation, data: v.data })) : [],
       energy_point_logs: [], additional_timeline_content: [], tags: "", document_email: null, is_document_followed: 0,
       comments: byType("Comment").map((c) => ({ name: c.name, content: c.content, owner: c.owner, creation: c.creation, comment_type: "Comment", comment_email: c.comment_email, comment_by: c.comment_by })),
@@ -919,10 +970,9 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     if (!doc) return "not found";
     if (P && !P.hasPermission(doctype, "read", doc) && !P.hasPermission(doctype, "print", doc)) return "no read / print permission";
     const meta = metaOf(doctype);
-    const truthy = (v: unknown) => v === true || Number(v) === 1;
     if (meta?.is_submittable) {
-      if (Number(doc.docstatus ?? 0) === 0 && !truthy(options.printSettings?.allow_print_for_draft ?? 1)) return "Not allowed to print draft documents";
-      if (Number(doc.docstatus ?? 0) === 2 && !truthy(options.printSettings?.allow_print_for_cancelled ?? 0)) return "Not allowed to print cancelled documents";
+      if (Number(doc.docstatus ?? 0) === 0 && !ctx.printSettings().allow_print_for_draft) return "Not allowed to print draft documents";
+      if (Number(doc.docstatus ?? 0) === 2 && !ctx.printSettings().allow_print_for_cancelled) return "Not allowed to print cancelled documents";
     }
     return null;
   }
@@ -932,7 +982,23 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
   };
   const slugName = (s: string) => s.replace(/[^\w-]+/g, "-");
 
-  const handlers: Record<string, FixtureHandler> = {
+  const ctx: FixtureContext = {
+    permissions: P,
+    assertDoc: (doc, ptype = "read") => { P?.assertDoc(doc, ptype); },
+    assertDoctype: (doctype, ptype = "read") => { P?.assertDoctype(doctype, ptype); },
+    rows: (doctype, args, opts = {}) => rowsFor(doctype, args, !!opts.ignorePermissions) as FrappeDoc[],
+    printSettings: () => {
+      const single = store.docs.get("Print Settings")?.get("Print Settings") as Row | undefined;
+      const pick = (k: "allow_print_for_draft" | "allow_print_for_cancelled", dflt: number) => { const v = single?.[k] ?? options.printSettings?.[k] ?? dflt; return v === true || Number(v) === 1; };
+      return { allow_print_for_draft: pick("allow_print_for_draft", 1), allow_print_for_cancelled: pick("allow_print_for_cancelled", 0) };
+    },
+    now,
+    stamp,
+    user,
+    options,
+  };
+
+  const handlers: Record<string, FixtureContextHandler> = {
     "frappe.desk.form.load.getdoctype": (a) => {
       const doctype = String(a.doctype);
       const bundle = store.meta[doctype] ?? (metaOf(doctype) ? [metaOf(doctype)!] : notFound(`DocType ${doctype}`));
@@ -968,7 +1034,12 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       if (P && !P.hasPermission(doc.doctype, "read", doc)) throw permissionError(undefined); // load.py:103-105: a bare PermissionError
       return { docinfo: docinfo(String(a.doctype), String(a.name)) };
     },
-    "frappe.desk.form.load.get_communications": () => ({ message: [] }),
+    // load.py:212-219: read on the document, then _get_communications(start, limit)
+    "frappe.desk.form.load.get_communications": (a) => {
+      const doc = get(String(a.doctype), a.name);
+      if (P) P.assertDoc(doc, "read");
+      return { message: communicationsOf(doc.doctype, doc.name, Number(a.start) || 0, a.limit === undefined ? 20 : Number(a.limit) || 0) };
+    },
     // client.py:93-111: check_permission("read"), then apply_fieldlevel_read_permissions + as_dict()
     "frappe.client.get": (a) => { const doc = get(String(a.doctype), a.name); if (P) P.assertDoc(doc, "read"); return { message: clone(visible(doc, "null")) }; },
     "frappe.client.get_value": (a) => {
@@ -1021,10 +1092,10 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     },
     "frappe.desk.reportview.delete_items": (a) => {
       const items = (parse(a.items) as string[]) ?? [];
-      if (!P) { for (const n of items) handlers["frappe.client.delete"]({ doctype: a.doctype, name: n }, store); return {}; }
+      if (!P) { for (const n of items) handlers["frappe.client.delete"]({ doctype: a.doctype, name: n }, store, ctx); return {}; }
       // P on: delete_bulk (reportview.py:588-616) — each item on its own, failures retried once, then reported by a
       // REALTIME msgprint (kept in store.published); the HTTP answer is empty either way
-      const attempt = (names: string[]) => names.filter((n) => { try { handlers["frappe.client.delete"]({ doctype: a.doctype, name: n }, store); return false; } catch { return true; } });
+      const attempt = (names: string[]) => names.filter((n) => { try { handlers["frappe.client.delete"]({ doctype: a.doctype, name: n }, store, ctx); return false; } catch { return true; } });
       let failed = attempt([...items].sort().reverse());
       if (failed.length && failed.length !== items.length) failed = attempt(failed);
       store.published.push(failed.length
@@ -1074,7 +1145,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     run_doc_method: (a) => {
       const doc = parse(a.docs) as FrappeDoc;
       const custom = options.handlers?.[`run_doc_method:${String(a.method)}`];
-      if (custom) return custom(a, store);
+      if (custom) return custom(a, store, ctx);
       return fail(417, "ValidationError", `run_doc_method "${String(a.method)}" is not simulated (pass options.handlers["run_doc_method:${String(a.method)}"]) for ${doc?.doctype}`);
     },
     "frappe.client.get_list": (a) => {
@@ -1252,7 +1323,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
         try {
           const cur = get(String(a.doctype), n);
           if (a.action === "submit") save({ ...cur }, "Submit");
-          else if (a.action === "cancel") handlers["frappe.desk.form.save.cancel"]({ doctype: a.doctype, name: n }, store);
+          else if (a.action === "cancel") handlers["frappe.desk.form.save.cancel"]({ doctype: a.doctype, name: n }, store, ctx);
           else save({ ...cur, ...data }, Number(cur.docstatus) === 1 ? "Update" : "Save");
         } catch { failed.push(n); }
       }
@@ -1320,7 +1391,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       if (names.length > 500) return fail(417, "ValidationError", "Bulk approval only support up to 500 documents.", { _server_messages: sm({ message: "Bulk approval only support up to 500 documents.", title: "Too Many Documents", indicator: "red", raise_exception: 1 }) });
       const failed: string[] = [], ok: string[] = [];
       for (const n of names) {
-        try { handlers["frappe.model.workflow.apply_workflow"]({ doc: JSON.stringify({ doctype: a.doctype, name: n }), action: a.action }, store); ok.push(n); }
+        try { handlers["frappe.model.workflow.apply_workflow"]({ doc: JSON.stringify({ doctype: a.doctype, name: n }), action: a.action }, store, ctx); ok.push(n); }
         catch (e) { failed.push(`${n}: ${(e as Error).message}`); }
       }
       const indicator = failed.length && ok.length ? "orange" : failed.length ? "red" : "green";
@@ -1516,7 +1587,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
     if (backend.latency) await new Promise((r) => setTimeout(r, backend.latency));
     const h = handlers[method];
     if (!h) fail(404, "DoesNotExistError", `Method ${method} is not simulated`);
-    return clone(await h(args, store));
+    return clone(await h(args, store, ctx));
   }) as FixtureTransport;
   transport.store = store;
   transport.files = files;

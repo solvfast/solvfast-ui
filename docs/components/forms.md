@@ -220,7 +220,8 @@ import { FrappeQuickEntry, quickEntryFields } from "@solvfast/ui/frappe";
   and closes (Desk routes to the form). Without `onOpenFullForm` the dialog shows the whole form.
 - **Link "Create a new X"**: inside `FrappeForm`, when the app gives no `onCreateNew`, a quick-entry eligible target opens
   this dialog (typed text → the name field) and the saved name is written into the Link (Desk `update_calling_link`).
-- The list's "New" button is connected by the integrator (`FrappeListView` create slot, WS3).
+- The list's "Add" button: `FrappeListView create={{}}` (no `render` / `onCreate`) opens this dialog for an eligible
+  DocType and calls `create.onOpenFullForm(newDoc)` for any other (P35 integration, see list.md §1).
 
 ### 2.2 Unsaved changes and in-app navigation (P35)
 
@@ -241,8 +242,29 @@ const guard = useUnsavedChangesBlocker(dirty);
 `readFrappeBoot()` now also reads `defaults` (`frappe.defaults.get_defaults(user)`, Desk `boot.user.defaults`) and
 `user_permissions` (`get_user_permissions`) into `boot.userDefaults` (`userDefaultsFromBoot`: the `is_default` User
 Permission wins, a single allowed value counts — defaults.js:4-41). Pass it on:
-`<FrappeForm newDocDefaults={{ userDefaults: boot.userDefaults }} />`. `FrappeProvider` does not forward it by itself
-(see the P35 report). A field's own `default` still wins over a user default.
+`<FrappeProvider boot={boot}>` forwards it (P35 integration): `FrappeSettings.userDefaults` = the provider's `userDefaults`
+prop, else `boot.userDefaults`, else an outer provider's; `userDefaults={false}` opts out. FrappeForm (new document, the
+menu's New, child-row defaults), FrappeQuickEntry and FrappeListView's create fallback apply it unless given their own
+(`newDocDefaults.userDefaults` / `defaults.userDefaults` win). A field's own `default` still wins over a user default.
+
+### 2.4 The form's "⋯" menu and Connections tab (P35 integration)
+
+`FrappeForm` renders Desk's form menu and Connections tab by default:
+
+| Prop | Default | Values |
+|---|---|---|
+| `menu` | `FrappeRecordMenu` (record.md §5.2) in the view's `menu` slot | `false` none · an options object (`exclude`, `extra`, `printSettings`, `onDuplicate`, `onNew`, `onRenamed`, `onDeleted`, `onPrint`, `onEmail`, `onRemind`, `onCustomize`, `deskUrl`, `printProps`, `emailProps`, `onOpened(doc, "duplicate" \| "new")`, …) · any node / `(ctx) => node` replaces it |
+| `connections` | a "Connections" tab (`FrappeConnections` in `extraTabs`, before the app's own) when `connectionsFromMeta(meta)` is not null | `false` none · options passed to `FrappeConnections` (`onOpenList`, `listHref`, `onNew`, `canRead`, `canCreate`, `labelFor`) + `label` |
+
+Wiring: **Duplicate** opens `copyDoc`'s unsaved copy in this form and **New** a `newDoc` (as Amend does — until saved
+or the `doctype` / `name` props change; route with `onOpened`, or pass `onDuplicate` / `onNew` to route instead);
+**Reload** = the form's reload (not offered for a new document, a local copy or a saved amendment); **Undo / Redo** = the
+controller's history (`frm.undo()` / `canUndo`); **Print / Email / Remind Me** = the package's dialogs; **Links** = the
+Connections tab. Rename and Delete call the server; route with `onRenamed` / `onDeleted` (the form keeps its `name`).
+A DocType with a dashboard therefore shows a tab bar ("Details" + "Connections") even without Tab Breaks.
+
+`FrappeFormView`'s `menu` slot also accepts `(ctx: FrappeFormMenuContext) => node` — `ctx = { frm, doc, dirty,
+reload?, showTab(key), tabs }`, evaluated on every render with the form's live state.
 
 ---
 
