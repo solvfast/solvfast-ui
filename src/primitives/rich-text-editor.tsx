@@ -121,13 +121,27 @@ export interface RichTextEditorProps {
   ariaLabel?: string;
   className?: string;
   minHeight?: string;
+  /** P35 (G15): extra controls at the end of the toolbar (e.g. "Insert template", "Generate"). Use the handle (ref) to
+   *  insert their result at the caret. */
+  toolbarEnd?: React.ReactNode;
+}
+
+/** P35 (G15): the editor's imperative handle (`ref`). Inserted HTML is sanitized like everything the editor emits. */
+export interface RichTextEditorHandle {
+  focus: () => void;
+  /** Insert plain text at the caret (or at the end when the editor never had a caret), then emit `onChange`. */
+  insertText: (text: string) => void;
+  /** Insert HTML at the caret (sanitized), then emit `onChange`. */
+  insertHtml: (html: string) => void;
+  /** The current content, sanitized. */
+  getHtml: () => string;
 }
 
 /**
  * Lightweight rich-text editor (contenteditable + execCommand) — no extra dependencies. Emits sanitized HTML.
  * When `disabled`, renders the read-only <RichText> view instead of an editable surface.
  */
-export function RichTextEditor({
+export const RichTextEditor = React.forwardRef<RichTextEditorHandle, RichTextEditorProps>(function RichTextEditor({
   value,
   onChange,
   onBlur,
@@ -137,9 +151,41 @@ export function RichTextEditor({
   ariaLabel,
   className,
   minHeight = "5rem",
-}: RichTextEditorProps) {
+  toolbarEnd,
+}, handleRef) {
   const { t } = useLocale();
   const ref = React.useRef<HTMLDivElement>(null);
+  // the last caret inside the editor, kept when focus moves to a toolbar control (P35 G15)
+  const lastRange = React.useRef<Range | null>(null);
+  const onChangeRef = React.useRef(onChange);
+  onChangeRef.current = onChange;
+  const saveRange = () => {
+    const sel = typeof window !== "undefined" ? window.getSelection() : null;
+    if (sel && sel.rangeCount && ref.current?.contains(sel.getRangeAt(0).commonAncestorContainer)) lastRange.current = sel.getRangeAt(0).cloneRange();
+  };
+  const insertNodes = React.useCallback((make: () => DocumentFragment) => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    let range = lastRange.current && el.contains(lastRange.current.commonAncestorContainer) ? lastRange.current : null;
+    if (!range) { range = document.createRange(); range.selectNodeContents(el); range.collapse(false); }
+    range.deleteContents();
+    const frag = make();
+    const last = frag.lastChild;
+    range.insertNode(frag);
+    if (last) {
+      const after = document.createRange(); after.setStartAfter(last); after.collapse(true);
+      const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(after);
+      lastRange.current = after.cloneRange();
+    }
+    onChangeRef.current(sanitizeHtml(el.innerHTML));
+  }, []);
+  React.useImperativeHandle(handleRef, () => ({
+    focus: () => ref.current?.focus(),
+    insertText: (text: string) => insertNodes(() => { const f = document.createDocumentFragment(); f.appendChild(document.createTextNode(text)); return f; }),
+    insertHtml: (html: string) => insertNodes(() => inertFragment(sanitizeHtml(html))),
+    getHtml: () => sanitizeHtml(ref.current?.innerHTML ?? ""),
+  }), [insertNodes]);
 
   // Sync the external value into the DOM (sanitized), but never while the user is editing (would jump the caret).
   React.useEffect(() => {
@@ -180,6 +226,7 @@ export function RichTextEditor({
             <Icon className="h-4 w-4" aria-hidden />
           </button>
         ))}
+        {toolbarEnd != null ? <div className="ms-auto flex items-center gap-0.5" data-toolbar-end="">{toolbarEnd}</div> : null}
       </div>
       <div
         ref={ref}
@@ -191,10 +238,12 @@ export function RichTextEditor({
         suppressContentEditableWarning
         data-placeholder={placeholder}
         onInput={emit}
-        onBlur={onBlur}
+        onKeyUp={saveRange}
+        onMouseUp={saveRange}
+        onBlur={() => { saveRange(); onBlur?.(); }}
         className="sf-rich-text sf-rte-editable px-3 py-2 text-sm outline-none"
         style={{ minHeight }}
       />
     </div>
   );
-}
+});

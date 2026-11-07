@@ -114,3 +114,18 @@ export const PAGES = GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g 
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P35 core — appended sections (the Core field controls, LikeToggle / AssignDialog, and the P35 generic capabilities).
+// Pushed into their groups, then PAGES is rebuilt in place so the page order follows the navigation.
+const p35core = () => import("./pages/p35-core");
+const P35_CORE_PAGES: Array<[groupId: string, page: Page]> = [
+  ["components", { id: "core-fields", title: l("Field controls", "عناصر الحقول"), description: l("NumberInput, TimeInput, DurationInput, LinkInput, TagInput, Rating, ColorInput and DataGrid: Frappe-free, value in / value out.", "‏NumberInput و TimeInput و DurationInput و LinkInput و TagInput و Rating و ColorInput و DataGrid: بلا فرابيه، قيمة تدخل وقيمة تخرج."), Component: from(p35core, "CoreFieldsPage") }],
+  ["components", { id: "file-dropzone", title: l("File dropzone", "منطقة إفلات الملفات"), description: l("Pick or drop files: accept, size and count checks, a list with preview and remove. Client-side only.", "اختيار الملفات أو إفلاتها: فحص النوع والحجم والعدد، وقائمة مع معاينة وإزالة. في المتصفح فقط."), Component: from(p35core, "FileDropzonePage") }],
+  ["components", { id: "combobox-p35", title: l("Multi-select & grouped search", "الاختيار المتعدد والبحث المجمّع"), description: l("SearchCombobox with static options and multiple selection; LinkInput results with groups and icons.", "‏SearchCombobox بخيارات ثابتة واختيار متعدد؛ ونتائج LinkInput مع مجموعات وأيقونات."), Component: from(p35core, "ComboboxP35Page") }],
+  ["data", { id: "empty-trend", title: l("Empty state & stat trend", "الحالة الفارغة واتجاه الإحصاء"), description: l("EmptyState for cards and panels; IconStatCard with a trend.", "‏EmptyState للبطاقات واللوحات؛ و IconStatCard مع اتجاه."), Component: from(p35core, "EmptyAndTrendPage") }],
+  ["patterns", { id: "record-p35", title: l("Record status, lifecycle & feed", "حالة السجل ودورة حياته وسجل النشاط"), description: l("Configured status colours, skipped / failed lifecycle steps, timeline icons and click-to-open, and the assignee role line.", "ألوان حالة مهيّأة، وخطوات متخطّاة / متعثّرة في دورة الحياة، وأيقونات سجل النشاط والفتح بالنقر، وسطر دور المُسنَد إليه."), Component: from(p35core, "RecordP35Page") }],
+  ["patterns", { id: "editor-stepper-p35", title: l("Editor inserts & stepper overflow", "إدراج المحرّر وفائض الخطوات"), description: l("RichTextEditor's insert API and toolbar slot; the Stepper's overflow cue.", "واجهة الإدراج في RichTextEditor وخانة شريط الأدوات؛ وإشارة الفائض في Stepper."), Component: from(p35core, "EditorStepperP35Page") }],
+  ["patterns", { id: "record-extras", title: l("Like & assign dialog", "الإعجاب وحوار الإسناد"), description: l("LikeToggle and AssignDialog: Desk's heart and Assign To dialog without Frappe.", "‏LikeToggle و AssignDialog: قلب ديسك وحوار الإسناد بلا فرابيه."), Component: from(p35core, "RecordExtrasPage") }],
+];
+for (const [groupId, page] of P35_CORE_PAGES) GROUPS.find((g) => g.id === groupId)?.pages.push(page);
+PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));

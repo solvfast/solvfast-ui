@@ -14,6 +14,11 @@ export interface Suggestion {
   value: string;
   label?: string;
   description?: string;
+  /** P35 (G11): a heading the option is listed under. Consecutive options with the same group share one heading
+   *  (order the results by group); options without a group are listed without one. */
+  group?: string;
+  /** P35 (G11): a leading icon or avatar (~16–20 px). */
+  icon?: React.ReactNode;
 }
 
 /** An extra row under the results (e.g. "Create a new X"). */
@@ -75,6 +80,28 @@ export function mergeDuplicates(items: Suggestion[]): Suggestion[] {
   return out;
 }
 
+function optionText(o: Suggestion) {
+  return (
+    <>
+      <div className="truncate font-medium">{o.label || o.value}</div>
+      {o.description && o.description !== o.value && o.description !== o.label && (
+        <div className="truncate text-xs text-muted-foreground">{o.description}</div>
+      )}
+    </>
+  );
+}
+
+/** Consecutive options with the same `group` (P35 G11). */
+function groupRuns(options: Suggestion[]): Array<{ group?: string; start: number; items: Suggestion[] }> {
+  const runs: Array<{ group?: string; start: number; items: Suggestion[] }> = [];
+  options.forEach((o, i) => {
+    const last = runs[runs.length - 1];
+    if (last && last.group === o.group) last.items.push(o);
+    else runs.push({ group: o.group, start: i, items: [o] });
+  });
+  return runs;
+}
+
 interface SuggestionListProps {
   open: boolean;
   onDismiss: () => void;
@@ -95,6 +122,21 @@ export function SuggestionList({ open, onDismiss, anchor, listId, options, actio
   const { t } = useLocale();
   const anchorRef = React.useRef<HTMLDivElement>(null);
   const showEmpty = status === "idle" && options.length === 0;
+  const renderOption = (o: Suggestion, i: number) => (
+    <div
+      key={`o-${o.value}`}
+      id={`${listId}-${i}`}
+      role="option"
+      aria-selected={active === i}
+      className={cn("cursor-pointer rounded-md px-3 py-1.5 text-sm", o.icon != null && "flex items-center gap-2", active === i && "bg-accent text-accent-foreground")}
+      onMouseDown={(e) => e.preventDefault()}
+      onMouseEnter={() => setActive(i)}
+      onClick={() => onPick(o)}
+    >
+      {o.icon != null ? <span aria-hidden className="inline-flex shrink-0 items-center justify-center" data-suggestion-icon="">{o.icon}</span> : null}
+      {o.icon != null ? <div className="min-w-0 flex-1">{optionText(o)}</div> : optionText(o)}
+    </div>
+  );
   return (
     <Popover open={open} onOpenChange={(o) => { if (!o) onDismiss(); }}>
       <PopoverAnchor asChild>
@@ -113,23 +155,14 @@ export function SuggestionList({ open, onDismiss, anchor, listId, options, actio
           )}
           {status === "error" && <div role="status" className="px-3 py-2 text-sm text-destructive">{t("formSearchFailed")}</div>}
           {showEmpty && <div role="status" className="px-3 py-2 text-sm text-muted-foreground">{t("noResults")}</div>}
-          {options.map((o, i) => (
-            <div
-              key={`o-${o.value}`}
-              id={`${listId}-${i}`}
-              role="option"
-              aria-selected={active === i}
-              className={cn("cursor-pointer rounded-md px-3 py-1.5 text-sm", active === i && "bg-accent text-accent-foreground")}
-              onMouseDown={(e) => e.preventDefault()}
-              onMouseEnter={() => setActive(i)}
-              onClick={() => onPick(o)}
-            >
-              <div className="truncate font-medium">{o.label || o.value}</div>
-              {o.description && o.description !== o.value && o.description !== o.label && (
-                <div className="truncate text-xs text-muted-foreground">{o.description}</div>
-              )}
-            </div>
-          ))}
+          {options.some((o) => o.group) ? groupRuns(options).map((run) => (
+            run.group ? (
+              <div key={`g-${run.start}`} role="group" aria-labelledby={`${listId}-g${run.start}`} data-suggestion-group="">
+                <div id={`${listId}-g${run.start}`} role="presentation" className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{run.group}</div>
+                {run.items.map((o, k) => renderOption(o, run.start + k))}
+              </div>
+            ) : run.items.map((o, k) => renderOption(o, run.start + k))
+          )) : options.map((o, i) => renderOption(o, i))}
           {actions.map((a, j) => {
             const i = options.length + j;
             return (

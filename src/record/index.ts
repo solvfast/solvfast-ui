@@ -31,3 +31,6 @@ export { EmailComposer, isValidEmail } from "./EmailComposer";
 export type { EmailComposerProps, EmailDraft, EmailAttachmentOption } from "./EmailComposer";
 export { ReminderDialog, toFrappeDatetime, remindAtFor, reminderSetText } from "./ReminderDialog";
 export type { ReminderDialogProps, RemindIn } from "./ReminderDialog";
+
+// P35 core
+export type { LifecycleStep } from "./types";

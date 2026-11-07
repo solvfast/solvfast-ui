@@ -197,3 +197,10 @@ export type {
   RecordMenuProps, RecordMenuItem, RecordMenuConfirm, RecordMenuLabels, RenameDialogProps, PrintPreviewFrameProps, ConnectionsPanelProps, ConnectionGroup,
   ConnectionItem, EmailComposerProps, EmailDraft, EmailAttachmentOption, ReminderDialogProps, RemindIn,
 } from "./record";
+
+// P35 core — generic capabilities the CRM audit found missing (docs/components/p35-core.md)
+export { STATUS_PALETTE, resolveStatusColor, statusColorStyles } from "./primitives/status-dot";
+export type { LifecycleStep } from "./record";
+export { EmptyState } from "./primitives/empty-state";
+export type { EmptyStateProps } from "./primitives/empty-state";
+export type { RichTextEditorHandle } from "./primitives/rich-text-editor";
