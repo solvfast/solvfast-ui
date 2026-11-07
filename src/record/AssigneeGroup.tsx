@@ -229,7 +229,16 @@ export function AssigneeGroup({
           {assignees.map((a) => (
             <li key={a.id} className="flex items-center gap-2 text-xs" title={a.description}>
               <UserAvatar name={a.name} image={a.image} />
-              <span className="flex-1 truncate font-medium text-foreground">{a.name}</span>
+              {a.description ? (
+                // P35 (P34 follow-up): like Desk's sidebar assignment list, a second line under the name carries the
+                // assignee's role / the assignment's details. Without a description the row is unchanged.
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-foreground">{a.name}</span>
+                  <span className="block truncate text-[11px] leading-tight text-muted-foreground" data-assignee-description>{a.description}</span>
+                </span>
+              ) : (
+                <span className="flex-1 truncate font-medium text-foreground">{a.name}</span>
+              )}
               {canRemove?.(a) ? (
                 <button type="button" disabled={removing === a.id} onClick={() => void remove(a)} aria-label={fmt(L.remove, a.name)}
                   className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">

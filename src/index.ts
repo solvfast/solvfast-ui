@@ -187,3 +187,7 @@ export {
   importStatusLabel, importStatusTone, importResultHeadline,
 } from "./list/io/importLabels";
 export type { DataImportLabels, ImportDialogExtraLabels, ImportDialogLabels } from "./list/io/importLabels";
+
+// P35 core — generic capabilities the CRM audit found missing (docs/components/p35-core.md)
+export { STATUS_PALETTE, resolveStatusColor, statusColorStyles } from "./primitives/status-dot";
+export type { LifecycleStep } from "./record";

@@ -18,3 +18,6 @@ export { sanitizeCommentHtml, htmlToText } from "./sanitize";
 export type {
   Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem, Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./types";
+
+// P35 core
+export type { LifecycleStep } from "./types";

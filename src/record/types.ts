@@ -40,10 +40,16 @@ export interface AssignDetails { description?: string; date?: string; priority?:
 export interface MentionOption { id: string; label: string; isGroup?: boolean }
 export interface UserOption { id: string; label: string; image?: string | null; description?: string }
 
+/** P35 (G7): how a lifecycle state relates to the record. `skipped` = never reached on this record's path (a Lost deal's
+ *  "Won"); `failed` = the path ended or stopped here unsuccessfully. */
+export type LifecycleStep = "past" | "current" | "future" | "skipped" | "failed";
+
 export interface LifecycleStateItem {
   id: string; label: string; tone?: Tone;
   /** Who moved the record INTO this state, and when (epoch ms). Shown under past states (and the current one with `showCurrentEntry`). */
   by?: string; at?: number;
+  /** P35 (G7): explicit step state; overrides the position-based one (before `current` = past, after = future). */
+  step?: LifecycleStep;
 }
 export interface LifecycleActionItem {
   id: string;
