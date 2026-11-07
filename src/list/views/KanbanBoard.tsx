@@ -93,7 +93,9 @@ export function KanbanBoard<T>(p: KanbanBoardProps<T>) {
       setPending((pnd) => { const n = { ...pnd }; delete n[key]; return n; });
       setAnnounce((ok ? t("kanbanMoved") : t("kanbanMoveFailed")).replace("{title}", name).replace("{column}", colLabel(to)));
     };
-    Promise.resolve().then(() => onMove({ row, key, from, to, fromIndex: Math.max(0, fromIndex), toIndex: index })).then(() => done(true), () => done(false));
+    let result: unknown;
+    try { result = onMove({ row, key, from, to, fromIndex: Math.max(0, fromIndex), toIndex: index }); } catch (e) { result = Promise.reject(e); }
+    Promise.resolve(result).then(() => done(true), () => done(false));
   };
 
   const onCardKey = (e: React.KeyboardEvent, row: T) => {
