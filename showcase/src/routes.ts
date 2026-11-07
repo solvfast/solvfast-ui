@@ -100,3 +100,17 @@ export const GROUPS: Group[] = [
 ];
 
 export const PAGES = GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g })));
+
+// P35 form
+const p35form = () => import("./pages/frappe-p35-form");
+{
+  const page: Page = {
+    id: "frappe-form-p35",
+    title: l("Form: shortcuts, Quick Entry, slots", "النموذج: الاختصارات والإدخال السريع والمنافذ"),
+    description: l("SIMULATED — Ctrl/⌘+S runs the visible primary action, undo / redo, custom buttons, the menu and extraTabs slots, the unsaved-changes guard and Quick Entry, on the in-browser simulator.", "محاكاة — Ctrl/⌘+S ينفّذ الإجراء الأساسي الظاهر، والتراجع والإعادة، والأزرار المخصّصة، ومنفذا القائمة والتبويبات الإضافية، وحماية التغييرات غير المحفوظة، والإدخال السريع، على المحاكي داخل المتصفّح."),
+    Component: from(p35form, "FrappeFormP35Page"),
+  };
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}
