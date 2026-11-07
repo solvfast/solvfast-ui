@@ -53,7 +53,7 @@ description is the 0.6.0 row. The `avatars` variant is unchanged.
   to the theme's HSL variables, so they follow light / dark. Any other string is used as a CSS colour.
 - Contrast: the dot is the colour itself; the pill's fill is the colour at 15 %; the pill's **text** is
   `color-mix(in oklab, <colour> 55%, hsl(var(--foreground)))` — darker than the colour on light themes and lighter on dark
-  ones, so a configured yellow or navy stays readable (≈ 4.5 : 1 for typical status colours). Pure CSS: it follows the
+  ones, so a configured yellow or navy stays readable (not measured against WCAG for every colour). Pure CSS: it follows the
   nearest `.dark` scope, no build step, no theme lookup in JS.
 - The label is always shown: colour is never the only carrier.
 
@@ -93,7 +93,7 @@ description is the 0.6.0 row. The `avatars` variant is unchanged.
 | `maxSize` | `number` (bytes) | |
 | `showList` / `preview` / `compact` | `boolean` | Hide the list (render your own with progress); image thumbnails (object URLs, revoked on unmount); one-line zone. |
 | `labels` | `{ prompt, dropActive, remove, list }` | `remove` takes `{name}`. |
-| `disabled` / `invalid` / `id` / `name` / `aria-*` | | |
+| `disabled` / `invalid` / `id` / `aria-*` | | No `name`: the files never travel with a native form post — hand them to your upload. |
 
 Behaviour: the zone is a focusable `role="button"`; click, Enter or Space open the browser's file dialog; dragging over it
 highlights it (`data-dragging`). The same file (name + size + lastModified) is never added twice. Refused files get one
@@ -130,6 +130,7 @@ For a Frappe Attach field keep `FrappeAttachField` (`@solvfast/ui/frappe`).
   14 px. `TimelineItem.tone` tints the icon (default muted; comments primary).
 - `onItemSelect`: non-comment summaries become `<button>`s (keyboard reachable); an entry with `href` stays a link and calls
   `onItemSelect` first (call `preventDefault()` to navigate yourself). Comments keep their edit / delete controls.
+- With `onItemSelect`, a change entry's expand toggle is named "<summary> — show changes" so it differs from the select button.
 - `showActor`: the actor's name (`<bdi>`, RTL-safe) before non-comment summaries — for summaries that do not already name
   the actor (Frappe's do).
 
@@ -184,7 +185,7 @@ the editor never had one, then `onChange` fires with the sanitized HTML. `toolba
 The field look of `DateField`; a popover with the year (previous / next) and a 3 × 4 month grid (`aria-pressed` on the
 chosen month, full month name as each button's name). Keyboard: Left / Right ±1 month (mirrored in RTL), Up / Down ±3,
 PageUp / PageDown ±1 year, Home / End, Enter / Space pick, Escape closes. `min` / `max` disable months outside; `clearable`
-(default) shows ×. Helpers: `parseMonthValue`, `toMonthValue`, `formatMonthValue(value, language)` ("March 2026" /
+(default) shows ×. On open the roving focus starts on the chosen month (else today), clamped into `min` / `max`. Helpers: `parseMonthValue`, `toMonthValue`, `formatMonthValue(value, language)` ("March 2026" /
 "مارس ٢٠٢٦").
 
 ## Stepper — overflow cue (D-crm N8)

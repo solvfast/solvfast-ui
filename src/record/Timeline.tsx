@@ -109,6 +109,7 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
   const [editing, setEditing] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [err, setErr] = React.useState("");
+  const showChangesLabel = useLocale().t("coreShowChanges");
   const when = <time dateTime={new Date(item.at).toISOString()} title={new Date(item.at).toLocaleString()} className="text-[11px] text-muted-foreground">{relativeTime(item.at, isRTL, now)}</time>;
 
   if (item.kind === "comment") {
@@ -159,7 +160,9 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
             ) : <span className="text-muted-foreground">{renderIsolated(item.summary ?? "")}</span>}
           <span aria-hidden className="text-muted-foreground">·</span>{when}
           {multi ? (
-            <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} aria-label={stripIsolates(item.summary ?? "")}
+            <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)}
+              // with onItemSelect the summary is a button too: give the toggle its own name (P35 G13)
+              aria-label={onSelect ? `${stripIsolates(item.summary ?? "")} — ${showChangesLabel}` : stripIsolates(item.summary ?? "")}
               className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} aria-hidden />
             </button>

@@ -3,6 +3,8 @@ export const coreEn = {
   // LifecycleBar (G7): screen-reader suffix of a skipped / failed state
   coreStepSkipped: "Skipped",
   coreStepFailed: "Failed",
+  // Timeline (G13): name of a change entry's expand toggle when the summary is itself selectable
+  coreShowChanges: "show changes",
   // FileDropzone (G14)
   coreFileDropPrompt: "Drag files here or click to browse",
   coreFileDropPromptSingle: "Drag a file here or click to browse",
@@ -27,6 +29,7 @@ export const coreEn = {
 export const coreAr: { [K in keyof typeof coreEn]: string } = {
   coreStepSkipped: "تم تخطّيها",
   coreStepFailed: "فشلت",
+  coreShowChanges: "عرض التغييرات",
   coreFileDropPrompt: "اسحب الملفات إلى هنا أو انقر للاستعراض",
   coreFileDropPromptSingle: "اسحب ملفاً إلى هنا أو انقر للاستعراض",
   coreFileDropActive: "أفلِت للإضافة",

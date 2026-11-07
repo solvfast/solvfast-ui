@@ -331,6 +331,16 @@ describe("CORE.G13 Timeline item icons, tone, actor and onItemSelect", () => {
     // comments keep their own controls, no select button
     expect(screen.queryByRole("button", { name: "hi" })).toBeNull();
   });
+  it("CORE.G13 onItemSelect on a change entry: the select button and the expand toggle have distinct names", () => {
+    const change: TimelineItem = { id: "v", kind: "change", at: NOW - 1000, summary: "Bob changed the value of a", changes: [{ label: "A", before: "1", after: "2" }] };
+    const select = vi.fn();
+    wrap(<Timeline items={[change]} now={NOW} onItemSelect={select} />);
+    expect(screen.getAllByRole("button", { name: "Bob changed the value of a" })).toHaveLength(1);
+    const toggle = screen.getByRole("button", { name: "Bob changed the value of a — show changes" });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(select).not.toHaveBeenCalled();
+  });
   it("CORE.G13 showActor prefixes non-comment summaries with the actor (isolated for RTL)", () => {
     const { container } = wrap(<Timeline items={feed} now={NOW} showActor />, "ar");
     const actors = Array.from(container.querySelectorAll("bdi[data-actor]")).map((e) => e.textContent);
@@ -489,6 +499,15 @@ describe("CORE.G20 MonthInput (month granularity)", () => {
     expect(change).toHaveBeenLastCalledWith("2026-06");
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(change).toHaveBeenLastCalledWith(null);
+  });
+  it("CORE.G20 with min after the current month the roving focus starts on the first allowed month", async () => {
+    wrap(<MonthInput aria-label="m" value={null} onChange={() => {}} min="2999-04" />);
+    fireEvent.click(screen.getByRole("button", { name: "m" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.querySelector("[data-year]")!.textContent).toBe("2999");
+    const april = within(dialog).getByRole("button", { name: "April 2999" }) as HTMLButtonElement;
+    expect(april.tabIndex).toBe(0);
+    expect(april.disabled).toBe(false);
   });
   it("CORE.G20 keyboard: arrows move the roving focus (mirrored in RTL), Up/Down by a row, PageDown changes year; the focused month button commits", async () => {
     const change = vi.fn();

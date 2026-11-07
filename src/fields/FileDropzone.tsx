@@ -55,7 +55,6 @@ export interface FileDropzoneProps {
   /** Custom content inside the zone (replaces icon + prompt + hint). */
   children?: React.ReactNode;
   id?: string;
-  name?: string;
   className?: string;
   "aria-label"?: string;
   "aria-describedby"?: string;
@@ -129,7 +128,7 @@ function FileRow({ file, preview, removeLabel, onRemove, disabled }: { file: Fil
 export const FileDropzone = React.forwardRef<HTMLDivElement, FileDropzoneProps>(function FileDropzone(
   {
     value, onChange, onFilesAdded, onReject, accept, multiple, maxSize, maxFiles, disabled, invalid, showList = true, preview = true,
-    compact, labels, children, id, name, className, ...aria
+    compact, labels, children, id, className, ...aria
   },
   ref,
 ) {
@@ -207,7 +206,7 @@ export const FileDropzone = React.forwardRef<HTMLDivElement, FileDropzoneProps>(
         {hint && (compact || children) ? <span id={hintId} className="sr-only">{hint}</span> : null}
       </div>
       <input
-        ref={input} type="file" name={name} accept={accept} multiple={multiple} disabled={disabled}
+        ref={input} type="file" accept={accept} multiple={multiple} disabled={disabled}
         tabIndex={-1} aria-hidden className="hidden" data-file-input=""
         onChange={(e) => { add(e.target.files); e.target.value = ""; }}
       />

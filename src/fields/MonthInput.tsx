@@ -57,7 +57,14 @@ export function MonthInput({
   const [year, setYear] = React.useState(sel?.y ?? now.getFullYear());
   const [focus, setFocus] = React.useState(sel?.m ?? now.getMonth() + 1);
   const grid = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => { if (open) { setYear(sel?.y ?? now.getFullYear()); setFocus(sel?.m ?? now.getMonth() + 1); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
+    if (!open) return;
+    // start on the chosen month, else today; clamped into min / max so the grid always has a focusable month
+    let k = sel ? key(sel.y, sel.m) : key(now.getFullYear(), now.getMonth() + 1);
+    if (lo && k < key(lo.y, lo.m)) k = key(lo.y, lo.m);
+    if (hi && k > key(hi.y, hi.m)) k = key(hi.y, hi.m);
+    setYear(Math.floor(k / 12)); setFocus((k % 12) + 1);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
     if (!open) return;
     const id_ = requestAnimationFrame(() => grid.current?.querySelector<HTMLButtonElement>(`[data-month="${focus}"]`)?.focus());
