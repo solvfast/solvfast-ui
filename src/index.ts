@@ -193,3 +193,4 @@ export { STATUS_PALETTE, resolveStatusColor, statusColorStyles } from "./primiti
 export type { LifecycleStep } from "./record";
 export { EmptyState } from "./primitives/empty-state";
 export type { EmptyStateProps } from "./primitives/empty-state";
+export type { RichTextEditorHandle } from "./primitives/rich-text-editor";

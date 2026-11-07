@@ -7,7 +7,7 @@ import * as React from "react";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Users } from "lucide-react";
 import {
-  LinkInput, IconStatCard, EmptyState, Button, type Suggestion, Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
+  RichTextEditor, type RichTextEditorHandle, LinkInput, IconStatCard, EmptyState, Button, type Suggestion, Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
   type LifecycleStateItem,
 } from "../src";
 
@@ -428,5 +428,43 @@ describe("CORE showcase pages (smoke)", () => {
       }
     }
     expect(err).not.toHaveBeenCalled();
+  });
+});
+
+describe("CORE.G15 RichTextEditor insert API + toolbar slot", () => {
+  it("CORE.G15 toolbarEnd renders inside the toolbar; insertText / insertHtml go in at the end without a caret, sanitized, and emit onChange", () => {
+    const ref = React.createRef<RichTextEditorHandle>();
+    const change = vi.fn();
+    const Host = () => (
+      <RichTextEditor ref={ref} ariaLabel="Body" value="<p>Hello</p>" onChange={change}
+        toolbarEnd={<button type="button" onClick={() => ref.current?.insertHtml('<b>Template</b><img src=x onerror="alert(1)">')}>Insert template</button>} />
+    );
+    const { container } = wrap(<Host />);
+    const toolbar = screen.getByRole("toolbar", { name: "Body" });
+    const insert = within(toolbar).getByRole("button", { name: "Insert template" });
+    fireEvent.click(insert);
+    const last = change.mock.calls.at(-1)![0] as string;
+    expect(last).toContain("<b>Template</b>");
+    expect(last).not.toMatch(/img|onerror/);
+    act(() => ref.current!.insertText(" — thanks"));
+    expect(change.mock.calls.at(-1)![0]).toMatch(/— thanks$/);
+    expect(ref.current!.getHtml()).toBe(change.mock.calls.at(-1)![0]);
+    expect(container.querySelector("[role=textbox]")!.innerHTML).not.toContain("onerror");
+  });
+  it("CORE.G15 inserts at the saved caret, not at the end", () => {
+    const ref = React.createRef<RichTextEditorHandle>();
+    const change = vi.fn();
+    wrap(<RichTextEditor ref={ref} ariaLabel="Body" value="<p>AB</p>" onChange={change} />);
+    const box = screen.getByRole("textbox", { name: "Body" });
+    const text = box.querySelector("p")!.firstChild!;
+    const r = document.createRange(); r.setStart(text, 1); r.collapse(true);
+    const sel = window.getSelection()!; sel.removeAllRanges(); sel.addRange(r);
+    fireEvent.keyUp(box, { key: "ArrowRight" });
+    act(() => ref.current!.insertText("x"));
+    expect(change.mock.calls.at(-1)![0]).toBe("<p>AxB</p>");
+  });
+  it("CORE.G15 without the new props the editor is unchanged (no toolbar slot)", () => {
+    const { container } = wrap(<RichTextEditor value="" onChange={() => {}} />);
+    expect(container.querySelector("[data-toolbar-end]")).toBeNull();
   });
 });
