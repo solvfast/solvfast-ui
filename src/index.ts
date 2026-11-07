@@ -204,3 +204,13 @@ export type { LifecycleStep } from "./record";
 export { EmptyState } from "./primitives/empty-state";
 export type { EmptyStateProps } from "./primitives/empty-state";
 export type { RichTextEditorHandle } from "./primitives/rich-text-editor";
+
+// P35 views — Core list views (Frappe-free): view switcher, Image, Kanban, Calendar
+export {
+  LIST_VIEW_TYPES, IMPLEMENTED_VIEWS, isImplementedView, switcherOptions, ViewSwitcher, VIEW_ICONS, useViewLabel, useViewReason, ViewToolbar,
+  ImageGrid, initialsOf, ImageView, KanbanBoard, KANBAN_INDICATOR_COLORS, CalendarMonth, monthGrid, eventsOn, addMonths, monthStart, dayOf,
+} from "./list/views";
+export type {
+  ListViewType, ViewOption, ViewUnavailableReason, ViewSwitcherProps, ViewToolbarProps, ViewToolbarControls, ImageGridProps, ImageViewProps,
+  KanbanBoardProps, KanbanColumn, KanbanMove, CalendarMonthProps, CalendarEvent,
+} from "./list/views";
