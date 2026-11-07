@@ -9,7 +9,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { ThemeProvider } from "../src";
 import {
   ConnectionsPanel, EmailComposer, PrintPreviewFrame, RecordMenu, ReminderDialog, RenameDialog, groupMenuItems, isValidEmail, printSrcDoc, remindAtFor,
-  toFrappeDatetime, type RecordMenuItem,
+  toFrappeDatetime, type EmailDraft, type RecordMenuItem,
 } from "../src/record";
 
 beforeAll(() => {
@@ -179,7 +179,7 @@ describe("EmailComposer (Core)", () => {
   });
   it("FV.O1 FV.O2 FV.O4 FV.O7 FV.O9 sends To / CC / BCC, subject, attachments, options; busy while sending; a refusal is shown and the draft kept", async () => {
     let reject: (e: Error) => void = () => {};
-    const onSend = vi.fn(() => new Promise<void>((_, r) => { reject = r; }));
+    const onSend = vi.fn((_d: EmailDraft) => new Promise<void>((_, r) => { reject = r; }));
     mount(<EmailComposer onSend={onSend} initial={{ subject: "Deal: D-1", to: ["ann@x.org"] }}
       attachments={[{ id: "F-1", label: "quote.pdf" }, { id: "F-2", label: "terms.pdf" }]} printFormats={["Standard", "Deal Fancy"]} />);
     type("CC", "cc@x.org");

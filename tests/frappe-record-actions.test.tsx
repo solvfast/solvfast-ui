@@ -332,15 +332,13 @@ describe("Connections: meta.__dashboard + get_open_count", () => {
   });
   it("FV.M3 FV.M4 FrappeConnections on the real User meta: get_open_count {doctype, name, items}, ToDo counted by allocated_to, open list / new with the link filter, canRead hides", async () => {
     const userMeta = docsOf(userEn)[0];
-    const todoMeta = docsOf(todoEn)[0];
     const t = createFixtureTransport({
       meta: { User: docsOf(userEn), ToDo: docsOf(todoEn) },
       docs: {
         User: [{ doctype: "User", name: "ann@x.org", email: "ann@x.org", first_name: "Ann", enabled: 1 }] as FrappeDoc[],
-        ToDo: [{ name: "TD-1", description: "a", allocated_to: "ann@x.org", status: "Open" }, { name: "TD-2", description: "b", allocated_to: "ann@x.org", status: "Closed" }, { name: "TD-3", description: "c", allocated_to: "bob@x.org", status: "Open" }] as FrappeDoc[],
+        ToDo: [{ doctype: "ToDo", name: "TD-1", description: "a", allocated_to: "ann@x.org", status: "Open" }, { doctype: "ToDo", name: "TD-2", description: "b", allocated_to: "ann@x.org", status: "Closed" }, { doctype: "ToDo", name: "TD-3", description: "c", allocated_to: "bob@x.org", status: "Open" }] as FrappeDoc[],
       },
     });
-    void todoMeta;
     const onOpenList = vi.fn(); const onNew = vi.fn();
     mount(t, <FrappeConnections meta={userMeta} doc={stored(t, "User", "ann@x.org")!} onOpenList={onOpenList} onNew={onNew} canRead={(d) => d !== "Token Cache"} canCreate={(d) => d === "ToDo"} />);
     await waitFor(() => expect(document.querySelector('[data-connection="ToDo"] [data-count]')?.textContent).toBe("2"));
