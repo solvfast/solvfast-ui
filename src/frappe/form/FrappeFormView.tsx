@@ -137,8 +137,10 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   controllerRef?: React.MutableRefObject<FormController | null>;
   className?: string;
   // ---- P35 slots (fixed contract: other workstreams build on them) ----
-  /** Rendered in the header action area, after the primary action (e.g. a "⋯" menu). */
-  menu?: React.ReactNode;
+  /** Rendered in the header action area, after the primary action (e.g. a "⋯" menu). A function is called on every
+   *  render with the form's live state (`FrappeFormMenuContext`: the controller, the document as edited, reload, tab
+   *  switching) — `FrappeForm` renders its default `FrappeRecordMenu` this way (P35 integration). */
+  menu?: React.ReactNode | ((ctx: FrappeFormMenuContext) => React.ReactNode);
   /** Extra tabs appended after the form's own tabs (Connections, Activity …). A form without Tab Breaks then shows its
    *  fields under a "Details" tab. `render` runs only while the tab is active. */
   extraTabs?: Array<{ key: string; label: string; render: () => React.ReactNode }>;
@@ -149,6 +151,21 @@ export interface FrappeFormViewProps extends FormEventsConfig {
    *  (desk.js `trigger_primary_action`), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo (outside text inputs).
    *  Default true; false registers nothing. */
   hotkeys?: boolean;
+}
+
+/** What a `menu` render function receives (P35 integration). */
+export interface FrappeFormMenuContext {
+  /** The form's controller (`frm`): `undo()` / `redo()` / `canUndo` / `canRedo`, `save()`, … */
+  frm: FormController;
+  /** The document as the form holds it now (unsaved edits included). */
+  doc: FrappeDoc;
+  dirty: boolean;
+  /** Re-read the document (`onReload`); undefined when the form has no `onReload` (a new document). */
+  reload?: () => Promise<void>;
+  /** Activate a tab: a Tab Break's key, or `extra:<key>` for an `extraTabs` entry. */
+  showTab: (key: string) => void;
+  /** The keys of the tabs currently shown (own tabs, then `extra:<key>`). */
+  tabs: string[];
 }
 
 type Overrides = Record<string, FieldOverrides>;
@@ -785,7 +802,9 @@ export function FrappeFormView(props: FrappeFormViewProps) {
               {actionLabel(actions.primary)}
             </Button>
           )}
-          {props.menu}
+          {typeof props.menu === "function"
+            ? props.menu({ frm: frmRef.current!, doc, dirty: !!doc.__unsaved, reload: props.onReload ? () => reload() : undefined, showTab: (key) => setActiveTab(key), tabs: [...visibleTabs.map((tb) => tb.key), ...extraTabs.map((x) => x.tabKey)] })
+            : props.menu}
         </div>
       )}
 
