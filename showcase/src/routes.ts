@@ -100,3 +100,17 @@ export const GROUPS: Group[] = [
 ];
 
 export const PAGES = GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g })));
+
+// P35 record — form menu, print, connections, e-mail composer (SIMULATED backend operations)
+{
+  const p35record = () => import("./pages/p35-record");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = {
+    id: "frappe-record-actions",
+    title: l("Record actions (P35)", "إجراءات السجل (P35)"),
+    description: l("SIMULATED backend operations: the form ⋯ menu (Desk's toolbar rules), form print with a sandboxed server preview, Connections from meta.__dashboard with get_open_count, and the e-mail composer.", "عمليات خلفية محاكاة: قائمة ⋯ للنموذج (قواعد شريط ديسك)، وطباعة النموذج مع معاينة الخادم في إطار معزول، والارتباطات من meta.__dashboard مع get_open_count، ومحرّر البريد."),
+    Component: from(p35record, "RecordActionsPage"),
+  };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}
