@@ -13,7 +13,12 @@
  * UNVERIFIED for sites whose system and user zones differ; read-only display converts through formatValue), Time
  * `HH:mm:ss`, Duration seconds, Rating a 0…1 fraction, Check 0/1. Text Editor stores plain sanitized HTML (Desk wraps it
  * in a `ql-editor` div — a convention, not a contract). Attach / Attach Image upload through `upload_file`
- * (FrappeAttachField). Not implemented (P2/P3): Signature, Geolocation, Barcode, Code editor (a monospace textarea), Phone country picker, Autocomplete lists.
+ * (FrappeAttachField). Autocomplete (P35): a suggestion box over `df.options` (lines or a JSON list of strings /
+ * `{label, value}`, autocomplete.js parse_options :147-166); a typed value not in the list is cleared unless
+ * `ignore_validation` (autocomplete.js validate :132-145); an empty list accepts anything.
+ * Fieldtypes without a control (`SUPPORTED_FIELDTYPES` — Signature, Geolocation, Barcode, Icon, custom types) render
+ * their raw value READ-ONLY in every status (P35; before 0.7 they were an editable text box) and the form lists them
+ * in its issues banner. Not implemented: Code editor (a monospace textarea), Phone country picker.
  */
 import * as React from "react";
 import { useLocale } from "../../theme/ThemeProvider";
@@ -29,6 +34,9 @@ import { NumberInput } from "../../fields/NumberInput";
 import { TimeInput } from "../../fields/TimeInput";
 import { DurationInput } from "../../fields/DurationInput";
 import { FrappeAttachField } from "./FrappeAttachField";
+import { LinkInput } from "../../fields/LinkInput";
+import type { Suggestion } from "../../fields/autocomplete";
+import { SUPPORTED_FIELDTYPES } from "./model/fieldtypes";
 import { ReadOnlyValue } from "../../fields/ReadOnlyValue";
 import { Rating } from "../../fields/Rating";
 import { ColorInput } from "../../fields/ColorInput";
@@ -110,6 +118,44 @@ function DebouncedText({ value, onChange, debounce, multiline, className, ...res
 }
 
 const str = (v: unknown) => (v == null ? "" : String(v));
+
+/** autocomplete.js parse_options (:147-166): newline text or a JSON list of strings / {label, value}. */
+export function autocompleteOptions(options: unknown, translate: (s: string) => string = (x) => x): Suggestion[] {
+  let list: unknown = options;
+  if (typeof list === "string" && list.trim().startsWith("[")) { try { list = JSON.parse(list); } catch { list = []; } }
+  if (typeof list === "string") list = list.split("\n");
+  if (!Array.isArray(list)) return [];
+  const out: Suggestion[] = [];
+  for (const o of list as unknown[]) {
+    if (typeof o === "string") { if (o) out.push({ value: o, label: translate(o) }); continue; }
+    if (!o || typeof o !== "object") continue;
+    const r = o as { value?: unknown; label?: unknown };
+    const value = str(r.value);
+    if (value) out.push({ value, label: translate(str(r.label ?? r.value)) });
+  }
+  return out;
+}
+
+function AutocompleteControl({ df, value, onChange, translate, invalid, ...rest }: {
+  df: FrappeDocField; value: string; onChange: (v: string) => void; translate: (s: string) => string; invalid?: boolean;
+  id?: string; "aria-label"?: string; "aria-describedby"?: string;
+}) {
+  const options = React.useMemo(() => autocompleteOptions(df.options, translate), [df.options, translate]);
+  const search = React.useCallback(async (txt: string) => {
+    const q = txt.trim().toLowerCase();
+    return q ? options.filter((o) => o.value.toLowerCase().includes(q) || (o.label ?? "").toLowerCase().includes(q)) : options;
+  }, [options]);
+  const accept = (v: string | null) => {
+    const text = v ?? "";
+    if (!text || df.ignore_validation || !options.length || options.some((o) => o.value === text)) onChange(text);
+    else onChange(""); // validate (:132-145): a value outside the list is dropped
+  };
+  return (
+    <LinkInput {...rest} value={value || null} displayValue={options.find((o) => o.value === value)?.label ?? null}
+      onChange={(v) => accept(v)} onCommitText={(t) => accept(t)} search={search} debounceMs={0} invalid={invalid}
+      placeholder={df.placeholder ? str(df.placeholder) : undefined} />
+  );
+}
 const num = (v: unknown): number | null => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
 const toDsDatetime = (v: unknown) => { const s = str(v); return s ? s.slice(0, 16).replace(" ", "T") : ""; };
 const fromDsDatetime = (v: string) => (v ? `${v.replace("T", " ")}:00`.slice(0, 19) : null);
@@ -142,6 +188,12 @@ export function FrappeField(props: FrappeFieldProps) {
         {control}
       </FieldShell>
     );
+
+  // ---- no control for this fieldtype: the stored value, read-only (reported by the form) ----
+  if (!SUPPORTED_FIELDTYPES.has(ft)) {
+    const raw = value == null ? "" : typeof value === "string" ? value : JSON.stringify(value);
+    return shell(<ReadOnlyValue id={id} value={raw} multiline data-unsupported-fieldtype={ft} {...(onlyInput ? aria : { "aria-labelledby": `${id}-label` })} />, { noLabelFor: true });
+  }
 
   // ---- display-only fieldtypes ----
   if (ft === "HTML") return <div className={cn("text-sm", className)} dangerouslySetInnerHTML={{ __html: sanitizeHtml(str(df.options)) }} />;
@@ -248,6 +300,8 @@ export function FrappeField(props: FrappeFieldProps) {
       return shell(<ColorInput {...common} value={str(value) || null} onChange={(v) => onChange(v ?? "")} onUnparsable="clear" invalid={invalid} />);
     case "Text Editor":
       return shell(<RichTextEditor id={id} ariaLabel={label} value={str(value)} onChange={(html) => onChange(html)} />, { noLabelFor: true });
+    case "Autocomplete":
+      return shell(<AutocompleteControl {...common} df={df} value={str(value)} onChange={(v) => onChange(v)} translate={(x) => s.translate(bundle, x)} invalid={invalid} />);
     default:
       break;
   }

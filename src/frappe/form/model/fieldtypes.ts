@@ -28,3 +28,27 @@ export function randomString(n = 10): string {
 
 /** Desk's local name for a new document or row: `new-<slug>-<10 chars>` (create_new.js:77-80). */
 export const newLocalName = (doctype: string) => `new-${slug(doctype)}-${randomString(10)}`;
+
+/**
+ * Fieldtypes FrappeField has a control (or display) for (P35). Anything else — Signature, Geolocation, Barcode, Icon,
+ * an app's custom type — is reported (`analyzeFieldtypes`, the form's issues banner) and its value shown read-only,
+ * never edited through a plain text box that could corrupt it (before 0.7 it silently fell back to one).
+ */
+export const SUPPORTED_FIELDTYPES = new Set([
+  ...LAYOUT_TYPES, ...DISPLAY_TYPES, ...TABLE_TYPES,
+  "Data", "Link", "Dynamic Link", "Select", "Autocomplete", "Read Only", "Password", "Phone",
+  "Small Text", "Text", "Long Text", "Text Editor", "Code", "JSON", "HTML Editor", "Markdown Editor",
+  "Int", "Long Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration",
+  "Date", "Datetime", "Time", "Color", "Attach", "Attach Image",
+]);
+
+export interface FieldtypeIssue { doctype: string; fieldname: string; fieldtype: string; label?: string }
+
+/** Fields of the bundle (parent and child DocTypes) whose fieldtype has no control here. */
+export function analyzeFieldtypes(bundle: { meta: { name: string; fields?: { fieldname: string; fieldtype: string; label?: string }[] }; children?: Record<string, { name: string; fields?: { fieldname: string; fieldtype: string; label?: string }[] }> }): FieldtypeIssue[] {
+  const out: FieldtypeIssue[] = [];
+  for (const m of [bundle.meta, ...Object.values(bundle.children ?? {})]) {
+    for (const f of m.fields ?? []) if (!SUPPORTED_FIELDTYPES.has(f.fieldtype)) out.push({ doctype: m.name, fieldname: f.fieldname, fieldtype: f.fieldtype, label: f.label });
+  }
+  return out;
+}

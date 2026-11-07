@@ -63,9 +63,10 @@ import { buildFetchMap, fetchUpdates, isReadOnlyByFetch, type FetchEntry } from 
 import { buildLayout, sectionFields, type LayoutSection, type LayoutTab } from "./model/layout";
 import { checkMandatory, commaAnd, type MandatoryLine, type MandatoryResult } from "./model/mandatory";
 import { formActions, type FormAction } from "./model/actions";
+import { fieldErrorsFromFrappeError } from "./model/errors";
 import { controlStatus, ladderStatus } from "./model/status";
 import type { DefaultsContext } from "./model/defaults";
-import { TABLE_TYPES } from "./model/fieldtypes";
+import { TABLE_TYPES, analyzeFieldtypes } from "./model/fieldtypes";
 import { runEvent, type CustomButton, type FormController, type FormEventsConfig, type LinkQuery } from "./events";
 import { useFormServices } from "./services";
 import { useLinkTitles } from "./linkTitles";
@@ -168,11 +169,15 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const issueKey = (i: DependsIssue) => `${i.doctype}.${i.fieldname}.${i.property}.${i.kind}`;
   const [initialIssues] = React.useState<DependsIssue[]>(() => analyzeDependencies(bundle, s.evaluator));
   const [issues, setIssues] = React.useState<DependsIssue[]>(initialIssues);
+  // fieldtypes without a control (shown read-only by FrappeField) are listed with the expression issues (P35)
+  const fieldtypeIssues = React.useMemo(() => analyzeFieldtypes(bundle), [bundle]);
   const seenIssues = React.useRef(new Set<string>(initialIssues.map(issueKey)));
   const [activeTab, setActiveTab] = React.useState<string | null>(null);
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const [saving, setSaving] = React.useState<FormAction | null>(null);
   const [error, setError] = React.useState<unknown>(null);
+  // P35 (A43): a MandatoryError / LinkValidationError from the server is also shown on the fields it names
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [notice, setNotice] = React.useState<string | null>(null);
   const [missing, setMissing] = React.useState<MandatoryResult | null>(null);
   const [confirm, setConfirm] = React.useState<"Submit" | "Cancel" | null>(null);
@@ -341,6 +346,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
 
   // field-change events (Desk: after the model is set; child rows with (frm, cdt, cdn))
   React.useEffect(() => store.onFieldChange((c: FieldChange) => {
+    const key = c.parentfield ?? c.fieldname;
+    setFieldErrors((fe) => { if (!(key in fe)) return fe; const next = { ...fe }; delete next[key]; return next; });
     if (c.parentfield) void trigger(c.fieldname, c.doctype, c.name, true);
     else void trigger(c.fieldname);
   }), [store, trigger]);
@@ -495,6 +502,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       }
       if (!mandatoryOk()) return false;
       const current = store.getDoc();
+      setFieldErrors({});
       const saved = await onSave(current, action);
       store.replace(saved);
       setVersion((v) => v + 1);
@@ -505,6 +513,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       return true;
     } catch (e) {
       setError(e);
+      const fe = fieldErrorsFromFrappeError(e, bundle, (l) => s.translate(bundle, l));
+      setFieldErrors(fe);
+      const first = Object.keys(fe)[0];
+      if (first) scrollToField(first);
       return false;
     } finally {
       savingRef.current = false;
@@ -680,6 +692,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         doc={doc}
         bundle={bundle}
         status={st}
+        error={fieldErrors[df.fieldname]}
         table={isTable ? tableController(df) : undefined}
         {...linkProps(e, meta.name)}
       />
@@ -780,9 +793,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           onRetry={error instanceof FrappeError && error.kind === "timestamp" && props.onReload ? () => void reload() : undefined} />
       )}
 
-      {issues.length > 0 && (
+      {issues.length + fieldtypeIssues.length > 0 && (
         <div role="note" className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
           <ul className="list-disc space-y-0.5 ps-4">
+            {fieldtypeIssues.map((i) => (
+              <li key={`ft.${i.doctype}.${i.fieldname}`} data-fieldtype-issue={i.fieldtype}>
+                {interpolate(t("formUnsupportedFieldtype"), { field: `${i.doctype}.${i.fieldname}`, type: i.fieldtype })}
+              </li>
+            ))}
             {issues.map((i) => (
               <li key={`${i.doctype}.${i.fieldname}.${i.property}.${i.kind}`}>
                 {i.kind === "unsupported"

@@ -19,6 +19,9 @@ export type { FormLayout, LayoutColumn, LayoutSection, LayoutTab } from "./layou
 export { formActions } from "./actions";
 export type { ActionInput, ActionResult, FormAction } from "./actions";
 export { ladderStatus, controlStatus } from "./status";
-export { LAYOUT_TYPES, NO_VALUE_TYPES, TABLE_TYPES, DISPLAY_TYPES, newLocalName, slug } from "./fieldtypes";
+export { LAYOUT_TYPES, NO_VALUE_TYPES, TABLE_TYPES, DISPLAY_TYPES, SUPPORTED_FIELDTYPES, analyzeFieldtypes, newLocalName, slug } from "./fieldtypes";
+export type { FieldtypeIssue } from "./fieldtypes";
 export { quickEntryFields, quickEntryFilter } from "./quickEntry";
 export type { QuickEntryFields, QuickEntryReason } from "./quickEntry";
+export { fieldErrorsFromFrappeError } from "./errors";
+export type { FieldErrorSource } from "./errors";

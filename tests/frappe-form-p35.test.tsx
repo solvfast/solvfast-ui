@@ -10,12 +10,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import todoEn from "./fixtures/real-15.110/todo.en.json";
 import userEn from "./fixtures/real-15.110/user.en.json";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
-import { createFrappeClient, linkTitlesOf, type FrappeApi, type FrappeTransport, type LoadedDocWithTitles } from "../src/frappe/client";
+import { createFrappeClient, linkTitlesOf, toFrappeError, type FrappeApi, type FrappeTransport, type LoadedDocWithTitles } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
 import type { FrappeSession } from "../src/frappe/services/permissions";
-import { FrappeForm, FrappeFormView, FrappeFormServices, useUnsavedChangesBlocker, type FormController, type FormServices, type FrappeFormViewProps } from "../src/frappe/form";
+import { FrappeForm, FrappeFormView, FrappeFormServices, fieldErrorsFromFrappeError, useUnsavedChangesBlocker, type FormController, type FormServices, type FrappeFormViewProps } from "../src/frappe/form";
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -530,5 +530,50 @@ describe("F4 / F6, F8 Link: 'Create a new X' needs the target's create right, th
     fireEvent.click(await screen.findByRole("option", { name: "Create a new Contact" }));
     expect(onCreateNew).toHaveBeenCalledWith(expect.objectContaining({ doctype: "Contact" }));
     expect(calls("frappe.desk.form.load.getdoctype")).toHaveLength(0);
+  });
+});
+
+describe("A43 server save errors on the fields they name (base_document.py:738-776, document.py:950-982)", () => {
+  it("A43 LinkValidationError (strict SIMULATED save): 'Could not find Assigned By: …' marks Assigned By; editing it clears the mark", async () => {
+    const ref = { current: null as FormController | null };
+    const { calls } = setup(<FrappeForm doctype="ToDo" name="TD-1" guardUnload={false} controllerRef={ref} />, { strict: true });
+    await screen.findByRole("combobox", { name: /Assigned By/ });
+    act(() => ref.current!.setValue("assigned_by", "nobody@x.com")); // a script write: no client-side validate_link
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(calls("frappe.desk.form.save.savedocs")).toHaveLength(1));
+    const box = await screen.findByRole("combobox", { name: /Assigned By/ });
+    await waitFor(() => expect(box.getAttribute("aria-invalid")).toBe("true"));
+    const msgId = box.getAttribute("aria-describedby")!;
+    expect(document.getElementById(msgId)?.textContent).toBe("Could not find Assigned By: nobody@x.com");
+    act(() => ref.current!.setValue("assigned_by", "ann@x.com"));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: /Assigned By/ }).getAttribute("aria-invalid")).toBeNull());
+  });
+
+  it("A43 MandatoryError (response shaped as document.py:963 + base_document.py:758): the named field shows the server's line", async () => {
+    // the client check passed (the value is set locally); the server still found it empty (e.g. only an empty tag)
+    const wrap = (t: FrappeTransport): FrappeTransport => async (m, a) => {
+      if (m === "frappe.desk.form.save.savedocs") throw toFrappeError(417, { exc_type: "MandatoryError", exception: "frappe.exceptions.MandatoryError: [ToDo, TD-1]: description", _server_messages: JSON.stringify([JSON.stringify({ message: "Error: Value missing for ToDo: Description" })]) });
+      return t(m, a);
+    };
+    setup(<FrappeForm doctype="ToDo" name="TD-1" guardUnload={false} />, { wrap });
+    const ed = await screen.findByRole("textbox", { name: /Description/ });
+    ed.innerHTML = "<p>Edited</p>"; fireEvent.input(ed); fireEvent.blur(ed);
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    // under the field (its message element), without the "Error:" prefix; the error box keeps the whole server text
+    const line = await screen.findByText("Value missing for ToDo: Description");
+    expect(line.id).toMatch(/-msg$/);
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain("Error: Value missing for ToDo: Description");
+  });
+
+  it("A43 fieldErrorsFromFrappeError: parent / child / translated labels; other errors map nothing", () => {
+    const bundle = bundleOf(
+      { name: "Order", fields: [{ fieldname: "customer", fieldtype: "Link", label: "Customer", options: "Customer" }, { fieldname: "items", fieldtype: "Table", label: "Items", options: "Order Item" }, { fieldname: "note", fieldtype: "Data", label: "Note", reqd: 1 }] },
+      { "Order Item": { name: "Order Item", istable: 1, fields: [{ fieldname: "item", fieldtype: "Link", label: "Item", options: "Item" }, { fieldname: "qty", fieldtype: "Int", label: "Qty", reqd: 1 }] } },
+    );
+    const link = { excType: "LinkValidationError", messages: [{ message: "Could not find Customer: ACME, Row #2: Item: <b>X-1</b>" }] };
+    expect(fieldErrorsFromFrappeError(link, bundle)).toEqual({ customer: "Could not find Customer: ACME", items: "Could not find Row #2: Item: X-1" });
+    const mand = { excType: "MandatoryError", messages: [{ message: "Error: <strong>Order Item</strong> Row #1: Value missing for: Qty" }, { message: "Error: Value missing for Order: ملاحظة" }] };
+    expect(fieldErrorsFromFrappeError(mand, bundle, (l) => (l === "Note" ? "ملاحظة" : l))).toEqual({ items: "Order Item Row #1: Value missing for: Qty", note: "Value missing for Order: ملاحظة" });
+    expect(fieldErrorsFromFrappeError({ excType: "ValidationError", messages: [{ message: "Could not find Customer: ACME" }] }, bundle)).toEqual({});
   });
 });
