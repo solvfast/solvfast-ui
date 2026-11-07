@@ -4,7 +4,7 @@
  * behaviour on a real site. Test names start with the List audit row (docs/audit/p35/B-list.md).
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { defaultMessages } from "../src/theme/messages";
@@ -489,5 +489,130 @@ describe("LV.J4 / LV.J5 / LV.J6 / LV.J7 / LV.J11 list menu: Desk's System-Manage
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(parsed(lastGet().fields)).toContain("amount"));
     expect([...document.querySelectorAll("thead th")].map((h) => h.textContent!.trim())).toEqual(["Title", "Status", "Amount"]);
+  });
+});
+
+describe("LV.F1 Bulk Edit: the chosen field's own value control (bulk_operations.js:381-404)", () => {
+  const editDialog = async () => {
+    for (const i of [1, 2]) fireEvent.click(screen.getAllByRole("checkbox")[i]);
+    fireEvent.click(await screen.findByRole("button", { name: en("listBulkEdit") }));
+    return screen.findByRole("dialog");
+  };
+  const pickField = async (dialog: HTMLElement, label: string) => {
+    openMenu(within(dialog).getByRole("combobox", { name: en("listBulkField") }));
+    fireEvent.click(await screen.findByRole("option", { name: label }));
+  };
+  const update = (calls: (m: string) => { args: Record<string, unknown> }[]) => calls("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs").at(-1)!.args;
+
+  it("LV.F1 a Link field gets a link search over its target; Apply sends the picked name (SIMULATED)", async () => {
+    const { calls } = mountSim(simBackend({ workflow: false }), { bulk: { allowEdit: true } });
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    const dialog = await editDialog();
+    await pickField(dialog, "Reviewer");
+    await new Promise((r) => setTimeout(r, 50)); // the field Select hands the focus back first
+    const box = within(dialog).getByRole("combobox", { name: en("listBulkValue") });
+    act(() => box.focus());
+    fireEvent.change(box, { target: { value: "Bob" } });
+    await waitFor(() => expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([expect.stringContaining("Bob Ray")]), { timeout: 3000 });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(calls("frappe.desk.search.search_link").some((c) => c.args.doctype === "User")).toBe(true));
+    fireEvent.click(within(dialog).getByRole("button", { name: en("listBulkApply") }));
+    await waitFor(() => expect(update(calls).action).toBe("update"));
+    expect(parsed(update(calls).data)).toEqual({ reviewer: "bob@x.com" });
+  });
+
+  it("LV.F1 a number field gets a number input and sends a number; an empty value says so and sends null (SIMULATED)", async () => {
+    const { calls } = mountSim(simBackend({ workflow: false }), { bulk: { allowEdit: true } });
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    let dialog = await editDialog();
+    await pickField(dialog, "Amount");
+    const amount = within(dialog).getByLabelText(en("listBulkValue"));
+    expect(amount.getAttribute("inputmode")).toBe("decimal");
+    fireEvent.change(amount, { target: { value: "42" } });
+    fireEvent.blur(amount);
+    fireEvent.click(within(dialog).getByRole("button", { name: en("listBulkApply") }));
+    await waitFor(() => expect(calls("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs").length).toBe(1));
+    expect(parsed(update(calls).data)).toEqual({ amount: 42 });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: en("listBulkEdit") })).toBeNull()); // the run cleared the selection
+    dialog = await editDialog();
+    await pickField(dialog, "Title");
+    expect(within(dialog).getByText(t("listBulkEditEmpty"))).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: en("listBulkApply") }));
+    await waitFor(() => expect(parsed(update(calls).data)).toEqual({ title: null }));
+  });
+});
+
+// ---- B gap 11: test-only gaps ------------------------------------------------------------------------------------------
+const ORDER: DocTypeMeta = {
+  name: "Order", is_submittable: 1, autoname: "format:ORD-{###}", title_field: "title",
+  permissions: [{ role: "System Manager", permlevel: 0, read: 1, write: 1, create: 1, submit: 1, cancel: 1, delete: 1 }],
+  fields: [
+    { fieldname: "title", fieldtype: "Data", label: "Title", in_list_view: 1 },
+    // a Custom Field as getdoctype merges it into meta.fields (is_custom_field: 1)
+    { fieldname: "region", fieldtype: "Select", label: "Region", options: "North\nSouth", in_list_view: 1, in_standard_filter: 1, is_custom_field: 1 },
+  ],
+} as DocTypeMeta;
+const orders = () => createFixtureTransport({
+  meta: { Order: [ORDER] },
+  docs: { Order: [
+    { name: "ORD-001", title: "First", region: "North", docstatus: 0, modified: "2026-11-03 10:00:00.000000" },
+    { name: "ORD-002", title: "Second", region: "South", docstatus: 0, modified: "2026-11-02 10:00:00.000000" },
+    { name: "ORD-003", title: "Third", region: "North", docstatus: 1, modified: "2026-11-01 10:00:00.000000" },
+  ], User: USERS },
+  user: "u@x.com",
+} as never);
+
+describe("LV.F8 / LV.F9 / LV.A9 test-only gaps (B gap 11)", () => {
+  const rowBox = (title: string) => within(bodyRows().find((r) => r.textContent!.includes(title))!).getByRole("checkbox");
+  const bulkCalls = (calls: (m: string) => { args: Record<string, unknown> }[]) => calls("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs").map((c) => c.args);
+
+  it("LV.F8 Submit: click → Desk's confirmation → submit_cancel_or_update_docs(action: submit) for exactly the checked drafts (SIMULATED)", async () => {
+    const transport = orders();
+    const { calls } = mountSim(transport, { doctype: "Order", bulk: {} });
+    await waitFor(() => expect(bodyRows()).toHaveLength(3));
+    fireEvent.click(rowBox("First")); fireEvent.click(rowBox("Second"));
+    fireEvent.click(await screen.findByRole("button", { name: en("listBulkSubmit") }));
+    const confirm = await screen.findByRole("alertdialog");
+    expect(confirm.textContent).toContain(en("listBulkSubmitConfirm").replace("{n}", "2"));
+    fireEvent.click(within(confirm).getByRole("button", { name: en("confirm") }));
+    await waitFor(() => expect(bulkCalls(calls)).toHaveLength(1));
+    expect(bulkCalls(calls)[0]).toMatchObject({ doctype: "Order", action: "submit" });
+    expect(parsed(bulkCalls(calls)[0].docnames)).toEqual(["ORD-001", "ORD-002"]);
+    expect(transport.store.docs.get("Order")!.get("ORD-001")!.docstatus).toBe(1);
+  });
+
+  it("LV.F9 Cancel: click → confirmation → submit_cancel_or_update_docs(action: cancel); Cancel in the dialog sends nothing (SIMULATED)", async () => {
+    const transport = orders();
+    mountSim(transport, { doctype: "Order", bulk: {} });
+    const sent = () => transport.store.calls.filter((c) => c.method === "frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs").map((c) => c.args);
+    await waitFor(() => expect(bodyRows()).toHaveLength(3));
+    fireEvent.click(rowBox("Third"));
+    fireEvent.click(await screen.findByRole("button", { name: en("listBulkCancel") }));
+    let confirm = await screen.findByRole("alertdialog");
+    expect(confirm.textContent).toContain(en("listBulkCancelConfirm").replace("{n}", "1"));
+    fireEvent.click(within(confirm).getByRole("button", { name: en("cancel") }));
+    expect(sent()).toHaveLength(0);
+    fireEvent.click(await screen.findByRole("button", { name: en("listBulkCancel") }));
+    confirm = await screen.findByRole("alertdialog");
+    fireEvent.click(within(confirm).getByRole("button", { name: en("confirm") }));
+    await waitFor(() => expect(sent()).toHaveLength(1));
+    expect(sent()[0]).toMatchObject({ doctype: "Order", action: "cancel" });
+    expect(parsed(sent()[0].docnames)).toEqual(["ORD-003"]);
+    expect(transport.store.docs.get("Order")!.get("ORD-003")!.docstatus).toBe(2);
+  });
+
+  it("LV.A9 a custom field (is_custom_field: 1) is a column, a quick filter and a filter the request sends (SIMULATED)", async () => {
+    const transport = orders();
+    mountSim(transport, { doctype: "Order" });
+    await waitFor(() => expect(bodyRows()).toHaveLength(3));
+    expect([...document.querySelectorAll("thead th")].map((h) => h.textContent!.trim())).toContain("Region");
+    const quick = screen.getByRole("combobox", { name: "Region" });
+    openMenu(quick);
+    fireEvent.click(await screen.findByRole("option", { name: "South" }));
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    const gets = transport.store.calls.filter((c) => c.method === "frappe.desk.reportview.get");
+    expect(parsed(gets.at(-1)!.args.filters)).toEqual([["region", "=", "South"]]);
+    expect(parsed(gets.at(-1)!.args.fields)).toContain("region");
   });
 });

@@ -17,6 +17,12 @@ import { Button } from "../../primitives/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../primitives/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../primitives/dropdown-menu";
 import { Input } from "../../primitives/input";
+import { Textarea } from "../../primitives/textarea";
+import { DateField, DateTimeField } from "../../primitives/date-time-field";
+import { LinkInput } from "../../fields/LinkInput";
+import { NumberInput, type NumberKind } from "../../fields/NumberInput";
+import { TimeInput } from "../../fields/TimeInput";
+import type { FrappeDocField } from "../contract";
 import { AssignDialog, AssignPicker } from "../../record";
 import type { UserOption } from "../../record/types";
 import type { BulkAction } from "../../list/parts/ListFooter";
@@ -134,7 +140,7 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
   const editField = meta.editable.find((f) => f.name === field);
   const submitForm = () => {
     const f = form; setForm(null);
-    if (f === "edit" && editField) void run("edit", () => bulkSubmitCancelOrUpdate(client, doctype, keys, "update", { [field]: value === "" ? null : editField.fieldtype === "Check" ? Number(value) : value }));
+    if (f === "edit" && editField) void run("edit", () => bulkSubmitCancelOrUpdate(client, doctype, keys, "update", { [field]: bulkEditValue(value, editField.fieldtype) }));
     if (f === "add_tags" && tags.length) { const chosen = tags; setTags([]); void run("add_tags", () => bulkAddTags(client, doctype, keys, chosen)); }
   };
 
@@ -226,19 +232,9 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
                     <SelectContent>{meta.editable.map((f) => <SelectItem key={f.name} value={f.name}>{f.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </label>
-                {editField?.options?.length ? (
-                  <Select value={value || "__none__"} onValueChange={(v) => setValue(v === "__none__" ? "" : v)}>
-                    <SelectTrigger aria-label={t("listBulkValue")}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="__none__">—</SelectItem>{editField.options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                ) : editField?.fieldtype === "Check" ? (
-                  <Select value={value || "__none__"} onValueChange={(v) => setValue(v === "__none__" ? "" : v)}>
-                    <SelectTrigger aria-label={t("listBulkValue")}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="1">{t("yes")}</SelectItem><SelectItem value="0">{t("no")}</SelectItem></SelectContent>
-                  </Select>
-                ) : (
-                  <Input aria-label={t("listBulkValue")} placeholder={t("listBulkValue")} value={value} onChange={(e) => setValue(e.target.value)} />
-                )}
+                <BulkEditValue field={editField} value={value} onChange={setValue} client={client} doctype={doctype} fieldDef={meta.fieldDefs[field]} />
+                {/* Desk's help text when the value is empty (bulk_operations.js:406-417) */}
+                {editField && value === "" && <p className="text-xs text-muted-foreground" role="status">{t("listBulkEditEmpty")}</p>}
               </div>
             ) : form === "add_tags" ? (
               // Desk's MultiSelectPills over `frappe.db.get_link_options("Tag", txt)` (bulk_operations.js:429-437); a typed tag
@@ -312,4 +308,51 @@ export function FrappeBulkActions<T = Record<string, unknown>>(props: FrappeBulk
       {dialogs}
     </>
   );
+}
+
+const NUMBER_KIND: Record<string, NumberKind> = { Int: "int", Float: "float", Currency: "currency", Percent: "percent" };
+
+/** The value Desk's bulk Edit sends (bulk_operations.js:343-356, `value || null`): empty → null, Check / numbers typed. */
+export function bulkEditValue(value: string, fieldtype: string): unknown {
+  if (value === "") return null;
+  if (fieldtype === "Check") return Number(value);
+  if (NUMBER_KIND[fieldtype]) { const n = Number(value); return Number.isNaN(n) ? value : n; }
+  return value;
+}
+
+/**
+ * Bulk Edit's Value control: the chosen field's own control, as Desk swaps in the field's df (bulk_operations.js:381-404)
+ * — Select options, Check Yes/No, Link search (`search_link` on the target DocType), Date / Datetime pickers, Time,
+ * numbers, multi-line text; plain text otherwise. The value is kept as a string (`bulkEditValue` types it on send).
+ */
+export function BulkEditValue({ field, value, onChange, client, doctype, fieldDef }: {
+  field: FrappeListMeta["editable"][number] | undefined; value: string; onChange: (v: string) => void; client: FrappeClient; doctype: string; fieldDef?: FrappeDocField;
+}) {
+  const { t } = useLocale();
+  const label = t("listBulkValue");
+  if (!field) return null;
+  const ft = field.fieldtype;
+  if (field.options?.length) return (
+    <Select value={value || "__none__"} onValueChange={(v) => onChange(v === "__none__" ? "" : v)}>
+      <SelectTrigger aria-label={label}><SelectValue /></SelectTrigger>
+      <SelectContent><SelectItem value="__none__">—</SelectItem>{field.options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+    </Select>
+  );
+  if (ft === "Check") return (
+    <Select value={value || "__none__"} onValueChange={(v) => onChange(v === "__none__" ? "" : v)}>
+      <SelectTrigger aria-label={label}><SelectValue /></SelectTrigger>
+      <SelectContent><SelectItem value="1">{t("yes")}</SelectItem><SelectItem value="0">{t("no")}</SelectItem></SelectContent>
+    </Select>
+  );
+  if (ft === "Link" && fieldDef?.options) {
+    const target = String(fieldDef.options);
+    return <LinkInput aria-label={label} value={value || null} onChange={(v) => onChange(v ?? "")} clearable
+      search={async (q) => (await client.searchLink(target, q, { referenceDoctype: doctype })).map((r) => ({ value: r.value, label: r.label || r.value, description: r.description }))} />;
+  }
+  if (ft === "Date") return <DateField aria-label={label} value={value} onChange={onChange} />;
+  if (ft === "Datetime") return <DateTimeField aria-label={label} value={value} onChange={onChange} />;
+  if (ft === "Time") return <TimeInput aria-label={label} value={value || null} onChange={(v) => onChange(v ?? "")} />;
+  if (NUMBER_KIND[ft]) return <NumberInput aria-label={label} kind={NUMBER_KIND[ft]} value={value === "" ? null : Number(value)} onChange={(n) => onChange(n === null ? "" : String(n))} />;
+  if (["Small Text", "Text", "Long Text", "Text Editor", "Code"].includes(ft)) return <Textarea aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} rows={3} />;
+  return <Input aria-label={label} placeholder={label} value={value} onChange={(e) => onChange(e.target.value)} />;
 }
