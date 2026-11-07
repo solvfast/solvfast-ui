@@ -490,7 +490,7 @@ describe("CORE.G20 MonthInput (month granularity)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(change).toHaveBeenLastCalledWith(null);
   });
-  it("CORE.G20 keyboard: arrows move (mirrored in RTL), Up/Down by a row, PageDown changes year, Enter picks", async () => {
+  it("CORE.G20 keyboard: arrows move the roving focus (mirrored in RTL), Up/Down by a row, PageDown changes year; the focused month button commits", async () => {
     const change = vi.fn();
     wrap(<MonthInput aria-label="m" value="2026-05" onChange={change} />, "ar");
     fireEvent.click(screen.getByRole("button", { name: /^m: / }));
