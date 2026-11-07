@@ -14,6 +14,8 @@ export const coreEn = {
   coreFileRejectCount: "“{name}” was not added: at most {max} files.",
   coreFileRemove: "Remove {name}",
   coreFileList: "Chosen files",
+  // SearchCombobox multiple (G16): trigger text for more than two picks
+  coreComboSelected: "{n} selected",
 };
 export const coreAr: { [K in keyof typeof coreEn]: string } = {
   coreStepSkipped: "تم تخطّيها",
@@ -28,4 +30,5 @@ export const coreAr: { [K in keyof typeof coreEn]: string } = {
   coreFileRejectCount: "لم يُضَف «{name}»: الحد الأقصى {max} ملفات.",
   coreFileRemove: "إزالة {name}",
   coreFileList: "الملفات المختارة",
+  coreComboSelected: "{n} محدّدة",
 };

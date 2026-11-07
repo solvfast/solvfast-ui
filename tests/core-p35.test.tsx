@@ -6,7 +6,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import {
-  AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
+  SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
   type LifecycleStateItem,
 } from "../src";
 
@@ -227,5 +227,70 @@ describe("CORE.G14 FileDropzone", () => {
     const alert = screen.getByRole("alert").textContent ?? "";
     expect(alert).toContain("«tool.exe» ليس من أنواع الملفات المقبولة.");
     expect(alert).toContain("«brief.pdf» أكبر من ١ ك.ب.");
+  });
+});
+
+describe("CORE.G16 SearchCombobox static options + multiple", () => {
+  const opts = [
+    { value: "lead", label: "Lead", description: "Prospect" },
+    { value: "deal", label: "Deal" },
+    { value: "org", label: "Organization" },
+    { value: "contact", label: "Contact" },
+  ];
+  const base = { placeholder: "Pick types", searchPlaceholder: "Filter", emptyText: "Nothing" };
+
+  it("CORE.G16 static options: no loading, filtered on label / description as you type, label on the trigger", async () => {
+    const onSelect = vi.fn();
+    const { rerender } = wrap(<SearchCombobox {...base} options={opts} onSelect={onSelect} />);
+    fireEvent.click(screen.getByRole("combobox"));
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getAllByRole("option")).toHaveLength(4);
+    fireEvent.change(screen.getByPlaceholderText("Filter"), { target: { value: "prosp" } });
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["LeadProspect"]);
+    fireEvent.change(screen.getByPlaceholderText("Filter"), { target: { value: "zzz" } });
+    expect(screen.getByText("Nothing")).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText("Filter"), { target: { value: "org" } });
+    fireEvent.click(screen.getByRole("option", { name: "Organization" }));
+    expect(onSelect).toHaveBeenCalledWith("org");
+    rerender(<ThemeProvider><SearchCombobox {...base} options={opts} value="org" onSelect={onSelect} /></ThemeProvider>);
+    expect(screen.getByRole("combobox").textContent).toContain("Organization");
+  });
+  it("CORE.G16 multiple: each pick toggles, the list stays open, aria-checked marks the chosen ones; trigger summarises", () => {
+    const Harness = () => {
+      const [v, setV] = React.useState<string[]>(["lead"]);
+      return <SearchCombobox {...base} options={opts} multiple values={v} onValuesChange={setV} variant="field" />;
+    };
+    wrap(<Harness />);
+    const trigger = screen.getByRole("combobox");
+    expect(trigger.textContent).toContain("Lead");
+    expect(trigger.className).toContain("sf-field-fill");
+    fireEvent.click(trigger);
+    expect(screen.getByRole("listbox").getAttribute("aria-multiselectable")).toBe("true");
+    expect(screen.getByRole("option", { name: /Lead/ }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("option", { name: "Deal" }));
+    expect(screen.getByRole("listbox")).toBeTruthy(); // still open
+    expect(screen.getByRole("option", { name: "Deal" }).getAttribute("aria-checked")).toBe("true");
+    expect(trigger.textContent).toContain("Lead, Deal");
+    fireEvent.click(screen.getByRole("option", { name: "Contact" }));
+    expect(trigger.textContent).toContain("3 selected");
+    fireEvent.click(screen.getByRole("option", { name: /Lead/ }));
+    expect(screen.getByRole("option", { name: /Lead/ }).getAttribute("aria-checked")).toBe("false");
+    expect(trigger.textContent).toContain("Deal, Contact");
+  });
+  it("CORE.G16 keyboard: arrows move, Enter toggles in multiple mode", () => {
+    const change = vi.fn();
+    wrap(<SearchCombobox {...base} options={opts} multiple values={[]} onValuesChange={change} />);
+    fireEvent.click(screen.getByRole("combobox"));
+    const input = screen.getByPlaceholderText("Filter");
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(change).toHaveBeenCalledTimes(1);
+    expect(opts.map((o) => o.value)).toContain(change.mock.calls[0][0][0]);
+  });
+  it("CORE.G16 Arabic summary and disabled trigger", () => {
+    const { rerender } = wrap(<SearchCombobox {...base} options={opts} multiple values={["lead", "deal", "org"]} />, "ar");
+    expect(screen.getByRole("combobox").textContent).toContain("3 محدّدة");
+    rerender(<ThemeProvider language="ar"><SearchCombobox {...base} options={opts} disabled onSelect={() => {}} /></ThemeProvider>);
+    expect((screen.getByRole("combobox") as HTMLButtonElement).disabled).toBe(true);
   });
 });
