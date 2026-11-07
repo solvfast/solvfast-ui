@@ -250,6 +250,14 @@ const isSystemManager = (roles: readonly string[] | undefined) => !!roles?.inclu
 const actsAsSystemManager = (who: RolesOrSession) => (!isRoleList(who) && isAdministrator(who)) || isSystemManager(rolesOf(who));
 
 /**
+ * P35: Desk's `frappe.user_roles.includes("System Manager")` / `frappe.user.has_role(["System Manager", "Administrator"])`
+ * (list_view.js:1714-1733, list_filter.js:6), with the Administrator USER recognised without a role list. No roles → false.
+ */
+export function actsAsSystemManagerFor(who: RolesOrSession): boolean {
+  return actsAsSystemManager(who);
+}
+
+/**
  * `frappe.model.can_import(doctype, frm, meta)` (model.js:434-442) and the server's `can_import` (permissions.py:599-605):
  * the DocType must have `allow_import` (model.js:435; the server's `Data Import` refuses it for everyone, the Administrator
  * included, data_import.py:64 — before its permission check at :71); then System Manager always may (model.js:438),

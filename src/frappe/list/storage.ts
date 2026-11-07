@@ -20,7 +20,8 @@ export interface FrappeSavedFiltersOptions {
   /** The session user (`for_user` of personal filters; they are listed together with the global ones, `for_user` empty). */
   user: string;
   meta: MetaSource;
-  /** Desk offers "Is Global" to System Managers only; `save` stores a global filter when this is true. Default false. */
+  /** Store EVERY save as global (the 0.6.0 all-or-nothing switch). Per save: `save(…, { global: true })`, which the list's
+   *  "Is Global" checkbox sends (Desk offers it to System Managers only, list_filter.js:6). Default false. */
   global?: boolean;
 }
 
@@ -38,16 +39,16 @@ export function createFrappeSavedFilters(client: FrappeClient, o: FrappeSavedFil
       let tuples: unknown = [];
       try { tuples = JSON.parse(r.filters || "[]"); } catch { /* unreadable → no conditions */ }
       const query: FilterQuery = meta ? tuplesToQuery(tuples, meta) : { conjunction: "and", conditions: [] };
-      return { id: r.name, label: r.filter_name, query };
+      return { id: r.name, label: r.filter_name, query, ...(r.for_user ? {} : { global: true }) };
     });
   };
   return {
     list,
-    async save(doctype, label, query) {
+    async save(doctype, label, query, saveOpts) {
       const meta = metaOf(o.meta);
       if (!meta) throw new Error("The DocType's metadata is not loaded yet.");
       if ((await list(doctype)).some((f) => f.label === label)) throw new Error(`A filter named "${label}" already exists.`); // Desk rejects duplicates client-side
-      const doc = { doctype: "List Filter", reference_doctype: doctype, filter_name: label, for_user: o.global ? "" : o.user, filters: JSON.stringify(queryToTuples(query, meta)) };
+      const doc = { doctype: "List Filter", reference_doctype: doctype, filter_name: label, for_user: (saveOpts?.global ?? o.global) ? "" : o.user, filters: JSON.stringify(queryToTuples(query, meta)) };
       await client.call("frappe.client.insert", { doc: JSON.stringify(doc) });
       return list(doctype);
     },

@@ -21,7 +21,7 @@ import { fieldOf, filterFieldsFromColumns, type ColumnDef } from "./model/column
 import { EMPTY_QUERY, activeConditionCount, applyFilterQuery, type FilterField, type FilterQuery, type FiscalYear } from "./model/filters";
 import { groupRows, type GroupByOption, type RowGroup } from "./model/group";
 import { sortRows, type SortState } from "./model/sort";
-import { createLocalStorageAdapter, type ListPrefs, type ListPrefsStorage, type SavedFilter, type SavedFiltersStorage } from "./model/storage";
+import { createLocalStorageAdapter, type ListPrefs, type ListPrefsStorage, type SaveFilterOptions, type SavedFilter, type SavedFiltersStorage } from "./model/storage";
 
 export interface ListQueryState {
   search: string;
@@ -230,9 +230,9 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
     // saved filters
     saved,
     applySaved: (f: SavedFilter) => setQuery(f.query),
-    saveCurrent: (label: string) => {
+    saveCurrent: (label: string, saveOpts?: SaveFilterOptions) => {
       if (!viewKey || !savedStore) return;
-      update(() => savedStore.save(viewKey, label, query), "save", (list) => {
+      update(() => (saveOpts ? savedStore.save(viewKey, label, query, saveOpts) : savedStore.save(viewKey, label, query)), "save", (list) => {
         setSaved(list);
         const f = list.find((x) => x.label === label);
         if (f) opts.onFilterSaved?.(f);

@@ -14,11 +14,14 @@ export interface ListPrefsStorage {
   load(viewKey: string): ListPrefs;
   save(viewKey: string, prefs: ListPrefs): void;
 }
-export interface SavedFilter { id: string; label: string; query: FilterQuery; }
+export interface SavedFilter { id: string; label: string; query: FilterQuery; /** Shared with every user (Desk's "Is Global": `List Filter.for_user` empty). */ global?: boolean; }
 type MaybePromise<T> = T | Promise<T>;
+/** Options of one save: `global` = for every user (Desk's "Is Global", offered to System Managers, list_filter.js:6, 40-46). */
+export interface SaveFilterOptions { global?: boolean }
 export interface SavedFiltersStorage {
   list(viewKey: string): MaybePromise<SavedFilter[]>;
-  save(viewKey: string, label: string, query: FilterQuery): MaybePromise<SavedFilter[]>;
+  /** Rejects (throws) a label that already exists, as Desk does (list_filter.js:127, 135-137). */
+  save(viewKey: string, label: string, query: FilterQuery, opts?: SaveFilterOptions): MaybePromise<SavedFilter[]>;
   remove(viewKey: string, id: string): MaybePromise<SavedFilter[]>;
 }
 
@@ -31,8 +34,11 @@ export function createLocalStorageAdapter(opts: { prefix?: string; userKey?: str
     prefs: { load: (v) => read<ListPrefs>(k(v, "prefs"), {}), save: (v, p) => write(k(v, "prefs"), p) },
     saved: {
       list: (v) => read<SavedFilter[]>(k(v, "saved"), []),
-      save: (v, label, query) => {
-        const next = [...read<SavedFilter[]>(k(v, "saved"), []).filter((f) => f.label !== label), { id: `f${Date.now()}`, label, query }];
+      // P35: a duplicate name is rejected (it used to replace the old filter silently), as the Frappe adapter and Desk do
+      save: (v, label, query, o) => {
+        const prev = read<SavedFilter[]>(k(v, "saved"), []);
+        if (prev.some((f) => f.label === label)) throw new Error(`A filter named "${label}" already exists.`);
+        const next = [...prev, { id: `f${Date.now()}`, label, query, ...(o?.global ? { global: true } : {}) }];
         write(k(v, "saved"), next); return next;
       },
       remove: (v, id) => { const next = read<SavedFilter[]>(k(v, "saved"), []).filter((f) => f.id !== id); write(k(v, "saved"), next); return next; },

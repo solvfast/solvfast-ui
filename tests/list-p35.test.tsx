@@ -187,3 +187,55 @@ describe("G1 phone card layout (D-crm G1)", () => {
     expect(document.querySelector("[data-card]")).toBeNull();
   });
 });
+
+describe("LV.C9 / LV.C11 / LV.C12 saved filters: Is Global, delete confirmation, duplicate names", () => {
+  const withFilter = (p: Partial<ListViewProps<Row>> = {}) => {
+    const store = createLocalStorageAdapter({ prefix: "p35:" });
+    renderList({ viewKey: "tasks", storage: { saved: store.saved, prefs: null }, initialQuery: { conjunction: "and", conditions: [{ id: "c", field: "status", operator: "equals", value: "Done" }] }, ...p });
+    fireEvent.click(screen.getByRole("button", { name: t("saved") }));
+    return store;
+  };
+  const pop = () => screen.getByRole("dialog");
+  const typeName = (v: string) => fireEvent.change(within(pop()).getByPlaceholderText(t("saveCurrentAs")), { target: { value: v } });
+
+  it("LV.C11 removing asks first (list_filter.js:104-117): Cancel keeps the filter, Remove deletes it", async () => {
+    const store = withFilter();
+    typeName("Done ones");
+    fireEvent.click(within(pop()).getByRole("button", { name: t("saveCurrentAs") }));
+    await waitFor(() => expect(within(pop()).getByRole("button", { name: "Done ones" })).toBeTruthy());
+    fireEvent.click(within(pop()).getByRole("button", { name: `${t("remove")} Done ones` }));
+    const confirm = screen.getByRole("alertdialog");
+    expect(confirm.textContent).toContain(t("listSavedDeleteConfirm").replace("{name}", "Done ones"));
+    fireEvent.click(within(confirm).getByRole("button", { name: t("cancel") }));
+    expect(store.saved.list("tasks")).toHaveLength(1);
+    fireEvent.click(within(pop()).getByRole("button", { name: `${t("remove")} Done ones` }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: t("remove") }));
+    await waitFor(() => expect(store.saved.list("tasks")).toHaveLength(0));
+  });
+
+  it("LV.C12 a duplicate name says 'Duplicate Filter Name' and cannot be saved; the local adapter rejects it too", async () => {
+    const store = withFilter();
+    typeName("Mine");
+    fireEvent.click(within(pop()).getByRole("button", { name: t("saveCurrentAs") }));
+    await waitFor(() => expect(within(pop()).getByRole("button", { name: "Mine" })).toBeTruthy());
+    typeName("Mine");
+    expect(within(pop()).getByText(t("listSavedDuplicate"))).toBeTruthy();
+    expect((within(pop()).getByRole("button", { name: t("saveCurrentAs") }) as HTMLButtonElement).disabled).toBe(true);
+    expect(() => store.saved.save("tasks", "Mine", { conjunction: "and", conditions: [] })).toThrow(/already exists/);
+  });
+
+  it("LV.C9 'Is Global' only with savedFiltersGlobal; a global save is stored and marked as such", async () => {
+    const store = withFilter({ savedFiltersGlobal: true });
+    expect(within(pop()).queryByRole("checkbox", { name: t("listSavedIsGlobal") })).toBeNull(); // Desk shows it once a name is typed
+    typeName("Team");
+    fireEvent.click(within(pop()).getByRole("checkbox", { name: t("listSavedIsGlobal") }));
+    fireEvent.click(within(pop()).getByRole("button", { name: t("saveCurrentAs") }));
+    await waitFor(() => expect(within(pop()).getByRole("button", { name: "Team" })).toBeTruthy());
+    expect((store.saved.list("tasks") as { global?: boolean }[])[0].global).toBe(true);
+    expect(pop().querySelector("[data-global]")!.textContent).toBe(t("listSavedGlobal"));
+    cleanup();
+    withFilter();
+    typeName("Mine");
+    expect(within(pop()).queryByRole("checkbox", { name: t("listSavedIsGlobal") })).toBeNull();
+  });
+});

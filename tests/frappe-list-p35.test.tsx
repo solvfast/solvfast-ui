@@ -377,3 +377,37 @@ describe("LV.I4 page size on FrappeListView", () => {
     expect(saved.List.sf_ui.pageSize).toBe(500);
   });
 });
+
+describe("LV.C9 saved filters on the server: per-save Is Global (System Manager only)", () => {
+  const open = () => fireEvent.click(screen.getByRole("button", { name: en("saved") }));
+  const pop = () => screen.getByRole("dialog");
+  const QUERY = { conjunction: "and" as const, conditions: [{ id: "s", field: "status", operator: "equals" as const, value: "Open" }] };
+
+  it("LV.C9 a System Manager's global save inserts List Filter with for_user '' and it is listed as Global; a personal one keeps for_user (SIMULATED)", async () => {
+    const transport = simBackend();
+    const { calls } = mountSim(transport, { storage: undefined, serverStorage: { user: "u@x.com", userSettings: false }, initialQuery: QUERY });
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    open();
+    fireEvent.change(within(pop()).getByPlaceholderText(en("saveCurrentAs")), { target: { value: "Everyone" } });
+    fireEvent.click(within(pop()).getByRole("checkbox", { name: t("listSavedIsGlobal") }));
+    fireEvent.click(within(pop()).getByRole("button", { name: en("saveCurrentAs") }));
+    await waitFor(() => expect(within(pop()).getByRole("button", { name: "Everyone" })).toBeTruthy());
+    fireEvent.change(within(pop()).getByPlaceholderText(en("saveCurrentAs")), { target: { value: "Mine" } });
+    fireEvent.click(within(pop()).getByRole("button", { name: en("saveCurrentAs") }));
+    await waitFor(() => expect(within(pop()).getByRole("button", { name: "Mine" })).toBeTruthy());
+    const docs = calls("frappe.client.insert").map((c) => JSON.parse(String(c.args.doc)));
+    expect(docs.map((d) => [d.filter_name, d.for_user])).toEqual([["Everyone", ""], ["Mine", "u@x.com"]]);
+    expect((JSON.parse(docs[0].filters) as unknown[][])[0].slice(0, 4)).toEqual(["Memo", "status", "=", "Open"]); // Desk's filter tuples
+    const globals = [...pop().querySelectorAll("[data-saved-filter]")].filter((r) => r.querySelector("[data-global]")).map((r) => r.textContent);
+    expect(globals).toHaveLength(1);
+    expect(globals[0]).toContain("Everyone");
+  });
+
+  it("LV.C9 negative control: a Reader (no System Manager) is not offered Is Global (list_filter.js:6)", async () => {
+    mountSim(simBackend(), { storage: undefined, serverStorage: { user: "r@x.com", userSettings: false }, initialQuery: QUERY }, { user: "r@x.com", roles: ["Reader"] });
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    open();
+    fireEvent.change(within(pop()).getByPlaceholderText(en("saveCurrentAs")), { target: { value: "Mine" } });
+    expect(within(pop()).queryByRole("checkbox", { name: t("listSavedIsGlobal") })).toBeNull();
+  });
+});

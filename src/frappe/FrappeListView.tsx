@@ -25,7 +25,7 @@ import { Button } from "../primitives/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/dropdown-menu";
 import { useFrappeSettings } from "./FrappeProvider";
 import { withFrappeApi } from "./client";
-import { canExport, canImport } from "./services/permissions";
+import { actsAsSystemManagerFor, canExport, canImport } from "./services/permissions";
 import { FrappeReportExportDialog } from "./list/FrappeReportExportDialog";
 import { FrappeExportDialog, type ExportDialogLabels } from "./list/FrappeExportDialog";
 
@@ -318,6 +318,8 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       selectable={rest.selectable ?? (bulk ? true : undefined)}
       primaryAction={rest.primaryAction ?? addButton}
       pageSizes={rest.pageSizes ?? DESK_PAGE_SIZES}
+      // Desk offers "Is Global" to System Managers / the Administrator only (list_filter.js:6)
+      savedFiltersGlobal={rest.savedFiltersGlobal ?? actsAsSystemManagerFor(session)}
       aside={rest.aside ?? asideNode}
       asideOpen={rest.asideOpen ?? (asideNode ? sidebarOpen : undefined)}
       toolbarActions={menuNode || rest.toolbarActions ? <>{rest.toolbarActions}{menuNode}</> : undefined}
