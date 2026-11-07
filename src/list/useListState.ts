@@ -49,7 +49,7 @@ export interface UseListStateOptions<T> {
   searchFields?: string[];
   /** Debounce before search and filter edits take effect (typing). Default: 300 ms in server mode, none in client mode. */
   searchDebounceMs?: number;
-  /** Default 20 (Sear). */
+  /** Default 20 (Sear). The user's choice (`setPageSize`, stored with the prefs) wins. */
   pageSize?: number;
   defaultSort?: SortState;
   groupByOptions?: GroupByOption<T>[];
@@ -90,7 +90,6 @@ function useDebounced<V>(value: V, ms: number): V {
 export function useListState<T>(opts: UseListStateOptions<T>) {
   const { language } = useLocale();
   const { rows, columns, rowKey, mode = "client", viewKey } = opts;
-  const pageSize = opts.pageSize ?? 20;
   const prefsStore = opts.storage === null ? null : opts.storage?.prefs === undefined ? local().prefs : opts.storage.prefs;
   const savedStore = opts.storage === null ? null : opts.storage?.saved === undefined ? local().saved : opts.storage.saved;
   const initial = React.useMemo<ListPrefs>(() => (viewKey && prefsStore ? prefsStore.load(viewKey) : {}), [viewKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -124,6 +123,8 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   const [sort, setSortState] = React.useState<SortState>(initial.sort ?? opts.defaultSort ?? DEFAULT_SORT);
   const [groupBy, setGroupByState] = React.useState<string>(initial.groupBy ?? "none");
   const [page, setPage] = React.useState(0);
+  const [chosenPageSize, setChosenPageSize] = React.useState<number | undefined>(() => (initial.pageSize && initial.pageSize > 0 ? initial.pageSize : undefined));
+  const pageSize = chosenPageSize ?? opts.pageSize ?? 20;
   const [quickFields, setQuickFieldsState] = React.useState<string[]>(initial.quick ?? opts.quickFilterFields ?? []);
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set());
 
@@ -194,6 +195,8 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   const setVisibleKeys = (keys: string[]) => { setChosenColumns(true); setVisibleKeysState(keys); persist({ visible: keys }); };
   const setGroupBy = (key: string) => { setGroupByState(key); setPage(0); persist({ groupBy: key }); };
   const setQuickFields = (names: string[]) => { setQuickFieldsState(names); persist({ quick: names }); };
+  /** Desk's paging buttons (base_list.js:374-418): a new page length starts again at page 1; remembered with the prefs. */
+  const setPageSize = (n: number) => { if (!(n > 0)) return; setChosenPageSize(n); setPage(0); persist({ pageSize: n }); };
   // adapters may throw or reject; either way the error goes to `onSavedFiltersError`
   const update = <R,>(run: () => R | Promise<R>, action: "save" | "remove", then: (r: R) => void) => {
     Promise.resolve().then(run).then(then).catch((e) => opts.onSavedFiltersError?.(e, action));
@@ -204,7 +207,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
     search, setSearch, query, setQuery, activeCount: activeConditionCount(query),
     sort, setSort, toggleSort,
     groupBy, setGroupBy, groupByOptions: opts.groupByOptions ?? [], groups, grouped,
-    rows: pageRows, total, page, setPage, pageSize,
+    rows: pageRows, total, page, setPage, pageSize, setPageSize,
     hasPrev: !grouped && page > 0,
     hasNext: !grouped && (page + 1) * pageSize < total,
     quickFields, setQuickFields,

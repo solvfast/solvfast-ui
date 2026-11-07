@@ -98,10 +98,20 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   emptyFilteredMessage?: React.ReactNode;
   /** Content between the toolbar and the table (e.g. a row of state chips). */
   belowToolbar?: React.ReactNode;
+  /**
+   * A side panel next to the list (Desk's list sidebar, e.g. a `GroupBySidebar`), at the inline start; it stacks above the
+   * list on narrow screens. Rendered inside the list's `ListActionsContext`, so it can apply / remove conditions.
+   */
+  aside?: React.ReactNode;
+  /** Show the `aside` (default true when given) — Desk's "Toggle Sidebar". */
+  asideOpen?: boolean;
   /** Called when the set of selected rows changes (keys). */
   onSelectionChange?: (keys: string[]) => void;
   /** Makes the total a button (Desk: click "1,000+" to count exactly). */
   onTotalClick?: () => void;
+  /** Page lengths the user may choose in the pager (Desk: 20 / 100 / 500 / 2500, base_list.js:374-418); the choice is
+   *  stored with the list prefs (`storage`). Omit: no picker (the fixed `pageSize`). */
+  pageSizes?: number[];
   className?: string;
 }
 
@@ -147,7 +157,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     like, onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, primaryAction, selectionMode = "bar", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage,
+    emptyMessage, toolbarActions, primaryAction, selectionMode = "bar", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage, pageSizes, aside, asideOpen,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -188,11 +198,13 @@ export function ListView<T>(props: ListViewProps<T>) {
   const actions = React.useMemo(() => ({
     applyCondition: (field: string, operator: Operator, value: string) =>
       s.setQuery({ ...s.query, conditions: [...s.query.conditions.filter((c) => c.field !== field), { id: `c${Date.now()}`, field, operator, value }] }),
+    removeCondition: (field: string) => s.setQuery({ ...s.query, conditions: s.query.conditions.filter((c) => c.field !== field) }),
+    query: s.query,
   }), [s.query]); // eslint-disable-line react-hooks/exhaustive-deps
+  const showAside = !!aside && asideOpen !== false;
 
-  return (
-    <ListActionsContext.Provider value={actions}>
-    <div className={cn("space-y-3 sf-datagrid", className)}>
+  const body = (
+    <div className={cn("space-y-3 sf-datagrid", showAside && "min-w-0 flex-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
         {c.search && (
           <div className="relative max-w-xs flex-1">
@@ -237,8 +249,18 @@ export function ListView<T>(props: ListViewProps<T>) {
       {/* The pager must be the last child (pill styles, styles/src/sf-overrides.css); while grouped there is no paging (rule
           C1), and with an error there is nothing to page or count, so an empty element keeps those selectors from
           matching anything else. */}
-      {s.grouped || error ? <div hidden /> : <ListPagination total={s.total} totalLabel={totalLabel} onTotalClick={onTotalClick} page={s.page} hasPrev={s.hasPrev} hasNext={s.hasNext || (!!hasMore && s.mode === "server" && s.rows.length >= s.pageSize)} onPage={s.setPage} />}
+      {s.grouped || error ? <div hidden /> : <ListPagination total={s.total} totalLabel={totalLabel} onTotalClick={onTotalClick} page={s.page} hasPrev={s.hasPrev} hasNext={s.hasNext || (!!hasMore && s.mode === "server" && s.rows.length >= s.pageSize)} onPage={s.setPage}
+        pageSize={s.pageSize} pageSizes={pageSizes} onPageSize={pageSizes?.length ? s.setPageSize : undefined} />}
     </div>
+  );
+  return (
+    <ListActionsContext.Provider value={actions}>
+      {showAside ? (
+        <div className="flex flex-col gap-4 md:flex-row md:items-start" data-sf-list-layout="">
+          <aside className="w-full shrink-0 md:sticky md:top-2 md:w-56">{aside}</aside>
+          {body}
+        </div>
+      ) : body}
     </ListActionsContext.Provider>
   );
 }

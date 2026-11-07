@@ -19,7 +19,8 @@ import type { BulkAction } from "../list/parts/ListFooter";
 import { useListRealtime } from "./list/realtime";
 import type { RealtimePort } from "./contract";
 import { createFrappeSavedFilters, createFrappeUserSettings } from "./list/storage";
-import { Download, FileSpreadsheet, MoreHorizontal, Plus, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, MoreHorizontal, PanelLeft, Plus, Upload } from "lucide-react";
+import { DEFAULT_SIDEBAR_GROUP_BY, FrappeGroupBySidebar } from "./list/FrappeGroupBySidebar";
 import { Button } from "../primitives/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/dropdown-menu";
 import { useFrappeSettings } from "./FrappeProvider";
@@ -72,6 +73,13 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    * (e.g. a Quick Entry); its `onCreated(doc)` reloads the list and closes it. An app `primaryAction` still wins.
    */
   create?: false | FrappeListCreate;
+  /**
+   * Desk's list sidebar (list_sidebar.js, list_sidebar_group_by.js): group-by counts from the server
+   * (`get_group_by_count`) for "Assigned To", "Created By" and the user's `user_settings.group_by_fields` (or `fields`),
+   * plus the tag stats unless List View Settings `disable_sidebar_stats`; clicking a value filters the list. Adds
+   * "Toggle Sidebar" to the list menu. Off by default (no extra requests); `true` = open, `{ open: false }` = closed.
+   */
+  sidebar?: boolean | { open?: boolean; fields?: string[]; tags?: boolean };
   /** Reload on the server's `list_update` (debounced 2 s, 15 s for large tables; not while rows are selected). */
   realtime?: RealtimePort;
   /** Override the realtime quiet period (ms). Default 2000, 15000 for large tables. */
@@ -117,6 +125,9 @@ export function documentNamesForKeys(keys: readonly string[], nameByKey: Readonl
   return { names, missing };
 }
 
+/** Desk's page lengths (base_list.js:375). FrappeListView offers them by default; `pageSizes={[]}` hides the picker. */
+export const DESK_PAGE_SIZES = [20, 100, 500, 2500];
+
 export const dataImportListUrl = (doctype: string) => `/app/data-import?reference_doctype=${encodeURIComponent(doctype)}`;
 
 export function FrappeListView<T = Record<string, unknown>>(props: FrappeListViewProps<T>) {
@@ -124,7 +135,7 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
+function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, sidebar, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
   // `columnLimit` defaults ON here: Desk always caps the generated columns by window width (list_view.js:432-444);
   // app-curated `columns` are never capped. `columnLimit={false}` keeps every `in_list_view` column.
   // Like: the session user decides; "Liked by me" narrows the list server-side like Desk's filter (always ANDed)
@@ -199,7 +210,10 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   const L = { importEntry: t("listMenuImport"), exportEntry: t("listBulkExport"), moreActions: t("listMenuMore"), reportExportEntry: t("listMenuReportExport"), ...ioLabels };
   // Desk: frappe.set_route("list", "data-import", { reference_doctype }) — the Data Import LIST (list_view.js:1703-1712)
   const doImport = onImport ?? (() => { if (typeof location !== "undefined") location.assign(dataImportListUrl(doctype)); });
-  const menuNode = showImport || showExport ? (
+  // Desk's sidebar (opt-in) and its "Toggle Sidebar" menu entry (list_view.js:1756-1762)
+  const sidebarCfg = sidebar ? (typeof sidebar === "object" ? sidebar : {}) : null;
+  const [sidebarOpen, setSidebarOpen] = React.useState(sidebarCfg?.open !== false);
+  const menuNode = showImport || showExport || sidebarCfg ? (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="icon" aria-label={L.moreActions} data-testid="sf-list-menu"><MoreHorizontal className="h-4 w-4" /></Button>
@@ -208,6 +222,7 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
         {showImport && <DropdownMenuItem onSelect={() => doImport()}><Upload className="me-2 h-4 w-4" /> {L.importEntry}</DropdownMenuItem>}
         {showExport && <DropdownMenuItem onSelect={() => setExporting({})}><Download className="me-2 h-4 w-4" /> {L.exportEntry}</DropdownMenuItem>}
         {showReportExport && <DropdownMenuItem onSelect={() => setReportExporting(true)}><FileSpreadsheet className="me-2 h-4 w-4" /> {L.reportExportEntry}</DropdownMenuItem>}
+        {sidebarCfg && <DropdownMenuItem onSelect={() => setSidebarOpen((o) => !o)}><PanelLeft className="me-2 h-4 w-4" /> {t("listToggleSidebar")}</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
   ) : null;
@@ -262,6 +277,19 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
     open: creating, onOpenChange: setCreating,
     onCreated: () => { setCreating(false); void invalidateFrappeList(queryClient, doctype); },
   }) : null;
+  const asideNode = React.useMemo(() => {
+    if (!sidebarCfg || !f.meta) return undefined;
+    const meta = f.meta;
+    const own = Array.isArray(f.userSettings?.group_by_fields) ? (f.userSettings!.group_by_fields as unknown[]).map(String) : [];
+    const fields = [...new Set(sidebarCfg.fields ?? [...DEFAULT_SIDEBAR_GROUP_BY, ...own])].filter((x) => x === "assigned_to" || meta.known.has(x));
+    const labelOf = (x: string) => (x === "assigned_to" ? t("listAssigned") : x === "owner" ? t("listOwner") : meta.filterFields.find((ff) => ff.name === x)?.label ?? x);
+    const userFields = Object.values(meta.fieldDefs).filter((d) => d.fieldtype === "Link" && d.options === "User").map((d) => d.fieldname).concat(["owner", "modified_by"]);
+    const checkFields = [...meta.fieldtypes.entries()].filter(([, ft]) => ft === "Check").map(([n]) => n);
+    return (
+      <FrappeGroupBySidebar doctype={doctype} client={c} fields={fields} filters={f.request?.filters} labelOf={labelOf} userName={f.userName}
+        userFields={userFields} checkFields={checkFields} user={session?.user} tags={sidebarCfg.tags !== false && !f.settings?.disable_sidebar_stats} />
+    );
+  }, [sidebarCfg?.fields?.join(","), sidebarCfg?.tags, !!sidebarCfg, f.meta, f.userSettings, f.request?.filters, f.settings, f.userName, doctype, c, session?.user, t]); // eslint-disable-line react-hooks/exhaustive-deps
   const server = typeof serverStorage === "object" ? serverStorage : serverStorage ? {} : null;
   const storage = React.useMemo(() => {
     if (rest.storage !== undefined || !server || !f.ready) return rest.storage;
@@ -285,6 +313,9 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       emptyAction={rest.emptyAction ?? (mayCreate && startCreate ? { label: t("listCreateFirst").replace("{doctype}", doctype), onClick: startCreate } : undefined)}
       selectable={rest.selectable ?? (bulk ? true : undefined)}
       primaryAction={rest.primaryAction ?? addButton}
+      pageSizes={rest.pageSizes ?? DESK_PAGE_SIZES}
+      aside={rest.aside ?? asideNode}
+      asideOpen={rest.asideOpen ?? (asideNode ? sidebarOpen : undefined)}
       toolbarActions={menuNode || rest.toolbarActions ? <>{rest.toolbarActions}{menuNode}</> : undefined}
       renderBulkActions={header ? (ctx) => { clearRef.current = ctx.clear; return rest.renderBulkActions?.(ctx); } : renderBulk}
       bulkActions={headerActions}

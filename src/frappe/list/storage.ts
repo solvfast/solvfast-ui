@@ -68,7 +68,7 @@ export interface FrappeUserSettingsOptions {
   onError?: (error: unknown) => void;
 }
 
-type ListSettings = { filters?: unknown; sort_by?: string; sort_order?: string; sf_ui?: { visible?: string[]; quick?: string[]; groupBy?: string } };
+type ListSettings = { filters?: unknown; sort_by?: string; sort_order?: string; sf_ui?: { visible?: string[]; quick?: string[]; groupBy?: string; pageSize?: number } };
 
 /** Per-user list preferences in `user_settings`. Loads synchronously from what `getdoctype` sent; saves are debounced. */
 export function createFrappeUserSettings(client: FrappeClient, o: FrappeUserSettingsOptions): ListPrefsStorage & { persistQuery: true; flush: () => Promise<void> } {
@@ -93,13 +93,15 @@ export function createFrappeUserSettings(client: FrappeClient, o: FrappeUserSett
       if (l.sf_ui?.visible) prefs.visible = l.sf_ui.visible;
       if (l.sf_ui?.quick) prefs.quick = l.sf_ui.quick;
       if (l.sf_ui?.groupBy) prefs.groupBy = l.sf_ui.groupBy;
+      // Desk keeps no page length in user_settings (base_list.js:47 starts at 20 / 100 each time): the package's own key
+      if (Number(l.sf_ui?.pageSize) > 0) prefs.pageSize = Number(l.sf_ui!.pageSize);
       if (Array.isArray(l.filters) && meta) prefs.query = tuplesToQuery(l.filters, meta);
       return prefs;
     },
     save(_viewKey, prefs) {
       const meta = metaOf(o.meta);
       const prev = (settings.List ?? {}) as ListSettings;
-      const next: ListSettings = { ...prev, sf_ui: { visible: prefs.visible, quick: prefs.quick, groupBy: prefs.groupBy } };
+      const next: ListSettings = { ...prev, sf_ui: { visible: prefs.visible, quick: prefs.quick, groupBy: prefs.groupBy, ...(prefs.pageSize ? { pageSize: prefs.pageSize } : {}) } };
       if (prefs.sort?.key) { next.sort_by = prefs.sort.key; next.sort_order = prefs.sort.dir; }
       if (prefs.query && meta) { try { next.filters = queryToTuples(prefs.query, meta); } catch { /* an OR query is not storable: keep the last filters */ } }
       settings = { ...settings, last_view: "List", List: next };

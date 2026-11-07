@@ -4,8 +4,7 @@
  * behaviour on a real site. Test names start with the List audit row (docs/audit/p35/B-list.md).
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import * as React from "react";
-import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { defaultMessages } from "../src/theme/messages";
@@ -266,4 +265,74 @@ describe("LV.D2 / LV.D3 / LV.D4 / LV.B13 / LV.B14 / LV.E7 Assigned To and Tags a
   });
 });
 
-export { act };
+
+describe("LV.D6 / LV.D7 / LV.D11 / LV.J8 group-by sidebar with server counts, tag stats, Toggle Sidebar", () => {
+  const nav = () => screen.getByRole("navigation", { name: t("listSidebar") });
+  const section = (label: string) => within(nav()).getByRole("heading", { name: label }).closest("section") as HTMLElement;
+  const items = (label: string) => within(section(label)).queryAllByRole("button").map((b) => b.textContent);
+
+  it("LV.D6 Assigned To + Created By counts from get_group_by_count (current filters, own field removed); clicking filters, clicking again removes (SIMULATED)", async () => {
+    const transport = simBackend();
+    const { calls, lastGet } = mountSim(transport, { sidebar: true }, { user: "u@x.com", roles: ["System Manager"] });
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    await waitFor(() => expect(items(en("listAssigned"))).toEqual(["Ann Lee2", "Bob Ray1"]));
+    expect(items(en("listOwner"))).toEqual(["Ann Lee2", "Bob Ray2"]);
+    const gbc = calls("frappe.desk.listview.get_group_by_count").map((c) => c.args);
+    expect(gbc).toEqual(expect.arrayContaining([
+      { doctype: "Memo", current_filters: "[]", field: "assigned_to" }, { doctype: "Memo", current_filters: "[]", field: "owner" },
+    ]));
+    fireEvent.click(within(section(en("listAssigned"))).getByRole("button", { name: /Bob Ray/ }));
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    expect(parsed(lastGet().filters)).toEqual([["_assign", "like", "%bob@x.com%"]]);
+    await waitFor(() => expect(within(section(en("listAssigned"))).getByRole("button", { name: /Bob Ray/ }).getAttribute("aria-pressed")).toBe("true"));
+    // the owner counts follow the filter; the Assigned To counts keep ignoring their own condition (list_sidebar_group_by.js:163-169)
+    await waitFor(() => expect(items(en("listOwner"))).toEqual(["Ann Lee1"]));
+    const last = calls("frappe.desk.listview.get_group_by_count").map((c) => c.args);
+    expect(last).toContainEqual({ doctype: "Memo", current_filters: JSON.stringify([["_assign", "like", "%bob@x.com%"]]), field: "owner" });
+    expect(last.filter((a) => a.field === "assigned_to").every((a) => a.current_filters === "[]")).toBe(true);
+    fireEvent.click(within(section(en("listAssigned"))).getByRole("button", { name: /Bob Ray/ }));
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    expect(parsed(lastGet().filters)).toEqual([]);
+  });
+
+  it("LV.D6 the session user is listed first as 'Me'; Administrator / Guest are dropped (list_sidebar_group_by.js:177-188) (SIMULATED)", async () => {
+    const transport = simBackend({ docs: { Memo: [...MEMOS, memo(5, { owner: "u@x.com" }), memo(6, { owner: "Administrator" })] } });
+    mountSim(transport, { sidebar: true });
+    await waitFor(() => expect(bodyRows()).toHaveLength(6));
+    await waitFor(() => expect(items(en("listOwner"))[0]).toBe(`${t("listMe")}1`));
+    expect(items(en("listOwner")).join()).not.toContain("Administrator");
+  });
+
+  it("LV.D7 tag stats from get_sidebar_stats; a tag filters `like`, 'No Tags' filters `not like %,%` (list_sidebar.js:236-247) (SIMULATED)", async () => {
+    const transport = simBackend();
+    const { calls, lastGet } = mountSim(transport, { sidebar: true });
+    await waitFor(() => expect(items(t("listTags"))).toEqual(["urgent2", "vip1", `${t("listNoTags")}2`]));
+    expect(calls("frappe.desk.reportview.get_sidebar_stats")[0].args).toEqual({ stats: '["_user_tags"]', doctype: "Memo", filters: "[]" });
+    fireEvent.click(within(section(t("listTags"))).getByRole("button", { name: new RegExp(t("listNoTags")) }));
+    await waitFor(() => expect(bodyRows()).toHaveLength(2));
+    expect(parsed(lastGet().filters)).toEqual([["_user_tags", "not like", "%,%"]]);
+  });
+
+  it("LV.D11 user_settings.group_by_fields add sections (list_sidebar_group_by.js:9-12); disable_sidebar_stats drops the tags (SIMULATED)", async () => {
+    const transport = simBackend({}, { listSettings: { Memo: { name: "Memo", disable_sidebar_stats: 1 } } });
+    transport.store.userSettings.Memo = JSON.stringify({ group_by_fields: ["status"] });
+    const { calls } = mountSim(transport, { sidebar: true });
+    await waitFor(() => expect(items("Status")).toEqual(["Closed3", "Open1"]));
+    expect(within(nav()).queryByRole("heading", { name: t("listTags") })).toBeNull();
+    expect(calls("frappe.desk.reportview.get_sidebar_stats")).toHaveLength(0);
+  });
+
+  it("LV.J8 'Toggle Sidebar' in the list menu hides and shows it; negative: no sidebar prop → no sidebar, no counts requested", async () => {
+    mountSim(simBackend(), { sidebar: true });
+    await waitFor(() => expect(nav()).toBeTruthy());
+    openMenu(screen.getByTestId("sf-list-menu"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: t("listToggleSidebar") }));
+    await waitFor(() => expect(screen.queryByRole("navigation", { name: t("listSidebar") })).toBeNull());
+    cleanup();
+    const transport = simBackend();
+    const { calls } = mountSim(transport, {});
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    expect(screen.queryByRole("navigation", { name: t("listSidebar") })).toBeNull();
+    expect(calls("frappe.desk.listview.get_group_by_count")).toHaveLength(0);
+  });
+});

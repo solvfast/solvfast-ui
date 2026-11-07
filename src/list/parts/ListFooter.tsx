@@ -13,15 +13,32 @@ import { Card } from "../../primitives/card";
 import { loc, type Localized } from "../../lib/localized";
 import { useLocale } from "../../theme/ThemeProvider";
 
-export function ListPagination({ total, totalLabel, onTotalClick, page, hasPrev, hasNext, onPage }: { total: number; totalLabel?: string; onTotalClick?: () => void; page: number; hasPrev: boolean; hasNext: boolean; onPage: (p: number) => void }) {
-  const { t, direction } = useLocale();
+export function ListPagination({ total, totalLabel, onTotalClick, page, hasPrev, hasNext, onPage, pageSize, pageSizes, onPageSize }: {
+  total: number; totalLabel?: string; onTotalClick?: () => void; page: number; hasPrev: boolean; hasNext: boolean; onPage: (p: number) => void;
+  /** Desk's page-length buttons (base_list.js:374-418: 20 / 100 / 500 / 2500): offered when `pageSizes` and `onPageSize` are given. */
+  pageSize?: number; pageSizes?: number[]; onPageSize?: (n: number) => void;
+}) {
+  const { t, direction, language } = useLocale();
   const Prev = direction === "rtl" ? ChevronRight : ChevronLeft;
   const Next = direction === "rtl" ? ChevronLeft : ChevronRight;
+  const totalNode = totalLabel === "" ? <span /> : onTotalClick
+    ? <button type="button" className="rounded-sm underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={t("listCountExact")} onClick={onTotalClick}>{t("total")}: {totalLabel ?? total}</button>
+    : <span>{t("total")}: {totalLabel ?? total}</span>;
+  const sizes = pageSizes?.length && onPageSize ? (
+    <div role="group" aria-label={t("listPageSize")} className="inline-flex items-center gap-0.5 rounded-md border border-border p-0.5" data-page-sizes="">
+      {pageSizes.map((n) => (
+        <button key={n} type="button" aria-pressed={n === pageSize} onClick={() => n !== pageSize && onPageSize(n)} dir="ltr"
+          className={cn("rounded px-2 py-0.5 text-xs tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            n === pageSize ? "bg-accent font-medium text-foreground" : "hover:text-foreground")}>
+          {n.toLocaleString(language === "ar" ? "ar-EG" : "en-US")}
+        </button>
+      ))}
+    </div>
+  ) : null;
   return (
     <div className="flex items-center justify-between text-sm text-muted-foreground">
-      {totalLabel === "" ? <span /> : onTotalClick
-        ? <button type="button" className="rounded-sm underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title={t("listCountExact")} onClick={onTotalClick}>{t("total")}: {totalLabel ?? total}</button>
-        : <span>{t("total")}: {totalLabel ?? total}</span>}
+      {/* the page buttons must stay the LAST child (pill styles, styles/src/sf-overrides.css) */}
+      {sizes ? <div className="flex flex-wrap items-center gap-3">{totalNode}{sizes}</div> : totalNode}
       <div className="flex items-center gap-1">
         <Button variant="outline" size="icon" className="h-8 w-8" disabled={!hasPrev} onClick={() => onPage(page - 1)} aria-label={t("prevPage")}><Prev className="h-4 w-4" /></Button>
         <span className="px-2" aria-current="page">{page + 1}</span>

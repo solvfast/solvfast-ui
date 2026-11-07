@@ -5,6 +5,9 @@ export const listEn = {
   listNoTags: "No Tags",
   listNotSet: "Not Set",
   listMe: "Me",
+  listPageSize: "Rows per page",
+  listSidebar: "Sidebar",
+  listToggleSidebar: "Toggle Sidebar",
 };
 export const listAr: { [K in keyof typeof listEn]: string } = {
   listAddDoctype: "إضافة {doctype}",
@@ -12,4 +15,7 @@ export const listAr: { [K in keyof typeof listEn]: string } = {
   listNoTags: "بلا وسوم",
   listNotSet: "غير محدد",
   listMe: "أنا",
+  listPageSize: "عدد الصفوف في الصفحة",
+  listSidebar: "الشريط الجانبي",
+  listToggleSidebar: "إظهار/إخفاء الشريط الجانبي",
 };
