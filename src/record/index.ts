@@ -18,3 +18,16 @@ export { sanitizeCommentHtml, htmlToText } from "./sanitize";
 export type {
   Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem, Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./types";
+// P35 record
+export { RecordMenu, groupMenuItems } from "./RecordMenu";
+export type { RecordMenuProps, RecordMenuItem, RecordMenuConfirm, RecordMenuLabels } from "./RecordMenu";
+export { RenameDialog } from "./RenameDialog";
+export type { RenameDialogProps } from "./RenameDialog";
+export { PrintPreviewFrame, printSrcDoc } from "./PrintPreviewFrame";
+export type { PrintPreviewFrameProps } from "./PrintPreviewFrame";
+export { ConnectionsPanel } from "./ConnectionsPanel";
+export type { ConnectionsPanelProps, ConnectionGroup, ConnectionItem } from "./ConnectionsPanel";
+export { EmailComposer, isValidEmail } from "./EmailComposer";
+export type { EmailComposerProps, EmailDraft, EmailAttachmentOption } from "./EmailComposer";
+export { ReminderDialog, toFrappeDatetime, remindAtFor, reminderSetText } from "./ReminderDialog";
+export type { ReminderDialogProps, RemindIn } from "./ReminderDialog";

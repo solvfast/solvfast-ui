@@ -187,3 +187,13 @@ export {
   importStatusLabel, importStatusTone, importResultHeadline,
 } from "./list/io/importLabels";
 export type { DataImportLabels, ImportDialogExtraLabels, ImportDialogLabels } from "./list/io/importLabels";
+
+// P35 record — generic record menu, connections, e-mail composer, print preview, rename and reminder dialogs (Frappe-free)
+export {
+  RecordMenu, groupMenuItems, RenameDialog, PrintPreviewFrame, printSrcDoc, ConnectionsPanel, EmailComposer, isValidEmail, ReminderDialog, toFrappeDatetime,
+  remindAtFor, reminderSetText,
+} from "./record";
+export type {
+  RecordMenuProps, RecordMenuItem, RecordMenuConfirm, RecordMenuLabels, RenameDialogProps, PrintPreviewFrameProps, ConnectionsPanelProps, ConnectionGroup,
+  ConnectionItem, EmailComposerProps, EmailDraft, EmailAttachmentOption, ReminderDialogProps, RemindIn,
+} from "./record";
