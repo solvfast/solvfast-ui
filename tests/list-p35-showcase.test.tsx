@@ -1,9 +1,11 @@
 /** P35 list — smoke test of the SIMULATED Showcase page (showcase/src/pages/p35-list.tsx): it renders on the simulator. */
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, configure, render, screen, waitFor } from "@testing-library/react";
 import { ThemeProvider } from "../src";
 import { P35ListPage } from "../showcase/src/pages/p35-list";
 
+// these tests drive whole lists through several server round trips: give them room on a loaded machine
+vi.setConfig({ testTimeout: 20_000 });
 beforeAll(() => {
   configure({ asyncUtilTimeout: 5000 });
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;

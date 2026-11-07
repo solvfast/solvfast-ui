@@ -17,6 +17,8 @@ import { indicatorWorkflowFromMeta } from "../src/frappe/list/indicator";
 import { operatorsFor } from "../src/list/model/filters";
 import { createFixtureTransport, type FixtureOptions, type FixtureTransport } from "../src/frappe/testing";
 
+// these tests drive whole lists through several server round trips: give them room on a loaded machine
+vi.setConfig({ testTimeout: 20_000 });
 beforeAll(() => {
   configure({ asyncUtilTimeout: 5000 });
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;

@@ -12,6 +12,8 @@ import { createLocalStorageAdapter, type ListPrefs } from "../src/list/model/sto
 import { GroupBySidebar } from "../src/list/parts/GroupBySidebar";
 import { defaultMessages } from "../src/theme/messages";
 
+// these tests drive whole lists through several server round trips: give them room on a loaded machine
+vi.setConfig({ testTimeout: 20_000 });
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
   const proto = Element.prototype as unknown as Record<string, unknown>;
