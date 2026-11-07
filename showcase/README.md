@@ -73,8 +73,10 @@ a Table MultiSelect, a permlevel-1 field, role rows and `allow_import`). A manag
 `docs/release/COMPONENT-COMPLETION-MATRIX.md` says so (rows 10, 15–19, 24–27), *read path verified against recorded real Frappe 15.110
 responses — tests/real/sada-real.test.tsx*. Nothing on these pages is evidence of real-site behaviour; no write has ever run on a site.
 The simulated file transport never builds an export from client data: it records the request and the simulator's file server
-answers a 403 or a small text file labelled SIMULATED that carries the column labels and the request — never document values;
-uploads (imports) are refused. **Permissions (Phase 27):** the Forms, Permissions and Import & export sections run the simulator's
+answers a 403 or a small text file labelled SIMULATED that carries the column labels and the request — never document values.
+Uploads are accepted by the simulator's file server (CSV only) and the Import & export section runs a SIMULATED import with
+`createFixtureTransport(…, { dataImport: "insert" })`: the simulator checks each row (rights, mandatory, Link values) and inserts
+the valid ones into the page's memory only (other pages keep the default `"dry-run"`, which logs and writes nothing). **Permissions (Phase 27):** the Forms, Permissions and Import & export sections run the simulator's
 opt-in server-side permission model (`createFixtureTransport(…, { permissions })`, `docs/qa/simulator-caveats.md` §4), so 403s,
 filtered rows, stripped permlevel values and `docinfo.permissions` come from the simulated server; every permission scenario
 carries the strip *SIMULATED — in-browser simulator; permission decisions are the simulator's approximation of the Frappe server*.
