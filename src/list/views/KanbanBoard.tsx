@@ -107,7 +107,7 @@ export function KanbanBoard<T>(p: KanbanBoardProps<T>) {
 
   if (error) {
     return (
-      <Card className={cn("flex flex-col items-center gap-3 p-8 text-center text-sm", className)} role="alert">
+      <Card className={cn("flex flex-col items-center gap-3 p-8 text-center text-sm", className)} role={typeof error === "boolean" ? "alert" : undefined}>
         {typeof error === "boolean" ? <><AlertTriangle className="h-5 w-5 text-destructive" /><span>{t("loadError")}</span></> : error}
         {onRetry && typeof error === "boolean" && <Button variant="outline" size="sm" onClick={onRetry}>{t("retry")}</Button>}
       </Card>

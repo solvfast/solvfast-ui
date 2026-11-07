@@ -57,7 +57,7 @@ export function CalendarMonth({ month, onMonthChange, events, onEventClick, week
         </div>
       </div>
       {error ? (
-        <Card className="flex flex-col items-center gap-3 p-8 text-center text-sm" role="alert">
+        <Card className="flex flex-col items-center gap-3 p-8 text-center text-sm" role={typeof error === "boolean" ? "alert" : undefined}>
           {typeof error === "boolean" ? <><AlertTriangle className="h-5 w-5 text-destructive" /><span>{t("loadError")}</span></> : error}
           {onRetry && typeof error === "boolean" && <Button variant="outline" size="sm" onClick={onRetry}>{t("retry")}</Button>}
         </Card>
