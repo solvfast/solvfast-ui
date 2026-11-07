@@ -1,135 +1,119 @@
-# The Frappe layer — `@solvfast/ui/frappe`
+# The Frappe layer — `@solvfast/ui/frappe` (0.7.0-dev.1)
 
-> **0.4.0 — simulated backend.** `@solvfast/ui/frappe/testing` (`createFixtureTransport`) answers the client's calls
-> from memory for demos and shape tests. It does **not** reproduce Frappe's naming, permissions, validation or child-row
-> rules; results obtained on it are "Simulated", never "verified against Frappe". See `docs/qa/simulator-caveats.md`.
-
-
-An optional entry point that runs the List View on a Frappe DocType with **stock Frappe APIs only** (no app-specific
-backend). The core package (`@solvfast/ui`) never imports it; `scripts/check-boundaries.mjs` enforces that on the
-source and on the built files.
+An optional entry point that renders Frappe DocTypes — list, form, record panels, other list views — on **stock Frappe 15
+whitelisted methods only** (no app-specific backend). The core package (`@solvfast/ui`) never imports it;
+`scripts/check-boundaries.mjs` enforces that on the source and on the built files.
 
 ```tsx
-import { FrappeListView } from "@solvfast/ui/frappe";
+import { FrappeListView, FrappeForm } from "@solvfast/ui/frappe";
 
 <FrappeListView doctype="ToDo" onRowClick={(r) => navigate(`/app/todo/${r.name}`)} />
+<FrappeForm doctype="ToDo" name={name} />
 ```
 
-**Validation status.** Tests against **simulated Frappe requests passed** (a recording transport and a simulated site
-that uses the real ToDo DocType definition; docs/VALIDATION.md, 5.4). **Real-site validation is deferred** until the
-package is integrated into a real project: it has **not** been done, and nothing in this package claims that the
-Frappe layer has passed against a live site.
+> **Validation status — read this first.** Nothing in this layer has run against an **authenticated real Frappe site**,
+> and **no write has been verified on a site**. Read paths (DocType meta, list rows, counts, link search / validation,
+> document load, the 403 / 417 error envelopes) were replayed from **recorded real Frappe 15.110 responses**
+> (`tests/real/sada-real.test.tsx`). Everything else — saves, submits, workflow, bulk actions, print, e-mail, connections,
+> sidebar counts, list settings, Kanban, Import / Export — is tested against stub transports and the in-package
+> **simulator** (`@solvfast/ui/frappe/testing`), which does not reproduce Frappe's naming, validation or every permission
+> rule. Results obtained on it are "simulated", never "verified against Frappe". Per-feature status: `docs/LIMITATIONS.md`.
 
 ## Requirements
 
 | What | Why |
 |---|---|
-| Frappe 15 (verified against the 15.110 source in this bench) | the endpoints and parameters below; other versions untested |
-| The page is served by the Frappe site (same origin) | v0.1 authenticates with the logged-in user's session cookie |
-| The CSRF token on the page: `window.csrf_token`, set from the page context with `frappe.sessions.get_csrf_token()` (see `docs/components/foundation.md` §9, `readFrappeBoot`), or `window.frappe.csrf_token` (Desk). **Do not** use `{{ frappe.session.csrf_token }}`: in Frappe 15 it renders the string "None", so every POST fails with `CSRFTokenError` once the session has a token (e.g. after opening `/app`). Values `"None"` and `""` are ignored by the client. Or pass the `csrfToken` option | Frappe checks `X-Frappe-CSRF-Token` on every POST from a logged-in session |
-| `@tanstack/react-query` ^5 (optional peer dependency of the package; needed only for this entry) | caching, retries, chunked loading |
+| Frappe 15 (built against the 15.110 source) | the methods and parameters below; other versions untested |
+| The page is served by the Frappe site (same origin) | the client authenticates with the logged-in user's session cookie |
+| The CSRF token on the page: `window.csrf_token`, set from the page context with `frappe.sessions.get_csrf_token()` (see `docs/components/foundation.md` §9, `readFrappeBoot`), or `window.frappe.csrf_token` (Desk). **Do not** use `{{ frappe.session.csrf_token }}`: in Frappe 15 it renders the string "None", so every POST fails with `CSRFTokenError` once the session has a token. Values `"None"` and `""` are ignored. Or pass the `csrfToken` option | Frappe checks `X-Frappe-CSRF-Token` on every POST from a logged-in session |
+| `@tanstack/react-query` ^5 (optional peer dependency; needed only for this entry) | caching, retries, chunked loading |
 | `ThemeProvider` from the core package above it | language, direction and messages |
+| `session.roles` (from the boot, `readFrappeBoot`) | permission-aware UI. **Without roles nothing is granted** (rule 9): actions, menu entries and create buttons stay hidden. The server stays the authority either way |
 
-No secrets live in browser code: there is no API key or token in the package or its examples.
+No secrets live in browser code: there is no API key or token in the package or its examples. Another auth scheme (token,
+cross-origin) plugs in as a custom `transport` (`createFrappeClient({ transport })`); none is provided.
 
-## Endpoints (all POST `/api/method/<method>`, JSON body)
+## What the entry contains
 
-| Method | Used for | Arguments sent |
+| Area | Main exports | Component docs |
 |---|---|---|
-| `frappe.desk.form.load.getdoctype` | DocType meta (read from `docs`) | `doctype` |
-| `frappe.client.get_list` | rows | `doctype`, `fields`, `filters`, `or_filters`, `order_by`, `limit_start`, `limit_page_length` (lists as JSON strings) |
-| `frappe.desk.reportview.get_count` | the total, with the same `filters` and `or_filters` | `doctype`, `filters`, `or_filters` |
-| `frappe.desk.search.search_link` | link-field filter values (Frappe's own link search: search fields, title, permissions) | `doctype` (the link target), `txt`, `page_length`, `reference_doctype` |
+| Client, provider, errors | `createFrappeClient`, `FrappeProvider`, `useFrappeClient`, `FrappeError`, `FrappeErrorState`, `readFrappeBoot`, `userDefaultsFromBoot` | `docs/components/foundation.md` |
+| Data hooks and services | `useMetaBundle`, `useDoc`, `useDocInfo`, `useSaveDoc`, `useDocAction`, `usePermissions`, `formatValue`, `resolveIndicator`, realtime (`useListRealtime`; `createSocketRealtime` is a skeleton) | `foundation.md` |
+| List View | `FrappeListView`, `useFrappeList`, bulk actions, print, Import / Export, saved filters and user settings (`createFrappeSavedFilters`, `createFrappeUserSettings`), the group-by sidebar (`FrappeGroupBySidebar`), `FrappeListSettingsDialog` | `docs/components/list.md` |
+| Other list views | `FrappeViews` (switcher host), `FrappeReportView`, `FrappeImageView`, `FrappeKanbanView`, `FrappeCalendarView`, `availableViews` | `docs/components/views.md` (repository only — not in the npm tarball) |
+| Form View | `FrappeForm`, `FrappeFormView`, `FrappeField`, `FrappeLinkField`, `FrappeChildTable`, `FrappeQuickEntry`, `useUnsavedChangesBlocker`, the behaviour engine (`depends_on`, defaults, mandatory, `fetch_from`, undo / redo), `formEvents` (Desk's form events instead of Client Scripts) | `docs/components/forms.md` |
+| Record panels | `FrappeWorkflowActions`, `FrappeTimeline`, `FrappeAssignTo`, `FrappeStatusIndicator`, the ⋯ menu (`FrappeRecordMenu`, `formMenuItems`), `FrappeFormPrint`, `FrappeConnections`, `FrappeEmailComposer`, `FrappeReminder` | `docs/components/record.md` |
+| Simulator — separate entry `@solvfast/ui/frappe/testing` | `createFixtureTransport`, `simScenario` | — (`@solvfast/ui/frappe` never imports it) |
 
-Why `reportview.get_count` and not `frappe.client.get_count`: the latter's signature in Frappe 15 is
-`get_count(doctype, filters=None, debug=False, cache=False)`, and Frappe drops arguments a whitelisted function doesn't
-declare (`frappe.call` → `get_newargs`), so `or_filters` sent there are silently ignored. Sear's data grid did that, so
-its totals were wrong whenever filters used "Match any". `reportview.get_count` reads `or_filters` explicitly.
+## Methods called
 
-Permissions are Frappe's: every call runs as the logged-in user, so row-level permissions, field permission levels and
-user permissions apply. The package does not filter anything for security.
+All POST `/api/method/<method>` with a JSON body; objects and lists are sent as JSON strings, as Desk does. Every call
+runs as the logged-in user, so DocPerm, permission levels, User Permissions and sharing are Frappe's. The package hides
+what the user may not do (from `session.roles` × DocPerm and `docinfo.permissions`), but it never filters anything for
+security: a refused call is shown as the server's error.
+
+| Area | Methods |
+|---|---|
+| Meta and documents | `frappe.desk.form.load.getdoctype`, `getdoc` (incl. `_link_titles`), `get_docinfo`, `get_communications`; `frappe.client.validate_link`; `frappe.desk.search.search_link`, `get_names_for_mentions`; `frappe.client.get` (Kanban Board) |
+| List rows and counts | `frappe.desk.reportview.get` (rows, compressed `{keys, values}`, `with_comment_count`); `frappe.desk.reportview.get_count` (same `filters` + `or_filters`, 1001 cap); `frappe.client.get_list` only for lookups (Letter Head, List Filter, Email Template, Fiscal Year, user names) |
+| List settings and preferences | `frappe.desk.listview.get_list_settings` (read); `frappe.desk.doctype.list_view_settings.list_view_settings.save_listview_settings` (write, System Manager); `frappe.model.utils.user_settings.save`; List Filter rows through `frappe.client.insert` / `frappe.client.delete` |
+| Sidebar (only with `sidebar`) | `frappe.desk.listview.get_group_by_count`, `frappe.desk.reportview.get_sidebar_stats` |
+| Document writes | `frappe.desk.form.save.savedocs` (Save / Submit / Update), `frappe.desk.form.save.cancel`, `frappe.desk.form.linked_with.get_submitted_linked_docs` / `cancel_all_linked_docs`, `frappe.client.is_document_amended`, `frappe.client.delete`, `frappe.rename_doc`, `frappe.client.set_value` (Report view inline edit, Kanban group mode), `run_doc_method`, `upload_file` |
+| Workflow | `frappe.model.workflow.get_transitions`, `apply_workflow`, `get_common_transition_actions`, `bulk_workflow_approval` |
+| Assignment, comments, tags, likes | `frappe.desk.form.assign_to.add` / `remove` / `add_multiple` / `remove_multiple`; `frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply`; `frappe.desk.form.utils.add_comment` / `update_comment` (delete = `frappe.client.delete` on the Comment); `frappe.desk.doctype.tag.tag.add_tags`; `frappe.desk.like.toggle_like` |
+| Bulk | `frappe.desk.reportview.delete_items`; `frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs` |
+| Print | `frappe.utils.print_format.download_multi_pdf` / `download_multi_pdf_async` (list), `download_pdf` (form), `frappe.www.printview.get_html_and_style` (form preview) |
+| Connections, e-mail, reminders | `frappe.desk.notifications.get_open_count`; `frappe.core.doctype.communication.email.make`; `frappe.email.doctype.email_template.email_template.get_email_template`; `frappe.automation.doctype.reminder.reminder.create_new_reminder` |
+| Views | `frappe.desk.doctype.kanban_board.kanban_board.get_kanban_boards` / `update_order_for_single_card`; `frappe.desk.calendar.get_events` (opt-in calendar source) |
+| Import / Export | `frappe.core.doctype.data_import.data_import.download_template`, `get_preview_from_template`, `form_start_import`, `get_import_status`, `get_import_logs`, `download_errored_template`, `download_import_log`; `frappe.desk.reportview.export_query` (opt-in "Export as report"; writes an Access Log on the site) |
+
+Why `reportview.get_count` and not `frappe.client.get_count`: in Frappe 15 the latter has no `or_filters` parameter and
+Frappe drops arguments a whitelisted function doesn't declare, so "Match any" totals would be wrong.
 
 ## What comes from the DocType
 
 | From the meta | Becomes |
 |---|---|
-| fields (not layout, not hidden; fieldtype mapped as in Frappe CRM) | columns and filter fields |
-| `in_list_view` | the columns shown by default (if none: the title field and the first four fields) |
-| `in_standard_filter` | the quick filters shown by default |
-| `title_field`, `search_fields`, `name` | the fields searched |
-| `sort_field`, `sort_order` | the default order (else `modified desc`) |
-| always added | ID (`name`), Created On (`creation`), Last Updated (`modified`) — labels in the UI language |
+| fields | list columns, filter fields and form fields. FrappeField dispatches Desk's fieldtypes; Signature, Geolocation, Barcode, Icon and unknown types are shown read-only and listed in the form's issues banner |
+| `in_list_view`, `in_standard_filter`, List View Settings `fields` / `total_fields` | default columns (capped by window width, as Desk) and quick filters |
+| `title_field`, `search_fields`, `sort_field` / `sort_order`, `image_field` | search, default order, the form header image, the Image view |
+| DocPerm rows × `session.roles`, `docinfo.permissions` | which actions, menu entries, fields and columns are offered |
+| `__workflow_docs` | workflow actions in the form, the workflow state in the list indicator, bulk workflow approval |
+| `quick_entry` + field flags | Quick Entry eligibility and fields (quick_entry.js:59-110) |
+| `__dashboard` | the Connections tab |
+| `__print_formats` | print format choices |
+| `depends_on` / `mandatory_depends_on` / `read_only_depends_on`, `fetch_from`, defaults | the form's behaviour engine (an interpreter, not `eval`; 18 of 947 installed-app expressions are unsupported by decision and reported on screen) |
 
-Fieldtype mapping: Data, Small Text, Text, Long Text, Text Editor, Code, Read Only, Phone, Time → text; Select →
-select; Link → link (with link search); **Dynamic Link → text** (its `options` names another field, not a DocType, so
-link search can't apply); Date, Datetime → date; Int, Float, Currency, Percent → number; Check → boolean. Layout and
-binary fields (Section/Column/Tab Break, HTML, Table, Attach, Image, Signature, Password, JSON, …) are never offered.
+## Behaviour summary
 
-## Behaviour
+- **Lists.** Rows come from `reportview.get` with only the needed fields. Filter values are converted to the field's type;
+  "Match all" → `filters`, "Match any" → `or_filters` (search then narrows to the title field and says so). Child-table
+  filters become 4-tuples with a distinct count; conditions on fields the DocType no longer has are dropped. Grouping is
+  client-side over loaded chunks (opt-in `groupByFields`); the opt-in `sidebar` shows Desk's server group counts.
+  Realtime `list_update` refreshes the list (a full reload) when the app supplies a realtime port.
+- **Writes are implemented**: form Save / Submit / Update / Cancel (with the linked-document pre-flight) / Amend, delete,
+  rename, workflow, assignment, comments, tags, likes, bulk actions, print, e-mail, reminders, List Settings and saved
+  filters call the methods above. The UI never reports a success the server did not confirm; refusals show the server's
+  message. **None of these writes has been run on a real site.**
+- **Per-user list settings** go to Frappe's `user_settings` (Desk's `sort_by` / `sort_order` / `filters`, plus the
+  package's own keys under `List.sf_ui`) when `serverStorage` is on; saved filters are `List Filter` rows.
+- **Errors.** Frappe's message (from `_server_messages` or the exception) is shown by kind, with Retry only where retrying
+  can help. With the React Query client the package creates, 4xx errors are not retried and network / 5xx errors are
+  retried twice (`frappeRetry`). A server MandatoryError / LinkValidationError on a form save is shown on the field.
+- **Keyboard (form).** Ctrl/⌘+S runs the visible primary action (Desk's `trigger_primary_action`); Ctrl/⌘+Z and
+  Ctrl/⌘+Shift+Z / Ctrl/⌘+Y undo / redo outside text inputs; `hotkeys={false}` turns them off.
 
-- **Fetching.** Only the fields of the visible columns are requested, plus `name` and, when grouped, the group field.
-  Column keys are mapped to fields; a column that only renders (no field) or a field the DocType doesn't have never
-  reaches a request (Frappe would reject the whole request).
-- **Filters.** The List View's conditions become Frappe filters: values are converted to the field's type (Check → 1/0,
-  numbers → numbers); a date-only value on a Datetime field covers the whole day (`=` → `between`); conditions on fields
-  that no longer exist (e.g. in an old saved filter) are dropped. "Match all" → `filters`; "Match any" with two or more
-  conditions → `or_filters`.
-- **Search (rule C2).** Frappe accepts one `or_filters` list. With "Match all" filters, search looks in every search
-  field (`or_filters`). With "Match any" filters, `or_filters` is taken, so search looks in the title field only
-  (AND-ed) and the list says so under the toolbar.
-- **Base filters.** `baseFilters` (Frappe filter lists) are AND-ed into every request; changing them clears the
-  selection.
-- **Grouping (rule C1).** Group-by is opt-in (`groupByFields`). Grouped lists load in chunks (`chunkSize`, default 200)
-  instead of pages; while fewer than the total are loaded, a banner says "Showing X of Y records…", counts end in "+",
-  and **Load more** fetches the next chunk.
-- **Errors.** Frappe's message (from `_server_messages` or the exception) is shown with Retry; no pager or total is
-  shown while there is nothing to show. Automatic retries: with the React Query client the package creates, 4xx errors
-  (PermissionError, CSRFTokenError, ValidationError…) are not retried and network / 5xx errors are retried twice; with
-  your own client, its settings apply (use the exported `frappeRetry` as its `retry` to get the same policy).
-- **Writes are the app's.** The package confirms (e.g. a red "Delete" dialog) and calls your `onSelect` / bulk action;
-  you call Frappe (`frappe.client.delete`, your own API…), then `invalidateFrappeList(queryClient, doctype)` to reload.
+## Not provided
 
-## API
+- Client Scripts are not executed — port them to `formEvents` (D-24).
+- Gantt, Dashboard, Map, Tree and Inbox views; Report Builder `save_report`, SQL aggregates and charts.
+- Token / OAuth / cross-origin auth (custom `transport` only).
 
-- `FrappeListView` — `ListView` props plus `doctype`, `columns` (curated, placed first), `baseFilters`, `searchFields`,
-  `groupByFields`, `chunkSize`, `pageSize`, `fieldLabels` (per-field labels, e.g. Arabic), `client`.
-- `FrappeProvider` — `client`, `queryClient`. Uses the app's React Query client when there is one; otherwise creates
-  one. `FrappeListView` creates a provider itself when neither is present.
-- `createFrappeClient({ baseUrl, csrfToken, credentials, transport, fetch })` — `transport` replaces HTTP (tests,
-  another auth scheme).
-- `useFrappeList`, `useFrappeMeta` — the same data for custom layouts; `useFrappeList(...).listProps` spreads onto
-  `ListView`.
-- Pure helpers: `buildFrappeListMeta`, `columnsFromMeta`, `filterFieldsFromMeta`, `queryToFrappe`,
-  `conditionToFrappe`, `buildListRequest`, `frappeLinkSearch`, `invalidateFrappeList`, `toFrappeError`, `FrappeError`.
-- React Query keys: `["sf-frappe", "meta" | "list" | "count", doctype, …]`.
+See `docs/LIMITATIONS.md` for the complete list and the reasons.
 
-## Limitations
+## Real-site validation — not done
 
-- **Auth:** same-origin session cookie + CSRF only (v0.1). Token / OAuth / cross-origin setups are possible through a
-  custom `transport` and are not provided (Phase 3 decision).
-- **Labels:** DocField labels and Select option values are shown as defined on the server (not translated by the
-  package); pass `fieldLabels` or curated columns for Arabic. Standard fields and all package text are localized.
-- **One `or_filters` list:** see Search above.
-- **Grouping** is client-side over the loaded rows (no server group counts); counts are exact only once everything is
-  loaded (until then they end in "+").
-- **Not supported:** child tables (Table fields), virtual DocTypes, realtime updates (lists refresh on change, Retry or
-  `invalidateFrappeList`), report view features (group-by SQL, aggregates), Frappe's per-user list settings
-  (`user_settings`; the List View's own preferences are used).
-- **Datetime filters** compare in the server's time zone, as Frappe does.
-
-## Real-site validation — deferred
-
-Not done. The decision (2026-10-17) is to validate against a real Frappe site when the package is first integrated into
-a real project, not on a temporary local site. At that point, run these read-only checks with a test account that has
-read access only:
-
-- the list loads (rows, total, request fields, default order, CSRF header);
-- search (one request per typing pause; `or_filters` across the search fields);
-- "Match any" and "Match all" filters, and that the total equals the filtered count (`reportview.get_count` with
-  `or_filters`);
-- link search on a Link field (Frappe's `search_link`);
-- date filters (a Date field; a Datetime field such as Created On covering the whole day);
-- an old saved filter on a field that no longer exists (the list still loads);
-- CSRF (a POST without the token is refused) and Frappe's own permissions.
-
-`e2e/frappe-site/` holds a prepared procedure and a script for these checks (`validate.mjs`). It has never been run.
+The decision (2026-10-17) is to validate against a real Frappe site when the package is first integrated into a real
+project, with an approved test account. `e2e/frappe-site/` (repository only) holds a prepared, never-run read-only
+procedure (`validate.mjs`): list load, search, "Match any" / "Match all" totals, link search, date filters, an obsolete
+saved filter, CSRF refusal and Frappe's own permissions. Write paths need an approved site.

@@ -1,46 +1,108 @@
-# Known limitations — @solvfast/ui 0.4.0 (pre-release)
+# Known limitations — @solvfast/ui 0.7.0-dev.1 (unreleased)
 
-What this release does **not** do, has **not** been verified, or does differently from Sear on purpose.
-Evidence for everything that *was* verified is in docs/VALIDATION.md.
+What this version does **not** do, has **not** been verified, or does differently on purpose. The row-by-row status of the
+Form View and List View requirements is in `docs/audit/p35/COVERAGE.md` (repository only).
 
 ## Validation status
 
-| Area | Status |
+**No authenticated real-site validation has been done.** No write of any kind has been verified on a real Frappe site,
+and no restricted user has been tested on one. "COMPLETE" in the coverage matrix means "a test exercises it", never
+"verified on a site".
+
+| Area | Evidence |
 |---|---|
-| Core (theme, primitives, shell, List View) | Verified: unit tests, pixel parity with Sear's real components, clean installs (Tailwind and no-Tailwind) |
-| Merged components (0.3.0) | Verified: unit tests, showcase in light/dark × en/ar, clean installs on both paths. **Pixel parity with Sear not run** for them: their look is the Design System's code with the package's tokens and popper glass. Sear uses only a few (Alert, Accordion, HoverCard, Progress, on a handful of Sear Studio screens); a reference for those could be added to `tools/parity` later |
-| Frappe layer — simulated requests | **Passed**: exact request shapes, filters, search, counts, errors, link search, grouping, against a recording transport and a simulated Frappe site (docs/VALIDATION.md, 5.4) |
-| Frappe layer — a real Frappe site | **Deferred — not done.** It will be validated when the package is first integrated into a real project. Until then nothing here claims it works against a live site. A prepared, never-run procedure is in `e2e/frappe-site/` |
+| Core 0.1–0.3 (theme, primitives, shell, List View) | Unit tests, pixel parity with Sear's real components, clean installs (Tailwind and no-Tailwind) |
+| Core additions 0.4–0.7 (fields, record components, Export / Import dialogs, views, sidebar, record menu, e-mail composer, file dropzone, …) | Unit tests in jsdom and a Showcase smoke render (jsdom). No pixel parity, no manual screen-reader pass; 0.7.0-dev additions have not been checked in a real browser |
+| Frappe layer — read paths | Replayed from **recorded real Frappe 15.110 responses** and anonymous HTTP (`tests/real/sada-real.test.tsx`): meta, list rows, counts, link search / validation, document load, the 403 / 417 envelopes |
+| Frappe layer — everything else | **Simulator only** (`@solvfast/ui/frappe/testing`) or stub transports — see the next section |
+| Frappe layer — an authenticated real site | **Not done.** A prepared, never-run read-only procedure is in `e2e/frappe-site/` (repository only) |
 
-## Frappe layer 0.4.0 — status (updated at 0.4.0-dev.34)
+## Simulator-only areas
 
-- **Evidence.** Read paths (metadata, list rows, counts, link search/validation, document load, 403/417 error envelopes)
-  were replayed from **recorded real Frappe 15.110 responses** and anonymous HTTP (`tests/real/sada-real.test.tsx`).
-  **Nothing has run against an authenticated real session, and no write has been verified on a real site**: saves,
-  submits, workflow, assignment, comments, bulk actions, Print, Import and Export are tested only against stub transports
-  and the in-package simulator.
-- **Permissions (rule 9):** without `session.roles` nothing is granted beyond what the server's `docinfo.permissions` says
-  for a saved document; a new document, and a `FrappeFormView` without permission information, are read-only
-  (`usePermissions().known` false); workflow actions are the server's `get_transitions` answer. The Administrator user is
-  treated as Frappe 15.110 does (every role). The server is the authority. Restricted users were never tested on a real site.
-- **List View.** Desk's Actions (Edit, Export, Assign To, Clear Assignment, Apply Assignment Rule, Add Tags, Print, Submit,
-  Cancel, Delete, workflow bulk approval), Export offered to everyone as Desk (the server refuses), an opt-in report-view export
-  (`menu.reportExport`, with the export right), Import → the Data Import list, the width-based column cap (default on; `columnLimit={false}`),
-  nested-set operators and opt-in URL filters are implemented with Desk's request shapes. **The List View is not declared
-  Frappe-compatible**: no behaviour has been exercised against a real session. Not reproduced: actions as Desk's dropdown
-  (they are selection-bar buttons), Print's background completion without a host task subscriber, URL write-back of OR
-  queries / search / sort, the group-by sidebar with counts, Report / Kanban / Calendar views. See
-  `docs/components/list.md` §6, §6a, §9.
-- **Import.** `FrappeDataImport` covers upload, the server's preview and warnings, column mapping, Start / Retry, the
-  server-confirmed result, the import log and errored rows. Not reproduced: Google Sheets, "Report Error", changing the
-  import type after creation. The package never builds an export file from client data and never reports an import
-  before the server confirms it.
-- **Dates:** Frappe Date fields show the site's `date_format` in both states; Datetime editing keeps the DS display.
-- **Realtime** is a skeleton (full reload on an event; a fake socket only in tests).
-- **Client Scripts** are not executed (`formEvents` instead, documented boundary); 18 of 947 installed-app `depends_on`
-  expressions are unsupported by decision.
-- **`@solvfast/ui/frappe/testing`** (the simulator) ships as its own entry for tests and demos; the `@solvfast/ui/frappe`
-  entry never imports it.
+The simulator answers from memory. It models Frappe's request and response shapes and an opt-in permission engine
+(roles, DocPerm, `if_owner`, User Permissions, sharing, permlevel), but not Frappe's naming, server validation, hooks,
+SQL or every permission rule. These behaviours have **only** simulator (or stub) evidence:
+
+- **Every write:** form Save / Submit / Update / Cancel / Cancel All / Amend, Quick Entry save, delete, rename, workflow
+  apply and bulk approval, assignment, comments, tags, likes, list bulk actions (Edit, Submit, Cancel, Delete, Assign,
+  Clear Assignment, Assignment Rule, Add Tags), Print, e-mail sending, reminders, List View Settings, saved filters
+  (`List Filter`), `user_settings`, Data Import, Report view inline edit (`frappe.client.set_value`), Kanban moves
+  (`update_order_for_single_card`), `upload_file`.
+- **Server reads and aggregates no recorded response covers:** sidebar counts (`get_group_by_count`,
+  `get_sidebar_stats`), connection counts (`get_open_count`), Kanban boards (`get_kanban_boards`, the board document),
+  `calendar.get_events`, print preview HTML (`get_html_and_style` — the simulator returns a labelled placeholder), Email
+  Templates (`get_email_template`), `reportview.get` with child-table columns or an Attach Image column, getdoc's
+  `_link_titles` and the MandatoryError body (both shaped in the tests from Frappe's source), `download_template` and
+  `export_query` (unapproved read / writes an Access Log).
+- **Not simulated at all:** `frappe.utils.print_format.download_pdf` (form PDF — only the URL shape is tested).
+- **Realtime:** a fake port only; `createSocketRealtime` is a skeleton, no socket.io session has been run.
+- **Permissions with restricted users, User Permissions and sharing:** simulator and recorded role lists only.
+
+## Not implemented
+
+**List views.** Gantt, Dashboard, Map, Tree and Inbox are not implemented and never offered by the view switcher
+(`availableViews` reports them unavailable):
+
+| View | Why not |
+|---|---|
+| Gantt | Desk's configuration is app JavaScript (`frappe.views.calendar[doctype]` field map with progress and dependencies), not meta; it needs a Gantt renderer and `update_event` writes |
+| Dashboard | needs Dashboard Chart / Number Card documents and chart sources outside the DocType meta; the Core `chart/` and `cards/` exist but there is no Frappe adapter |
+| Map | needs a map library and a tile server, plus `get_coords_method` (app JavaScript) or location fields; low relevance |
+| Tree | tree settings are app JavaScript (`frappe.treeview_settings`) with `get_children` / `add_node`; only the nested-set filter operators exist |
+| Inbox | applies to Communication only and depends on Email Accounts; low relevance |
+
+The implemented views are partial: **Report** has no Report Builder `save_report`, no SQL aggregate group-by, no
+charts, no multi-column sort, no column widths and no child-cell editing; **Calendar** is a month view only (no week /
+day view, no event drag / resize, no Calendar View documents, no time-zone conversion; in `reportview` mode rows without
+an end date are left out); **Kanban** cannot create a board, add / archive / reorder columns or edit Kanban Settings;
+**Image** has no gallery / zoom. Filters carry between Report, Image, Kanban and Calendar, not yet from `FrappeListView`
+(TODO(integration)).
+
+**Form View.** Grid CSV download / upload; e-mail preview (and schedule, signature, reply-all); Markdown / HTML Editor
+previews and a code editor; real controls for Signature, Geolocation, Barcode and Icon (shown read-only and reported);
+Datetime time-zone conversion while editing (seconds are dropped); the currency symbol from `df.options`; Fold
+("Show more"); placeholders on non-Data controls; naming-series preview; the rename *title* path
+(`update_document_title`); a Submit step after a Quick Entry save; Client Scripts (use `formEvents`, decision D-24).
+
+**List View.** Desk's 90-day recency filter on large tables; unseen rows in bold; "Edit DocType"; the sidebar's "Edit"
+modal for group-by fields (they are read from `user_settings`, not editable); In / Not In on Date fields; "Load more" for
+ungrouped lists (they page).
+
+## Frappe layer — behaviour notes
+
+- **Auth:** same-origin session cookie + CSRF only. Other schemes need a custom `transport`.
+- **Permissions (rule 9):** without `session.roles` nothing is granted beyond the server's `docinfo.permissions` for a
+  saved document; a new document, and a form without permission information, are read-only; create buttons, menu entries
+  and Link "Create a new X" stay hidden. The Administrator user is treated as Frappe 15.110 does (every role).
+- **One `or_filters` list:** with "Match any" filters, search narrows to the title field (the list says so). OR queries
+  cannot be saved (`List Filter`, `user_settings`) or written to the URL.
+- **Grouping** is client-side over loaded rows (chunks of 200, "Load more"); counts are exact once all rows are loaded.
+  Server counts are in the opt-in group-by sidebar (`sidebar`).
+- **Labels:** DocField labels and Select values are shown as defined on the server; pass `fieldLabels` / curated columns
+  for translations.
+- **Datetime filters** compare in the server's time zone, as Frappe does.
+- **Realtime** is a full reload on `list_update` (Desk refreshes changed names only).
+- **Selection layout:** `selectionMode` defaults to `"bar"`; `"header"` is Desk's layout (Actions menu). Owner decision pending.
+- **Select all matching** (header mode) runs only query-based actions (Export by filter); name-based actions are disabled
+  with a reason.
+- **Print:** list background PDFs need the host's `subscribeTask` to see completion; the draft / cancelled rules need the
+  site's Print Settings from the host.
+- **Report view inline edit** follows report_view.js:758-771 but deliberately not :772-777 (Desk 15.110 leaves fields
+  read-only on DocTypes without a Table field); a field with `read_only_depends_on` is never edited inline.
+- **Quick Entry** saves through `savedocs` (Desk: `frappe.client.save`).
+- **Kanban** with a filtered list: the server's `update_order_for_single_card` pops `old_index` blindly
+  (kanban_board.py:147-151), as on Desk.
+- **Import:** not reproduced — Google Sheets, "Report Error", changing the import type after creation.
+- **Default wiring (TODO(integration)):** at the time of writing `FrappeForm` does not mount the ⋯ menu or the Connections
+  tab by default and `FrappeListView` does not open Quick Entry by default; the components exist and are passed through
+  `menu` / `extraTabs` / `create`.
+- **`@solvfast/ui/frappe/testing`** (the simulator) ships as its own entry; `@solvfast/ui/frappe` never imports it.
+
+## Known bugs
+
+- `TagInput` keeps its suggestion list open after Enter adds a tag, until focus leaves; inside a dialog it can cover the
+  next button.
+- `DataGrid` has a fixed minimum width (`32rem`): on a 390 px phone it scrolls horizontally.
 
 ## Environment
 
@@ -76,17 +138,8 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
   current page (keys for all).
 - Grouped: collapsing a group can re-balance column widths (all groups still share the header's columns).
 
-## Frappe layer
-
-- Auth: same-origin session cookie + CSRF only. Other schemes need a custom `transport`.
-- Frappe accepts one `or_filters` list: with "Match any" filters, search narrows to the title field (the list says so).
-- Grouping is client-side over loaded rows (chunks of 200, "Load more"); group counts are exact only once all rows are
-  loaded (until then they end in "+").
-- DocField labels and Select values are shown as defined on the server; pass `fieldLabels` / curated columns for
-  translations.
-- Not supported: child tables, virtual DocTypes, realtime updates, report-view features (SQL group-by, aggregates),
-  Frappe's per-user list settings.
-- Datetime filters compare in the server's time zone, as Frappe does.
+- `layout="auto"` switches to cards only where a phone media query matches; `layout="cards"` forces them.
+- Select all matching ends when a row is unchecked or the query changes.
 
 ## Merged components (0.3.0)
 
