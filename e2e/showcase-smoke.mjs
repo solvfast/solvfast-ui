@@ -12,7 +12,9 @@ import { chromium } from "playwright-core";
 const BASE = process.argv[2] ?? "http://127.0.0.1:4850/";
 const SHOTS = process.argv[3];
 const PAGES = [...fs.readFileSync(new URL("../showcase/src/routes.ts", import.meta.url), "utf8")
-  .matchAll(/\{ id: "([a-z-]+)", title: [^\n]*Component: from\(/g)].map((m) => m[1]);
+  // every page object (one line or several, ids with digits — the P35 pages appended at the end included): an `id`
+  // followed by `Component: from(` with no other `id:` in between (a group's id is followed by its first page's)
+  .matchAll(/\bid: "([a-z0-9-]+)",(?:(?!\bid: ")[\s\S])*?Component: from\(/g)].map((m) => m[1]);
 const HERO = "overview";
 if (SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
 
