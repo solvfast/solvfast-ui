@@ -46,8 +46,9 @@ export interface FormController {
   /** Trigger a registered event by name (Desk `frm.trigger`). */
   trigger(event: string, cdt?: string, cdn?: string): Promise<boolean>;
   // ---- P35 (additive) ----
-  /** `frm.save(action)`: the form's own pipeline (validate → before_save → mandatory → server). Default action: the
-   *  one the toolbar would offer for Save / Update. Resolves true when the server accepted it. */
+  /** `frm.save(action)`: the form's own pipeline (validate → before_save → mandatory → server), after a permission
+   *  check. Default action: Save (Update for a submitted doc). Resolves true when the server accepted it. "Submit" opens
+   *  the "Permanently Submit" confirmation and resolves false (Desk `savesubmit`); confirming submits. */
   save(action?: "Save" | "Submit" | "Update"): Promise<boolean>;
   /** `frappe.ui.form.check_mandatory(frm)`: false (and the Missing Fields dialog opens) when a required value is empty. */
   checkMandatory(): boolean;

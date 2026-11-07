@@ -16,7 +16,7 @@ import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle } from "../src/
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
 import type { FrappeSession } from "../src/frappe/services/permissions";
 import { readFrappeBoot, userDefaultsFromBoot } from "../src/frappe/services/boot";
-import { FrappeForm, FrappeFormView, FrappeFormServices, fieldErrorsFromFrappeError, useUnsavedChangesBlocker, type FormController, type FormServices, type FrappeFormViewProps } from "../src/frappe/form";
+import { FrappeForm, FrappeFormView, FrappeFormServices, amendDoc, copyDoc, fieldErrorsFromFrappeError, useUnsavedChangesBlocker, type FormController, type FormServices, type FrappeFormViewProps } from "../src/frappe/form";
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -112,14 +112,14 @@ export const typeInto = (el: HTMLElement, value: string) => { fireEvent.focus(el
 const saved: FrappeDoc = { doctype: "Memo", name: "MEMO-1", title: "Hello", kind: "A", note: "n", docstatus: 0, modified: "2026-11-01 10:00:00" };
 
 describe("P35 FrappeFormView slots (menu, extraTabs, fieldFilter, header image, See on Website)", () => {
-  it("K3/K16 menu slot renders after the primary action", () => {
+  it("FV.K3/K16 menu slot renders after the primary action", () => {
     const { el } = view({ doc: { ...saved, __unsaved: 1 }, menu: <button type="button">More</button> });
     setup(el);
     const buttons = screen.getAllByRole("button").map((b) => b.textContent);
     expect(buttons.indexOf("More")).toBe(buttons.indexOf("Save") + 1);
   });
 
-  it("M1 extraTabs: a form without Tab Breaks gets a Details tab plus the extra tabs; render runs only when active", () => {
+  it("FV.M1 extraTabs: a form without Tab Breaks gets a Details tab plus the extra tabs; render runs only when active", () => {
     const render1 = vi.fn(() => <p>Connections body</p>);
     const { el } = view({ doc: saved, extraTabs: [{ key: "connections", label: "Connections", render: render1 }] });
     setup(el);
@@ -134,14 +134,14 @@ describe("P35 FrappeFormView slots (menu, extraTabs, fieldFilter, header image, 
     expect(render1).toHaveBeenCalled();
   });
 
-  it("M1 extraTabs are appended after the form's own tabs (keys cannot collide with Tab Break fieldnames)", () => {
+  it("FV.M1 extraTabs are appended after the form's own tabs (keys cannot collide with Tab Break fieldnames)", () => {
     const meta: DocTypeMeta = { ...MEMO, fields: [...MEMO.fields, { fieldname: "connections", fieldtype: "Tab Break", label: "Other" }, { fieldname: "x", fieldtype: "Data", label: "X" }] };
     const { el } = view({ bundle: bundleOf(meta), doc: { ...saved, x: "1" }, extraTabs: [{ key: "connections", label: "Connections", render: () => <p>C</p> }] });
     setup(el);
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Details", "Other", "Connections"]);
   });
 
-  it("B6 fieldFilter: only accepted fields (and breaks) are laid out; hidden fields stay hidden", () => {
+  it("FV.B6 fieldFilter: only accepted fields (and breaks) are laid out; hidden fields stay hidden", () => {
     const { el } = view({ doc: saved, fieldFilter: (df) => df.fieldname === "title" || df.fieldname === "note" || df.fieldname === "image" });
     setup(el);
     expect(screen.getByRole("textbox", { name: /Title/ })).toBeTruthy();
@@ -151,7 +151,7 @@ describe("P35 FrappeFormView slots (menu, extraTabs, fieldFilter, header image, 
     expect(screen.queryByText("Image")).toBeNull(); // accepted but hidden: still hidden
   });
 
-  it("J9 header image from meta.image_field (initials fallback when empty)", () => {
+  it("FV.J9 header image from meta.image_field (initials fallback when empty)", () => {
     const { el } = view({ doc: { ...saved, image: "/files/a.png" } });
     setup(el);
     const img = document.querySelector("[data-form-image]");
@@ -162,19 +162,19 @@ describe("P35 FrappeFormView slots (menu, extraTabs, fieldFilter, header image, 
     expect(screen.getByText("H")).toBeTruthy(); // initials of "Hello"
   });
 
-  it("J9 negative: a DocType without image_field shows no avatar", () => {
+  it("FV.J9 negative: a DocType without image_field shows no avatar", () => {
     setup(view({ bundle: bundleOf({ ...MEMO, image_field: undefined }), doc: saved }).el);
     expect(screen.queryByText("H")).toBeNull();
   });
 
-  it("P1-P4 See on Website: a published website generator (__onload, form.js:1149-1158) links /route in a new tab", () => {
+  it("FV.P1-P4 See on Website: a published website generator (__onload, form.js:1149-1158) links /route in a new tab", () => {
     setup(view({ doc: { ...saved, route: "memos/hello", __onload: { is_website_generator: true, published: true } } }).el);
     const a = screen.getByRole("link", { name: /See on Website/ });
     expect(a.getAttribute("href")).toBe("/memos/hello");
     expect(a.getAttribute("target")).toBe("_blank");
   });
 
-  it("P2 See on Website is not shown when unpublished, without a route, or for a new document", () => {
+  it("FV.P2 See on Website is not shown when unpublished, without a route, or for a new document", () => {
     setup(view({ doc: { ...saved, route: "memos/hello", __onload: { is_website_generator: true, published: false } } }).el);
     expect(screen.queryByRole("link", { name: /See on Website/ })).toBeNull();
     cleanup();
@@ -185,7 +185,7 @@ describe("P35 FrappeFormView slots (menu, extraTabs, fieldFilter, header image, 
     expect(screen.queryByRole("link", { name: /See on Website/ })).toBeNull();
   });
 
-  it("P2 See on Website without __onload: has_web_view + is_published_field + route", () => {
+  it("FV.P2 See on Website without __onload: has_web_view + is_published_field + route", () => {
     const meta = { ...MEMO, has_web_view: 1, is_published_field: "published", fields: [...MEMO.fields, { fieldname: "published", fieldtype: "Check", label: "Published" }, { fieldname: "route", fieldtype: "Data", label: "Route" }] };
     setup(view({ bundle: bundleOf(meta), doc: { ...saved, published: 1, route: "m/1" } }).el);
     expect(screen.getByRole("link", { name: /See on Website/ }).getAttribute("href")).toBe("/m/1");
@@ -202,7 +202,7 @@ const subDoc = (over: Partial<FrappeDoc> = {}): FrappeDoc => ({ doctype: "Sales 
 const subDocs = (over: Partial<FrappeDoc> = {}) => ({ "Sales Memo": [subDoc(over)] });
 
 describe("F1 / H13 Ctrl+S = Desk's trigger_primary_action (desk.js:389-403)", () => {
-  it("H13 Ctrl+S with focus outside the form saves a dirty saved document through savedocs", async () => {
+  it("FV.H13 Ctrl+S with focus outside the form saves a dirty saved document through savedocs", async () => {
     const { el, onSave } = view({ doc: { ...MEMO_DOCS[0], note: "changed", __unsaved: 1 } });
     const { calls } = setup(el);
     expect(document.activeElement).toBe(document.body);
@@ -213,7 +213,7 @@ describe("F1 / H13 Ctrl+S = Desk's trigger_primary_action (desk.js:389-403)", ()
     expect(parsed(calls("frappe.desk.form.save.savedocs")[0].args.doc)).toMatchObject({ name: "MEMO-1", note: "changed" });
   });
 
-  it("H13 Ctrl+S inside a text box blurs it first: the pending edit is saved (not lost to the 500 ms debounce)", async () => {
+  it("FV.H13 Ctrl+S inside a text box blurs it first: the pending edit is saved (not lost to the 500 ms debounce)", async () => {
     const { el, onSave } = view({ doc: MEMO_DOCS[0] });
     const { calls } = setup(el);
     const note = screen.getByRole("textbox", { name: /Note/ }) as HTMLInputElement;
@@ -226,7 +226,7 @@ describe("F1 / H13 Ctrl+S = Desk's trigger_primary_action (desk.js:389-403)", ()
     expect(parsed(calls("frappe.desk.form.save.savedocs")[0].args.doc).note).toBe("typed");
   });
 
-  it("H13 a clean saved submittable draft: Ctrl+S runs the visible primary (Submit → its confirmation)", async () => {
+  it("FV.H13 a clean saved submittable draft: Ctrl+S runs the visible primary (Submit → its confirmation)", async () => {
     const { el, onSave } = view({ bundle: bundleOf(SUBM), doc: subDoc() });
     setup(el, { docs: subDocs() });
     expect(screen.getByRole("button", { name: "Submit" })).toBeTruthy();
@@ -235,7 +235,7 @@ describe("F1 / H13 Ctrl+S = Desk's trigger_primary_action (desk.js:389-403)", ()
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("H13 a cancelled document: Ctrl+S runs Amend (the local amendment replaces the form)", async () => {
+  it("FV.H13 a cancelled document: Ctrl+S runs Amend (the local amendment replaces the form)", async () => {
     const onAmended = vi.fn();
     const { el } = view({ bundle: bundleOf(SUBM), doc: subDoc({ docstatus: 2 }), onAmended });
     setup(el, { docs: subDocs({ docstatus: 2 }) });
@@ -244,7 +244,7 @@ describe("F1 / H13 Ctrl+S = Desk's trigger_primary_action (desk.js:389-403)", ()
     expect(onAmended.mock.calls[0][0]).toMatchObject({ amended_from: "SM-1", __islocal: 1 });
   });
 
-  it("H13 negative: saveDisabled, hotkeys={false} and a form without permissions do nothing", async () => {
+  it("FV.H13 negative: saveDisabled, hotkeys={false} and a form without permissions do nothing", async () => {
     for (const extra of [{ saveDisabled: true }, { hotkeys: false }, { permissions: undefined }] as Partial<FrappeFormViewProps>[]) {
       const { el, onSave } = view({ doc: { ...MEMO_DOCS[0], note: "x", __unsaved: 1 }, ...extra });
       const { calls } = setup(el);
@@ -256,7 +256,7 @@ describe("F1 / H13 Ctrl+S = Desk's trigger_primary_action (desk.js:389-403)", ()
     }
   });
 
-  it("H13 only the topmost mounted form answers (a later form — e.g. a dialog — wins)", async () => {
+  it("FV.H13 only the topmost mounted form answers (a later form — e.g. a dialog — wins)", async () => {
     const a = view({ doc: { ...MEMO_DOCS[0], note: "a", __unsaved: 1 } });
     const b = view({ doc: { ...MEMO_DOCS[0], note: "b", __unsaved: 1 } });
     setup((c) => <>{a.el(c)}{b.el(c)}</>);
@@ -267,7 +267,7 @@ describe("F1 / H13 Ctrl+S = Desk's trigger_primary_action (desk.js:389-403)", ()
 });
 
 describe("F5 / H4 submitted + dirty → Update only (toolbar.js:668-689)", () => {
-  it("H4 editing an allow_on_submit field shows Update and no Cancel; Update sends savedocs action Update", async () => {
+  it("FV.H4 editing an allow_on_submit field shows Update and no Cancel; Update sends savedocs action Update", async () => {
     const { el, onSave } = view({ bundle: bundleOf(SUBM), doc: subDoc({ docstatus: 1 }), onCancelDoc: async (d) => d });
     const { calls } = setup(el, { docs: subDocs({ docstatus: 1 }) });
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy(); // clean: Cancel
@@ -283,7 +283,7 @@ describe("F5 / H4 submitted + dirty → Update only (toolbar.js:668-689)", () =>
 });
 
 describe("F8 / H6 Amend needs create + amend; copies start from new-doc defaults", () => {
-  it("H6 no Amend without the create right (form.js:1297-1298 validate_form_action('Create'))", () => {
+  it("FV.H6 no Amend without the create right (form.js:1297-1298 validate_form_action('Create'))", () => {
     const noCreate = { levels: [{ ...ALL, create: false }], can: (p: string) => p !== "create" && !!(ALL as Record<string, boolean>)[p], known: true };
     setup(view({ bundle: bundleOf(SUBM), doc: subDoc({ docstatus: 2 }), permissions: noCreate }).el, { docs: subDocs({ docstatus: 2 }) });
     expect(screen.queryByRole("button", { name: "Amend" })).toBeNull();
@@ -293,8 +293,45 @@ describe("F8 / H6 Amend needs create + amend; copies start from new-doc defaults
   });
 });
 
+describe("F8 / K6 copy_doc starts from get_new_doc (create_new.js:281-320)", () => {
+  it("FV.K6 a Duplicate gets the no_copy field's default, __run_link_triggers, no default row for an empty required table; an amendment's rows keep _amended_from", () => {
+    const child: DocTypeMeta = { name: "Memo Line", istable: 1, fields: [{ fieldname: "q", fieldtype: "Int", label: "Q", default: "1" }, { fieldname: "note", fieldtype: "Data", label: "Note", default: "dflt" }] };
+    const meta: DocTypeMeta = {
+      name: "Memo", fields: [
+        { fieldname: "ref", fieldtype: "Data", label: "Ref", no_copy: 1, default: "X" },
+        { fieldname: "title", fieldtype: "Data", label: "Title" },
+        { fieldname: "lft", fieldtype: "Int", label: "Lft" },
+        { fieldname: "lines", fieldtype: "Table", label: "Lines", options: "Memo Line", reqd: 1 },
+        { fieldname: "extra", fieldtype: "Table", label: "Extra", options: "Memo Line" },
+        { fieldname: "amended_from", fieldtype: "Link", label: "Amended From", options: "Memo", no_copy: 1 },
+      ],
+    };
+    const b = bundleOf(meta, { "Memo Line": child });
+    const src: FrappeDoc = { doctype: "Memo", name: "M-1", docstatus: 2, ref: "R-9", title: "T", lft: 4, lines: [{ doctype: "Memo Line", name: "row-a", idx: 1, q: 5, note: "" }] };
+    const dup = copyDoc(b, src, { user: "u@x" });
+    expect(dup).toMatchObject({ ref: "X", title: "T", __run_link_triggers: 1, owner: "u@x", modified_by: "u@x", __islocal: 1 });
+    expect(dup.lft).toBeUndefined();
+    expect(dup.extra).toEqual([]); // nothing to copy: no default row (get_new_doc without mandatory children)
+    expect((dup.lines as FrappeDoc[])[0]).toMatchObject({ q: 5, note: "", parent: dup.name, __islocal: 1 });
+    expect((dup.lines as FrappeDoc[])[0]._amended_from).toBeUndefined();
+    const am = amendDoc(b, src);
+    expect(am).toMatchObject({ ref: "R-9", amended_from: "M-1" }); // from_amend copies no_copy fields
+    expect((am.lines as FrappeDoc[])[0]._amended_from).toBe("row-a");
+  });
+  it("FV.H3 frm.save('Submit') asks first (Desk savesubmit → confirm), it does not submit by itself", async () => {
+    const ref = { current: null as FormController | null };
+    const { el, onSave } = view({ bundle: bundleOf(SUBM), doc: subDoc(), controllerRef: ref });
+    setup(el, { docs: subDocs() });
+    let r: boolean | undefined;
+    await act(async () => { r = await ref.current!.save("Submit"); });
+    expect(r).toBe(false);
+    expect(await screen.findByText("Permanently Submit SM-1?")).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+});
+
 describe("F6 / H14 dirty state for in-app navigation", () => {
-  it("H14 onDirtyChange reports true on the first edit and false after the save", async () => {
+  it("FV.H14 onDirtyChange reports true on the first edit and false after the save", async () => {
     const onDirtyChange = vi.fn();
     const { el } = view({ doc: MEMO_DOCS[0], onDirtyChange });
     setup(el);
@@ -305,7 +342,7 @@ describe("F6 / H14 dirty state for in-app navigation", () => {
     await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
   });
 
-  it("H14 useUnsavedChangesBlocker: clean → leave; dirty → asks (the router gets the answer)", async () => {
+  it("FV.H14 useUnsavedChangesBlocker: clean → leave; dirty → asks (the router gets the answer)", async () => {
     const asked: string[] = [];
     let guard: ReturnType<typeof useUnsavedChangesBlocker> | null = null;
     function Host() {
@@ -325,7 +362,7 @@ describe("F6 / H14 dirty state for in-app navigation", () => {
 });
 
 describe("K14 undo / redo (undo_manager.js)", () => {
-  it("K14 Ctrl+Z outside inputs undoes the user's last change, Ctrl+Shift+Z / Ctrl+Y redo it; the controller exposes them", async () => {
+  it("FV.K14 Ctrl+Z outside inputs undoes the user's last change, Ctrl+Shift+Z / Ctrl+Y redo it; the controller exposes them", async () => {
     const ref = { current: null as FormController | null };
     const note = vi.fn();
     setup(view({ doc: MEMO_DOCS[0], controllerRef: ref, events: { note } }).el);
@@ -346,7 +383,7 @@ describe("K14 undo / redo (undo_manager.js)", () => {
     await waitFor(() => expect(note.mock.calls.length).toBeGreaterThanOrEqual(6)); // field events ran for every set (frm.set_value)
   });
 
-  it("K14 negative: Ctrl+Z inside a text input is the browser's; script writes are not recorded; empty → 'Nothing left to undo'", async () => {
+  it("FV.K14 negative: Ctrl+Z inside a text input is the browser's; script writes are not recorded; empty → 'Nothing left to undo'", async () => {
     const ref = { current: null as FormController | null };
     setup(view({ doc: MEMO_DOCS[0], controllerRef: ref }).el);
     act(() => ref.current!.setValue("note", "by script"));
@@ -361,7 +398,7 @@ describe("K14 undo / redo (undo_manager.js)", () => {
 });
 
 describe("K1 / K2 custom buttons and the Create dropdown (frm.add_custom_button)", () => {
-  it("K1 buttons added in refresh render in the header and run their handler; K2 grouped ones form a dropdown", async () => {
+  it("FV.K1 buttons added in refresh render in the header and run their handler; K2 grouped ones form a dropdown", async () => {
     const run = vi.fn();
     const make = vi.fn();
     const events = { refresh: (frm: FormController) => { frm.addCustomButton("Notify", run); frm.addCustomButton("Task", make, "Create"); frm.addCustomButton("Event", make, "Create"); } };
@@ -374,7 +411,7 @@ describe("K1 / K2 custom buttons and the Create dropdown (frm.add_custom_button)
     expect(make).toHaveBeenCalledTimes(1);
   });
 
-  it("K1 buttons are cleared before every refresh (form.js:724): a button not re-added after a save is gone", async () => {
+  it("FV.K1 buttons are cleared before every refresh (form.js:724): a button not re-added after a save is gone", async () => {
     let first = true;
     const events = { refresh: (frm: FormController) => { if (first) frm.addCustomButton("Once", () => {}); first = false; } };
     setup(view({ doc: { ...MEMO_DOCS[0], note: "x", __unsaved: 1 }, events }).el);
@@ -405,7 +442,7 @@ const flowSetup = (over: Partial<FrappeDoc>, ui: React.ReactElement) => setup(ui
 const openActions = async () => fireEvent.keyDown(await screen.findByRole("button", { name: "Actions" }), { key: "Enter" });
 
 describe("F2 / I1-I2 workflow action: check_mandatory → before_workflow_action → apply → after_workflow_action (form/workflow.js:96-121)", () => {
-  it("I2 a mandatory_depends_on field left empty blocks the transition: Missing Fields, nothing sent, no event", async () => {
+  it("FV.I2 a mandatory_depends_on field left empty blocks the transition: Missing Fields, nothing sent, no event", async () => {
     const before = vi.fn();
     const { calls } = flowSetup({}, <FrappeForm doctype="Flow Memo" name="FM-1" guardUnload={false} events={{ before_workflow_action: before }} />);
     await openActions();
@@ -416,7 +453,7 @@ describe("F2 / I1-I2 workflow action: check_mandatory → before_workflow_action
     expect(before).not.toHaveBeenCalled();
   });
 
-  it("I2 with the value: before_workflow_action sees frm.selectedWorkflowAction, apply_workflow is sent, then after_workflow_action", async () => {
+  it("FV.I2 with the value: before_workflow_action sees frm.selectedWorkflowAction, apply_workflow is sent, then after_workflow_action", async () => {
     const order: string[] = [];
     const events = {
       before_workflow_action: (frm: FormController) => { order.push(`before:${frm.selectedWorkflowAction}`); },
@@ -430,7 +467,7 @@ describe("F2 / I1-I2 workflow action: check_mandatory → before_workflow_action
     expect(calls("frappe.model.workflow.apply_workflow")[0].args.action).toBe("Approve");
   });
 
-  it("I2 negative: before_workflow_action returning false stops the action (nothing sent)", async () => {
+  it("FV.I2 negative: before_workflow_action returning false stops the action (nothing sent)", async () => {
     const { calls } = flowSetup({ reason: "budget" }, <FrappeForm doctype="Flow Memo" name="FM-1" guardUnload={false} events={{ before_workflow_action: () => false }} />);
     await openActions();
     fireEvent.click(await screen.findByRole("menuitem", { name: "Approve" }));
@@ -438,7 +475,7 @@ describe("F2 / I1-I2 workflow action: check_mandatory → before_workflow_action
     expect(calls("frappe.model.workflow.apply_workflow")).toHaveLength(0);
   });
 
-  it("I8 a new document of a workflow DocType starts in the default state for its docstatus (model/workflow.js:28-38)", async () => {
+  it("FV.I8 a new document of a workflow DocType starts in the default state for its docstatus (model/workflow.js:28-38)", async () => {
     const { calls } = flowSetup({}, <FrappeForm doctype="Flow Memo" guardUnload={false} />);
     typeInto(await screen.findByRole("textbox", { name: /Title/ }), "Other");
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -464,16 +501,16 @@ describe("F3 / F10 getdoc's _link_titles reach the link-title cache (load.py:62,
     const r = await t(m, a);
     return m === "frappe.desk.form.load.getdoc" && a.doctype === "Visit" ? { ...r, _link_titles: { "Contact::C-0001": "Ann Contact" } } : r;
   };
-  it("F10 a saved form shows the title of its Link value without searching", async () => {
+  it("FV.F10 a saved form shows the title of its Link value without searching", async () => {
     const { calls } = setup(<FrappeForm doctype="Visit" name="V-1" guardUnload={false} />, { meta: { Visit: [VISIT] }, docs: visitDocs, wrap: withTitles });
     await waitFor(() => expect((screen.getByRole("combobox", { name: /Contact/ }) as HTMLInputElement).value).toBe("Ann Contact"));
     expect(calls("frappe.desk.search.search_link")).toHaveLength(0);
   });
-  it("F10 negative: without _link_titles the raw name is shown", async () => {
+  it("FV.F10 negative: without _link_titles the raw name is shown", async () => {
     setup(<FrappeForm doctype="Visit" name="V-1" guardUnload={false} />, { meta: { Visit: [VISIT] }, docs: visitDocs });
     await waitFor(() => expect((screen.getByRole("combobox", { name: /Contact/ }) as HTMLInputElement).value).toBe("C-0001"));
   });
-  it("F10 the client keeps them: getDoc → linkTitles and docinfo._link_titles", async () => {
+  it("FV.F10 the client keeps them: getDoc → linkTitles and docinfo._link_titles", async () => {
     const t = createFixtureTransport({ meta: { Visit: [VISIT] }, docs: visitDocs });
     const api = createFrappeClient({ transport: withTitles(t) });
     const loaded = await api.getDoc("Visit", "V-1") as LoadedDocWithTitles;
@@ -498,7 +535,7 @@ describe("F4 / F6, F8 Link: 'Create a new X' needs the target's create right, th
     await tick(600); // the 500 ms search debounce
     return box;
   };
-  it("F8 the open-record link shows for a role with read on the target, not for one without (rule 9: no roles → none)", async () => {
+  it("FV.F8 the open-record link shows for a role with read on the target, not for one without (rule 9: no roles → none)", async () => {
     for (const [roles, expected] of [[["Reader"], true], [["Nobody"], false], [undefined, false]] as const) {
       const { calls } = setup(visitView().el, { meta: { Visit: [VISIT], Contact: [CONTACT_LITE] }, docs: visitDocs, session: { user: "u@x", ...(roles ? { roles: [...roles] } : {}) } });
       if (roles) await waitFor(() => expect(calls("frappe.desk.form.load.getdoctype").some((c) => c.args.doctype === "Contact")).toBe(true));
@@ -508,7 +545,7 @@ describe("F4 / F6, F8 Link: 'Create a new X' needs the target's create right, th
       cleanup();
     }
   });
-  it("F6 'Create a new Contact' is offered with create + onCreateNew; not without the create right; the app's canCreate decides alone", async () => {
+  it("FV.F6 'Create a new Contact' is offered with create + onCreateNew; not without the create right; the app's canCreate decides alone", async () => {
     const onCreateNew = vi.fn();
     const cases: Array<[string[], Partial<FormServices>, boolean]> = [
       [["Maker"], { onCreateNew }, true],
@@ -524,7 +561,7 @@ describe("F4 / F6, F8 Link: 'Create a new X' needs the target's create right, th
     }
     expect(onCreateNew).not.toHaveBeenCalled();
   });
-  it("F6 the Administrator gets 'Create a new X' without a meta request when the app handles it", async () => {
+  it("FV.F6 the Administrator gets 'Create a new X' without a meta request when the app handles it", async () => {
     const onCreateNew = vi.fn();
     const { calls } = setup(visitView().el, { meta: { Visit: [VISIT], Contact: [CONTACT_LITE] }, docs: visitDocs, services: { onCreateNew } });
     await focusLink();
@@ -535,7 +572,7 @@ describe("F4 / F6, F8 Link: 'Create a new X' needs the target's create right, th
 });
 
 describe("A43 server save errors on the fields they name (base_document.py:738-776, document.py:950-982)", () => {
-  it("A43 LinkValidationError (strict SIMULATED save): 'Could not find Assigned By: …' marks Assigned By; editing it clears the mark", async () => {
+  it("FV.A43 LinkValidationError (strict SIMULATED save): 'Could not find Assigned By: …' marks Assigned By; editing it clears the mark", async () => {
     const ref = { current: null as FormController | null };
     const { calls } = setup(<FrappeForm doctype="ToDo" name="TD-1" guardUnload={false} controllerRef={ref} />, { strict: true });
     await screen.findByRole("combobox", { name: /Assigned By/ });
@@ -550,7 +587,7 @@ describe("A43 server save errors on the fields they name (base_document.py:738-7
     await waitFor(() => expect(screen.getByRole("combobox", { name: /Assigned By/ }).getAttribute("aria-invalid")).toBeNull());
   });
 
-  it("A43 MandatoryError (response shaped as document.py:963 + base_document.py:758): the named field shows the server's line", async () => {
+  it("FV.A43 MandatoryError (response shaped as document.py:963 + base_document.py:758): the named field shows the server's line", async () => {
     // the client check passed (the value is set locally); the server still found it empty (e.g. only an empty tag)
     const wrap = (t: FrappeTransport): FrappeTransport => async (m, a) => {
       if (m === "frappe.desk.form.save.savedocs") throw toFrappeError(417, { exc_type: "MandatoryError", exception: "frappe.exceptions.MandatoryError: [ToDo, TD-1]: description", _server_messages: JSON.stringify([JSON.stringify({ message: "Error: Value missing for ToDo: Description" })]) });
@@ -566,7 +603,7 @@ describe("A43 server save errors on the fields they name (base_document.py:738-7
     expect(document.querySelector('[role="alert"]')?.textContent).toContain("Error: Value missing for ToDo: Description");
   });
 
-  it("A43 fieldErrorsFromFrappeError: parent / child / translated labels; other errors map nothing", () => {
+  it("FV.A43 fieldErrorsFromFrappeError: parent / child / translated labels; other errors map nothing", () => {
     const bundle = bundleOf(
       { name: "Order", fields: [{ fieldname: "customer", fieldtype: "Link", label: "Customer", options: "Customer" }, { fieldname: "items", fieldtype: "Table", label: "Items", options: "Order Item" }, { fieldname: "note", fieldtype: "Data", label: "Note", reqd: 1 }] },
       { "Order Item": { name: "Order Item", istable: 1, fields: [{ fieldname: "item", fieldtype: "Link", label: "Item", options: "Item" }, { fieldname: "qty", fieldtype: "Int", label: "Qty", reqd: 1 }] } },
@@ -580,7 +617,7 @@ describe("A43 server save errors on the fields they name (base_document.py:738-7
 });
 
 describe("E2 / D8 user defaults from the boot into a new document (defaults.js:4-41)", () => {
-  it("E2 userDefaultsFromBoot: user defaults, the is_default User Permission wins, a single allowed value counts", () => {
+  it("FV.E2 userDefaultsFromBoot: user defaults, the is_default User Permission wins, a single allowed value counts", () => {
     const boot = readFrappeBoot({
       user: "u@x", roles: ["Sales User"],
       defaults: { company: "ACME", Territory: ["North", "South"], blank: "" },
@@ -589,7 +626,7 @@ describe("E2 / D8 user defaults from the boot into a new document (defaults.js:4
     expect(boot?.userDefaults).toEqual({ company: "ACME", Territory: ["North", "South"], Contact: "C-0001", Region: "EU" });
     expect(userDefaultsFromBoot({})).toBeUndefined();
   });
-  it("E2 FrappeForm newDocDefaults.userDefaults pre-fill a Link to that DocType (and the field default still wins)", async () => {
+  it("FV.E2 FrappeForm newDocDefaults.userDefaults pre-fill a Link to that DocType (and the field default still wins)", async () => {
     const userDefaults = { Contact: "C-0001" };
     const contacts = { Contact: [{ doctype: "Contact", name: "C-0001", first_name: "Ann" }, { doctype: "Contact", name: "C-0009", first_name: "Bo" }] };
     const { calls } = setup(<FrappeForm doctype="Visit" newDocDefaults={{ userDefaults }} guardUnload={false} />, { meta: { Visit: [VISIT], Contact: [CONTACT_LITE] }, docs: contacts });
@@ -636,7 +673,7 @@ const rowMenu = async (n: number) => fireEvent.keyDown(screen.getByRole("button"
 const itemsOf = (ref: { current: FormController | null }) => (ref.current!.doc.items as FrappeDoc[]).map((r) => `${r.idx}:${String(r.item)}`);
 
 describe("G child tables through FrappeFormView", () => {
-  it("G5 row form: Edit Row opens 'Editing Row #1 · Items', edits write the row, form_render + items_on_form_rendered fire; Insert Below / Delete", async () => {
+  it("FV.G5 row form: Edit Row opens 'Editing Row #1 · Items', edits write the row, form_render + items_on_form_rendered fire; Insert Below / Delete", async () => {
     const ref = { current: null as FormController | null };
     const seen: string[] = [];
     const events = { items_on_form_rendered: (_f: FormController, _cdt?: string, cdn?: string) => { seen.push(`rendered:${cdn}`); } };
@@ -656,7 +693,7 @@ describe("G child tables through FrappeFormView", () => {
     await waitFor(() => expect(itemsOf(ref)).toEqual(["1:Apple", "2:Pear"]));
   });
 
-  it("G4 Move Down / Move Up reorder rows (idx 1..n) and fire items_move with the moved row", async () => {
+  it("FV.G4 Move Down / Move Up reorder rows (idx 1..n) and fire items_move with the moved row", async () => {
     const ref = { current: null as FormController | null };
     const moved: Array<string | undefined> = [];
     orderSetup(orderView({ controllerRef: ref, events: { items_move: (_f, _cdt, cdn) => { moved.push(cdn); } } }).el);
@@ -668,7 +705,7 @@ describe("G child tables through FrappeFormView", () => {
     expect((await screen.findByRole("menuitem", { name: "Move Up" })).getAttribute("data-disabled")).not.toBeNull(); // first row
   });
 
-  it("G13 grid flags from the meta: cannot_add_rows / cannot_delete_rows hide their controls; static_rows makes the grid read-only", async () => {
+  it("FV.G13 grid flags from the meta: cannot_add_rows / cannot_delete_rows hide their controls; static_rows makes the grid read-only", async () => {
     const flag = (f: Record<string, unknown>) => ({ ...ORDER, fields: ORDER.fields.map((x) => (x.fieldname === "items" ? { ...x, ...f } : x)) });
     orderSetup(orderView({}, flag({ cannot_add_rows: 1 })).el);
     expect(screen.queryByRole("button", { name: "Add Row" })).toBeNull();
@@ -686,7 +723,7 @@ describe("G child tables through FrappeFormView", () => {
     expect(screen.queryByRole("button", { name: "Row 1 actions" })).toBeNull();
   });
 
-  it("G14 a child field change runs childEvents[child][field] with (frm, cdt, cdn) — not the parent's handler", async () => {
+  it("FV.G14 a child field change runs childEvents[child][field] with (frm, cdt, cdn) — not the parent's handler", async () => {
     const ref = { current: null as FormController | null };
     const child = vi.fn();
     const parent = vi.fn();
@@ -699,7 +736,7 @@ describe("G child tables through FrappeFormView", () => {
 });
 
 describe("H / B / J lifecycle and layout details", () => {
-  it("H11 a double click on Save sends one savedocs", async () => {
+  it("FV.H11 a double click on Save sends one savedocs", async () => {
     const { el } = view({ doc: { ...MEMO_DOCS[0], note: "x", __unsaved: 1 } });
     const { calls } = setup(el);
     const save = screen.getByRole("button", { name: "Save" });
@@ -709,7 +746,7 @@ describe("H / B / J lifecycle and layout details", () => {
     expect(calls("frappe.desk.form.save.savedocs")).toHaveLength(1);
   });
 
-  it("B4 a collapsible section starts closed, toggles with aria-expanded; B8 a section whose fields are all hidden is not rendered", () => {
+  it("FV.B4 a collapsible section starts closed, toggles with aria-expanded; B8 a section whose fields are all hidden is not rendered", () => {
     orderSetup(orderView().el);
     const toggle = screen.getByRole("button", { name: "More" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
@@ -720,7 +757,7 @@ describe("H / B / J lifecycle and layout details", () => {
     expect(screen.queryByText("Ghost")).toBeNull();
   });
 
-  it("B4 a required field forces its section open only while it is null (section.js:150) — not for ''", () => {
+  it("FV.B4 a required field forces its section open only while it is null (section.js:150) — not for ''", () => {
     const reqd: DocTypeMeta = { ...ORDER, fields: ORDER.fields.map((f) => (f.fieldname === "remarks" ? { ...f, reqd: 1 as const } : f)) };
     orderSetup(view({ bundle: bundleOf(reqd, { "Order Item": ITEM }), doc: orderDoc({ remarks: null }) }).el);
     expect(screen.getByRole("button", { name: "More" }).getAttribute("aria-expanded")).toBe("true");
@@ -729,7 +766,7 @@ describe("H / B / J lifecycle and layout details", () => {
     expect(screen.getByRole("button", { name: "More" }).getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("D11 a tab whose fields are all permlevel 1 is hidden for a user who cannot read level 1", () => {
+  it("FV.D11 a tab whose fields are all permlevel 1 is hidden for a user who cannot read level 1", () => {
     const meta = { ...MEMO, fields: [...MEMO.fields, { fieldname: "audit_tab", fieldtype: "Tab Break", label: "Audit" }, { fieldname: "audit", fieldtype: "Data", label: "Audit note", permlevel: 1 }] };
     const level0 = { levels: [ALL], can: (p: string, lvl = 0) => lvl === 0 && !!(ALL as Record<string, boolean>)[p], known: true };
     setup(view({ bundle: bundleOf(meta), doc: { ...MEMO_DOCS[0], audit: "x" }, permissions: level0 }).el);
@@ -739,7 +776,7 @@ describe("H / B / J lifecycle and layout details", () => {
     expect(screen.getByRole("tab", { name: "Audit" })).toBeTruthy();
   });
 
-  it("J11 the heading follows the title field as it is edited, with Not Saved", async () => {
+  it("FV.J11 the heading follows the title field as it is edited, with Not Saved", async () => {
     setup(view({ doc: MEMO_DOCS[0] }).el);
     expect(screen.getByRole("heading", { name: "Hello" })).toBeTruthy();
     typeInto(screen.getByRole("textbox", { name: /Title/ }), "Renamed");
@@ -749,7 +786,7 @@ describe("H / B / J lifecycle and layout details", () => {
 });
 
 describe("E / F Link details on the real ToDo meta (SIMULATED server)", () => {
-  it("E6 a Link change on a saved doc writes the fetch_from target and marks the doc Not Saved; F5 clearing empties the target", async () => {
+  it("FV.E6 a Link change on a saved doc writes the fetch_from target and marks the doc Not Saved; F5 clearing empties the target", async () => {
     const ref = { current: null as FormController | null };
     const { calls } = setup(<FrappeForm doctype="ToDo" name="TD-1" guardUnload={false} controllerRef={ref} />);
     const box = await screen.findByRole("combobox", { name: /Assigned By/ });
@@ -762,7 +799,7 @@ describe("E / F Link details on the real ToDo meta (SIMULATED server)", () => {
     expect(ref.current!.doc.assigned_by_full_name).toBe("");
   });
 
-  it("F9 search states: 'Searching…' while pending, 'Search failed' on an error, 'No results' when empty", async () => {
+  it("FV.F9 search states: 'Searching…' while pending, 'Search failed' on an error, 'No results' when empty", async () => {
     let release: () => void = () => {};
     let mode: "slow" | "fail" | "empty" = "slow";
     const wrap = (t: FrappeTransport): FrappeTransport => async (m, a) => {

@@ -604,7 +604,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       const d = store.getDoc();
       const action: SaveAction = a ?? ((d.docstatus ?? 0) === 1 ? "Update" : "Save");
       const allowed = action === "Save" ? !props.saveDisabled && (d.__islocal ? can("create") || can("write") : can("write")) : can("submit");
-      return allowed ? save(action, true) : false;
+      // Submit asks first, as Desk's frm.save("Submit") → savesubmit → frappe.confirm (resolves false; Yes submits)
+      return allowed ? save(action, action !== "Submit") : false;
     },
     checkMandatory: mandatoryOk,
     flash: (key) => flash(t(key)),

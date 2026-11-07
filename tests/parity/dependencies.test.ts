@@ -110,7 +110,7 @@ describe("dependency-derived reqd (layout.js:701-711; save.js:271-296)", () => {
   it("mandatory_depends_on with a bad expression throws 'Invalid \"mandatory_depends_on\" expression' (save.js:281-283)", () =>
     expect(() => isFieldRequired(field({ mandatory_depends_on: "eval:doc.(" }), { doc: doc({}) })).toThrow(/mandatory_depends_on/));
   // C4 (P35): was an it.todo; implemented in form/model/depends.ts resolveFields (read_only_depends_on REPLACES read_only)
-  it("C4 read_only_depends_on writes df.read_only = 1/0, so a static read_only=1 field becomes writable when the condition is false (layout.js:721-749)", () => {
+  it("FV.C4 read_only_depends_on writes df.read_only = 1/0, so a static read_only=1 field becomes writable when the condition is false (layout.js:721-749)", () => {
     const df = field({ read_only: 1, read_only_depends_on: dep });
     const ro = (d: FrappeDoc) => resolveFields([df as never], d, d).get("dependant_field")!.read_only;
     expect(ro(doc({ test_field: "Some Value" }))).toBe(1);

@@ -65,9 +65,15 @@ export function FrappeQuickEntry({ doctype, open, onOpenChange, defaults, onCrea
     if (!open) { setDoc(null); return; }
     if (bundle && !doc) setDoc(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, ...defaults }));
   }, [open, bundle, doc, session, defaults]);
-  // not eligible: Desk opens the full form (quick_entry.js:43-52)
+  // not eligible: Desk opens the full form (quick_entry.js:43-52) — once per opening (inline callbacks re-run the effect)
+  const handedOver = React.useRef<string | null>(null);
   React.useEffect(() => {
-    if (open && qe && !qe.eligible && doc && onOpenFullForm) { onOpenFullForm(doc); onOpenChange(false); }
+    if (!open) { handedOver.current = null; return; }
+    if (qe && !qe.eligible && doc && onOpenFullForm && handedOver.current !== doc.name) {
+      handedOver.current = doc.name;
+      onOpenFullForm(doc);
+      onOpenChange(false);
+    }
   }, [open, qe, doc, onOpenFullForm, onOpenChange]);
 
   const title = interpolate(t("formNewDoc"), { doctype: s.translate(bundle, doctype) });

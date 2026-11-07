@@ -433,7 +433,8 @@ The `frm` controller offers:
 - `setQuery(field, query, table?)`;
 - `addChild(table, values)`, `clearTable(table)`;
 - `trigger(event, cdt?, cdn?)`;
-- P35: `save(action?)` (the form's pipeline, after a permission check; resolves true when saved), `checkMandatory()`
+- P35: `save(action?)` (the form's pipeline, after a permission check; resolves true when saved; `"Submit"` opens the
+  "Permanently Submit" confirmation and resolves false, as Desk's `savesubmit`), `checkMandatory()`
   (opens Missing Fields), `selectedWorkflowAction`;
 - P35: `undo()`, `redo()`, `canUndo`, `canRedo` — Desk's `UndoManager` (undo_manager.js): only the user's field changes
   are recorded (not script or fetch writes, base_control.js:220); undo sets the old value through `setValue`, so field

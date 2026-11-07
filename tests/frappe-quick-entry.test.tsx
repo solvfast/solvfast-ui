@@ -59,7 +59,7 @@ function setup(ui: React.ReactElement, opts: { docs?: FixtureBackend["docs"]; se
 }
 
 describe("F6 quickEntryFields — quick_entry.js:59-110", () => {
-  it("F6 real 15.110 metas: ToDo / Note / User eligible with Desk's fields; Contact (quick_entry 0) and Event are not", () => {
+  it("FV.F6 real 15.110 metas: ToDo / Note / User eligible with Desk's fields; Contact (quick_entry 0) and Event are not", () => {
     expect(quickEntryFields(metaOf(todoEn))).toMatchObject({ eligible: true });
     expect(quickEntryFields(metaOf(todoEn)).fields.map((f) => f.fieldname)).toEqual(["date", "description"]);
     expect(quickEntryFields(metaOf(noteEn)).fields.map((f) => f.fieldname)).toEqual(["title"]);
@@ -67,7 +67,7 @@ describe("F6 quickEntryFields — quick_entry.js:59-110", () => {
     expect(quickEntryFields(metaOf(contactEn))).toMatchObject({ eligible: false, reason: "not-quick-entry" });
     expect(quickEntryFields(metaOf(eventEn))).toMatchObject({ eligible: false, reason: "not-quick-entry" });
   });
-  it("F6 the field rule: reqd or allow_in_quick_entry, not read_only / virtual / Tab Break; mandatory Table → not eligible", () => {
+  it("FV.F6 the field rule: reqd or allow_in_quick_entry, not read_only / virtual / Tab Break; mandatory Table → not eligible", () => {
     const meta: DocTypeMeta = {
       name: "Q", quick_entry: 1, fields: [
         { fieldname: "a", fieldtype: "Data", reqd: 1 },
@@ -90,7 +90,7 @@ describe("F6 quickEntryFields — quick_entry.js:59-110", () => {
 });
 
 describe("F6 FrappeQuickEntry — a Dialog over FrappeFormView (SIMULATED save)", () => {
-  it("F6 shows only the quick-entry fields, saves through savedocs, hands back the server doc and closes", async () => {
+  it("FV.F6 shows only the quick-entry fields, saves through savedocs, hands back the server doc and closes", async () => {
     const onCreated = vi.fn();
     const onOpenChange = vi.fn();
     const { calls } = setup(<FrappeQuickEntry doctype="Note" open onOpenChange={onOpenChange} onCreated={onCreated} />);
@@ -107,7 +107,7 @@ describe("F6 FrappeQuickEntry — a Dialog over FrappeFormView (SIMULATED save)"
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
   });
 
-  it("F6 the form's mandatory check runs: Save with an empty required field opens Missing Fields, nothing is sent", async () => {
+  it("FV.F6 the form's mandatory check runs: Save with an empty required field opens Missing Fields, nothing is sent", async () => {
     const { calls } = setup(<FrappeQuickEntry doctype="Note" open onOpenChange={() => {}} onCreated={() => {}} />);
     const dialog = await screen.findByRole("dialog", { name: "New Note" });
     await within(dialog).findByRole("textbox", { name: /Title/ });
@@ -116,7 +116,7 @@ describe("F6 FrappeQuickEntry — a Dialog over FrappeFormView (SIMULATED save)"
     expect(calls("frappe.desk.form.save.savedocs")).toHaveLength(0);
   });
 
-  it("F6 'Edit Full Form' hands over the document as typed; a not-eligible DocType goes straight to onOpenFullForm", async () => {
+  it("FV.F6 'Edit Full Form' hands over the document as typed; a not-eligible DocType goes straight to onOpenFullForm", async () => {
     const full = vi.fn();
     setup(<FrappeQuickEntry doctype="Note" open onOpenChange={() => {}} onCreated={() => {}} onOpenFullForm={full} />);
     const dialog = await screen.findByRole("dialog", { name: "New Note" });
@@ -133,7 +133,7 @@ describe("F6 FrappeQuickEntry — a Dialog over FrappeFormView (SIMULATED save)"
     expect(close).toHaveBeenCalledWith(false);
   });
 
-  it("F6 negative: without the create right Save is disabled (rule 9)", async () => {
+  it("FV.F6 negative: without the create right Save is disabled (rule 9)", async () => {
     setup(<FrappeQuickEntry doctype="Note" open onOpenChange={() => {}} onCreated={() => {}} />, { session: { user: "u@x", roles: ["Guest"] } });
     const dialog = await screen.findByRole("dialog", { name: "New Note" });
     await tick(30);
@@ -142,7 +142,7 @@ describe("F6 FrappeQuickEntry — a Dialog over FrappeFormView (SIMULATED save)"
 });
 
 describe("F6 Link 'Create a new X' opens Quick Entry and writes the new name back (Desk update_calling_link)", () => {
-  it("F6 FrappeForm: typing in a Link to a quick-entry DocType offers Create; saving it sets the Link", async () => {
+  it("FV.F6 FrappeForm: typing in a Link to a quick-entry DocType offers Create; saving it sets the Link", async () => {
     const { calls } = setup(<FrappeForm doctype="Visit" name="V-1" guardUnload={false} />);
     const box = await screen.findByRole("combobox", { name: /Note/ });
     act(() => (box as HTMLInputElement).focus());
@@ -161,7 +161,7 @@ describe("F6 Link 'Create a new X' opens Quick Entry and writes the new name bac
     expect(await screen.findByText("Not Saved")).toBeTruthy(); // the Visit now holds the new Note
   });
 
-  it("F6 negative: a target that is not quick-entry eligible (Contact, quick_entry 0) offers no Create without the app's onCreateNew", async () => {
+  it("FV.F6 negative: a target that is not quick-entry eligible (Contact, quick_entry 0) offers no Create without the app's onCreateNew", async () => {
     setup(<FrappeForm doctype="Visit" name="V-1" guardUnload={false} />);
     const box = await screen.findByRole("combobox", { name: /Contact/ });
     act(() => (box as HTMLInputElement).focus());
@@ -170,7 +170,7 @@ describe("F6 Link 'Create a new X' opens Quick Entry and writes the new name bac
     expect(screen.queryByRole("option", { name: "Create a new Contact" })).toBeNull();
   });
 
-  it("F6 a DocType that is not quick-entry eligible and no onOpenFullForm: the dialog shows the whole form", async () => {
+  it("FV.F6 a DocType that is not quick-entry eligible and no onOpenFullForm: the dialog shows the whole form", async () => {
     setup(<FrappeQuickEntry doctype="Visit" open onOpenChange={() => {}} onCreated={() => {}} />);
     const dialog = await screen.findByRole("dialog", { name: "New Visit" });
     expect(await within(dialog).findByRole("textbox", { name: /Subject/ })).toBeTruthy();

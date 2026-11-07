@@ -42,7 +42,7 @@ const field = (df: Partial<FrappeDocField> & { fieldtype: string }, value: unkno
 };
 
 describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
-  it("A12-A14 Small Text / Text / Long Text are textareas; A16-A18, A32 Code / JSON / HTML / Markdown Editor are monospace, LTR", () => {
+  it("FV.A12-A14 Small Text / Text / Long Text are textareas; A16-A18, A32 Code / JSON / HTML / Markdown Editor are monospace, LTR", () => {
     for (const ft of ["Small Text", "Text", "Long Text", "Code", "JSON", "HTML Editor", "Markdown Editor"]) {
       field({ fieldtype: ft, label: ft }, "line 1\nline 2");
       const box = screen.getByRole("textbox", { name: ft }) as HTMLTextAreaElement;
@@ -55,7 +55,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
     }
   });
 
-  it("A19 Password renders type=password; A33 Phone renders type=tel; A1 Data honours the placeholder (A41)", () => {
+  it("FV.A19 Password renders type=password; A33 Phone renders type=tel; A1 Data honours the placeholder (A41)", () => {
     field({ fieldtype: "Password", label: "Secret" }, "*****");
     expect((screen.getByLabelText("Secret") as HTMLInputElement).type).toBe("password");
     cleanup();
@@ -66,7 +66,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
     expect(screen.getByRole("textbox", { name: "Code" }).getAttribute("placeholder")).toBe("e.g. A-1");
   });
 
-  it("A12 a textarea writes 500 ms after typing stops (and on blur)", () => {
+  it("FV.A12 a textarea writes 500 ms after typing stops (and on blur)", () => {
     vi.useFakeTimers();
     try {
       const onChange = field({ fieldtype: "Small Text", label: "Notes" }, "");
@@ -79,7 +79,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
     } finally { vi.useRealTimers(); }
   });
 
-  it("A3 Select: newline options, blank first option, translated labels, an unknown stored value is kept", () => {
+  it("FV.A3 Select: newline options, blank first option, translated labels, an unknown stored value is kept", () => {
     const df = { fieldname: "s", fieldtype: "Select", label: "Status", options: "\nOpen\nClosed" } as FrappeDocField;
     const onChange = vi.fn();
     mount(<FrappeField df={df} value="Legacy" onChange={onChange} />, undefined, { Open: "مفتوح" });
@@ -92,7 +92,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
     expect(onChange).toHaveBeenCalledWith("Closed");
   });
 
-  it("A8 / A9 / A10 / A11 numbers: Int truncates, Float rounds to df.precision, Currency / Percent are number boxes", () => {
+  it("FV.A8 / A9 / A10 / A11 numbers: Int truncates, Float rounds to df.precision, Currency / Percent are number boxes", () => {
     const onInt = field({ fieldtype: "Int", label: "Qty" }, 2);
     const qty = screen.getByRole("textbox", { name: "Qty" });
     fireEvent.focus(qty); fireEvent.change(qty, { target: { value: "7.9" } }); fireEvent.blur(qty);
@@ -110,7 +110,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
     }
   });
 
-  it("A6 Time is a time box (12 h when the site's time_format has 'a'); A5 Datetime a date-time picker trigger; A4 Date a date trigger", () => {
+  it("FV.A6 Time is a time box (12 h when the site's time_format has 'a'); A5 Datetime a date-time picker trigger; A4 Date a date trigger", () => {
     mount(<FrappeField df={{ fieldname: "t", fieldtype: "Time", label: "At" }} value="14:30:00" onChange={() => {}} />, { timeFormat: "hh:mm a" });
     expect((screen.getByRole("textbox", { name: "At" }) as HTMLInputElement).value).toMatch(/2:30/);
     cleanup();
@@ -121,7 +121,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
     expect(screen.getByRole("button", { name: /Due/ })).toBeTruthy();
   });
 
-  it("A27 Rating stores a 0…1 fraction: 0.6 of 5 shows 3 stars; picking the 4th writes 0.8", () => {
+  it("FV.A27 Rating stores a 0…1 fraction: 0.6 of 5 shows 3 stars; picking the 4th writes 0.8", () => {
     const onChange = field({ fieldtype: "Rating", label: "Score", options: "5" }, 0.6);
     const slider = screen.getByRole("slider");
     expect(slider.getAttribute("aria-valuenow")).toBe("3");
@@ -129,7 +129,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
     expect(onChange).toHaveBeenCalledWith(0.8);
   });
 
-  it("A28 Color is a hex box; A7 Check writes 0/1", () => {
+  it("FV.A28 Color is a hex box; A7 Check writes 0/1", () => {
     field({ fieldtype: "Color", label: "Tint" }, "#112233");
     expect((screen.getByRole("textbox", { name: "Tint" }) as HTMLInputElement).value).toBe("#112233");
     cleanup();
@@ -138,7 +138,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
     expect(onChange).toHaveBeenCalledWith(1);
   });
 
-  it("A36 Button runs onButtonClick; A37 HTML is sanitized; A38 Image reads doc[options]; A39 Heading is a heading", () => {
+  it("FV.A36 Button runs onButtonClick; A37 HTML is sanitized; A38 Image reads doc[options]; A39 Heading is a heading", () => {
     const click = vi.fn();
     mount(
       <div>
@@ -156,7 +156,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
     expect(screen.getByRole("heading", { name: "Totals" })).toBeTruthy();
   });
 
-  it("A22 Read Only shows the formatted value, never an input", () => {
+  it("FV.A22 Read Only shows the formatted value, never an input", () => {
     field({ fieldtype: "Read Only", label: "Full name" }, "Ann Xu");
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.getByText("Ann Xu")).toBeTruthy();
@@ -164,7 +164,7 @@ describe("A field dispatch (FrappeField, docs 12 §1-§10)", () => {
 });
 
 describe("A34 Autocomplete (autocomplete.js)", () => {
-  it("A34 suggests df.options, filters as you type, writes a picked value", async () => {
+  it("FV.A34 suggests df.options, filters as you type, writes a picked value", async () => {
     const onChange = field({ fieldtype: "Autocomplete", label: "Channel", options: "Email\nPhone\nWalk-in" }, "");
     const box = screen.getByRole("combobox", { name: "Channel" });
     act(() => (box as HTMLInputElement).focus());
@@ -174,7 +174,7 @@ describe("A34 Autocomplete (autocomplete.js)", () => {
     fireEvent.click(screen.getByRole("option", { name: "Phone" }));
     expect(onChange).toHaveBeenCalledWith("Phone");
   });
-  it("A34 a typed value outside the list is cleared (validate :132-145); ignore_validation keeps it", async () => {
+  it("FV.A34 a typed value outside the list is cleared (validate :132-145); ignore_validation keeps it", async () => {
     const onChange = field({ fieldtype: "Autocomplete", label: "Channel", options: "Email\nPhone" }, "");
     const box = screen.getByRole("combobox", { name: "Channel" });
     fireEvent.focus(box); fireEvent.change(box, { target: { value: "Fax" } }); fireEvent.blur(box);
@@ -185,7 +185,7 @@ describe("A34 Autocomplete (autocomplete.js)", () => {
     fireEvent.focus(box2); fireEvent.change(box2, { target: { value: "Fax" } }); fireEvent.blur(box2);
     expect(keep).toHaveBeenLastCalledWith("Fax");
   });
-  it("A34 parse_options: newline text or a JSON list of strings / {label, value}", () => {
+  it("FV.A34 parse_options: newline text or a JSON list of strings / {label, value}", () => {
     expect(autocompleteOptions("A\n\nB")).toEqual([{ value: "A", label: "A" }, { value: "B", label: "B" }]);
     expect(autocompleteOptions('[{"label":"Yes","value":"y"},"No"]')).toEqual([{ value: "y", label: "Yes" }, { value: "No", label: "No" }]);
     expect(autocompleteOptions(undefined)).toEqual([]);
@@ -193,7 +193,7 @@ describe("A34 Autocomplete (autocomplete.js)", () => {
 });
 
 describe("A29-A31, A35, A44 fieldtypes without a control: reported, shown read-only", () => {
-  it("A44 Signature / Geolocation / Barcode / Icon show the raw value read-only — no text box", () => {
+  it("FV.A44 Signature / Geolocation / Barcode / Icon show the raw value read-only — no text box", () => {
     for (const [ft, v] of [["Signature", "data:image/png;base64,AAA"], ["Geolocation", { type: "FeatureCollection", features: [] }], ["Barcode", "123"], ["Icon", "home"]] as const) {
       field({ fieldtype: ft, label: ft }, v);
       expect(screen.queryByRole("textbox"), ft).toBeNull();
@@ -202,7 +202,7 @@ describe("A29-A31, A35, A44 fieldtypes without a control: reported, shown read-o
       cleanup();
     }
   });
-  it("A44 the form's banner lists them (parent and child DocTypes); supported types are not listed", () => {
+  it("FV.A44 the form's banner lists them (parent and child DocTypes); supported types are not listed", () => {
     const bundle: MetaBundle = {
       doctype: "Sig", children: { "Sig Row": { name: "Sig Row", istable: 1, fields: [{ fieldname: "geo", fieldtype: "Geolocation", label: "Where" }] } },
       meta: { name: "Sig", fields: [{ fieldname: "title", fieldtype: "Data", label: "Title" }, { fieldname: "sign", fieldtype: "Signature", label: "Sign" }, { fieldname: "rows", fieldtype: "Table", options: "Sig Row", label: "Rows" }] },
@@ -216,7 +216,7 @@ describe("A29-A31, A35, A44 fieldtypes without a control: reported, shown read-o
     expect(items).toEqual(["Signature", "Geolocation"]);
     expect(screen.getByRole("note").textContent).toContain('Sig.sign: the field type "Signature" has no control here');
   });
-  it("A45 SUPPORTED_FIELDTYPES covers every type FrappeField dispatches", () => {
+  it("FV.A45 SUPPORTED_FIELDTYPES covers every type FrappeField dispatches", () => {
     for (const ft of ["Data", "Link", "Dynamic Link", "Select", "Autocomplete", "Table", "Table MultiSelect", "Attach Image", "Duration", "Rating", "Text Editor", "Read Only", "Button", "Fold"]) expect(SUPPORTED_FIELDTYPES.has(ft), ft).toBe(true);
     for (const ft of ["Signature", "Geolocation", "Barcode", "Icon"]) expect(SUPPORTED_FIELDTYPES.has(ft), ft).toBe(false);
   });
