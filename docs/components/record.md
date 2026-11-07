@@ -310,3 +310,109 @@ adapter (returns tone, label, list filter, source); built-in words go through th
   server on apply. Queued submissions (`queue_in_background`) return no document; A1's client flags this and the cache invalidates.
 - **Stepper actor/time** relies on `workflow_logs` language handling noted in 3.6 (UNVERIFIED on a translated site).
 - **Everything is simulated:** no component has run against a real Frappe site; rows marked UNVERIFIED in docs 11 §8 and 14 §A also apply here.
+
+---
+
+## 5. P35 — form menu, print, connections, e-mail composer, reminders
+
+**Status:** *Implemented* and *Simulated & tested* (Testing Library over the in-package simulator, `createFixtureTransport`; request
+shapes asserted from `store.calls`). **Nothing here has run against a real Frappe site.** Desk behaviour was traced from Frappe 15.110
+source (file:line in each module header). Strings: the `r35Xxx` keys of `src/theme/messages-ws/record.ts` (English and Arabic).
+Showcase: `#frappe-record-actions` ("Record actions (P35)") — every backend operation there is labelled SIMULATED.
+
+### 5.1 Generic pieces (`@solvfast/ui`, `src/record/`)
+
+| Component | Purpose | Key props |
+|---|---|---|
+| `RecordMenu` | The "⋯" menu: groups separated, shortcut hints (display only), `hidden` / `disabled` (+ `disabledReason`) items, `confirm` (AlertDialog; `{ title, body, confirmLabel }`), `destructive` styling. A promise from `onSelect` shows a spinner; a rejection is shown under the trigger (`role="alert"`) and passed to `onError`. Renders nothing without visible items. | `items: RecordMenuItem[]`, `onSelect?`, `onError?`, `disabled?`, `busy?`, `align?`, `labels?`, `trigger?` |
+| `groupMenuItems(items)` | Pure: visible items grouped in order of first appearance. | — |
+| `RenameDialog` | Desk's "Rename {name}" (model.js:733-779): required "New Name", "Merge with existing", "Unchanged" for the same name; a rejection stays in the dialog. | `open`, `onOpenChange`, `name`, `nameLabel?`, `allowMerge?`, `onRename({ newName, merge })` |
+| `PrintPreviewFrame` | Server print HTML in an `<iframe sandbox="">` (no scripts, no same-origin, no forms); loading / "No Preview Available" / error + Retry. `printSrcDoc(html, style, dir)` builds the srcdoc and neutralises `</style`. | `html`, `style`, `loading`, `error`, `onRetry`, `title`, `dir`, `height` |
+| `ConnectionsPanel` | Connections groups: count badge when > 0, "?" when the server could not count, open-count badge, "+" per item, link (`href`) or button (`onOpen`); loading, error + Retry, empty and `notice` states. | `groups: ConnectionGroup[]`, `loading`, `error`, `onRetry`, `onOpen`, `onNew`, `notice`, `emptyText` |
+| `EmailComposer` | Desk's composer as a form: To / CC / BCC (`TagInput`, Desk's e-mail pattern — an invalid address is named and not added), Subject (required), Message (`RichTextEditor`), Email Template picker ("Add Template" prepends + sets the subject, "Clear & Add Template") or `templateSlot`, "Attach Document Print" + format, attachments checklist, "Send me a copy", "Send Read Receipt". No recipient / no subject → refused; busy while `onSend` runs; a rejection is shown and the draft kept. `isValidEmail(v)`. | `initial`, `attachments`, `templates` + `loadTemplate`, `templateSlot`, `printFormats`, `searchRecipients`, `onSend(draft)`, `onDiscard`, `disabledReason` |
+| `ReminderDialog` | Desk's "Create a Reminder" (reminders.js): 30 minutes / 1 hour (default) / 4 hours / 1 Day / Custom, required Description, a past time refused. Browser local time (UNVERIFIED against a site whose time zone differs). `toFrappeDatetime`, `remindAtFor`. | `open`, `onOpenChange`, `onCreate({ remindAt, description })`, `onCreated`, `now` |
+
+### 5.2 Frappe wiring (`@solvfast/ui/frappe`, `src/frappe/record/`)
+
+**`formMenuItems(input): FormMenuEntry[]`** (formMenu.ts) — pure, Desk's `toolbar.js` `make_menu_items` (:340-530) /
+`make_customize_buttons` (:532-579). Input: `{ meta, doc, can(ptype), dirty?, printSettings?, roles?, has?, undo?, exclude? }`.
+
+| id | Rule | Package difference |
+|---|---|---|
+| `print` | not submittable / submitted / cancelled + `allow_print_for_cancelled` / draft + `allow_print_for_draft`; print right; not single | also hidden on a new doc |
+| `email` (Ctrl+E) | email right, docstatus < 2, not new | — |
+| `links` | not single | also not new; needs the host's `onShowConnections` |
+| `duplicate` (Shift+D) | create right, not `allow_copy` ("Hide Copy") | needs `onDuplicate` |
+| `copy` | always (`JSON.stringify(doc)`) | — |
+| `rename` | write, `allow_rename`, not new | — |
+| `reload` | always | not new; needs `onReload`; asks first when dirty (Desk does not) |
+| `delete` (Shift+Ctrl+D) | docstatus ≠ 1, not new, not single, delete right; confirm "Permanently delete {title (name)}?" | — |
+| `remind` (Shift+R) | not new | — |
+| `undo` / `redo` (Ctrl+Z / Ctrl+Y) | always | only with the host's `undo` state; disabled per `canUndo` / `canRedo` |
+| `customize` | create on Custom Field + Property Setter (System Manager / Administrator rows), not "DocType", not single; custom DocType → its DocType form | from `roles` (unknown roles → hidden) |
+| `new` (Ctrl+B) | create, not single, not `in_create`, not new | needs `onNew` |
+
+Not reproduced: Jump to field, Edit DocType, Repeat (Auto Repeat), the printer action icon, key bindings (shortcuts are hints).
+
+**`<FrappeRecordMenu>`** — `formMenuItems` + `RecordMenu`, wired:
+
+```tsx
+<FrappeRecordMenu bundle={bundle} doc={doc} docinfo={docinfo} dirty={dirty}
+  permissions={perms /* default usePermissions(bundle, doc, docinfo) */} printSettings={bootPrintSettings}
+  onDuplicate={(copy) => …} onRenamed={(name) => …} onDeleted={() => …} onReload={() => refetch()} onNew={() => …}
+  onShowConnections={() => setTab("connections")} undo={{ canUndo, canRedo, onUndo, onRedo }}
+  onCustomize={(href) => …} exclude={["remind"]} extra={[{ id: "x", label: "My action", onSelect }]} />
+```
+
+Duplicate → `copyDoc(bundle, doc)` (local, nothing saved); Copy → `writeClipboard` (default `navigator.clipboard.writeText`);
+Rename → `RenameDialog` → `useDocAction().rename` (`frappe.rename_doc`); Delete → `useDocAction().remove` (`frappe.client.delete`);
+Print / Email / Remind Me → the built-in `FrappeFormPrint` / `FrappeEmailComposer` / `FrappeReminder` unless `onPrint` / `onEmail` /
+`onRemind`; Customize → `onCustomize(customizeHref(meta))` (default `window.location.assign(deskUrl + href)`). Server refusals are shown
+under the menu; successes as a short `role="status"` line ("Copied to clipboard", "Renamed to …", "Deleted …", "Reminder set at …").
+Integration with `FrappeFormView`: pass it as the form's `menu` slot (being added by the form workstream) or today as `toolbarExtra`.
+
+**`<FrappeFormPrint>`** (+ `<FrappePrintPreview>`, formPrint.ts) — Print Format (`printFormatOptions`), Letter Head
+(`letterheadOptions`, default first), the preview (`frappe.www.printview.get_html_and_style` with the whole document as `doc`, like
+Desk's print page — `print_format`, `no_letterhead`, `letterhead`, `settings`), Refresh, "Print" / "Full Page" (`printViewUrl`,
+`/printview?…[&trigger_print=1]`), "PDF" (`downloadPdfUrl`, `/api/method/frappe.utils.print_format.download_pdf?…`; or
+`pdf="download"` → `api.download` + `saveFile`). Refused before any request: a new document, Print Settings' draft / cancelled rule
+(`printAllowedForStatus`), `canPrint === false`; a dirty form shows Desk's warning. Props: `doc`, `meta`, `open`, `onOpenChange`,
+`settings?`, `dirty?`, `canPrint?`, `baseUrl?`, `pdf?`, `dir?`.
+
+**Connections** (connections.ts, useOpenCounts.ts, FrappeConnections.tsx):
+- `connectionsFromMeta(meta): DashboardData | null` — `meta.__dashboard` (desk/form/meta.py:257-258 → model/meta.py:652-720), normalised
+  as Desk's `init_data`; null without transactions. Checked against the recorded real 15.110 User and Customer metas.
+- `connectionFilters(data, doctype, name)` — Desk's `get_document_filter` (fieldname / non_standard_fieldnames + dynamic link field);
+  `connectionTarget` adds internal links (`{ name: ["in", names] }`).
+- `useOpenCounts(doctype, name, items, { enabled, method })` — `frappe.desk.notifications.get_open_count` (`items` as JSON); parsed by
+  `parseOpenCount` (`external_links_found` / `internal_links_found`). Requested only with a `fieldname` and for a saved document.
+- `<FrappeConnections meta doc canRead? canCreate? onOpenList? listHref? onNew? labelFor?>` — **permissions:** the server checks READ on
+  this document but counts linked DocTypes with `frappe.get_all` (no permission filter); Desk hides unreadable DocTypes from boot
+  `can_read`. Pass `canRead` to do the same; without it every DocType the dashboard lists is shown.
+- Integration with `FrappeFormView`: an entry in the form's `extraTabs` slot (form workstream), e.g.
+  `{ key: "connections", label: t("r35Connections"), render: () => <FrappeConnections meta={bundle.meta} doc={doc} … /> }`.
+
+**`<FrappeEmailComposer>`** (email.ts) — `EmailComposer` in a dialog. Defaults (form.js:1286-1295): subject "{DocType}: {name}",
+To = `doc.email || doc.email_id || doc.contact_email`, Attach Document Print on. Attachments from docinfo (sent as File names).
+Templates: the names from `frappe.client.get_list("Email Template")` (or `templates`), applied with
+`frappe.email.doctype.email_template.email_template.get_email_template({ template_name, doc })`. Send → `emailMakeArgs` →
+`frappe.core.doctype.communication.email.make` (recipients / cc / bcc comma-separated, `send_email: 1`, `attachments` JSON, …), then
+`applyDocInfoChange` so the timeline re-reads; `emails_not_sent_to` is reported. `canEmail === false` → Desk's refusal message.
+
+**`<FrappeReminder>`** — `ReminderDialog` over `frappe.automation.doctype.reminder.reminder.create_new_reminder` (reminder.py:58-74).
+
+### 5.3 Simulated (src/frappe/testing/handlers/record.ts) vs needs a real site
+
+| Method | Simulator | Needs a real site for |
+|---|---|---|
+| `frappe.desk.notifications.get_open_count` | counts stored rows by the dashboard's link field (+ dynamic link), capped at 100; `open_count` always 0; internal links from the doc | `override_doctype_dashboards`, notification-config open counts, statement timeouts ("?"), `timeline_data` |
+| `frappe.www.printview.get_html_and_style` | read check, Print Settings draft / cancelled rule (from a stored "Print Settings" single); a labelled placeholder **without values** | real Jinja print formats, letterheads, `print_hide` rendering, styles |
+| `frappe.utils.print_format.download_pdf` | **not simulated** (the file server refuses it; the showcase links do nothing) | the PDF itself |
+| `frappe.core.doctype.communication.email.make` | email right, address validation, a Communication **recorded** — nothing queued or sent | Email Account, queueing / sending, `send_me_a_copy`, read receipts, attachments of the print |
+| `…email_template.get_email_template` | `{{ field }}` / `{{ doc.field }}` substitution only | Jinja rendering |
+| `…reminder.create_new_reminder` | past time refused, Reminder stored | scheduling (`send_reminders`), Notification Log |
+| `frappe.rename_doc`, `frappe.client.delete` | (existing simulator handlers) | linked-document updates, merge semantics, delete checks of linked documents |
+
+Simulator limitations of these handlers: permission checks are **role-only** (session roles × DocPerm rows at permlevel 0 when
+`createFixtureTransport(…, { permissions })` is on — no if_owner, User Permissions or shares); the simulator's `get_docinfo` does not
+list stored Communications, so a sent e-mail does not appear in the simulated timeline (the docinfo query is re-requested).
