@@ -187,3 +187,13 @@ export {
   importStatusLabel, importStatusTone, importResultHeadline,
 } from "./list/io/importLabels";
 export type { DataImportLabels, ImportDialogExtraLabels, ImportDialogLabels } from "./list/io/importLabels";
+
+// P35 views — Core list views (Frappe-free): view switcher, Image, Kanban, Calendar
+export {
+  LIST_VIEW_TYPES, IMPLEMENTED_VIEWS, isImplementedView, switcherOptions, ViewSwitcher, VIEW_ICONS, useViewLabel, useViewReason, ViewToolbar,
+  ImageGrid, initialsOf, ImageView, KanbanBoard, KANBAN_INDICATOR_COLORS, CalendarMonth, monthGrid, eventsOn, addMonths, monthStart, dayOf,
+} from "./list/views";
+export type {
+  ListViewType, ViewOption, ViewUnavailableReason, ViewSwitcherProps, ViewToolbarProps, ViewToolbarControls, ImageGridProps, ImageViewProps,
+  KanbanBoardProps, KanbanColumn, KanbanMove, CalendarMonthProps, CalendarEvent,
+} from "./list/views";

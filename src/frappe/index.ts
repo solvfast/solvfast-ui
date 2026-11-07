@@ -104,3 +104,14 @@ export {
   statusLabel as importStatusLabel, statusTone as importStatusTone, DONT_IMPORT, IMPORT_LOG_TABLE_LIMIT,
 } from "./list/importMapping";
 export type { DataImportLabels, ImportFieldOption, GroupedImportWarnings, PreviewColumnView } from "./list/importMapping";
+
+// P35 views — Frappe adapters for the list views (Report, Image, Kanban, Calendar) + availableViews(meta)
+export {
+  availableViews, calendarFieldMapFromMeta, kanbanGroupFields, useFrappeViewList, patchCachedRows, FrappeImageView, FrappeReportView,
+  isCellEditable, columnTotals, INLINE_EDIT_TYPES, FrappeKanbanView, getKanbanBoards, getKanbanBoard, moveKanbanCard, boardLayout, KANBAN_METHODS,
+  FrappeCalendarView, rowToEvent, CALENDAR_EVENTS_METHOD, FrappeViews, useFrappeAvailableViews,
+} from "./views";
+export type {
+  AvailableViewsContext, CalendarFieldMap, FrappeViewListOptions, ViewRequest, FrappeImageViewProps, FrappeReportViewProps, FrappeKanbanViewProps,
+  KanbanBoardDoc, KanbanBoardColumnDoc, KanbanBoardSummary, KanbanCardMove, FrappeCalendarViewProps, FrappeViewsProps,
+} from "./views";

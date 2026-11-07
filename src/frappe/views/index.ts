@@ -14,3 +14,5 @@ export { getKanbanBoards, getKanbanBoard, moveKanbanCard, boardLayout, KANBAN_ME
 export type { KanbanBoardDoc, KanbanBoardColumnDoc, KanbanBoardSummary, KanbanCardMove } from "./kanban";
 export { FrappeCalendarView, rowToEvent, CALENDAR_EVENTS_METHOD } from "./FrappeCalendarView";
 export type { FrappeCalendarViewProps } from "./FrappeCalendarView";
+export { FrappeViews, useFrappeAvailableViews } from "./FrappeViews";
+export type { FrappeViewsProps } from "./FrappeViews";
