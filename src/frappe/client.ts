@@ -336,6 +336,21 @@ export function toMetaBundle(doctype: string, res: FrappeResponse): MetaBundle {
   return { doctype, meta: merged ? { ...meta, __messages: merged } : meta, children };
 }
 
+/** getdoc with the response's `_link_titles` (P35 F3). */
+export interface LoadedDocWithTitles extends LoadedDoc {
+  /** `_link_titles` of the response, "DocType::name" → title (absent when the server sent none). */
+  linkTitles?: Record<string, string>;
+}
+
+/** A response's `_link_titles` (load.py `send_link_titles`), non-empty string titles only; undefined when none. */
+export function linkTitlesOf(res: Record<string, unknown> | undefined): Record<string, string> | undefined {
+  const raw = res?._link_titles;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) if (typeof v === "string" && v && k.includes("::")) out[k] = v;
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** docinfo with every list the contract types as required present (a key the server left out becomes []). */
 export function normalizeDocInfo(raw: unknown): DocInfo {
   const d = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -381,7 +396,13 @@ export function createDocumentApis(call: FrappeTransport, session: FrappeClientO
       const doc = arr<FrappeDoc>(res.docs)[0];
       // A missing document is NOT an HTTP error in Frappe: getdoc answers 200 `{docs: []}` (load.py:33-38).
       if (!doc) throw new FrappeError(`${doctype} ${name} not found`, 404, "DoesNotExistError", { kind: "not_found" });
-      return { doc, docinfo: normalizeDocInfo(res.docinfo) } satisfies LoadedDoc;
+      // P35 F3: getdoc also answers `_link_titles` {"DocType::name": title} for the Link / Dynamic Link / child-table link
+      // values whose target shows its title (desk/form/load.py:62, 425-480; Desk merges them, request.js:295). They are
+      // returned as `linkTitles` and kept on the docinfo (`docinfo._link_titles`), which `useDoc` hands to the form.
+      const linkTitles = linkTitlesOf(res);
+      const docinfo = normalizeDocInfo(res.docinfo);
+      if (linkTitles) docinfo._link_titles = linkTitles;
+      return { doc, docinfo, ...(linkTitles ? { linkTitles } : {}) } satisfies LoadedDocWithTitles;
     },
     async getDocInfo(doctype, name) {
       const res = await call("frappe.desk.form.load.get_docinfo", { doctype, name });

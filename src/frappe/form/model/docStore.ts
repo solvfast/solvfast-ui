@@ -13,6 +13,11 @@
  *    creation, modified, modified_by, idx, owner, parent, doctype, name, parentfield (grid.js:957-977).
  *  - `replace(doc)`: after load / save, the server's document replaces the local one entirely (Desk drops local keys
  *    absent from the response, so `__unsaved` / `__islocal` disappear and `new-*` names become the real names).
+ *  - Undo / redo (P35, Desk `UndoManager`, form/undo_manager.js): a change made with `{ record: true }` (the form passes it
+ *    for what the USER typed — base_control.js:220 records control input only, not script or fetch writes) is pushed on
+ *    the undo stack; `undo()` sets the old value back through `setValue` (so field events run, as `frm.set_value`) and
+ *    pushes the reverse on the redo stack; `redo()` the opposite. As in Desk a new change does not clear the redo stack.
+ *    `replace()` erases both stacks (form.js:391 `erase_history`).
  */
 import type { FrappeDoc, FrappeDocField, MetaBundle } from "../../contract";
 import { newChildRow, type DefaultsContext } from "./defaults";
@@ -33,6 +38,9 @@ export interface FieldChange {
   unchanged?: boolean;
 }
 
+/** One recorded user change (undo_manager.js `record_change`). */
+export interface HistoryEntry { fieldname: string; target?: RowRef; oldValue: unknown; newValue: unknown }
+
 export type RowOperation =
   | { type: "add"; parentfield: string; row: FrappeDoc }
   | { type: "remove"; parentfield: string; rows: FrappeDoc[] }
@@ -45,7 +53,8 @@ export interface DocStore {
   /** Field changes (after the snapshot is updated), in order. */
   onFieldChange(listener: (c: FieldChange) => void): () => void;
   onRowOperation(listener: (op: RowOperation) => void): () => void;
-  setValue(fieldname: string, value: unknown, target?: RowRef, opts?: { skipDirty?: boolean }): boolean;
+  /** `record`: push the change on the undo stack (user input). */
+  setValue(fieldname: string, value: unknown, target?: RowRef, opts?: { skipDirty?: boolean; record?: boolean }): boolean;
   setValues(values: Record<string, unknown>, target?: RowRef, opts?: { skipDirty?: boolean }): void;
   getRows(parentfield: string): FrappeDoc[];
   getRow(target: RowRef): FrappeDoc | undefined;
@@ -61,6 +70,13 @@ export interface DocStore {
   markDirty(): void;
   isDirty(): boolean;
   isNew(): boolean;
+  /** Undo the last recorded change; false when there is none ("Nothing left to undo"). */
+  undo(): boolean;
+  redo(): boolean;
+  canUndo(): boolean;
+  canRedo(): boolean;
+  /** Drop the undo / redo stacks. */
+  eraseHistory(): void;
 }
 
 const DUPLICATE_SKIP = new Set(["creation", "modified", "modified_by", "idx", "owner", "parent", "doctype", "name", "parentfield"]);
@@ -85,6 +101,8 @@ export function createDocStore(bundle: MetaBundle, initial: FrappeDoc, ctx: Defa
   const emit = () => { for (const l of [...listeners]) l(); };
   const emitField = (c: FieldChange) => { for (const l of [...fieldListeners]) l(c); };
   const emitRow = (op: RowOperation) => { for (const l of [...rowListeners]) l(op); };
+  let undoStack: HistoryEntry[] = [];
+  let redoStack: HistoryEntry[] = [];
   const rowsOf = (pf: string) => (Array.isArray(doc[pf]) ? (doc[pf] as FrappeDoc[]) : []);
   const commitRows = (pf: string, rows: FrappeDoc[], dirty = true) => {
     doc = { ...doc, [pf]: renumber(rows), ...(dirty ? { __unsaved: 1 as const } : {}) };
@@ -129,6 +147,8 @@ export function createDocStore(bundle: MetaBundle, initial: FrappeDoc, ctx: Defa
     setValue(fieldname, value, target, opts = {}) {
       const changes: FieldChange[] = [];
       const changed = setOne(fieldname, value, target, !!opts.skipDirty, changes);
+      // eslint-disable-next-line eqeqeq
+      if (changed && opts.record && changes[0] && changes[0].previous != value) undoStack.push({ fieldname, target, oldValue: changes[0].previous, newValue: value });
       if (changed) emit();
       changes.forEach(emitField);
       return changed;
@@ -193,10 +213,24 @@ export function createDocStore(bundle: MetaBundle, initial: FrappeDoc, ctx: Defa
       commitRows(pf, rows);
       emit();
     },
-    replace(next) { doc = { ...next }; emit(); },
+    replace(next) { doc = { ...next }; undoStack = []; redoStack = []; emit(); },
     markDirty() { if (!doc.__unsaved) { doc = { ...doc, __unsaved: 1 }; emit(); } },
     isDirty: () => !!doc.__unsaved,
     isNew: () => !!doc.__islocal,
+    undo() { return step(undoStack, redoStack); },
+    redo() { return step(redoStack, undoStack); },
+    canUndo: () => undoStack.length > 0,
+    canRedo: () => redoStack.length > 0,
+    eraseHistory() { undoStack = []; redoStack = []; },
   };
+  /** Apply the last entry of `from` (its old value) and push the reverse on `to` (undo_manager.js _apply_change). */
+  function step(from: HistoryEntry[], to: HistoryEntry[]): boolean {
+    const e = from.pop();
+    if (!e) return false;
+    if (e.target && !store.getRow(e.target)) return step(from, to); // the row is gone: skip it
+    to.push({ ...e, oldValue: e.newValue, newValue: e.oldValue });
+    store.setValue(e.fieldname, e.oldValue, e.target);
+    return true;
+  }
   return store;
 }

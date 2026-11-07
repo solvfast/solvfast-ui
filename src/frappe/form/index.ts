@@ -20,5 +20,11 @@ export type { FrappeTableMultiSelectProps } from "./FrappeTableMultiSelect";
 export { FrappeFormServices, useFormServices } from "./services";
 export type { FormServices, CreateNewRequest } from "./services";
 export { runEvent, resolveLinkQuery } from "./events";
-export type { FormController, FormEventHandler, FormEvents, FormEventsConfig, LinkQuery, ResolvedLinkQuery } from "./events";
+export type { CustomButton, FormController, FormEventHandler, FormEvents, FormEventsConfig, LinkQuery, ResolvedLinkQuery } from "./events";
 export * from "./model";
+// P35 form
+export { FrappeQuickEntry, useQuickEntryHost } from "./FrappeQuickEntry";
+export type { FrappeQuickEntryProps } from "./FrappeQuickEntry";
+export { useUnsavedChangesBlocker } from "./unsavedChanges";
+export type { UnsavedChangesBlocker, UnsavedChangesBlockerOptions } from "./unsavedChanges";
+export { defaultLinkHref } from "./services";

@@ -6,7 +6,7 @@ export {
 } from "./depends";
 export type { DependsIssue, DependsProperty, EffectiveField, EvaluatorOptions, FieldOverrides, FnHandler, DependsValue } from "./depends";
 export { createDocStore } from "./docStore";
-export type { DocStore, FieldChange, RowOperation, RowRef } from "./docStore";
+export type { DocStore, FieldChange, HistoryEntry, RowOperation, RowRef } from "./docStore";
 export { newDoc, newChildRow, applyDefaults, todayString, nowTimeString, nowDatetimeString } from "./defaults";
 export type { DefaultsContext } from "./defaults";
 export { checkMandatory, rowRanges, isRequiredNow } from "./mandatory";
@@ -20,3 +20,5 @@ export { formActions } from "./actions";
 export type { ActionInput, ActionResult, FormAction } from "./actions";
 export { ladderStatus, controlStatus } from "./status";
 export { LAYOUT_TYPES, NO_VALUE_TYPES, TABLE_TYPES, DISPLAY_TYPES, newLocalName, slug } from "./fieldtypes";
+export { quickEntryFields, quickEntryFilter } from "./quickEntry";
+export type { QuickEntryFields, QuickEntryReason } from "./quickEntry";

@@ -129,11 +129,13 @@ export function resolveFields(fields: FrappeDocField[], doc: FrappeDoc, parent: 
 /**
  * Collapsed state of a collapsible section (layout.js `refresh_section_collapse`, section.js:146-155): only for
  * `collapsible` sections; collapsed by default; with `collapsible_depends_on`, collapsed = NOT truthy; forced open when
- * it contains a required field whose value is empty. Returns null for a section that is not collapsible.
+ * it contains a required field whose value is null / undefined (section.js:146-156). Returns null for a section that is not collapsible.
  */
 export function sectionCollapsed(section: FrappeDocField, fieldsInside: EffectiveField[], doc: FrappeDoc, opts: EvaluatorOptions = {}): boolean | null {
   if (!section.collapsible) return null;
-  const missing = fieldsInside.some((f) => f.reqd && isEmptyValue(doc[f.fieldname]));
+  // section.js:150 `doc[fieldname] == null`: only a value that was never set forces the section open — "" or [] do not
+  // (P35; before 0.7 any empty value did)
+  const missing = fieldsInside.some((f) => f.reqd && doc[f.fieldname] == null);
   if (missing) return false;
   if (section.collapsible_depends_on) {
     return !isTruthy(evaluateDepends(section.collapsible_depends_on as DependsValue, doc, doc, opts, { doctype: doc.doctype, fieldname: section.fieldname, property: "collapsible_depends_on" }));

@@ -10,12 +10,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import todoEn from "./fixtures/real-15.110/todo.en.json";
 import userEn from "./fixtures/real-15.110/user.en.json";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
-import { createFrappeClient, type FrappeTransport } from "../src/frappe/client";
+import { createFrappeClient, type FrappeApi, type FrappeTransport } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
 import type { FrappeSession } from "../src/frappe/services/permissions";
-import { FrappeForm, FrappeFormView, FrappeFormServices, type FormController, type FormServices, type FrappeFormViewProps } from "../src/frappe/form";
+import { FrappeForm, FrappeFormView, FrappeFormServices, useUnsavedChangesBlocker, type FormController, type FormServices, type FrappeFormViewProps } from "../src/frappe/form";
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -63,7 +63,10 @@ export interface SetupOpts {
   strict?: boolean;
 }
 
-export function setup(ui: React.ReactElement, opts: SetupOpts = {}) {
+type Ui = React.ReactElement | ((client: FrappeApi) => React.ReactElement);
+const MEMO_DOCS = [{ doctype: "Memo", name: "MEMO-1", title: "Hello", kind: "A", note: "n", docstatus: 0, modified: "2026-11-01 10:00:00" }];
+
+export function setup(ui: Ui, opts: SetupOpts = {}) {
   const transport = createFixtureTransport({
     meta: { ToDo: docsOf(todoEn), User: docsOf(userEn), Memo: [MEMO], "Sales Memo": [SUBM], ...opts.meta },
     workflows: opts.workflows,
@@ -72,6 +75,7 @@ export function setup(ui: React.ReactElement, opts: SetupOpts = {}) {
         { doctype: "User", name: "ann@x.com", full_name: "Ann Xu", first_name: "Ann", email: "ann@x.com", enabled: 1 },
       ],
       ToDo: [{ doctype: "ToDo", name: "TD-1", description: "Call Ann", status: "Open", priority: "High", modified: "2026-11-01 10:00:00.000000", owner: "Administrator" }],
+      Memo: MEMO_DOCS,
       ...opts.docs,
     },
   }, { handlers: opts.handlers, strict: opts.strict });
@@ -86,15 +90,20 @@ export function setup(ui: React.ReactElement, opts: SetupOpts = {}) {
       </QueryClientProvider>
     </ThemeProvider>
   );
-  const utils = render(wrap(ui));
+  const node = typeof ui === "function" ? ui(client) : ui;
+  const utils = render(wrap(node));
   const calls = (method?: string) => transport.store.calls.filter((c) => !method || c.method === method);
   return { transport, client, calls, rerender: (n: React.ReactElement) => utils.rerender(wrap(n)) };
 }
 
-/** A standalone FrappeFormView with every right and a stub save (no server). */
+/** A standalone FrappeFormView with every right, saving through the SIMULATED backend (savedocs). */
 export function view(props: Partial<FrappeFormViewProps> & { doc: FrappeDoc; bundle?: MetaBundle }) {
-  const onSave = props.onSave ?? vi.fn(async (d: FrappeDoc) => ({ ...d, __unsaved: undefined, __islocal: undefined, name: d.__islocal ? "MEMO-1" : d.name, modified: "2026-11-07 10:00:00" }) as FrappeDoc);
-  const el = <FrappeFormView guardUnload={false} permissions={allRights} bundle={props.bundle ?? bundleOf(MEMO)} {...props} onSave={onSave} />;
+  let api: FrappeApi | null = null;
+  const onSave = vi.fn((d: FrappeDoc, action: "Save" | "Submit" | "Update") => (props.onSave ? props.onSave(d, action) : api!.saveDoc(d, action)));
+  const el = (client: FrappeApi) => {
+    api = client;
+    return <FrappeFormView guardUnload={false} permissions={allRights} bundle={props.bundle ?? bundleOf(MEMO)} {...props} onSave={onSave} />;
+  };
   return { el, onSave };
 }
 export const parsed = (v: unknown) => (typeof v === "string" ? JSON.parse(v) : v) as FrappeDoc;
@@ -185,3 +194,191 @@ describe("P35 FrappeFormView slots (menu, extraTabs, fieldFilter, header image, 
   });
 });
 
+
+const tick = (ms = 0) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
+const ctrlS = (target: Element | Document = document.body) => fireEvent.keyDown(target, { key: "s", ctrlKey: true });
+const subDoc = (over: Partial<FrappeDoc> = {}): FrappeDoc => ({ doctype: "Sales Memo", name: "SM-1", title: "Plan", remark: "", docstatus: 0, modified: "2026-11-01 10:00:00", owner: "Administrator", ...over });
+const subDocs = (over: Partial<FrappeDoc> = {}) => ({ "Sales Memo": [subDoc(over)] });
+
+describe("F1 / H13 Ctrl+S = Desk's trigger_primary_action (desk.js:389-403)", () => {
+  it("H13 Ctrl+S with focus outside the form saves a dirty saved document through savedocs", async () => {
+    const { el, onSave } = view({ doc: { ...MEMO_DOCS[0], note: "changed", __unsaved: 1 } });
+    const { calls } = setup(el);
+    expect(document.activeElement).toBe(document.body);
+    ctrlS();
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][1]).toBe("Save");
+    await waitFor(() => expect(calls("frappe.desk.form.save.savedocs")).toHaveLength(1));
+    expect(parsed(calls("frappe.desk.form.save.savedocs")[0].args.doc)).toMatchObject({ name: "MEMO-1", note: "changed" });
+  });
+
+  it("H13 Ctrl+S inside a text box blurs it first: the pending edit is saved (not lost to the 500 ms debounce)", async () => {
+    const { el, onSave } = view({ doc: MEMO_DOCS[0] });
+    const { calls } = setup(el);
+    const note = screen.getByRole("textbox", { name: /Note/ }) as HTMLInputElement;
+    act(() => note.focus());
+    fireEvent.change(note, { target: { value: "typed" } });
+    expect(document.activeElement).toBe(note);
+    ctrlS(note);
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(calls("frappe.desk.form.save.savedocs")).toHaveLength(1));
+    expect(parsed(calls("frappe.desk.form.save.savedocs")[0].args.doc).note).toBe("typed");
+  });
+
+  it("H13 a clean saved submittable draft: Ctrl+S runs the visible primary (Submit → its confirmation)", async () => {
+    const { el, onSave } = view({ bundle: bundleOf(SUBM), doc: subDoc() });
+    setup(el, { docs: subDocs() });
+    expect(screen.getByRole("button", { name: "Submit" })).toBeTruthy();
+    ctrlS();
+    expect(await screen.findByText("Permanently Submit SM-1?")).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("H13 a cancelled document: Ctrl+S runs Amend (the local amendment replaces the form)", async () => {
+    const onAmended = vi.fn();
+    const { el } = view({ bundle: bundleOf(SUBM), doc: subDoc({ docstatus: 2 }), onAmended });
+    setup(el, { docs: subDocs({ docstatus: 2 }) });
+    ctrlS();
+    await waitFor(() => expect(onAmended).toHaveBeenCalledTimes(1));
+    expect(onAmended.mock.calls[0][0]).toMatchObject({ amended_from: "SM-1", __islocal: 1 });
+  });
+
+  it("H13 negative: saveDisabled, hotkeys={false} and a form without permissions do nothing", async () => {
+    for (const extra of [{ saveDisabled: true }, { hotkeys: false }, { permissions: undefined }] as Partial<FrappeFormViewProps>[]) {
+      const { el, onSave } = view({ doc: { ...MEMO_DOCS[0], note: "x", __unsaved: 1 }, ...extra });
+      const { calls } = setup(el);
+      ctrlS();
+      await tick(10);
+      expect(onSave, JSON.stringify(Object.keys(extra))).not.toHaveBeenCalled();
+      expect(calls("frappe.desk.form.save.savedocs")).toHaveLength(0);
+      cleanup();
+    }
+  });
+
+  it("H13 only the topmost mounted form answers (a later form — e.g. a dialog — wins)", async () => {
+    const a = view({ doc: { ...MEMO_DOCS[0], note: "a", __unsaved: 1 } });
+    const b = view({ doc: { ...MEMO_DOCS[0], note: "b", __unsaved: 1 } });
+    setup((c) => <>{a.el(c)}{b.el(c)}</>);
+    ctrlS();
+    await waitFor(() => expect(b.onSave).toHaveBeenCalledTimes(1));
+    expect(a.onSave).not.toHaveBeenCalled();
+  });
+});
+
+describe("F5 / H4 submitted + dirty → Update only (toolbar.js:668-689)", () => {
+  it("H4 editing an allow_on_submit field shows Update and no Cancel; Update sends savedocs action Update", async () => {
+    const { el, onSave } = view({ bundle: bundleOf(SUBM), doc: subDoc({ docstatus: 1 }), onCancelDoc: async (d) => d });
+    const { calls } = setup(el, { docs: subDocs({ docstatus: 1 }) });
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy(); // clean: Cancel
+    typeInto(screen.getByRole("textbox", { name: /Remark/ }), "late note");
+    expect(await screen.findByRole("button", { name: "Update" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(calls("frappe.desk.form.save.savedocs")).toHaveLength(1));
+    expect(calls("frappe.desk.form.save.savedocs")[0].args.action).toBe("Update");
+    expect(parsed(calls("frappe.desk.form.save.savedocs")[0].args.doc).remark).toBe("late note");
+    expect(onSave.mock.calls[0][1]).toBe("Update");
+  });
+});
+
+describe("F8 / H6 Amend needs create + amend; copies start from new-doc defaults", () => {
+  it("H6 no Amend without the create right (form.js:1297-1298 validate_form_action('Create'))", () => {
+    const noCreate = { levels: [{ ...ALL, create: false }], can: (p: string) => p !== "create" && !!(ALL as Record<string, boolean>)[p], known: true };
+    setup(view({ bundle: bundleOf(SUBM), doc: subDoc({ docstatus: 2 }), permissions: noCreate }).el, { docs: subDocs({ docstatus: 2 }) });
+    expect(screen.queryByRole("button", { name: "Amend" })).toBeNull();
+    cleanup();
+    setup(view({ bundle: bundleOf(SUBM), doc: subDoc({ docstatus: 2 }) }).el, { docs: subDocs({ docstatus: 2 }) });
+    expect(screen.getByRole("button", { name: "Amend" })).toBeTruthy();
+  });
+});
+
+describe("F6 / H14 dirty state for in-app navigation", () => {
+  it("H14 onDirtyChange reports true on the first edit and false after the save", async () => {
+    const onDirtyChange = vi.fn();
+    const { el } = view({ doc: MEMO_DOCS[0], onDirtyChange });
+    setup(el);
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+    typeInto(screen.getByRole("textbox", { name: /Note/ }), "edited");
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(true));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+  });
+
+  it("H14 useUnsavedChangesBlocker: clean → leave; dirty → asks (the router gets the answer)", async () => {
+    const asked: string[] = [];
+    let guard: ReturnType<typeof useUnsavedChangesBlocker> | null = null;
+    function Host() {
+      const [dirty, setDirty] = React.useState(false);
+      guard = useUnsavedChangesBlocker(dirty, { confirm: (m) => { asked.push(m); return false; } });
+      return view({ doc: MEMO_DOCS[0], onDirtyChange: setDirty }).el(hostClient!);
+    }
+    let hostClient: FrappeApi | null = null;
+    setup((c) => { hostClient = c; return <Host />; });
+    expect(guard!.confirmLeave()).toBe(true);
+    expect(asked).toEqual([]);
+    typeInto(screen.getByRole("textbox", { name: /Note/ }), "edited");
+    await waitFor(() => expect(guard!.dirty).toBe(true));
+    expect(guard!.confirmLeave()).toBe(false);
+    expect(asked).toEqual(["You have unsaved changes. Leave this page and lose them?"]);
+  });
+});
+
+describe("K14 undo / redo (undo_manager.js)", () => {
+  it("K14 Ctrl+Z outside inputs undoes the user's last change, Ctrl+Shift+Z / Ctrl+Y redo it; the controller exposes them", async () => {
+    const ref = { current: null as FormController | null };
+    const note = vi.fn();
+    setup(view({ doc: MEMO_DOCS[0], controllerRef: ref, events: { note } }).el);
+    expect(ref.current!.canUndo).toBe(false);
+    typeInto(screen.getByRole("textbox", { name: /Note/ }), "one");
+    typeInto(screen.getByRole("textbox", { name: /Note/ }), "two");
+    expect(ref.current!.canUndo).toBe(true);
+    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
+    expect((screen.getByRole("textbox", { name: /Note/ }) as HTMLInputElement).value).toBe("one");
+    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
+    expect((screen.getByRole("textbox", { name: /Note/ }) as HTMLInputElement).value).toBe("n");
+    expect(ref.current!.canUndo).toBe(false);
+    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true, shiftKey: true });
+    expect((screen.getByRole("textbox", { name: /Note/ }) as HTMLInputElement).value).toBe("one");
+    fireEvent.keyDown(document.body, { key: "y", ctrlKey: true });
+    expect((screen.getByRole("textbox", { name: /Note/ }) as HTMLInputElement).value).toBe("two");
+    expect(ref.current!.canRedo).toBe(false);
+    await waitFor(() => expect(note.mock.calls.length).toBeGreaterThanOrEqual(6)); // field events ran for every set (frm.set_value)
+  });
+
+  it("K14 negative: Ctrl+Z inside a text input is the browser's; script writes are not recorded; empty → 'Nothing left to undo'", async () => {
+    const ref = { current: null as FormController | null };
+    setup(view({ doc: MEMO_DOCS[0], controllerRef: ref }).el);
+    act(() => ref.current!.setValue("note", "by script"));
+    expect(ref.current!.canUndo).toBe(false);
+    typeInto(screen.getByRole("textbox", { name: /Note/ }), "typed");
+    fireEvent.keyDown(screen.getByRole("textbox", { name: /Note/ }), { key: "z", ctrlKey: true });
+    expect((screen.getByRole("textbox", { name: /Note/ }) as HTMLInputElement).value).toBe("typed");
+    act(() => ref.current!.undo());
+    act(() => ref.current!.undo());
+    expect(await screen.findByText("Nothing left to undo")).toBeTruthy();
+  });
+});
+
+describe("K1 / K2 custom buttons and the Create dropdown (frm.add_custom_button)", () => {
+  it("K1 buttons added in refresh render in the header and run their handler; K2 grouped ones form a dropdown", async () => {
+    const run = vi.fn();
+    const make = vi.fn();
+    const events = { refresh: (frm: FormController) => { frm.addCustomButton("Notify", run); frm.addCustomButton("Task", make, "Create"); frm.addCustomButton("Event", make, "Create"); } };
+    setup(view({ doc: MEMO_DOCS[0], events }).el);
+    fireEvent.click(await screen.findByRole("button", { name: "Notify" }));
+    expect(run).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(screen.getByRole("button", { name: "Create" }), { key: "Enter" });
+    expect((await screen.findAllByRole("menuitem")).map((m) => m.textContent)).toEqual(["Task", "Event"]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Event" }));
+    expect(make).toHaveBeenCalledTimes(1);
+  });
+
+  it("K1 buttons are cleared before every refresh (form.js:724): a button not re-added after a save is gone", async () => {
+    let first = true;
+    const events = { refresh: (frm: FormController) => { if (first) frm.addCustomButton("Once", () => {}); first = false; } };
+    setup(view({ doc: { ...MEMO_DOCS[0], note: "x", __unsaved: 1 }, events }).el);
+    expect(await screen.findByRole("button", { name: "Once" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Once" })).toBeNull());
+  });
+});

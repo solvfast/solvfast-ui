@@ -104,3 +104,7 @@ export {
   statusLabel as importStatusLabel, statusTone as importStatusTone, DONT_IMPORT, IMPORT_LOG_TABLE_LIMIT,
 } from "./list/importMapping";
 export type { DataImportLabels, ImportFieldOption, GroupedImportWarnings, PreviewColumnView } from "./list/importMapping";
+
+// P35 form
+export { linkTitlesOf } from "./client";
+export type { LoadedDocWithTitles } from "./client";

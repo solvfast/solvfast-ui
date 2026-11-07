@@ -23,6 +23,11 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "var
   docinfo?: DocInfo;
   /** Rendered instead of nothing when the DocType has no workflow. */
   fallback?: React.ReactNode;
+  /** Runs before `apply_workflow` (Desk form/workflow.js:96-108: `check_mandatory`, then `before_workflow_action`);
+   *  false (or a throw) stops the action — nothing is sent. FrappeForm supplies it. */
+  beforeApply?: (action: string) => boolean | Promise<boolean>;
+  /** Runs after the server applied the action and `onApplied` ran (Desk: `after_workflow_action`). */
+  afterApply?: (action: string, doc: FrappeDoc) => void | Promise<void>;
 }
 
 /**
@@ -34,7 +39,7 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "var
  * user is unknown (only `allow_self_approval` transitions can then be offered). A refused `apply_workflow` (403
  * `PermissionError`, `WorkflowTransitionError`, self-approval) is shown by the action bar; nothing is applied locally.
  */
-export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, fallback = null, variant = "compact", docinfo, ...rest }: FrappeWorkflowActionsProps) {
+export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, ...rest }: FrappeWorkflowActionsProps) {
   const { t } = useLocale();
   const w = useWorkflow({ doc, user, roles });
   const info = useRecordDocInfo(variant === "steps" && !doc.__islocal ? doc.doctype : undefined, doc.name, docinfo);
@@ -50,7 +55,16 @@ export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, 
       {...rest} variant={variant} states={states} current={w.state} currentLabel={w.state ? translate(w.state) : undefined}
       actions={actions} busy={w.applying}
       actionsDisabled={w.needsSave} actionsDisabledReason={w.needsSave ? t("recSaveBeforeAction") : undefined}
-      onAction={async (a) => { const saved = await w.apply(a.id); onApplied?.(saved, a.id); }}
+      onAction={async (a) => {
+        if (beforeApply) {
+          let go = false;
+          try { go = await beforeApply(a.id); } catch { go = false; }
+          if (!go) return;
+        }
+        const saved = await w.apply(a.id);
+        onApplied?.(saved, a.id);
+        await afterApply?.(a.id, saved);
+      }}
     />
   );
   if (w.error) {
