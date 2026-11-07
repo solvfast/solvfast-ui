@@ -83,11 +83,17 @@ export interface IconStatCardProps extends CardAction {
   /** Icon colour; the square is the same colour at 10%. Any CSS colour. Default: Sear's brand violet `#512195`,
    *  which, like Sear's, stays the same in dark mode. */
   color?: string;
+  /** P35 (G23): a trend next to the total — `{ value, direction }` renders StatCard's pill (with a screen-reader
+   *  "up" / "down"); any other node is rendered as given (a custom delta). */
+  trend?: { value: number | string; direction: "up" | "down" } | React.ReactNode;
 }
 
+const isTrendObject = (t: unknown): t is { value: number | string; direction: "up" | "down" } =>
+  typeof t === "object" && t !== null && !React.isValidElement(t) && "direction" in t && "value" in t;
+
 /** Sear Studio's overview card: a tinted icon square, a name and a total. */
-export function IconStatCard({ label, value, icon: Icon = Layers, color = "#512195", href, onClick, className }: IconStatCardProps) {
-  const { language } = useLocale();
+export function IconStatCard({ label, value, icon: Icon = Layers, color = "#512195", trend, href, onClick, className }: IconStatCardProps) {
+  const { language, t } = useLocale();
   return (
     <CardRoot href={href} onClick={onClick} className={className}
       base={cn("sf-glass-pane sf-glass-pane--airy rounded-[20px] text-card-foreground", "block p-4 transition-colors hover:bg-muted/30")}>
@@ -97,7 +103,20 @@ export function IconStatCard({ label, value, icon: Icon = Layers, color = "#5121
         </span>
         <p className="text-sm font-semibold text-foreground truncate min-w-0">{loc(label, language)}</p>
       </div>
-      <p className="mt-3 text-2xl font-bold leading-none tabular-nums text-foreground">{fmt(value, language)}</p>
+      {trend == null || trend === false ? (
+        <p className="mt-3 text-2xl font-bold leading-none tabular-nums text-foreground">{fmt(value, language)}</p>
+      ) : (
+        <div className="mt-3 flex items-end justify-between gap-2">
+          <p className="text-2xl font-bold leading-none tabular-nums text-foreground">{fmt(value, language)}</p>
+          {isTrendObject(trend) ? (
+            <span data-trend={trend.direction} className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs ${trend.direction === "up" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"}`}>
+              {trend.direction === "up" ? <TrendingUp className="size-3" aria-hidden /> : <TrendingDown className="size-3" aria-hidden />}
+              <span className="sr-only">{t(trend.direction === "up" ? "coreTrendUp" : "coreTrendDown")} </span>
+              {fmt(trend.value, language)}
+            </span>
+          ) : <span className="shrink-0">{trend as React.ReactNode}</span>}
+        </div>
+      )}
     </CardRoot>
   );
 }

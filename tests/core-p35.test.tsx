@@ -4,9 +4,10 @@
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { Users } from "lucide-react";
 import {
-  Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
+  LinkInput, IconStatCard, EmptyState, Button, type Suggestion, Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
   type LifecycleStateItem,
 } from "../src";
 
@@ -334,5 +335,78 @@ describe("CORE.G13 Timeline item icons, tone, actor and onItemSelect", () => {
     const { container } = wrap(<Timeline items={feed} now={NOW} showActor />, "ar");
     const actors = Array.from(container.querySelectorAll("bdi[data-actor]")).map((e) => e.textContent);
     expect(actors).toEqual(["Ann", "Bob"]);
+  });
+});
+
+describe("CORE.G11 LinkInput suggestion group + icon", () => {
+  const results: Suggestion[] = [
+    { value: "L-1", label: "Acme lead", group: "Leads", icon: <span data-testid="av-1">A</span> },
+    { value: "L-2", label: "Beta lead", group: "Leads" },
+    { value: "D-1", label: "Acme deal", group: "Deals" },
+    { value: "X-1", label: "Loose" },
+  ];
+  it("CORE.G11 groups consecutive results under a heading (role=group), icons lead the option; keyboard order stays flat", async () => {
+    const onChange = vi.fn();
+    wrap(<LinkInput aria-label="record" value={null} onChange={onChange} search={async () => results} debounceMs={0} />);
+    const box = screen.getByRole("combobox", { name: "record" });
+    fireEvent.focus(box);
+    await act(async () => {});
+    const groups = screen.getAllByRole("group");
+    expect(groups.map((g) => g.getAttribute("aria-labelledby") && document.getElementById(g.getAttribute("aria-labelledby")!)?.textContent)).toEqual(["Leads", "Deals"]);
+    expect(within(groups[0]).getAllByRole("option")).toHaveLength(2);
+    expect(within(groups[0]).getByTestId("av-1")).toBeTruthy();
+    const opts = screen.getAllByRole("option");
+    expect(opts.map((o) => o.textContent)).toEqual(["AAcme lead", "Beta lead", "Acme deal", "Loose"]);
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    expect(box.getAttribute("aria-activedescendant")).toBe(opts[2].id);
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith("D-1", results[2]);
+  });
+  it("CORE.G11 without group / icon the list is flat (0.6.0 markup)", async () => {
+    wrap(<LinkInput aria-label="r" value={null} onChange={() => {}} search={async () => [{ value: "A" }, { value: "B" }]} debounceMs={0} />);
+    fireEvent.focus(screen.getByRole("combobox", { name: "r" }));
+    await act(async () => {});
+    expect(screen.queryByRole("group")).toBeNull();
+    expect(document.querySelector("[data-suggestion-icon]")).toBeNull();
+  });
+});
+
+describe("CORE.G23 IconStatCard trend", () => {
+  it("CORE.G23 renders StatCard's trend pill with a screen-reader direction; absent trend keeps the 0.6.0 markup", () => {
+    const { container, rerender } = wrap(<IconStatCard label="Deals" value={1200} trend={{ value: "+12%", direction: "up" }} />);
+    const pill = container.querySelector("[data-trend='up']")!;
+    expect(pill.textContent).toBe("Up +12%");
+    expect(pill.className).toContain("text-emerald-700");
+    rerender(<ThemeProvider language="ar"><IconStatCard label="Deals" value={5} trend={{ value: 3, direction: "down" }} /></ThemeProvider>);
+    expect(container.querySelector("[data-trend='down']")!.textContent).toBe("انخفاض ٣");
+    cleanup();
+    const plain = wrap(<IconStatCard label="Deals" value={5} />).container;
+    expect(plain.querySelector("[data-trend]")).toBeNull();
+    expect(plain.querySelectorAll("p")).toHaveLength(2);
+  });
+  it("CORE.G23 any node is rendered as a custom trend", () => {
+    wrap(<IconStatCard label="Leads" value={9} trend={<span data-testid="delta">vs last week</span>} />);
+    expect(screen.getByTestId("delta").textContent).toBe("vs last week");
+  });
+});
+
+describe("CORE.EmptyState (D-crm N10)", () => {
+  it("CORE.N10 renders icon, localized title, description and an action; the action is keyboard reachable", () => {
+    const create = vi.fn();
+    const { container } = wrap(<EmptyState icon={Users} title={{ en: "No contacts yet", ar: "لا جهات اتصال بعد" }} description="Add the first one."
+      action={<Button size="sm" onClick={create}>New contact</Button>} headingLevel={3} />);
+    expect(screen.getByRole("heading", { level: 3, name: "No contacts yet" })).toBeTruthy();
+    expect(screen.getByText("Add the first one.")).toBeTruthy();
+    expect(container.querySelector("svg.lucide-users")?.getAttribute("aria-hidden")).toBe("true");
+    const btn = screen.getByRole("button", { name: "New contact" });
+    btn.focus(); fireEvent.click(btn);
+    expect(create).toHaveBeenCalled();
+  });
+  it("CORE.N10 Arabic title, small plain variant, no icon", () => {
+    const { container } = wrap(<EmptyState icon={null} size="sm" variant="plain" title={{ en: "Nothing", ar: "لا شيء" }} />, "ar");
+    expect(screen.getByText("لا شيء")).toBeTruthy();
+    expect(container.querySelector("svg")).toBeNull();
+    expect((container.querySelector("[data-sf-empty-state]") as HTMLElement).className).not.toContain("border-dashed");
   });
 });

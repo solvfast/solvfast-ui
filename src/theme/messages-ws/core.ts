@@ -16,6 +16,9 @@ export const coreEn = {
   coreFileList: "Chosen files",
   // SearchCombobox multiple (G16): trigger text for more than two picks
   coreComboSelected: "{n} selected",
+  // IconStatCard trend (G23): screen-reader direction
+  coreTrendUp: "Up",
+  coreTrendDown: "Down",
 };
 export const coreAr: { [K in keyof typeof coreEn]: string } = {
   coreStepSkipped: "تم تخطّيها",
@@ -31,4 +34,6 @@ export const coreAr: { [K in keyof typeof coreEn]: string } = {
   coreFileRemove: "إزالة {name}",
   coreFileList: "الملفات المختارة",
   coreComboSelected: "{n} محدّدة",
+  coreTrendUp: "ارتفاع",
+  coreTrendDown: "انخفاض",
 };

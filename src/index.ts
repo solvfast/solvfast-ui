@@ -191,3 +191,5 @@ export type { DataImportLabels, ImportDialogExtraLabels, ImportDialogLabels } fr
 // P35 core — generic capabilities the CRM audit found missing (docs/components/p35-core.md)
 export { STATUS_PALETTE, resolveStatusColor, statusColorStyles } from "./primitives/status-dot";
 export type { LifecycleStep } from "./record";
+export { EmptyState } from "./primitives/empty-state";
+export type { EmptyStateProps } from "./primitives/empty-state";
