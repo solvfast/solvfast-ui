@@ -32,7 +32,7 @@ is bumped. Nothing in this file was run against a Frappe site; the CRM runs in m
 | Activity form / detail headers (M6) | hand-built back + `<h1>` + Cancel / Save / Edit | `PageHeader` (`onBack`, node title kept in the page, `subtitle`, `meta`, `actions`); Save = DS primary | `ActivityFormLayout.tsx`, `ActivityDetailLayout.tsx` (`32e0157`) | page action buttons (Download, ⋯) supplied by pages | `p35.mjs`: back named and navigates, Cancel / Save, Edit × 8; `outside.mjs` + `legacy.mjs`: legacy routes unchanged |
 | ⋯ menu shortcut chips (M13) | `KeyChip` span / `<span>` in `RecordMoreMenu` | `DropdownMenuShortcut` | `components/record-menu/useRecordMenu.tsx`, `components/record-detail/RecordMoreMenu.tsx` (`1059cf9`) | the document menu itself (C4) | `p35.mjs`: DS shortcuts in entity + activity menus × 8; `legacy.mjs`: Ticket / Service Request / legacy menus keep legacy chips (0 DS) |
 | Type-form designer colour field (M14) | raw `<input type=color>` + hex `Input` | `ColorInput` | `pages/FieldLibrary/FieldBuilderComponents.tsx` (`bcbc93c`) | — | `p35.mjs`: two ColorInputs, no raw visible colour input, hex accepted × 8 |
-| List bulk "Add Tags" (M7) | own chip list + `Input` + suggestion buttons | `TagInput` (`search` over the entity's tags, `allowCreate`) in a local `BulkAddTagsDs` | `components/record-list/RecordListView.tsx` (`2bc2e80`) | "Remove tags" toggle chips and the `AppPopup` | `p35.mjs`: TagInput, Esc in suggestions keeps the dialog, Enter adds a pill, Apply tags on 2 records × 8; `sweep28` + `records-assign` unchanged |
+| List bulk "Add Tags" (M7) — **reverted on the 0.6.0 branch, kept on `crm/p35-needs-070`** | own chip list + `Input` + suggestion buttons | `TagInput` (`search` over the entity's tags, `allowCreate`) in a local `BulkAddTagsDs` | `components/record-list/RecordListView.tsx` (`2bc2e80`) | "Remove tags" toggle chips and the `AppPopup` | `p35.mjs`: TagInput, Esc in suggestions keeps the dialog, Enter adds a pill, Apply tags on 2 records × 8; `sweep28` + `records-assign` unchanged |
 | ⋯ Email composer body (M8) | `components/studio/RichTextEditor` (570-line local editor) | `RichTextEditor` (`ariaLabel`, `minHeight`) | `components/record-menu/EmailView.tsx` (`12a1c10`) | the rest of the composer | `p35.mjs`: DS editor takes typing × 8 (call detail ⋯ → Email) |
 | Commission & Referral child tables (M10) | DS `Table` + per-row DS inputs + `AddNewRow` | `DataGrid` — **implemented, not committed** (patch `scratchpad/p35/crm-qa/m10-datagrid.patch`) | — | — | 27 PASS / 1 FAIL; phone regression (§5.3) |
 
@@ -52,6 +52,36 @@ decisions or out of scope).
 | 28-list sweep (`sweep.mjs`) | 112 / 112 | **112 / 112** |
 | Migrated UI (`crm-qa/p35.mjs`, new) | — | **376 PASS / 0 FAIL**, 0 console / page errors, 8 combinations (light / dark × en / ar × 1440 / 390) |
 | Legacy interactions (`crm-qa/legacy.mjs`, new) | 56 / 0 | **56 / 0**; screenshots 27 identical, 3 × 2 px noise |
+
+### M7 reverted on the 0.6.0 branch (integrator, after WS6)
+
+WS6's `p35.mjs` pressed Esc before Apply, so it did not catch that with **@solvfast/ui 0.6.0** the TagInput "No results"
+list stays open after Enter and **intercepts the click on Apply** (§7). The P32 tags/assign check (a P35 copy,
+`crm-qa/tagsassign-p35.mjs`, which only locates the popup by its Apply button) shows it:
+
+| Build | tags/assign en | tags/assign ar |
+|---|---|---|
+| `c3a761e` baseline (0.6.0) | 43 / 43 | 43 / 43 |
+| `12a1c10` WS6 final (0.6.0, with M7) | **crash at Apply** ("No results … intercepts pointer events") | **crash** |
+| `12a1c10` built against the local **0.7.0-dev.1** pack | 43 / 43 | 43 / 43 |
+| `d244b64` = `12a1c10` + revert of M7 (0.6.0) | 43 / 43 | 43 / 43 |
+
+So `crm/p35-ds-adoption` = **`d244b64`** (M1–M6, M8, M13, M14 on 0.6.0) and M7 lives on **`crm/p35-needs-070`**
+(`12a1c10`), deployable only after a release containing the 0.7.0-dev.1 TagInput fix.
+
+Final regression of `d244b64` (0.6.0, local static build): typecheck 30 errors (identical list); build ✓; route sweep 82
+loads, 0 console errors, the 2 pre-existing notes; SD / SM + legacy (`outside.mjs`, 172 loads, 0 console errors) vs
+baseline 163 identical, 9 differ by 2–5 px (inside the 2–16 px base-vs-base noise); mock flows 16 / 0; records-assign
+111 / 0; 28 lists 112 / 112; tags/assign en 43 / 43, ar 43 / 43; legacy interactions 56 / 0; migrated UI (`p35.mjs`
+without the bulk-tags and M10 steps) 344 / 0.
+
+### CRM against 0.7.0-dev.1 (compatibility only — nothing changed in the CRM's package.json / yarn.lock)
+
+`12a1c10` built in a scratch copy whose `node_modules/@solvfast/ui` is the packed 0.7.0-dev.1 tarball: typecheck 30
+errors (identical list to 0.6.0); build ✓; route sweep 82 loads, 0 console errors; mock 16 / 0; records-assign 111 / 0;
+28 lists 112 / 112; tags/assign 43 / 43 en + ar; legacy 56 / 0; `p35.mjs` 376 / 0 (+8 M10 steps that only apply
+with the uncommitted M10 patch); SD / SM: only 2–3 px noise; the only real differences are the 8 legacy CRM detail shots,
+where each assignee's role line is back under the name (the P34 follow-up, `AssigneeGroup` `description`).
 
 Result files: `scratchpad/p35/crm-qa/r-*.txt`, `shots-final/results.txt`, `legacy-*/results.txt` (session scratchpad,
 not in the repository).
