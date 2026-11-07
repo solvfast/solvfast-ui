@@ -415,14 +415,14 @@ describe("CORE showcase pages (smoke)", () => {
   it("CORE.showcase the P35 core pages render in English and Arabic without errors", async () => {
     const pages = await import("../showcase/src/pages/p35-core");
     const routes = await import("../showcase/src/routes");
-    for (const id of ["core-fields", "file-dropzone", "combobox-p35", "empty-trend", "record-p35", "record-extras"]) {
+    for (const id of ["core-fields", "file-dropzone", "combobox-p35", "empty-trend", "record-p35", "record-extras", "editor-stepper-p35"]) {
       expect(routes.PAGES.some((p) => p.id === id)).toBe(true);
     }
     // PAGES follows the navigation order (rebuilt from GROUPS)
     expect(routes.PAGES.map((p) => p.id)).toEqual(routes.GROUPS.flatMap((g) => g.pages.map((p) => p.id)));
     const err = vi.spyOn(console, "error");
     for (const lang of ["en", "ar"] as const) {
-      for (const P of [pages.CoreFieldsPage, pages.RecordExtrasPage, pages.RecordP35Page, pages.FileDropzonePage, pages.ComboboxP35Page, pages.EmptyAndTrendPage]) {
+      for (const P of [pages.CoreFieldsPage, pages.RecordExtrasPage, pages.RecordP35Page, pages.FileDropzonePage, pages.ComboboxP35Page, pages.EmptyAndTrendPage, pages.EditorStepperP35Page]) {
         const { unmount } = wrap(<P />, lang);
         unmount();
       }

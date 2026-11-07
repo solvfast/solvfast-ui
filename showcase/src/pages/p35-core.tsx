@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Briefcase, FileText, Mail, Phone, Users } from "lucide-react";
 import {
-  AssignDialog, AssigneeGroup, Button, ColorInput, DataGrid, DurationInput, EmptyState, FieldShell, FileDropzone, IconStatCard,
+  AssignDialog, AssigneeGroup, Button, ColorInput, MonthInput, RichTextEditor, Stepper, type RichTextEditorHandle, type StepperStep, DataGrid, DurationInput, EmptyState, FieldShell, FileDropzone, IconStatCard,
   LifecycleBar, LikeToggle, LinkInput, NumberInput, Rating, SearchCombobox, StatusBadge, StatusDot, TagInput, TimeInput, Timeline,
   formatFileSize, useLocale, type Assignee, type ComboOption, type DataGridColumn, type LifecycleStateItem, type Suggestion, type TimelineItem,
   type UserOption,
@@ -46,6 +46,7 @@ export function CoreFieldsPage() {
   const [rating, setRating] = React.useState<number | null>(3.5);
   const [color, setColor] = React.useState<string | null>("#512195");
   const [rows, setRows] = React.useState<Line[]>(LINES);
+  const [month, setMonth] = React.useState<string | null>("2026-11");
   const columns: DataGridColumn<Line>[] = [
     { key: "item", label: tr(l("Item", "البند")), width: 4, required: true, renderCell: (r) => r.item || "—" },
     { key: "qty", label: tr(l("Qty", "الكمية")), width: 2, align: "end", renderCell: (r) => r.qty ?? "—",
@@ -94,6 +95,12 @@ export function CoreFieldsPage() {
             <FieldShell label={tr(l("Brand colour", "لون العلامة"))} htmlFor="sc-color"><ColorInput id="sc-color" value={color} onChange={setColor} /></FieldShell>
           </div>
           <Out>{JSON.stringify({ rating, color })}</Out>
+        </Example>
+      </Section>
+      <Section title={l("Month (G20)", "الشهر (G20)")} description={l("MonthInput replaces <input type=\"month\">: value \"YYYY-MM\", a year header and a month grid; arrows follow the reading direction, PageUp / PageDown change the year; min / max disable months.", "‏MonthInput يحلّ محل ‎<input type=\"month\">‎: القيمة \"YYYY-MM\"، ورأس للسنة وشبكة أشهر؛ الأسهم تتبع اتجاه القراءة، و PageUp / PageDown تغيّر السنة؛ و min / max تعطّل الأشهر.")}>
+        <Example code={`<MonthInput value={m} onChange={setM} min="2026-01" max="2027-12" />`}>
+          <div className="max-w-xs"><FieldShell label={tr(l("Readiness month", "شهر الجاهزية"))} htmlFor="sc-month"><MonthInput id="sc-month" value={month} onChange={setMonth} min="2026-01" max="2027-12" /></FieldShell></div>
+          <Out>{JSON.stringify({ month })}</Out>
         </Example>
       </Section>
       <Section title={l("DataGrid (child table)", "DataGrid (جدول فرعي)")} description={l("Desk's grid: row numbers, select and delete, inline edit of one row at a time, keyboard insert / duplicate, paging above 50 rows.", "شبكة ديسك: أرقام الصفوف، التحديد والحذف، تحرير صف واحد في كل مرة، الإدراج / التكرار بلوحة المفاتيح، والتصفّح فوق 50 صفاً.")}>
@@ -319,6 +326,44 @@ export function EmptyAndTrendPage() {
             <IconStatCard label={l("Leads", "عملاء محتملون")} value={342} icon={Users} color="#0ea5e9" trend={{ value: "-4%", direction: "down" }} />
             <IconStatCard label={l("Contacts", "جهات الاتصال")} value={1290} icon={Users} color="#11BF9D" trend={<span className="text-xs text-muted-foreground">{tr(l("vs last week", "مقارنة بالأسبوع الماضي"))}</span>} />
           </div>
+        </Example>
+      </Section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// RichTextEditor insert API + toolbar slot (G15) and Stepper overflow cue (N8)
+// ---------------------------------------------------------------------------------------------------------------------
+
+const TEMPLATES = [
+  { id: "followup", label: l("Follow-up", "متابعة"), html: l("<p>Hi, just following up on our proposal.</p>", "<p>مرحباً، نتابع معكم بخصوص عرضنا.</p>") },
+  { id: "thanks", label: l("Thank you", "شكر"), html: l("<p>Thank you for your time today.</p>", "<p>شكراً لوقتكم اليوم.</p>") },
+];
+
+export function EditorStepperP35Page() {
+  const tr = useTr();
+  const editor = React.useRef<RichTextEditorHandle>(null);
+  const [html, setHtml] = React.useState("<p>Dear client,</p>");
+  const [at, setAt] = React.useState(6);
+  const labels = ["Client", "Scope", "Team", "Timeline", "Pricing", "Terms", "Risks", "Legal", "Review", "Approve", "Send", "Sign"];
+  const steps: StepperStep[] = labels.map((label, i) => ({ label, state: i < at ? "done" : i === at ? "current" : "upcoming", clickable: true }));
+  return (
+    <div className="space-y-12">
+      <Section title={l("RichTextEditor: insert at the caret + toolbar slot (G15)", "RichTextEditor: الإدراج عند المؤشّر + خانة شريط الأدوات (G15)")} description={l("`toolbarEnd` adds your controls to the toolbar; the ref's insertText / insertHtml put text at the caret (sanitized) and emit onChange — templates, AI drafts, snippets.", "‏`toolbarEnd` يضيف عناصرك إلى شريط الأدوات؛ و insertText / insertHtml في المرجع يُدرجان النص عند المؤشّر (منقّى) ويُطلقان onChange — قوالب ومسودات ذكاء اصطناعي ومقتطفات.")}>
+        <Example code={`const ref = useRef<RichTextEditorHandle>(null);
+<RichTextEditor ref={ref} value={html} onChange={setHtml}
+  toolbarEnd={<Button size="xs" onClick={() => ref.current?.insertHtml(template)}>Template</Button>} />`}>
+          <RichTextEditor ref={editor} value={html} onChange={setHtml} ariaLabel={tr(l("Email body", "نص البريد"))}
+            toolbarEnd={TEMPLATES.map((tpl) => (
+              <Button key={tpl.id} type="button" size="xs" variant="ghost" onMouseDown={(e) => e.preventDefault()} onClick={() => editor.current?.insertHtml(tr(tpl.html))}>{tr(tpl.label)}</Button>
+            ))} />
+          <Out>{html}</Out>
+        </Example>
+      </Section>
+      <Section title={l("Stepper: overflow cue (N8)", "Stepper: إشارة الفائض (N8)")} description={l("`overflowCue` fades the side(s) with hidden steps and adds a chevron that scrolls by a page; `followCurrent` keeps the current step centred. Narrow the window to see it.", "‏`overflowCue` يُبهت الجانب الذي فيه خطوات مخفية ويضيف سهماً يمرّر صفحة؛ و `followCurrent` يُبقي الخطوة الحالية في الوسط. ضيّق النافذة لتراه.")}>
+        <Example code={`<Stepper ariaLabel="Proposal" steps={steps} onJump={setAt} overflowCue followCurrent />`}>
+          <div className="max-w-xl"><Stepper ariaLabel={l("Proposal", "العرض")} steps={steps} onJump={setAt} overflowCue followCurrent /></div>
         </Example>
       </Section>
     </div>
