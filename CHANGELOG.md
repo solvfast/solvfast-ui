@@ -18,6 +18,11 @@ was removed or renamed (diff of `src/index.ts`, `src/frappe/index.ts`, `src/fiel
 > `package.json` (still `0.6.0` at `e6e4dd2`), `FrappeForm`'s default ⋯ menu and Connections tab, `FrappeListView`'s
 > default create → Quick Entry / full form, `onQueryStateChange` and filters carried from the List view into
 > `FrappeViews`, and the final gate results. The entries below describe `e6e4dd2` (the five merged workstreams).
+> Observed on the integration branch (commit subjects only, not verified here): `ab8988b` FrappeForm default ⋯ menu +
+> Connections tab · `6463470` FrappeListView create → Quick Entry / full form by default, `onQueryStateChange`,
+> FrappeViews carries List filters · `0a12462` simulator handler context · `f1fa767` FrappeProvider `userDefaults`
+> applied to new documents · `b39b3c6` TagInput closes its suggestion list after creating a tag; ListView status
+> columns render StatusBadge with a configured colour.
 
 ### Added
 - **Form (`@solvfast/ui/frappe`)**

@@ -3,7 +3,7 @@
 SOLV FAST product UI kit: Sear's design, packaged — theme, primitives, app shell and List View, with an optional
 Frappe layer. React 18 · Tailwind 3 (or precompiled CSS) · Radix.
 
-**Status: 0.6.0 released; 0.7.0-dev.1 in development** — a private package on GitHub Packages (install:
+**Status: 0.6.0 (tag `v0.6.0`); 0.7.0-dev.1 in development** — a private package on GitHub Packages (install:
 [docs/CONSUMING.md](docs/CONSUMING.md#install)). The Frappe layer is tested against recorded real Frappe 15.110 responses
 (read paths) and an in-package simulator; **no authenticated real-site validation has been done and no write has been
 verified on a site** (not done until the package is integrated into a real project). See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).

@@ -95,13 +95,14 @@ ungrouped lists (they page).
 - **Import:** not reproduced — Google Sheets, "Report Error", changing the import type after creation.
 - **Default wiring (TODO(integration)):** at the time of writing `FrappeForm` does not mount the ⋯ menu or the Connections
   tab by default and `FrappeListView` does not open Quick Entry by default; the components exist and are passed through
-  `menu` / `extraTabs` / `create`.
+  `menu` / `extraTabs` / `create`. Integration commits for these defaults, for automatic `boot.userDefaults` and for
+  filters carried into `FrappeViews` exist on the integration branch (`ab8988b`, `6463470`, `f1fa767`) — not verified here.
 - **`@solvfast/ui/frappe/testing`** (the simulator) ships as its own entry; `@solvfast/ui/frappe` never imports it.
 
 ## Known bugs
 
 - `TagInput` keeps its suggestion list open after Enter adds a tag, until focus leaves; inside a dialog it can cover the
-  next button.
+  next button. TODO(integration): a fix is on the integration branch (`b39b3c6`), not verified here — re-check before release.
 - `DataGrid` has a fixed minimum width (`32rem`): on a 390 px phone it scrolls horizontally.
 
 ## Environment

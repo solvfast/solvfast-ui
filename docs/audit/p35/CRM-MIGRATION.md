@@ -70,7 +70,7 @@ not in the repository).
 
 | D-crm id (gap) | CRM location (D-crm §3c) | Delivered in the package (0.7.0-dev) | What the CRM can then remove | Still missing |
 |---|---|---|---|---|
-| N1 (G17) | local `StatusDot` copies in `DealsPage`, `ContactsPage`, `RelatedRecordRow` `StageChip`, `TasksPage`; Lead / Deal header (M2 deviation) | `StatusBadge` / `StatusDot` `color` (any CSS colour or palette token), `STATUS_PALETTE`, `statusColorStyles` | local dots; the colour → tone deviation | `ListView` status cells do not forward `color` yet |
+| N1 (G17) | local `StatusDot` copies in `DealsPage`, `ContactsPage`, `RelatedRecordRow` `StageChip`, `TasksPage`; Lead / Deal header (M2 deviation) | `StatusBadge` / `StatusDot` `color` (any CSS colour or palette token), `STATUS_PALETTE`, `statusColorStyles` | local dots; the colour → tone deviation | `ListView` status cells do not forward `color` at `e6e4dd2` — TODO(integration): `b39b3c6` ("ListView status columns (`ColumnDef.status`) render StatusBadge with a configured colour") observed, not verified here |
 | N2 (G7) | `record-lifecycle/WorkflowRailWidget.tsx:116` (pre-filtered states) | `LifecycleStateItem.step` (`past` / `current` / `future` / `skipped` / `failed`) | the pre-filtering workaround ("Lost shows Won ticked") | — |
 | N3 (G14) | 11 hidden `<input type=file>` + drop zones (Deal / Lead / Contact / Organization detail, ContactsPage, AttachmentFormPage, ClientInfoStep, ProposalDocTemplateForm, EmailView, PrerequisiteFormFields) | `FileDropzone` (accept, multiple, maxSize, maxFiles, keyboard, drag-and-drop, en / ar) | the native inputs and own drop zones | per-file upload progress / error rows (host uploads in `onFilesAdded`) |
 | N4 (G20) | `Proposals/complai/ComplaiReadinessStep.tsx:35` native `type="month"` | `MonthInput` (`YYYY-MM`) | the native input | — |
@@ -146,5 +146,6 @@ menu, Connections, e-mail composer, sidebar counts) that the CRM can use only in
 
 - `TagInput` keeps its suggestion list ("No results") open after Enter adds a tag, until focus leaves; in the bulk Tags
   popup it covers the Apply button until Esc / Tab / a click elsewhere (8 / 8 combinations). Candidate fix: close the list
-  after a create.
+  after a create. TODO(integration): `b39b3c6` ("TagInput closes its suggestion list after creating a tag") observed on
+  the integration branch, not verified here.
 - `DataGrid` fixed minimum width on phones (§5.3).

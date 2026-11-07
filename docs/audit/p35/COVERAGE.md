@@ -8,6 +8,12 @@ WS4 views, WS5 core). WS6 (CRM adoption) changed the CRM, not the package — se
 > create → Quick Entry, filters carried from the List view into `FrappeViews`, version `0.7.0-dev.1`, final gates) was
 > still running when this file was written. Rows whose limitation says "TODO(integration)" are COMPLETE through the
 > exported component and become default behaviour only once that step lands. The status of no row depends on it.
+> Observed on the integration branch (`p35-pkg`, commit subjects only — **not verified here; re-check the lines that cite
+> them**): `ab8988b` FrappeForm default ⋯ menu + Connections tab · `6463470` FrappeListView create → Quick Entry / full
+> form by default, `onQueryStateChange`, FrappeViews carries List filters · `0a12462` simulator handler context
+> (permission engine, row filter, print settings, clock; docinfo lists Communications) · `f1fa767` FrappeProvider
+> `userDefaults` applied to new documents · `b39b3c6` TagInput closes its suggestion list after creating a tag; ListView
+> status columns (`ColumnDef.status`) render StatusBadge with a configured colour.
 
 **Nothing in this file was exercised against an authenticated real Frappe site.** "COMPLETE" means "a cited test exercises
 the behaviour"; it never means "verified on a site". The only real-Frappe evidence in the package is recorded 15.110
@@ -141,7 +147,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.A2 | Link | COMPLETE | COMPLETE | Frappe (+Core LinkInput) | `FLF` | ff "searches search_link 500 ms…"; sr "search_link", "validate_link" | `#frappe-forms` todo, `#frappe-form-p35` | simulator; recorded-real (API shape) | see §F |
 | FV.A3 | Select | PARTIAL | **COMPLETE** | both | `FF` Select branch | fft "FV.A3 Select: newline options, blank first option, translated labels, an unknown stored value is kept" | `#frappe-forms` travel | unit | — |
 | FV.A4 | Date | COMPLETE | COMPLETE | both | `FF` DateField (site `date_format`) | dd (6); fft "FV.A6 … A4 Date a date trigger" | `#frappe-forms` travel | unit | no TZ conversion needed |
-| FV.A5 | Datetime | PARTIAL | PARTIAL | both | `FF` DateTimeField | fft "FV.A6 … A5 Datetime a date-time picker trigger" (dispatch only) | `core-fields` | unit | edited in browser TZ; system↔user TZ conversion while editing not done; seconds forced to `:00` |
+| FV.A5 | Datetime | PARTIAL | PARTIAL | both | `FF` DateTimeField | fft "FV.A6 … A5 Datetime a date-time picker trigger" (dispatch only) | — | unit | edited in browser TZ; system↔user TZ conversion while editing not done; seconds forced to `:00` |
 | FV.A6 | Time | PARTIAL | **COMPLETE** | both | `FF` → `TimeInput` | fft "FV.A6 Time is a time box (12 h when the site's time_format has 'a')…" | `core-fields` | unit | — |
 | FV.A7 | Check | COMPLETE | COMPLETE | both | `FF` | ff "Note: depends_on hides and shows fields"; fft "FV.A28 … A7 Check writes 0/1" | `#frappe-forms` travel | simulator (+real meta) | — |
 | FV.A8 | Int / Long Int | COMPLETE | COMPLETE | both | `FF` → NumberInput int | ff "dispatches fieldtypes"; fft "FV.A8 / A9 / A10 / A11 numbers…" | `core-fields` | unit | — |
@@ -219,7 +225,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.D5 | submit | COMPLETE | COMPLETE | Frappe | `m/actions.ts` | prr1 "no submit right…"; simp "submit needs submit…"; ff Submit flow | — | simulator, unit | — |
 | FV.D6 | cancel | COMPLETE | COMPLETE | Frappe | `m/actions.ts`, `FFV` | p27 "no Cancel on a submitted doc…"; simp server cancel check | — | simulator, unit | — |
 | FV.D7 | amend | COMPLETE | COMPLETE | Frappe | `m/actions.ts`, `FFV` | p27 "…no Amend on a cancelled one"; ffp "FV.H6 no Amend without the create right…" | — | simulator, unit | — |
-| FV.D8 | User Permissions | PARTIAL | PARTIAL | Frappe (server-side in sim) | `services/boot.ts` `userDefaultsFromBoot` (is_default) | simp "User Permissions … lists only rows…"; ffp "FV.E2 userDefaultsFromBoot: … the is_default User Permission wins…" | `#frappe-permissions` | simulator, unit | applied only when the app passes `boot.userDefaults`; search_link User Permission filtering is server-side and unverified |
+| FV.D8 | User Permissions | PARTIAL | PARTIAL | Frappe (server-side in sim) | `services/boot.ts` `userDefaultsFromBoot` (is_default) | simp "User Permissions … lists only rows…"; ffp "FV.E2 userDefaultsFromBoot: … the is_default User Permission wins…" | `#frappe-permissions` | simulator, unit | applied only when the app passes `boot.userDefaults` (TODO(integration): `f1fa767`); search_link User Permission filtering is server-side and unverified |
 | FV.D9 | Server authoritative | COMPLETE | COMPLETE | Frappe | `FFV` error path | p27 "direct invocation of hidden actions: the server refuses…" | — | simulator | — |
 | FV.D10 | Workflow read-only (allow_edit) | COMPLETE | COMPLETE | Frappe | `usePermissions` → `m/status.ts` | fh "workflow state without an allow_edit role…"; p27 | `#frappe-workflow` | simulator | — |
 | FV.D11 | Tab hidden by permlevel | PARTIAL | **COMPLETE** | Frappe | `FFV` tab visibility | ffp "FV.D11 a tab whose fields are all permlevel 1 is hidden for a user who cannot read level 1" | — | simulator | — |
@@ -229,7 +235,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
 | FV.E1 | `df.default` keywords, casts, mandatory Table row | COMPLETE | COMPLETE | Frappe | `m/defaults.ts` | ffm "applies df.default keywords…"; ff "a new ToDo gets Desk's defaults" | `#frappe-forms` new-todo | simulator (+real meta), unit | browser clock; `:DocType` defaults reported, left empty |
-| FV.E2 | Session / user defaults | PARTIAL | **COMPLETE** | Frappe | `services/boot.ts` `userDefaultsFromBoot`; `FForm` `newDocDefaults.userDefaults` | ffp "FV.E2 userDefaultsFromBoot…", "FV.E2 FrappeForm newDocDefaults.userDefaults pre-fill a Link…" | — | unit, simulator | not automatic: the app passes `newDocDefaults={{ userDefaults: boot.userDefaults }}` (FrappeProvider does not carry them); `remember_last_selected_value` not reproduced |
+| FV.E2 | Session / user defaults | PARTIAL | **COMPLETE** | Frappe | `services/boot.ts` `userDefaultsFromBoot`; `FForm` `newDocDefaults.userDefaults` | ffp "FV.E2 userDefaultsFromBoot…", "FV.E2 FrappeForm newDocDefaults.userDefaults pre-fill a Link…" | — | unit, simulator | not automatic at e6e4dd2: the app passes `newDocDefaults={{ userDefaults: boot.userDefaults }}` — TODO(integration): integration commit `f1fa767` ("FrappeProvider userDefaults … applied to new documents") observed, not verified here; `remember_last_selected_value` not reproduced |
 | FV.E3 | fetch_from (+ fetch_if_empty) | COMPLETE | COMPLETE | Frappe | `m/fetch.ts`, `FFV` | ff "…a pick validates and fetches"; ffm fetch map; pds fetch_from lock | `#frappe-forms` todo | simulator (+real meta) | server re-fetches on save |
 | FV.E4 | Dependent link values (link_filters `eval:`) | COMPLETE | COMPLETE | Frappe | `FLF` | ff "link_filters (client-only) and setQuery merge…" | — | unit | dependent Links not auto-cleared (Desk neither) |
 | FV.E5 | Auto values on a new doc | COMPLETE | COMPLETE | Frappe | `FFV`, `m/layout.ts` | rff "fetches the target of a defaulted Link…"; ffm `__newname` | `#frappe-forms` new-todo | simulator | naming-series preview not shown |
@@ -326,15 +332,15 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.K1 | Custom buttons (`frm.add_custom_button`) | PARTIAL | **COMPLETE** | Frappe | `events.ts` `FormController.addCustomButton/removeCustomButton/clearCustomButtons`; `FFV` | ffp "FV.K1 buttons added in refresh render in the header and run their handler; K2 grouped ones form a dropdown", "FV.K1 buttons are cleared before every refresh…" | `#frappe-form-p35` | simulator | — |
 | FV.K2 | Create dropdown | MISSING | **COMPLETE** | Frappe | grouped custom buttons → DropdownMenu | ffp "FV.K1 … K2 grouped ones form a dropdown" | `#frappe-form-p35` | simulator | make_ entries from the dashboard are not generated automatically (app adds them) |
 | FV.K3 | Three-dot menu | MISSING | **COMPLETE** | both | Core `RecordMenu`; Frappe `FrappeRecordMenu`, `formMenuItems`; `FFV` `menu` slot | ra "FV.K3 groups items with separators…"; fra "FV.K3 FV.K16 a System Manager gets Desk's menu…"; ffp "FV.K3/K16 menu slot renders after the primary action" | `#frappe-record-actions` | simulator, unit | FrappeForm does not mount it by default at e6e4dd2: the app passes `menu={<FrappeRecordMenu …/>}` — TODO(integration) |
-| FV.K4 | Print (form) | MISSING | **COMPLETE** | Frappe | `FrappeFormPrint`, `formPrint.ts` | fra "FV.K4 FV.L1 Print follows Print Settings… and the print right; never on a new doc" | `#frappe-record-actions` | simulator | via the menu (K3 wiring) |
-| FV.K5 | Email | MISSING | **COMPLETE** | both | menu → `FrappeEmailComposer` | fra "FV.K5 FV.K8 FV.K9 FV.K15 Email < cancelled…" | `#frappe-record-actions` | simulator | see O |
+| FV.K4 | Print (form) | MISSING | **COMPLETE** | Frappe | `FrappeFormPrint`, `formPrint.ts`; menu entry in `FrappeRecordMenu` | fra "FV.K4 FV.L1 Print follows Print Settings… and the print right; never on a new doc"; fra "FV.K3 FV.K16 a System Manager gets Desk's menu…" (entry rendered) | `#frappe-record-actions` | simulator | the dialog is tested standalone; clicking the menu entry → dialog is not asserted |
+| FV.K5 | Email | MISSING | **COMPLETE** | both | menu → `FrappeEmailComposer` | fra "FV.K5 FV.K8 FV.K9 FV.K15 Email < cancelled…"; fra "FV.K3 FV.K16 …" (entry rendered); composer: see O | `#frappe-record-actions` | simulator, unit | the composer is tested standalone; clicking the menu entry → composer is not asserted |
 | FV.K6 | Duplicate | PARTIAL | PARTIAL | Frappe | `copyDoc` (from defaults); menu → `onDuplicate(copy)` | fra "FV.K6 FV.K7 Duplicate hands a local copy (no request)…"; ffp "FV.K6 a Duplicate gets the no_copy field's default…" | `#frappe-record-actions` | simulator | opening the copy in a FrappeForm (`store.replace(copy)`) is not wired or tested — TODO(integration) |
 | FV.K7 | Copy to clipboard | MISSING | **COMPLETE** | Frappe | `FrappeRecordMenu` | fra "FV.K6 FV.K7 … Copy to Clipboard writes JSON.stringify(doc)" | `#frappe-record-actions` | simulator | — |
 | FV.K8 | Rename | PARTIAL | **COMPLETE** | both | Core `RenameDialog`; `FrappeRecordMenu` → `frappe.rename_doc` | ra "FV.K8 requires a name…"; fra "FV.K8 Rename sends frappe.rename_doc…" | `#frappe-record-actions` | simulator | title path (`update_document_title`, queued rename) not implemented |
 | FV.K9 | Delete | PARTIAL | **COMPLETE** | both | `RecordMenu` confirm; `FrappeRecordMenu` → `frappe.client.delete` | fra "FV.K9 Delete asks 'Permanently delete {title} ({name})?'…", "FV.K9 permission negative…", "FV.K9 a server refusal surfaces…"; ra "FV.K9 a destructive item asks first…" | `#frappe-record-actions` | simulator | — |
 | FV.K10 | Reload | PARTIAL | **COMPLETE** | Frappe | `FrappeRecordMenu` `onReload` | fra "FV.K10 FV.K15 FV.K14 Reload asks first when dirty…" | `#frappe-record-actions` | simulator | confirms when dirty (deliberate difference from Desk) |
 | FV.K11 | Customize | N/A | N/A | — | extra: `customizeHref`, menu entry for System Manager | fra "FV.K6 FV.K11 FV.K14 …Customize for System Manager only…" (extra, not counted) | `#frappe-record-actions` | simulator | N/A kept (fixed denominator); built anyway as a Desk-URL hand-off |
-| FV.K12 | Links (linked_with) | MISSING | **COMPLETE** | Frappe | menu "Links" → `onShowConnections` | fra "FV.K16 every entry with every right and every host capability, in Desk order"; see M | `#frappe-record-actions` | simulator | jumps to the Connections tab; no `linked_with` dialog |
+| FV.K12 | Links (linked_with) | MISSING | **COMPLETE** | Frappe | menu "Links" → `onShowConnections` | fra "FV.K16 every entry with every right and every host capability, in Desk order", "FV.K3 FV.K16 a System Manager gets Desk's menu…" (entry rendered); Connections: see M | `#frappe-record-actions` | simulator, unit | opens the Connections tab, no `linked_with` dialog; clicking "Links" → `onShowConnections` is not asserted |
 | FV.K13 | Remind Me | MISSING | **COMPLETE** | both | Core `ReminderDialog`; `FrappeReminder` → `create_new_reminder` | ra "FV.K13 default 1 hour from now…"; fra "FV.K13 Remind Me → create_new_reminder…" | `#frappe-record-actions` | simulator | — |
 | FV.K14 | Undo / Redo | MISSING | **COMPLETE** | Frappe | `m/docStore.ts` history; `FFV` Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl/⌘+Y; menu entries | ffp "FV.K14 Ctrl+Z outside inputs undoes the user's last change…", "FV.K14 negative…"; fra "FV.K10 FV.K15 FV.K14 …Undo / Redo follow the host state" | `#frappe-form-p35` | simulator | only user input is recorded (as Desk) |
 | FV.K15 | New {DocType} | MISSING | **COMPLETE** | Frappe | `formMenuItems` (create, not in_create, not single) | fra "FV.K5 FV.K8 FV.K9 FV.K15 … New = create, not in_create" | `#frappe-record-actions` | simulator, unit | — |
@@ -711,10 +717,12 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
   matcher (no child-table conditions, no simulated permissions); `reportview.get` answers one row per parent for child
   columns and has no `aggregate_function`; `frappe.client.set_value` has no child-table branch; `download_pdf` is not
   simulated; print preview HTML is a placeholder; the record handlers' permission check is role-only.
+  TODO(integration): `0a12462` gives the handlers the permission engine, row filter, print settings and clock — not
+  verified here.
 
 ### 7.5 Known bugs and deviations
 - **TagInput** keeps its suggestion list ("No results") open after Enter adds a tag until focus leaves; in a dialog it can
-  cover the next button (seen in the CRM bulk Tags popup, 8/8 combinations; `ws/crm.md`).
+  cover the next button (seen in the CRM bulk Tags popup, 8/8 combinations; `ws/crm.md`). TODO(integration): `b39b3c6` reports a fix — not verified here.
 - **DataGrid** has a fixed `min-w-[32rem]`: on a 390 px phone it scrolls horizontally (blocked the CRM M10 migration).
 - **Kanban** with a filtered list: `update_order_for_single_card` pops `old_index` blindly (kanban_board.py:147-151) and
   can move a different name — Desk behaves the same; documented in `views.md` §5.
