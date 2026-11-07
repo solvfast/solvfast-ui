@@ -12,6 +12,7 @@
 import { describe, expect, it } from "vitest";
 import type { FrappeDoc } from "../../src/frappe/contract";
 import { evaluateDependsOn, fieldOf, isFieldRequired, loadBundle } from "./seam";
+import { resolveFields } from "../../src/frappe/form/model/depends";
 
 const doc = (o: Record<string, unknown>): FrappeDoc => ({ doctype: "SFUI Test Parent", name: "P-1", ...o });
 const ev = (expr: string | boolean | ((d: FrappeDoc) => unknown), d: FrappeDoc, extra: { parent?: FrappeDoc; hasForm?: boolean } = {}) =>
@@ -108,7 +109,15 @@ describe("dependency-derived reqd (layout.js:701-711; save.js:271-296)", () => {
   it("neither -> not required", () => expect(isFieldRequired(field({}), { doc: doc({}) })).toBe(false));
   it("mandatory_depends_on with a bad expression throws 'Invalid \"mandatory_depends_on\" expression' (save.js:281-283)", () =>
     expect(() => isFieldRequired(field({ mandatory_depends_on: "eval:doc.(" }), { doc: doc({}) })).toThrow(/mandatory_depends_on/));
-  it.todo("read_only_depends_on writes df.read_only = 1/0, so a static read_only=1 field becomes writable when the condition is false (layout.js:721-749)");
+  // C4 (P35): was an it.todo; implemented in form/model/depends.ts resolveFields (read_only_depends_on REPLACES read_only)
+  it("C4 read_only_depends_on writes df.read_only = 1/0, so a static read_only=1 field becomes writable when the condition is false (layout.js:721-749)", () => {
+    const df = field({ read_only: 1, read_only_depends_on: dep });
+    const ro = (d: FrappeDoc) => resolveFields([df as never], d, d).get("dependant_field")!.read_only;
+    expect(ro(doc({ test_field: "Some Value" }))).toBe(1);
+    expect(ro(doc({ test_field: "Random value" }))).toBe(0);
+    // without the dependency the static flag stays
+    expect(resolveFields([field({ read_only: 1 }) as never], doc({}), doc({})).get("dependant_field")!.read_only).toBe(1);
+  });
 });
 
 describe("real expressions in tests/fixtures/real-15.110 (runs now)", () => {

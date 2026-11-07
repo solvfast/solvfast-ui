@@ -108,3 +108,4 @@ export type { DataImportLabels, ImportFieldOption, GroupedImportWarnings, Previe
 // P35 form
 export { linkTitlesOf } from "./client";
 export type { LoadedDocWithTitles } from "./client";
+export { userDefaultsFromBoot } from "./services/boot";

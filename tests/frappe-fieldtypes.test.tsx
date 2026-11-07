@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { createFrappeClient } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
-import type { FrappeDoc, FrappeDocField } from "../src/frappe/contract";
+import type { FrappeDoc, FrappeDocField, MetaBundle } from "../src/frappe/contract";
 import { createFixtureTransport } from "../src/frappe/testing";
 import { FrappeField, FrappeFormView, SUPPORTED_FIELDTYPES, analyzeFieldtypes } from "../src/frappe/form";
 import { autocompleteOptions } from "../src/frappe/form/FrappeField";
@@ -203,7 +203,7 @@ describe("A29-A31, A35, A44 fieldtypes without a control: reported, shown read-o
     }
   });
   it("A44 the form's banner lists them (parent and child DocTypes); supported types are not listed", () => {
-    const bundle = {
+    const bundle: MetaBundle = {
       doctype: "Sig", children: { "Sig Row": { name: "Sig Row", istable: 1, fields: [{ fieldname: "geo", fieldtype: "Geolocation", label: "Where" }] } },
       meta: { name: "Sig", fields: [{ fieldname: "title", fieldtype: "Data", label: "Title" }, { fieldname: "sign", fieldtype: "Signature", label: "Sign" }, { fieldname: "rows", fieldtype: "Table", options: "Sig Row", label: "Rows" }] },
     };

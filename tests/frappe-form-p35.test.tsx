@@ -15,6 +15,7 @@ import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, MetaBundle } from "../src/frappe/contract";
 import { createFixtureTransport, type FixtureHandler } from "../src/frappe/testing";
 import type { FrappeSession } from "../src/frappe/services/permissions";
+import { readFrappeBoot, userDefaultsFromBoot } from "../src/frappe/services/boot";
 import { FrappeForm, FrappeFormView, FrappeFormServices, fieldErrorsFromFrappeError, useUnsavedChangesBlocker, type FormController, type FormServices, type FrappeFormViewProps } from "../src/frappe/form";
 
 beforeAll(() => {
@@ -575,5 +576,215 @@ describe("A43 server save errors on the fields they name (base_document.py:738-7
     const mand = { excType: "MandatoryError", messages: [{ message: "Error: <strong>Order Item</strong> Row #1: Value missing for: Qty" }, { message: "Error: Value missing for Order: ملاحظة" }] };
     expect(fieldErrorsFromFrappeError(mand, bundle, (l) => (l === "Note" ? "ملاحظة" : l))).toEqual({ items: "Order Item Row #1: Value missing for: Qty", note: "Value missing for Order: ملاحظة" });
     expect(fieldErrorsFromFrappeError({ excType: "ValidationError", messages: [{ message: "Could not find Customer: ACME" }] }, bundle)).toEqual({});
+  });
+});
+
+describe("E2 / D8 user defaults from the boot into a new document (defaults.js:4-41)", () => {
+  it("E2 userDefaultsFromBoot: user defaults, the is_default User Permission wins, a single allowed value counts", () => {
+    const boot = readFrappeBoot({
+      user: "u@x", roles: ["Sales User"],
+      defaults: { company: "ACME", Territory: ["North", "South"], blank: "" },
+      user_permissions: { Contact: [{ doc: "C-0002" }, { doc: "C-0001", is_default: 1 }], Region: [{ doc: "EU" }], Territory: [{ doc: "North" }, { doc: "South" }] },
+    });
+    expect(boot?.userDefaults).toEqual({ company: "ACME", Territory: ["North", "South"], Contact: "C-0001", Region: "EU" });
+    expect(userDefaultsFromBoot({})).toBeUndefined();
+  });
+  it("E2 FrappeForm newDocDefaults.userDefaults pre-fill a Link to that DocType (and the field default still wins)", async () => {
+    const userDefaults = { Contact: "C-0001" };
+    const contacts = { Contact: [{ doctype: "Contact", name: "C-0001", first_name: "Ann" }, { doctype: "Contact", name: "C-0009", first_name: "Bo" }] };
+    const { calls } = setup(<FrappeForm doctype="Visit" newDocDefaults={{ userDefaults }} guardUnload={false} />, { meta: { Visit: [VISIT], Contact: [CONTACT_LITE] }, docs: contacts });
+    await waitFor(() => expect(calls("frappe.client.validate_link").some((c) => c.args.docname === "C-0001")).toBe(true)); // form.js:569 link triggers
+    await tick(20);
+    expect((screen.getByRole("combobox", { name: /Contact/ }) as HTMLInputElement).value).toBe("C-0001");
+    cleanup();
+    const withDefault = { ...VISIT, fields: VISIT.fields.map((f) => (f.fieldname === "contact" ? { ...f, default: "C-0009" } : f)) };
+    setup(<FrappeForm doctype="Visit" newDocDefaults={{ userDefaults }} guardUnload={false} />, { meta: { Visit: [withDefault], Contact: [CONTACT_LITE] }, docs: contacts });
+    await waitFor(() => expect((screen.getByRole("combobox", { name: /Contact/ }) as HTMLInputElement).value).toBe("C-0009"));
+  });
+});
+
+// ---- test-only gaps (A-form.md gap 4): behaviour implemented before P35, now exercised ----
+const ITEM: DocTypeMeta = {
+  name: "Order Item", istable: 1, editable_grid: 0,
+  fields: [
+    { fieldname: "item", fieldtype: "Data", label: "Item", in_list_view: 1 },
+    { fieldname: "qty", fieldtype: "Int", label: "Qty", in_list_view: 1 },
+  ],
+};
+const ORDER: DocTypeMeta = {
+  name: "Order", autoname: "hash", title_field: "title",
+  fields: [
+    { fieldname: "title", fieldtype: "Data", label: "Title" },
+    { fieldname: "items", fieldtype: "Table", label: "Items", options: "Order Item" },
+    { fieldname: "more", fieldtype: "Section Break", label: "More", collapsible: 1 },
+    { fieldname: "remarks", fieldtype: "Data", label: "Remarks" },
+    { fieldname: "ghost_sec", fieldtype: "Section Break", label: "Ghost" },
+    { fieldname: "ghost", fieldtype: "Data", label: "Ghost field", hidden: 1 },
+  ],
+};
+const orderDoc = (over: Partial<FrappeDoc> = {}): FrappeDoc => ({
+  doctype: "Order", name: "O-1", title: "First", remarks: "", modified: "2026-11-01 10:00:00", docstatus: 0,
+  items: [
+    { doctype: "Order Item", name: "r1", idx: 1, item: "Apple", qty: 1, parent: "O-1", parentfield: "items", parenttype: "Order" },
+    { doctype: "Order Item", name: "r2", idx: 2, item: "Pear", qty: 2, parent: "O-1", parentfield: "items", parenttype: "Order" },
+  ],
+  ...over,
+});
+const orderView = (p: Partial<FrappeFormViewProps> = {}, meta: DocTypeMeta = ORDER, item: DocTypeMeta = ITEM) => view({ bundle: bundleOf(meta, { "Order Item": item }), doc: orderDoc(), ...p });
+const orderSetup = (el: Ui) => setup(el, { meta: { Order: [ORDER, ITEM], "Order Item": [ITEM] }, docs: { Order: [orderDoc()] } });
+const rowMenu = async (n: number) => fireEvent.keyDown(screen.getByRole("button", { name: `Row ${n} actions` }), { key: "Enter" });
+const itemsOf = (ref: { current: FormController | null }) => (ref.current!.doc.items as FrappeDoc[]).map((r) => `${r.idx}:${String(r.item)}`);
+
+describe("G child tables through FrappeFormView", () => {
+  it("G5 row form: Edit Row opens 'Editing Row #1 · Items', edits write the row, form_render + items_on_form_rendered fire; Insert Below / Delete", async () => {
+    const ref = { current: null as FormController | null };
+    const seen: string[] = [];
+    const events = { items_on_form_rendered: (_f: FormController, _cdt?: string, cdn?: string) => { seen.push(`rendered:${cdn}`); } };
+    const childEvents = { "Order Item": { form_render: (_f: FormController, cdt?: string, cdn?: string) => { seen.push(`form_render:${cdt}:${cdn}`); } } };
+    orderSetup(orderView({ controllerRef: ref, events, childEvents }).el);
+    await rowMenu(1);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit Row" }));
+    const dlg = await screen.findByRole("dialog", { name: "Editing Row #1 · Items" });
+    await waitFor(() => expect(seen).toEqual(["form_render:Order Item:r1", "rendered:r1"]));
+    const qty = within(dlg).getByRole("textbox", { name: "Qty" });
+    fireEvent.focus(qty); fireEvent.change(qty, { target: { value: "9" } }); fireEvent.blur(qty);
+    expect((ref.current!.doc.items as FrappeDoc[])[0].qty).toBe(9);
+    fireEvent.click(within(dlg).getByRole("button", { name: "Insert Below" }));
+    expect(itemsOf(ref)).toEqual(["1:Apple", "2:undefined", "3:Pear"]);
+    const dlg2 = await screen.findByRole("dialog", { name: "Editing Row #2 · Items" });
+    fireEvent.click(within(dlg2).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(itemsOf(ref)).toEqual(["1:Apple", "2:Pear"]));
+  });
+
+  it("G4 Move Down / Move Up reorder rows (idx 1..n) and fire items_move with the moved row", async () => {
+    const ref = { current: null as FormController | null };
+    const moved: Array<string | undefined> = [];
+    orderSetup(orderView({ controllerRef: ref, events: { items_move: (_f, _cdt, cdn) => { moved.push(cdn); } } }).el);
+    await rowMenu(1);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move Down" }));
+    expect(itemsOf(ref)).toEqual(["1:Pear", "2:Apple"]);
+    await waitFor(() => expect(moved).toEqual(["r1"]));
+    await rowMenu(1);
+    expect((await screen.findByRole("menuitem", { name: "Move Up" })).getAttribute("data-disabled")).not.toBeNull(); // first row
+  });
+
+  it("G13 grid flags from the meta: cannot_add_rows / cannot_delete_rows hide their controls; static_rows makes the grid read-only", async () => {
+    const flag = (f: Record<string, unknown>) => ({ ...ORDER, fields: ORDER.fields.map((x) => (x.fieldname === "items" ? { ...x, ...f } : x)) });
+    orderSetup(orderView({}, flag({ cannot_add_rows: 1 })).el);
+    expect(screen.queryByRole("button", { name: "Add Row" })).toBeNull();
+    await rowMenu(1);
+    expect(screen.queryByRole("menuitem", { name: "Insert Above" })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeTruthy();
+    cleanup();
+    orderSetup(orderView({}, flag({ cannot_delete_rows: 1 })).el);
+    expect(screen.getByRole("button", { name: "Add Row" })).toBeTruthy();
+    await rowMenu(1);
+    expect(screen.queryByRole("menuitem", { name: "Delete" })).toBeNull();
+    cleanup();
+    orderSetup(orderView({}, flag({ static_rows: 1 })).el);
+    expect(screen.queryByRole("button", { name: "Add Row" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Row 1 actions" })).toBeNull();
+  });
+
+  it("G14 a child field change runs childEvents[child][field] with (frm, cdt, cdn) — not the parent's handler", async () => {
+    const ref = { current: null as FormController | null };
+    const child = vi.fn();
+    const parent = vi.fn();
+    orderSetup(orderView({ controllerRef: ref, childEvents: { "Order Item": { qty: child } }, events: { qty: parent } }).el);
+    act(() => ref.current!.setRowValue("items", "r2", "qty", 5));
+    await waitFor(() => expect(child).toHaveBeenCalledTimes(1));
+    expect(child.mock.calls[0].slice(1)).toEqual(["Order Item", "r2"]);
+    expect(parent).not.toHaveBeenCalled();
+  });
+});
+
+describe("H / B / J lifecycle and layout details", () => {
+  it("H11 a double click on Save sends one savedocs", async () => {
+    const { el } = view({ doc: { ...MEMO_DOCS[0], note: "x", __unsaved: 1 } });
+    const { calls } = setup(el);
+    const save = screen.getByRole("button", { name: "Save" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Saved"));
+    expect(calls("frappe.desk.form.save.savedocs")).toHaveLength(1);
+  });
+
+  it("B4 a collapsible section starts closed, toggles with aria-expanded; B8 a section whose fields are all hidden is not rendered", () => {
+    orderSetup(orderView().el);
+    const toggle = screen.getByRole("button", { name: "More" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("textbox", { name: "Remarks" })).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("textbox", { name: "Remarks" })).toBeTruthy();
+    expect(screen.queryByText("Ghost")).toBeNull();
+  });
+
+  it("B4 a required field forces its section open only while it is null (section.js:150) — not for ''", () => {
+    const reqd: DocTypeMeta = { ...ORDER, fields: ORDER.fields.map((f) => (f.fieldname === "remarks" ? { ...f, reqd: 1 as const } : f)) };
+    orderSetup(view({ bundle: bundleOf(reqd, { "Order Item": ITEM }), doc: orderDoc({ remarks: null }) }).el);
+    expect(screen.getByRole("button", { name: "More" }).getAttribute("aria-expanded")).toBe("true");
+    cleanup();
+    orderSetup(view({ bundle: bundleOf(reqd, { "Order Item": ITEM }), doc: orderDoc({ remarks: "" }) }).el);
+    expect(screen.getByRole("button", { name: "More" }).getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("D11 a tab whose fields are all permlevel 1 is hidden for a user who cannot read level 1", () => {
+    const meta = { ...MEMO, fields: [...MEMO.fields, { fieldname: "audit_tab", fieldtype: "Tab Break", label: "Audit" }, { fieldname: "audit", fieldtype: "Data", label: "Audit note", permlevel: 1 }] };
+    const level0 = { levels: [ALL], can: (p: string, lvl = 0) => lvl === 0 && !!(ALL as Record<string, boolean>)[p], known: true };
+    setup(view({ bundle: bundleOf(meta), doc: { ...MEMO_DOCS[0], audit: "x" }, permissions: level0 }).el);
+    expect(screen.queryByRole("tab", { name: "Audit" })).toBeNull();
+    cleanup();
+    setup(view({ bundle: bundleOf(meta), doc: { ...MEMO_DOCS[0], audit: "x" }, permissions: { ...allRights, levels: [ALL, { read: true }] } }).el);
+    expect(screen.getByRole("tab", { name: "Audit" })).toBeTruthy();
+  });
+
+  it("J11 the heading follows the title field as it is edited, with Not Saved", async () => {
+    setup(view({ doc: MEMO_DOCS[0] }).el);
+    expect(screen.getByRole("heading", { name: "Hello" })).toBeTruthy();
+    typeInto(screen.getByRole("textbox", { name: /Title/ }), "Renamed");
+    expect(await screen.findByRole("heading", { name: "Renamed" })).toBeTruthy();
+    expect(screen.getByText("Not Saved")).toBeTruthy();
+  });
+});
+
+describe("E / F Link details on the real ToDo meta (SIMULATED server)", () => {
+  it("E6 a Link change on a saved doc writes the fetch_from target and marks the doc Not Saved; F5 clearing empties the target", async () => {
+    const ref = { current: null as FormController | null };
+    const { calls } = setup(<FrappeForm doctype="ToDo" name="TD-1" guardUnload={false} controllerRef={ref} />);
+    const box = await screen.findByRole("combobox", { name: /Assigned By/ });
+    fireEvent.focus(box); fireEvent.change(box, { target: { value: "ann@x.com" } }); fireEvent.blur(box);
+    await waitFor(() => expect(ref.current!.doc.assigned_by_full_name).toBe("Ann Xu"));
+    expect(calls("frappe.client.validate_link")[0].args).toMatchObject({ doctype: "User", docname: "ann@x.com" });
+    expect(screen.getByText("Not Saved")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    await waitFor(() => expect(ref.current!.doc.assigned_by).toBeNull());
+    expect(ref.current!.doc.assigned_by_full_name).toBe("");
+  });
+
+  it("F9 search states: 'Searching…' while pending, 'Search failed' on an error, 'No results' when empty", async () => {
+    let release: () => void = () => {};
+    let mode: "slow" | "fail" | "empty" = "slow";
+    const wrap = (t: FrappeTransport): FrappeTransport => async (m, a) => {
+      if (m === "frappe.desk.search.search_link") {
+        if (mode === "slow") await new Promise<void>((r) => { release = r; });
+        if (mode === "fail") throw toFrappeError(500, { exc_type: "Exception" });
+        if (mode === "empty") return { message: [] };
+      }
+      return t(m, a);
+    };
+    setup(<FrappeForm doctype="ToDo" name="TD-1" guardUnload={false} />, { wrap });
+    const box = await screen.findByRole("combobox", { name: /Assigned By/ });
+    act(() => (box as HTMLInputElement).focus());
+    fireEvent.change(box, { target: { value: "a" } });
+    await tick(600);
+    expect(screen.getByText("Searching…")).toBeTruthy();
+    await act(async () => { release(); });
+    mode = "fail";
+    fireEvent.change(box, { target: { value: "an" } });
+    expect(await screen.findByText("Search failed", undefined, { timeout: 2000 })).toBeTruthy();
+    mode = "empty";
+    fireEvent.change(box, { target: { value: "ann" } });
+    expect(await screen.findByText("No results", undefined, { timeout: 2000 })).toBeTruthy();
   });
 });
