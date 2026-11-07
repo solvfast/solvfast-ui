@@ -6,7 +6,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import {
-  SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
+  Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
   type LifecycleStateItem,
 } from "../src";
 
@@ -292,5 +292,47 @@ describe("CORE.G16 SearchCombobox static options + multiple", () => {
     expect(screen.getByRole("combobox").textContent).toContain("3 محدّدة");
     rerender(<ThemeProvider language="ar"><SearchCombobox {...base} options={opts} disabled onSelect={() => {}} /></ThemeProvider>);
     expect((screen.getByRole("combobox") as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("CORE.G13 Timeline item icons, tone, actor and onItemSelect", () => {
+  const NOW = Date.UTC(2026, 10, 3, 12);
+  const feed: TimelineItem[] = [
+    { id: "e1", kind: "communication", at: NOW - 60_000, actor: "Ann", summary: "sent an email", icon: <svg data-testid="mail-icon" />, tone: "info" },
+    { id: "n1", kind: "custom", at: NOW - 120_000, actor: "Bob", summary: "logged a call" },
+    { id: "a1", kind: "attachment", at: NOW - 180_000, summary: "added brief.pdf", href: "/files/brief.pdf" },
+    { id: "c1", kind: "comment", at: NOW - 240_000, actor: "Cy", body: "<p>hi</p>", icon: <svg data-testid="note-icon" /> },
+  ];
+  it("CORE.G13 renders item.icon instead of the per-kind icon, tinted by tone; default icons otherwise", () => {
+    const { container } = wrap(<Timeline items={feed} now={NOW} />);
+    const email = container.querySelector("[data-kind='communication']")!;
+    expect(within(email as HTMLElement).getByTestId("mail-icon")).toBeTruthy();
+    expect(email.querySelector("[data-item-icon]")!.className).toContain("text-info");
+    expect(email.querySelector(".lucide-message-square")).toBeNull();
+    const call = container.querySelector("[data-kind='custom']")!;
+    expect(call.querySelector("[data-item-icon]")).toBeNull();
+    expect(call.querySelector("svg.lucide-activity")?.getAttribute("class")).toContain("text-muted-foreground");
+    expect(within(container.querySelector("[data-kind='comment']") as HTMLElement).getByTestId("note-icon")).toBeTruthy();
+    // without onItemSelect nothing new is interactive
+    expect(container.querySelector("[data-item-select]")).toBeNull();
+  });
+  it("CORE.G13 onItemSelect: summaries become buttons (keyboard reachable); links call it first", () => {
+    const select = vi.fn((_: TimelineItem, e: React.MouseEvent) => e.preventDefault());
+    wrap(<Timeline items={feed} now={NOW} onItemSelect={select} />);
+    const btn = screen.getByRole("button", { name: "sent an email" });
+    btn.focus();
+    expect(document.activeElement).toBe(btn);
+    fireEvent.click(btn);
+    expect(select.mock.calls[0][0].id).toBe("e1");
+    fireEvent.click(screen.getByRole("link", { name: "added brief.pdf" }));
+    expect(select.mock.calls[1][0].id).toBe("a1");
+    expect(select.mock.calls[1][1].defaultPrevented).toBe(true);
+    // comments keep their own controls, no select button
+    expect(screen.queryByRole("button", { name: "hi" })).toBeNull();
+  });
+  it("CORE.G13 showActor prefixes non-comment summaries with the actor (isolated for RTL)", () => {
+    const { container } = wrap(<Timeline items={feed} now={NOW} showActor />, "ar");
+    const actors = Array.from(container.querySelectorAll("bdi[data-actor]")).map((e) => e.textContent);
+    expect(actors).toEqual(["Ann", "Bob"]);
   });
 });

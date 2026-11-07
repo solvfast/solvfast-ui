@@ -11,7 +11,7 @@ import { useLocale } from "../theme/ThemeProvider";
 import { CommentComposer, type CommentComposerLabels } from "./CommentComposer";
 import { errorText, stripIsolates } from "./format";
 import { sanitizeCommentHtml } from "./sanitize";
-import type { MentionOption, TimelineItem, TimelineKind } from "./types";
+import type { MentionOption, TimelineItem, TimelineKind, Tone } from "./types";
 
 export type TimelineFilter = "all" | "comments" | "changes";
 
@@ -39,9 +39,30 @@ export interface TimelineProps {
   searchMentions?: (query: string) => Promise<MentionOption[]>;
   composerLabels?: CommentComposerLabels;
   labels?: TimelineLabels;
+  /**
+   * P35 (G13): makes non-comment entries selectable (e.g. open the email / call behind it). The summary becomes a button
+   * (or, with `href`, the link also calls this first — `preventDefault()` on the event to handle navigation yourself).
+   */
+  onItemSelect?: (item: TimelineItem, event: React.MouseEvent<HTMLElement>) => void;
+  /** P35 (G13): show the actor's name before the summary of non-comment entries (when the summary does not carry it). */
+  showActor?: boolean;
   /** Fixed "now" for relative times (tests). */
   now?: number;
   className?: string;
+}
+
+const TONE_TEXT: Record<Tone, string> = {
+  neutral: "text-muted-foreground", success: "text-success", warning: "text-warning", danger: "text-destructive", info: "text-info", brand: "text-primary",
+};
+
+/** The entry's icon: the item's own (`item.icon`) or the per-kind one; `tone` tints it. */
+function EntryIcon({ item, fallback, className }: { item: TimelineItem; fallback: string; className: string }) {
+  const tint = item.tone ? TONE_TEXT[item.tone] : fallback;
+  if (item.icon != null && item.icon !== false) {
+    return <span aria-hidden data-item-icon="" className={cn("inline-flex shrink-0 items-center justify-center [&>svg]:h-3.5 [&>svg]:w-3.5", className, tint)}>{item.icon}</span>;
+  }
+  const Icon = ICON[item.kind] ?? Activity;
+  return <Icon className={cn("h-3.5 w-3.5", className, tint)} aria-hidden />;
 }
 
 const ICON: Record<TimelineKind, React.ComponentType<{ className?: string }>> = {
@@ -78,16 +99,16 @@ export function sortItems(items: TimelineItem[], order: "newest-first" | "oldest
   return order === "newest-first" ? s.reverse() : s;
 }
 
-function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composerLabels }: {
+function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composerLabels, onSelect, showActor }: {
   item: TimelineItem; now?: number; isRTL: boolean; L: Required<TimelineLabels>;
   onEdit?: TimelineProps["onEditComment"]; onDelete?: TimelineProps["onDeleteComment"];
   searchMentions?: TimelineProps["searchMentions"]; composerLabels?: CommentComposerLabels;
+  onSelect?: TimelineProps["onItemSelect"]; showActor?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [err, setErr] = React.useState("");
-  const Icon = ICON[item.kind] ?? Activity;
   const when = <time dateTime={new Date(item.at).toISOString()} title={new Date(item.at).toLocaleString()} className="text-[11px] text-muted-foreground">{relativeTime(item.at, isRTL, now)}</time>;
 
   if (item.kind === "comment") {
@@ -97,7 +118,7 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
     return (
       <li id={`comment-${item.id}`} className="rounded-lg border border-border bg-card p-3" data-kind="comment">
         <div className="mb-1 flex items-center gap-1.5">
-          <Icon className="h-3.5 w-3.5 text-primary" aria-hidden />
+          <EntryIcon item={item} fallback="text-primary" className="" />
           <bdi className="text-sm font-medium text-foreground">{item.actor}</bdi><span aria-hidden className="text-muted-foreground">·</span>{when}
           {!editing && (item.canEdit || item.canDelete) ? (
             <span className="ms-auto flex items-center gap-1">
@@ -127,10 +148,15 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
   const multi = (item.changes?.length ?? 0) > 0;
   return (
     <li className="flex gap-2 px-1 py-1.5 text-sm" data-kind={item.kind}>
-      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      <EntryIcon item={item} fallback="text-muted-foreground" className="mt-0.5 shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1">
-          {item.href ? <a href={item.href} className="text-foreground underline-offset-2 hover:underline">{renderIsolated(item.summary ?? "")}</a> : <span className="text-muted-foreground">{renderIsolated(item.summary ?? "")}</span>}
+          {showActor && item.actor ? <bdi className="font-medium text-foreground" data-actor="">{item.actor}</bdi> : null}
+          {item.href ? <a href={item.href} onClick={onSelect ? (e) => onSelect(item, e) : undefined} className="text-foreground underline-offset-2 hover:underline">{renderIsolated(item.summary ?? "")}</a>
+            : onSelect ? (
+              <button type="button" onClick={(e) => onSelect(item, e)} data-item-select=""
+                className="rounded text-start text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{renderIsolated(item.summary ?? "")}</button>
+            ) : <span className="text-muted-foreground">{renderIsolated(item.summary ?? "")}</span>}
           <span aria-hidden className="text-muted-foreground">·</span>{when}
           {multi ? (
             <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} aria-label={stripIsolates(item.summary ?? "")}
@@ -154,7 +180,7 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
 /** The record's activity feed. Everything it shows is already resolved into `TimelineItem`s by the caller. */
 export function Timeline({
   items, order = "newest-first", loading, error, hasMore, loadingMore, onLoadMore, showFilters, hiddenKinds, onEditComment, onDeleteComment,
-  searchMentions, composerLabels, labels, now, className,
+  searchMentions, composerLabels, labels, now, className, onItemSelect, showActor,
 }: TimelineProps) {
   const { t, isRTL } = useLocale();
   const L: Required<TimelineLabels> = {
@@ -185,7 +211,8 @@ export function Timeline({
       ) : (
         <ul className="space-y-2">
           {shown.map((it) => (
-            <Entry key={it.id} item={it} now={now} isRTL={isRTL} L={L} onEdit={onEditComment} onDelete={onDeleteComment} searchMentions={searchMentions} composerLabels={composerLabels} />
+            <Entry key={it.id} item={it} now={now} isRTL={isRTL} L={L} onEdit={onEditComment} onDelete={onDeleteComment} searchMentions={searchMentions} composerLabels={composerLabels}
+              onSelect={onItemSelect} showActor={showActor} />
           ))}
         </ul>
       )}

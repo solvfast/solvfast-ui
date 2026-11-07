@@ -32,7 +32,10 @@ export interface TimelineItem {
   canDelete?: boolean;
   /** Optional link target for the entry (e.g. the attachment). */
   href?: string;
+  /** P35 (G13): rendered instead of the per-kind icon (size it ~14 px; an `<svg>` child is sized for you). */
   icon?: React.ReactNode;
+  /** P35 (G13): tints the entry's icon (default: muted; comments: brand). */
+  tone?: Tone;
 }
 
 export interface Assignee { id: string; name: string; image?: string | null; description?: string }
