@@ -719,7 +719,7 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
 - **Kanban** with a filtered list: `update_order_for_single_card` pops `old_index` blindly (kanban_board.py:147-151) and
   can move a different name — Desk behaves the same; documented in `views.md` §5.
 - **Report view** inline edit deliberately does not reproduce report_view.js:772-777 (see `views.md` §3), so the package
-  allows editing on DocTypes Desk 15.110 would leave read-only — owner decision recorded in `CRM-MIGRATION.md` §6.
+  allows editing on DocTypes Desk 15.110 would leave read-only — owner decision recorded in `CRM-MIGRATION.md` §5.5.
 - **Quick Entry** saves through `savedocs`; Desk uses `frappe.client.save` and offers Submit after saving a submittable DocType.
 - `emailMakeArgs` always sends `print_letterhead: 1` (Desk reads a checkbox).
 - `buildListRequest` drops Attach Image fields; the views add `image_field` through `extraFields`.

@@ -1,0 +1,150 @@
+# P35 — CRM Design-System migration (status after WS6 and WS5)
+
+Sources: `D-crm.md` (baseline audit of the CRM at `127c0b4` against `@solvfast/ui` 0.6.0), the WS6 report (CRM branch
+`crm/p35-ds-adoption` in `/home/frappe/sfui-dev/p35-crm`, commits `2691d77..12a1c10` on base `c3a761e`) and the WS5 report
+(Core capabilities, merged into the package at `e6e4dd2`). CRM paths are relative to `frontend/src/sear_studio/`.
+
+**Package version in the CRM:** `frontend/package.json` pins `@solvfast/ui` **0.6.0**. WS6 used **only 0.6.0 exports** from
+the public entry `@solvfast/ui` (no deep imports, no local copies, no style overrides of DS components). Everything in §4
+exists in the package at 0.7.0-dev but **cannot be consumed by the CRM until a package release** is published and the pin
+is bumped. Nothing in this file was run against a Frappe site; the CRM runs in mock mode.
+
+## 1. Rules every migration followed
+
+- **Scope gate.** Every DS branch is inside `useDsScope() === true` (the CRM's `DsScopeContext`) or the existing `inDs`
+  branch of `RecordListView`; the `else` branch is the previous markup **verbatim**. That keeps Service Desk / Service
+  Management (313 shared files, D-crm §2) and the CRM pages still mounted under the legacy `AdminLayout` routes on their
+  old rendering.
+- **Shared files touched (all gated):** `components/record-list/RecordListView.tsx`, `components/record-menu/EmailView.tsx`,
+  `components/record-menu/useRecordMenu.tsx`, `components/record-detail/RecordMoreMenu.tsx`,
+  `pages/FieldLibrary/FieldBuilderComponents.tsx`. The SD / SM delete popups (`TicketDetailPage`, `OrderDetailPage`) were not
+  touched.
+
+## 2. Per CRM area
+
+| Area (D-crm id) | Previous implementation | DS component adopted (`@solvfast/ui` 0.6.0) | Files changed (commit) | Remaining CRM-specific code | Regression evidence |
+|---|---|---|---|---|---|
+| Lead / Contact / Organization detail title (M1) | local `InlineEditableTitle` (pencil + ✓ / ✗) | `EditableTitle` (click to edit; Enter / blur saves; Esc cancels; a closed Lead is plain text) — the Deal precedent | `pages/Leads/LeadDetailPage.tsx`, `pages/Contacts/ContactDetailPage.tsx`, `pages/Organizations/OrganizationDetailPage.tsx` (`2691d77`) | rename logic (`renameLead` first / last split, `renameContact`, `renameOrg`) shared by both branches; `InlineEditableTitle` kept for `!inDs` | `crm-qa/p35.mjs`: title button, Esc cancels, Enter saves × 4 entities × 8 combinations; `legacy.mjs`: legacy `<h1>` unchanged |
+| Lead header status (M2) | hand-rolled pill with the lifecycle's hex colour | `StatusBadge` with `lifecycleStatusTone(…)` (Deal precedent) | `LeadDetailPage.tsx` (`2691d77`) | the accepted colour → tone deviation (G17); removable once `StatusBadge color` (0.7.0-dev) is consumable | `p35.mjs`: `data-tone` on Lead and Deal |
+| Detail Delete confirm, 4 entities (M3) | four `<X>DeletePopup` copies on `AppPopup` (Dialog) | new shared `components/record-detail/CrmDeleteConfirm.tsx` on `AlertDialog*` + destructive `Button` (`role=alertdialog`, `dir` per language; blocked → reasons + Close only; Delete keeps the dialog open until the page closes it) | `CrmDeleteConfirm.tsx` (new), `DealDetailPage.tsx`, `LeadDetailPage.tsx`, `ContactDetailPage.tsx`, `OrganizationDetailPage.tsx` (`b2ce681`) | per-page blocked texts (`DeleteLinkList`); the four legacy popups for `!inDs`; Ticket / Order copies untouched | `p35.mjs`: alertdialog, footer, Esc × 4 × 8, a real delete of a lead × 8; `legacy.mjs`: legacy `role=dialog` unchanged |
+| Emails / Calls / Meetings list status (M4) | `InlineStatusSelect` / `StatusPill` with hard-coded HSL | `StatusBadge variant="dot"` (`TONE_TO_DS`) as a `DropdownMenu` trigger; row click still stopped | `pages/Activities/ActivityListShell.tsx` (`32e0157`) | `StatusPill` has no caller (gated anyway) | `p35.mjs`: status cells + menu without navigating × 8; `legacy.mjs`: no `data-tone` on `/activities/calls` |
+| Activity detail status (M5) | `StatusDropdown` with its own tone tables | `StatusBadge` as `DropdownMenuTrigger` | `ActivityDetailLayout.tsx` (`32e0157`) | none — but **no page passes `status` today**, so the path is unreachable in the UI | `tsc` + build only |
+| Activity form / detail headers (M6) | hand-built back + `<h1>` + Cancel / Save / Edit | `PageHeader` (`onBack`, node title kept in the page, `subtitle`, `meta`, `actions`); Save = DS primary | `ActivityFormLayout.tsx`, `ActivityDetailLayout.tsx` (`32e0157`) | page action buttons (Download, ⋯) supplied by pages | `p35.mjs`: back named and navigates, Cancel / Save, Edit × 8; `outside.mjs` + `legacy.mjs`: legacy routes unchanged |
+| ⋯ menu shortcut chips (M13) | `KeyChip` span / `<span>` in `RecordMoreMenu` | `DropdownMenuShortcut` | `components/record-menu/useRecordMenu.tsx`, `components/record-detail/RecordMoreMenu.tsx` (`1059cf9`) | the document menu itself (C4) | `p35.mjs`: DS shortcuts in entity + activity menus × 8; `legacy.mjs`: Ticket / Service Request / legacy menus keep legacy chips (0 DS) |
+| Type-form designer colour field (M14) | raw `<input type=color>` + hex `Input` | `ColorInput` | `pages/FieldLibrary/FieldBuilderComponents.tsx` (`bcbc93c`) | — | `p35.mjs`: two ColorInputs, no raw visible colour input, hex accepted × 8 |
+| List bulk "Add Tags" (M7) | own chip list + `Input` + suggestion buttons | `TagInput` (`search` over the entity's tags, `allowCreate`) in a local `BulkAddTagsDs` | `components/record-list/RecordListView.tsx` (`2bc2e80`) | "Remove tags" toggle chips and the `AppPopup` | `p35.mjs`: TagInput, Esc in suggestions keeps the dialog, Enter adds a pill, Apply tags on 2 records × 8; `sweep28` + `records-assign` unchanged |
+| ⋯ Email composer body (M8) | `components/studio/RichTextEditor` (570-line local editor) | `RichTextEditor` (`ariaLabel`, `minHeight`) | `components/record-menu/EmailView.tsx` (`12a1c10`) | the rest of the composer | `p35.mjs`: DS editor takes typing × 8 (call detail ⋯ → Email) |
+| Commission & Referral child tables (M10) | DS `Table` + per-row DS inputs + `AddNewRow` | `DataGrid` — **implemented, not committed** (patch `scratchpad/p35/crm-qa/m10-datagrid.patch`) | — | — | 27 PASS / 1 FAIL; phone regression (§5.3) |
+
+Totals: 7 commits, 13 files, +359 / −27; M1–M8, M13, M14 done; M10 held back; M9, M11, M12, M15 not attempted (owner
+decisions or out of scope).
+
+### Regression evidence (WS6, all local static builds; no site, bench, DB or cache)
+
+| Check | Baseline (`c3a761e`) | Final (`12a1c10`) |
+|---|---|---|
+| CRM typecheck (`npx tsc --noEmit -p tsconfig.app.json`) | 30 errors in 9 files, none in touched files | **30 errors, identical list** at every step |
+| `vite build` | ✓ | ✓ |
+| Route sweep (qa-p28 `sweep.mjs`, 82 loads) | 0 console errors, 2 pre-existing issues | **same** |
+| SD / SM + legacy screenshots (`outside.mjs`, 172 loads) | base vs base: 17 / 172 differ by 2–16 px (noise floor) | **162 identical, 10 differ** — 9 within the noise signature + the CRM's own lifecycle designer canvas (no P35 file on that page); 0 console errors |
+| Mock flows (`mock-p34.mjs`) | 16 / 0 | **16 / 0** |
+| Records assign (`records-assign.mjs`) | 111 / 0 | **111 / 0** (rerun alone; a first parallel run hit 2 detached-element flakes) |
+| 28-list sweep (`sweep.mjs`) | 112 / 112 | **112 / 112** |
+| Migrated UI (`crm-qa/p35.mjs`, new) | — | **376 PASS / 0 FAIL**, 0 console / page errors, 8 combinations (light / dark × en / ar × 1440 / 390) |
+| Legacy interactions (`crm-qa/legacy.mjs`, new) | 56 / 0 | **56 / 0**; screenshots 27 identical, 3 × 2 px noise |
+
+Result files: `scratchpad/p35/crm-qa/r-*.txt`, `shots-final/results.txt`, `legacy-*/results.txt` (session scratchpad,
+not in the repository).
+
+## 3. Not migrated in WS6, with the reason
+
+| Item | Reason |
+|---|---|
+| M9 record-menu confirm bars → `AlertDialog` / `Alert` | owner decision (modal vs inline) — §5.2 |
+| M10 Commission & Referral → `DataGrid` | phone regression + editing-model change — §5.3 |
+| M11 `SearchableSelect` → `LinkInput`, M12 `ClientPicker` → `LinkInput` | owner decision (behavioural: free text, empty value, avatars) — §5.1 |
+| M15 typed dynamic import of `@solvfast/ui/frappe` in `frappeRecordKit.ts` | not in WS6 scope (D-crm §5 items 1–4) |
+| N1–N13 | need a DS capability beyond 0.6.0 — §4 |
+
+## 4. "Needs a new DS capability" — now in 0.7.0-dev (not consumable before a release)
+
+| D-crm id (gap) | CRM location (D-crm §3c) | Delivered in the package (0.7.0-dev) | What the CRM can then remove | Still missing |
+|---|---|---|---|---|
+| N1 (G17) | local `StatusDot` copies in `DealsPage`, `ContactsPage`, `RelatedRecordRow` `StageChip`, `TasksPage`; Lead / Deal header (M2 deviation) | `StatusBadge` / `StatusDot` `color` (any CSS colour or palette token), `STATUS_PALETTE`, `statusColorStyles` | local dots; the colour → tone deviation | `ListView` status cells do not forward `color` yet |
+| N2 (G7) | `record-lifecycle/WorkflowRailWidget.tsx:116` (pre-filtered states) | `LifecycleStateItem.step` (`past` / `current` / `future` / `skipped` / `failed`) | the pre-filtering workaround ("Lost shows Won ticked") | — |
+| N3 (G14) | 11 hidden `<input type=file>` + drop zones (Deal / Lead / Contact / Organization detail, ContactsPage, AttachmentFormPage, ClientInfoStep, ProposalDocTemplateForm, EmailView, PrerequisiteFormFields) | `FileDropzone` (accept, multiple, maxSize, maxFiles, keyboard, drag-and-drop, en / ar) | the native inputs and own drop zones | per-file upload progress / error rows (host uploads in `onFilesAdded`) |
+| N4 (G20) | `Proposals/complai/ComplaiReadinessStep.tsx:35` native `type="month"` | `MonthInput` (`YYYY-MM`) | the native input | — |
+| N5 (G13) | `contacts/components/ActivityTimeline.tsx`, `components/RecentInteractions.tsx` | `TimelineItem.icon` rendered, `tone`, `Timeline onItemSelect`, `showActor` | the CRM's own feed | — |
+| N6 (G11) | `RecordPicker.tsx` groups, `ClientPicker` avatars | `Suggestion.group`, `Suggestion.icon` (LinkInput / TagInput) | groups folded into descriptions | — (unblocks M12, §5.1) |
+| N7 (G16) | `MultiSearchableSelect.tsx`, `TypeFilterPicker.tsx`, `SellingRules/AppliesToPicker.tsx` | `SearchCombobox` static `options`, `multiple`, `values`, `variant="field"` | the Popover + Command + Checkbox builds | grouped static options, select-all / clear-all, trigger chips |
+| N8 | `pages/Proposals/StepRail.tsx` | `Stepper overflowCue` / `followCurrent` | the whole wrapper | — |
+| N9 (G23) | `components/overview/StatCard.tsx` legacy-with-delta path | `IconStatCard trend` | the local delta card | — |
+| N10 | `components/AddNewRow.tsx` `EmptyHint` + rail-card empty states | `EmptyState` | local empty boxes | — |
+| N11 (G15) | `components/email/SlashEmailTextarea.tsx` | `RichTextEditorHandle` (`insertText`, `insertHtml`, `focus`, `getHtml`) + `toolbarEnd` | the textarea editor | the slash-command trigger UI stays in the CRM |
+| N12 (G3, G5) | `CrmDsListView` pager | `ListView pageSizes`, `selectAllMatching` (only actions with `allMatching` run) | — | — |
+| N13 (G1) | `CrmDsListView` table on phones | `ListView layout="cards" \| "auto"`, `ColumnDef.mobile` | horizontal scroll on phones | — |
+| A18 follow-up (P34) | `AssignmentSectionCard.tsx:66`, `CrmAssignees.tsx:91` | `AssigneeGroup variant="list"` renders `description` | — (the role / ToDo line comes back with no CRM change) | — |
+
+Also new in 0.7.0-dev and relevant to the CRM-specific rows of D-crm §3d, **for re-evaluation, not decided**: Core
+`KanbanBoard` / `CalendarMonth` / `ImageGrid` (C1, C2), Core `RecordMenu` (C4), `EmailComposer` / `ReminderDialog` (C6),
+`FrappeQuickEntry` (C9, Frappe mode only).
+
+## 5. Owner decisions
+
+### 5.1 `SearchableSelect` and `ClientPicker` → `LinkInput` (M11, M12)
+`SearchableSelect` is shared by ContactsPage, OrganizationFormWorkspace, CrmTypeFormPage, InlineCreateForms and Proposals;
+it allows free text (`allowCustom`) and shows subtitles. A scope-gated `LinkInput` branch (in-memory `SearchFn`,
+`onCommitText` for free text) changes the keyboard model and the empty-value behaviour for every caller. `ClientPicker`
+needs avatars and a "Create New" row: avatars need `Suggestion.icon` (0.7.0-dev, N6). **Decision needed:** migrate both
+after the release that carries N6 / N7, or keep them.
+
+### 5.2 Record-menu confirm bars → `AlertDialog` (M9)
+`useRecordMenu.tsx:320-350` shows inline delete / unsaved-reload confirmation bars with hex colours. The DS pattern is a
+modal `AlertDialog` (delete) or an inline `Alert` (reload). **Decision needed:** modal or inline — a UX change in a file
+shared with SD / SM (gated either way).
+
+### 5.3 M10 `DataGrid` phone layout
+`DataGrid` has a fixed `min-w-[32rem]`: at 390 px the Commission grid scrolls horizontally (scrollWidth 512 vs 316) and
+the Share % column is off-screen; today's DS `Table` shows Name + Share % without scrolling. No public prop changes it
+and overriding it would be a styling hack. The editing model also changes (every row editable → one row at a time,
+Desk-style; "Add year" → "Add Row"; new No. / checkbox / row-menu columns). **Decision needed:** a compact / phone layout
+for `DataGrid` in the package, or owner acceptance of the scroll and the editing model.
+
+### 5.4 `selectionMode` default
+`ListView` / `FrappeListView` still default to `selectionMode="bar"`; the CRM already passes `"header"` (Desk's layout,
+D-crm A5). Making `"header"` the default is a visible change for every other consumer. **Decision needed:** keep `"bar"`
+or switch the default in a minor release.
+
+### 5.5 Report view editability vs report_view.js:772-777
+Frappe 15.110 `is_editable` (report_view.js:758-779) ends with
+
+```js
+return (
+    this.meta.fields.some((df) => df.fieldtype === "Table") ||
+    (df.read_only_depends_on && !this.evaluate_read_only_depends_on(df.read_only_depends_on, data))
+);
+```
+
+so on a DocType **without a Table field**, a field is inline-editable only when it has a `read_only_depends_on` that
+evaluates false — every other field is read-only in Desk's Report view. `isCellEditable` (`src/frappe/views/report.ts:21-29`)
+ports :758-771 only: on such DocTypes the package lets users edit fields Desk would not (still gated by write right,
+docstatus, `allow_on_submit`, read-only / virtual / hidden / standard fields), and it never edits a field that has a
+`read_only_depends_on`. `docs/components/views.md` §3 records this as a deliberate deviation ("looks like a defect").
+**Decision needed:** keep the deviation, or follow 15.110 literally.
+
+## 6. Blocked by mock mode / backend (unchanged from D-crm §3f)
+
+The CRM runs with `CRM_DATA_MODE = 'mock'`; these DS paths are exercised only in simulated or Frappe builds:
+B1 `FrappeListView` (`FrappeEntityList`, DealsPage Frappe branch) · B2 `FrappeField` / `useSaveDoc` (`CrmEntityFormFields`,
+`CrmEditableCard`, `CrmDocLoader`) · B3 `FrappeTimeline` / `FrappeAssignTo` / `FrappeWorkflowActions` /
+`FrappeStatusIndicator` via `frappeRecordKit.ts` · B4 `FrappeDataImport` · B5 server saved filters / user settings · B6
+server print formats · B7 realtime · B8 single-owner assign replace (`FrappeAssignTo` `replace`, G9 — **still not in the
+package**) · B9 attachment upload and e-mail sending. P35 adds more Frappe-mode capabilities (Quick Entry, the form ⋯
+menu, Connections, e-mail composer, sidebar counts) that the CRM can use only in a Frappe build, after a release.
+
+## 7. DS defects seen during the CRM work
+
+- `TagInput` keeps its suggestion list ("No results") open after Enter adds a tag, until focus leaves; in the bulk Tags
+  popup it covers the Apply button until Esc / Tab / a click elsewhere (8 / 8 combinations). Candidate fix: close the list
+  after a create.
+- `DataGrid` fixed minimum width on phones (§5.3).
