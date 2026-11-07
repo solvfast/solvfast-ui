@@ -115,3 +115,8 @@ export type {
   AvailableViewsContext, CalendarFieldMap, FrappeViewListOptions, ViewRequest, FrappeImageViewProps, FrappeReportViewProps, FrappeKanbanViewProps,
   KanbanBoardDoc, KanbanBoardColumnDoc, KanbanBoardSummary, KanbanCardMove, FrappeCalendarViewProps, FrappeViewsProps,
 } from "./views";
+
+// P35 form
+export { linkTitlesOf } from "./client";
+export type { LoadedDocWithTitles } from "./client";
+export { userDefaultsFromBoot } from "./services/boot";

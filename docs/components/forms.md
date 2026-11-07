@@ -1,4 +1,4 @@
-# Forms — `@solvfast/ui` 0.4.0 (A3)
+# Forms — `@solvfast/ui` 0.4.0 (A3), updated 0.7.x (P35 form)
 
 Generic field controls (core entry `@solvfast/ui`) and Frappe forms (`@solvfast/ui/frappe`). Native behaviour is that
 of Frappe 15.110 (`ab7e5ae`) as traced in `apps/serve_fast/docs/frappe-components/11-native-form.md` and
@@ -9,6 +9,21 @@ of Frappe 15.110 (`ab7e5ae`) as traced in `apps/serve_fast/docs/frappe-component
 - The form engine and the Frappe components are **Simulated & tested**: they ran against `createFixtureTransport` with the real 15.110 metadata in `tests/fixtures/real-15.110` and the QA parity tests in `tests/parity`.
 - The CRM's Type fields (`PrerequisiteFieldInput`) are **Integrated with CRM — work copy**.
 - Nothing here is *Verified against real Frappe* yet.
+
+**P35 (0.7.x, form workstream)** — what changed, in short (details in the sections below; evidence is unit / SIMULATED
+backend only, nothing ran against a real site):
+- Ctrl/⌘+S runs the **visible primary action** like Desk's `trigger_primary_action` (Save / Submit → confirm / Update /
+  Amend), document-wide while the form is the topmost one; respects `saveDisabled`; `hotkeys={false}` opts out (§2).
+- A dirty submitted document shows **Update only** (no Cancel); **Amend needs create + amend**; Duplicate / Amend copies
+  start from the new-document defaults (§2 Actions).
+- Workflow actions run the mandatory check (incl. `mandatory_depends_on`) and `before_workflow_action` /
+  `after_workflow_action` (§9).
+- getdoc's `_link_titles` show Link titles on load (§4); "Create a new X" needs the target's **create** right and the open
+  link its **read** right (§4) — behaviour change, see there.
+- New: `menu` / `extraTabs` / `fieldFilter` slots, header image, "See on Website" (§2), **Quick Entry** (§2.1), unsaved
+  in-app navigation helper (§2.2), user defaults from the boot (§2.3), undo / redo and custom buttons (§9), server
+  MandatoryError / LinkValidationError shown on the fields (§2 Errors), unsupported fieldtypes reported and read-only,
+  an Autocomplete control (§3).
 
 Contents: [1. Generic controls](#1-generic-field-controls-core) · [2. FrappeForm / FrappeFormView](#2-frappeform-and-frappeformview) ·
 [3. FrappeField](#3-frappefield-and-fieldtype-coverage) · [4. FrappeLinkField](#4-frappelinkfield) ·
@@ -87,11 +102,22 @@ import { FrappeProvider, FrappeForm } from "@solvfast/ui/frappe";
 | `title` | Title override. |
 | `controllerRef` | Receives the `frm` controller. |
 | `defaults` | Session user and user defaults for new rows. |
+| `menu` (P35) | `ReactNode` rendered in the header action area **after** the primary action (e.g. a "⋯" menu). |
+| `extraTabs` (P35) | `Array<{ key, label, render() }>` appended after the form's own tabs (keys are namespaced, they never collide with Tab Break fieldnames). A form without Tab Breaks then shows its fields under a **Details** tab. `render` runs only while its tab is active. |
+| `fieldFilter` (P35) | `(df) => boolean`: only accepted meta fields (breaks included) are laid out; a filtered-out break folds its fields into the previous container. Hidden / permission statuses still apply. The mandatory check still covers **every** required field, so keep required fields in. Quick Entry uses it. |
+| `hotkeys` (P35) | Default `true`: Ctrl/⌘+S, Ctrl/⌘+Z, Ctrl/⌘+Shift+Z / Ctrl/⌘+Y while this is the topmost mounted form. `false` registers nothing. |
+| `onOpenFullForm` (FrappeForm, P35) | Quick Entry's "Edit Full Form" (and a target that is not quick-entry eligible) hands the unsaved document here; route to the full form. |
+
+**Header** (P35): the title, the name under it, the indicator, and — from `meta.image_field` — an avatar of the image
+(initials when empty; nothing when the DocType has no `image_field`). **See on Website** (form.js:1149-1158) links
+`/<route>` in a new tab for a saved website generator whose server `__onload` says `is_website_generator` and
+`published`; without `__onload` (a document not read through getdoc) the DS falls back to `meta.has_web_view` + the
+DocType's `is_published_field` + `doc.route` (a DS extension; Desk relies on `__onload`).
 
 **Layout** (`11 §2.1–2.3`):
 - A "Details" tab is inserted when the meta has Tab Breaks and the first field is not one. A first field that is not a Section Break gets an anonymous section. Column Breaks split a section into equal columns.
 - A section with no visible field is hidden. A tab is hidden when it is hidden itself, when the user cannot read it, or when it has no visible section. The tab bar disappears when only one tab is left.
-- Collapsible sections are closed by default and follow `collapsible_depends_on`. A section is forced open when a required field inside it is empty. This is evaluated at load and after each save; the user's own toggles persist in between.
+- Collapsible sections are closed by default and follow `collapsible_depends_on`. A section is forced open when a required field inside it is **null** (section.js:150 `== null`; since P35 an empty string no longer forces it open). This is evaluated at load and after each save; the user's own toggles persist in between.
 - New documents with Prompt naming get a "Name" field (`__newname`).
 
 **Display status** (`11 §2.5`):
@@ -108,8 +134,8 @@ import { FrappeProvider, FrappeForm } from "@solvfast/ui/frappe";
 | 1 | **Submit** | docstatus 0, saved, clean, submit right, submittable, no workflow. |
 | 2 | **Save** | docstatus 0, save not disabled. With a workflow, only when dirty. |
 | 3 | **Update** | docstatus 1, dirty, submit right. |
-| 4 | **Cancel** | docstatus 1, cancel right. Shown as the secondary button. With a workflow, only when no transition leads to a cancelled state. |
-| 5 | **Amend** | docstatus 2, amend right. Disabled when `is_document_amended` returns true. |
+| 4 | **Cancel** | docstatus 1, cancel right, **not while Update is offered** (toolbar.js:668-689 is an else-if chain; P35 — before, both showed and Cancel discarded the `allow_on_submit` edits). Shown as the secondary button. With a workflow, only when no transition leads to a cancelled state. |
+| 5 | **Amend** | docstatus 2, amend **and create** right (Desk's `amend_doc` → `copy_doc` → `validate_form_action("Create")`, form.js:1297-1298; P35 — before, amend alone). Disabled when `is_document_amended` returns true. |
 
 The chosen action is then checked again against its own right: Save needs write (or create on a new document), Submit and Update need submit. When there are workflow actions for a clean, saved document, A4's `FrappeWorkflowActions` replaces these buttons. For a DocType with a workflow, Save and Cancel stay hidden until both the workflow definition and the user's transitions have loaded, so they never flash.
 
@@ -122,7 +148,13 @@ The chosen action is then checked again against its own right: Save needs write 
   5. The server's document replaces the local one.
   6. The `after_save` and `refresh` events run.
 
-  A second save while one is running is ignored. Ctrl/⌘+S saves (or updates).
+  A second save while one is running is ignored.
+- **Ctrl/⌘+S** (P35, Desk `trigger_primary_action`, desk.js:389-403): the focused input is blurred first (a pending text
+  edit is written, which may turn Submit into Save), then the **visible primary action** runs: Save, Submit (its
+  confirmation), Update or Amend. Nothing happens with `saveDisabled`, without the right, without `permissions`, while
+  workflow actions replace the buttons, or while one of the form's dialogs is open. The listener is on `document`
+  (focus need not be inside the form) and only the **topmost** mounted form answers (a Quick Entry dialog over a form
+  wins). Before P35 it was a `save_or_update` on the form `<div>` only, ignoring `saveDisabled`.
 - **Submit**:
   1. A confirmation asks "Permanently Submit {name}?".
   2. The `before_submit` event runs.
@@ -137,10 +169,21 @@ The chosen action is then checked again against its own right: Save needs write 
 - **Amend**:
   1. The app's `onAmend` runs if given.
   2. Otherwise the view makes a local copy (`amendDoc`: a `copy_doc` of the keys that have a DocField, ignoring `no_copy`, with new child rows, `amended_from` and today's `amendment_date` when that field exists), which needs an `amended_from` field.
+  `copyDoc` / `amendDoc` (P35, create_new.js:281-320) start from a new document: field defaults first (a `no_copy` field
+  of a Duplicate gets its default), `__run_link_triggers`, `modified_by` = the user, `lft` / `rgt` never copied; child
+  rows start from the child defaults and, when amending, carry `_amended_from` = the source row.
+- **New workflow document** (P35): its workflow state field is set to the first workflow state whose `doc_status` is the
+  document's docstatus (form/workflow.js:143-151, model/workflow.js:28-38).
 
 **Errors.**
 - Server errors are shown with `FrappeErrorState` (one rendering per error kind), and the form stays dirty.
 - A **417 TimestampMismatchError** keeps the user's edits on screen and offers **Reload**, which re-reads the document.
+- **On the fields** (P35): a `MandatoryError` or `LinkValidationError` from the server also marks the fields it names —
+  `fieldErrorsFromFrappeError(err, bundle, translate)` reads the exception's field list (`[DocType, name]: a, b`,
+  document.py:963) and the messages (`Value missing for {doctype}: {label}`, child `… Row #n: Value missing for: {label}`,
+  base_document.py:738-776; `Could not find {label}: {value}` / `Row #n: {label}: {value}`, document.py:982), matching raw
+  and translated labels. A child-row error goes on its Table field. The field's error clears on its next change; the
+  form jumps to the first one.
 
 **What it needs from the server.**
 
@@ -153,7 +196,53 @@ The chosen action is then checked again against its own right: Save needs write 
 | Amend check | `frappe.client.is_document_amended` |
 | Links | `frappe.desk.search.search_link`, `frappe.client.validate_link` |
 | Workflow | `frappe.model.workflow.get_transitions` / `apply_workflow` (through A4) |
-| Rights | read to open; write (create for a new document) to save; submit, cancel and amend for those actions; select or read on Link targets. The server checks all of them again. |
+| Rights | read to open; write (create for a new document) to save; submit, cancel and amend (+ create) for those actions; select or read on Link targets. The server checks all of them again. |
+| Quick Entry | the target DocType's getdoctype (`quick_entry`, fields) and `savedocs` |
+
+### 2.1 Quick Entry (P35)
+
+```tsx
+import { FrappeQuickEntry, quickEntryFields } from "@solvfast/ui/frappe";
+
+<FrappeQuickEntry doctype="Note" open={open} onOpenChange={setOpen}
+  defaults={{ nameField: typed }} onCreated={(doc) => select(doc.name)} onOpenFullForm={(draft) => routeToForm(draft)} />
+```
+
+- `quickEntryFields(meta)` → `{ eligible, fields, reason? }` is a literal port of quick_entry.js:59-110: fields with
+  `reqd` or `allow_in_quick_entry`, not `read_only` / `is_virtual` / Tab Break; Prompt naming prepends "{DocType} Name";
+  eligible only with `meta.quick_entry = 1`, no required `Table` (Table MultiSelect does not count) and at least one
+  field. Desk's `too_many_mandatory_fields` is never called in 15.110, so there is no field limit.
+- The dialog is a `FrappeFormView` with `fieldFilter` = those fields and `usePermissions` (no create right → Save
+  disabled). Save runs the form pipeline (validate, mandatory check, …) and saves through **savedocs** (`useSaveDoc`);
+  Desk's Quick Entry posts `frappe.client.save` instead (same server-side `doc.save()`), and then offers Submit for a
+  submittable DocType — not reproduced (open the full form). Ctrl/⌘+S saves (the dialog's form is topmost).
+- **Edit Full Form** → `onOpenFullForm(draft)`; a DocType that is not eligible calls `onOpenFullForm(newDoc)` at once
+  and closes (Desk routes to the form). Without `onOpenFullForm` the dialog shows the whole form.
+- **Link "Create a new X"**: inside `FrappeForm`, when the app gives no `onCreateNew`, a quick-entry eligible target opens
+  this dialog (typed text → the name field) and the saved name is written into the Link (Desk `update_calling_link`).
+- The list's "New" button is connected by the integrator (`FrappeListView` create slot, WS3).
+
+### 2.2 Unsaved changes and in-app navigation (P35)
+
+Desk keeps a dirty document in `locals` across routes and only guards `beforeunload` (form.js:1351-1356). Here the edits
+live in the component, so a route change unmounts and loses them: the **host router** must ask. `onDirtyChange(dirty)`
+reports the state; `useUnsavedChangesBlocker(dirty, { message?, confirm?, beforeUnload? })` → `{ dirty, confirmLeave(), message }`
+is router-agnostic:
+
+```tsx
+const [dirty, setDirty] = React.useState(false);
+const guard = useUnsavedChangesBlocker(dirty);
+<FrappeForm doctype="ToDo" name={name} onDirtyChange={setDirty} />
+// react-router 6.4+: useBlocker(() => guard.dirty && !guard.confirmLeave());  other routers: if (!guard.confirmLeave()) return;
+```
+
+### 2.3 User defaults (P35)
+
+`readFrappeBoot()` now also reads `defaults` (`frappe.defaults.get_defaults(user)`, Desk `boot.user.defaults`) and
+`user_permissions` (`get_user_permissions`) into `boot.userDefaults` (`userDefaultsFromBoot`: the `is_default` User
+Permission wins, a single allowed value counts — defaults.js:4-41). Pass it on:
+`<FrappeForm newDocDefaults={{ userDefaults: boot.userDefaults }} />`. `FrappeProvider` does not forward it by itself
+(see the P35 report). A field's own `default` still wins over a user default.
 
 ---
 
@@ -181,9 +270,14 @@ Data fields with options Email, Phone or URL are checked softly: the field is fl
 | Table, Table MultiSelect | supported | §6, §7. |
 | HTML, Heading, Button, Image | supported | HTML is sanitized `options`. A Button fires the event named after its fieldname. |
 | Code, JSON, HTML Editor, Markdown Editor | partial | Monospace textarea; no syntax editor, no preview. |
-| Attach, Attach Image | partial | The file URL is shown and editable. **No upload** (P2: upload is an API not yet built). |
+| Attach, Attach Image | supported | Uploads through `upload_file` (`FrappeAttachField`, `tests/attach.test.tsx`); Clear does not delete the File; no library / link / camera source; `max_attachments` not enforced client-side. |
 | Phone (fieldtype) | partial | Telephone text box; no country picker. |
-| Signature, Geolocation, Barcode, Autocomplete, MultiSelect, MultiCheck, Icon, Date Range | not supported | Falls back to a text box holding the raw stored value. |
+| Autocomplete (P35) | supported | Suggestions from `df.options` (lines, or a JSON list of strings / `{label, value}`, autocomplete.js:147-166); a typed value outside the list is cleared unless `ignore_validation`; an empty list accepts anything. Server-side `_get_options` / `frm.set_query` on Autocomplete are not used. |
+| Fold, Page Break | partial | Treated as a Section Break (no "Show more" folding). |
+| Signature, Geolocation, Barcode, Icon, any other type | not supported | **P35**: listed in the form's issues banner (`analyzeFieldtypes`, `SUPPORTED_FIELDTYPES`) and the raw stored value is shown **read-only** in every status (JSON for objects). Before 0.7 they silently fell back to an editable text box. |
+
+`SUPPORTED_FIELDTYPES` (exported) is the list of fieldtypes with a control; `analyzeFieldtypes(bundle)` returns the
+others for the parent and child DocTypes.
 
 ---
 
@@ -221,11 +315,18 @@ In 15.110, `link_filters` is enforced **only in the dropdown**: the server accep
 - `ignore_link_validation` skips the check.
 - A failed request (for example a missing select or read right) is shown through the server-message host, and the typed value stays.
 
-**Titles.** Labels of results and picks are remembered per `DocType::name` and shown for the value. The cache is scoped to the provider's client and session user (`useLinkTitles`). `FormatContext.linkTitles` (getdoc's `_link_titles`) is also read.
+**Titles.** Labels of results and picks are remembered per `DocType::name` and shown for the value. The cache is scoped to the provider's client and session user (`useLinkTitles`). **P35 (F3):** getdoc's `_link_titles` (desk/form/load.py:62, 425-480 — Link / Dynamic Link / child-table link values whose target has `show_title_field_in_link`) are kept by the client (`getDoc` → `linkTitles` and `docinfo._link_titles`, `linkTitlesOf`) and seeded into that cache when the form renders, so a saved form shows titles without searching. `FormatContext.linkTitles` is also read (pass titles there for read-only formatting outside a form).
 
-**Create a new X.** The row is offered when `canCreate(doctype)` is true, `onCreateNew` is set in `<FrappeFormServices>`, and the field has no `only_select`. The app creates the record and calls `setValue(name)`.
+**Create a new X** (link.js:323-334). Not for `only_select`. **P35 (F4), behaviour change:** by default it is offered only
+when the session may **create** the target DocType — its DocPerm rows × `session.roles`, read from the target's meta once
+the field is focused; the Administrator user always; no roles → never (rule 9). Before 0.7 the default was "whenever
+`onCreateNew` is given", without any permission knowledge. An app `canCreate` in `<FrappeFormServices>` decides alone.
+Something must create the record: the app's `onCreateNew` (it calls `setValue(name)`), or — inside `FrappeForm`, without
+`onCreateNew` — Quick Entry for a quick-entry eligible target (§2.1).
 
-**Open-record button.** It uses `linkHref` (default `/app/<slug>/<name>`); return `undefined` to hide it.
+**Open-record button.** It uses `linkHref` (default `/app/<slug>/<name>`). **P35 (F4), behaviour change:** the default URL
+is given only when the session may **read** the target (same source: the target's meta is read when the field has a
+value; Administrator always; no roles → hidden). An app `linkHref` decides alone; return `undefined` to hide it.
 
 **Needs:** select or read on the target DocType, plus the APIs above.
 
@@ -321,7 +422,9 @@ Desk evaluates `eval:` dependencies with `new Function` and full page access (`1
 | Table changes | `<table>_add`, `before_<table>_remove`, `<table>_remove`, `<table>_delete`, `<table>_move`, `form_render`, `<table>_on_form_rendered` |
 | A Button field is clicked | `<fieldname>` |
 
-The events that can abort are `validate`, `before_save`, `before_submit`, `before_cancel` and `before_<table>_remove`.
+| A workflow action is chosen (P35) | mandatory check (Missing Fields; nothing sent when it fails) → `before_workflow_action` (with `frm.selectedWorkflowAction`) → `apply_workflow` → `after_workflow_action` (form/workflow.js:96-121) |
+
+The events that can abort are `validate`, `before_save`, `before_submit`, `before_cancel`, `before_workflow_action` and `before_<table>_remove`. (Desk stops a workflow action only when a handler throws; here `false` / `frm.validated = false` stop it too.)
 
 The `frm` controller offers:
 - `doc`, `doctype`, `docname`, `isNew`, `isDirty`, `validated`;
@@ -329,7 +432,18 @@ The `frm` controller offers:
 - `setDfProperty(field, prop, value, table?)`, `toggleDisplay`, `toggleReqd`, `toggleEnable`;
 - `setQuery(field, query, table?)`;
 - `addChild(table, values)`, `clearTable(table)`;
-- `trigger(event, cdt?, cdn?)`.
+- `trigger(event, cdt?, cdn?)`;
+- P35: `save(action?)` (the form's pipeline, after a permission check; resolves true when saved; `"Submit"` opens the
+  "Permanently Submit" confirmation and resolves false, as Desk's `savesubmit`), `checkMandatory()`
+  (opens Missing Fields), `selectedWorkflowAction`;
+- P35: `undo()`, `redo()`, `canUndo`, `canRedo` — Desk's `UndoManager` (undo_manager.js): only the user's field changes
+  are recorded (not script or fetch writes, base_control.js:220); undo sets the old value through `setValue`, so field
+  events run; a new change does not clear the redo stack (as Desk); loading or saving erases the history (form.js:391).
+  Shortcuts: Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl/⌘+Y — outside text inputs, where the browser's own text undo runs
+  (keyboard.js:47). "Nothing left to undo / redo" shows as the form notice. Read `canUndo` / `canRedo` when your menu opens.
+- P35: `addCustomButton(label, handler, group?)`, `removeCustomButton(label, group?)`, `clearCustomButtons()` — Desk's
+  `frm.add_custom_button`: ungrouped buttons appear in the header; a `group` (e.g. "Create") becomes a dropdown. Buttons
+  are cleared before every `refresh` (form.js:724), so add them in `refresh`.
 
 ```tsx
 <FrappeForm doctype="Sales Memo" name={name}
@@ -357,7 +471,7 @@ What the package reproduces, and what it deliberately does not (D-23 and D-24, d
 - Desk Client Scripts: the `Client Script` DocType, the `__custom_js` and `__js` code from `getdoctype`, and `frappe.ui.form.on(...)` handlers defined in that code. The package never evaluates them.
 - jQuery or DOM access from handlers (`frm.fields_dict.x.$wrapper`, `$(...)`), `cur_frm`, `locals[cdt][cdn]`, and `frappe.ui.form.*` objects.
 - In `eval:` expressions: `frappe.*` (including `frappe.boot.*`, `frappe.user.*`, `frappe.datetime.*`), `window`, `document`, arrow functions and other function literals, bitwise operators (`& | ^ ~ << >>`), assignment, `new`, and template interpolation. They are reported when the meta loads, never evaluated. An app that needs full JavaScript must opt in to `evaluator: { mode: "function" }` (CSP `unsafe-eval`) and accept Desk's semantics.
-- `frm.add_custom_button`, `frm.set_intro`, `frm.dashboard`, `frappe.msgprint` called from inside the form. The app renders its own UI: `toolbarExtra` for buttons, and `useFrappeMessages().show` for messages.
+- `frm.set_intro`, `frm.dashboard`, `frappe.msgprint` called from inside the form. The app renders its own UI: `useFrappeMessages().show` for messages. (`frm.add_custom_button` is supported since P35 as `frm.addCustomButton`, §9.)
 
 **Migrating a Client Script to formEvents.** Desk:
 
@@ -432,6 +546,10 @@ Server-side logic (controllers, Server Scripts) runs unchanged, because the pack
 | mandatory | `checkMandatory`, `isRequiredNow`, `rowRanges` | Desk's `check_mandatory`. 0 counts as a value. Hidden fields are still checked. Rows are grouped as "every row", "row 3", "rows 1, 3-4 and 6" (`comma_and`) or "in N rows". |
 | fetch | `buildFetchMap`, `fetchUpdates`, `isReadOnlyByFetch` | Fetch targets are written unconditionally on the client; the server fetches again on save. |
 | layout, actions, status, copy | `buildLayout`, `formActions`, `ladderStatus`, `controlStatus`, `copyDoc`, `amendDoc` | As described in §2. |
+| quickEntry (P35) | `quickEntryFields`, `quickEntryFilter` | §2.1. |
+| errors (P35) | `fieldErrorsFromFrappeError` | §2 Errors. |
+| fieldtypes (P35) | `SUPPORTED_FIELDTYPES`, `analyzeFieldtypes` | §3. |
+| docStore history (P35) | `store.undo/redo/canUndo/canRedo/eraseHistory`, `setValue(…, { record: true })` | §9. |
 
 ---
 
@@ -440,18 +558,25 @@ Server-side logic (controllers, Server Scripts) runs unchanged, because the pack
 **Not reproduced** (by design or decision):
 - Desk Client Scripts are not run (D-24).
 - `__js` and `__form_grid_templates` are ignored.
-- No undo / redo.
 - No form viewers.
 - No realtime "modified after you opened it" banner. A conflict shows up at save as a 417 with Reload.
 - No Connections dashboard.
-- No print view, rename dialog, Duplicate menu or prev/next navigation.
+- No print view, rename dialog, Duplicate menu or prev/next navigation (the `menu` slot hosts an app's or another workstream's menu).
+- Quick Entry does not offer Submit after saving a submittable DocType (Desk does).
 
 **UNVERIFIED** (exact Desk behaviour not confirmed):
 - The exact wording and punctuation of the "Missing Fields" lines and the "Cancel All" dialog.
 - `ignore_doctypes_on_cancel_all` (set by Desk client scripts) is not sent.
 - Datetime zone conversion while editing.
-- `show_title_field_in_link` titles: without boot data, a label shows only once the field has seen one.
+- `show_title_field_in_link` titles: getdoc's `_link_titles` are used (P35); titles of values set later (not searched) still need a search. `_link_titles` of other responses (savedocs) are not read.
 - The legacy Banker's rounding tie-breaking epsilon.
 
 **Not supported yet:**
-- Fieldtypes: see the table in §3. Attach upload is P2.
+- Fieldtypes: see the table in §3 (Signature, Geolocation, Barcode, Icon are reported and read-only).
+
+**Simulated vs. a real site.** Everything above is exercised by unit tests or the in-package SIMULATED backend
+(`createFixtureTransport`, with real 15.110 metadata where noted). The P35 tests shape two real responses the simulator
+does not produce: getdoc's `_link_titles` and a MandatoryError raised by the server after the client check passed.
+Needs a real site to verify: Link titles from a live getdoc, `apply_workflow` on a real Workflow (with the new pre-steps),
+the server messages' exact (translated) wording parsed by `fieldErrorsFromFrappeError`, user defaults / User Permissions
+in a real boot, Quick Entry against real `quick_entry` DocTypes.

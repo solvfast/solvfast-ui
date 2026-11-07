@@ -62,7 +62,8 @@ export interface FormatContext {
   roundingMethod?: RoundingMethod;
   /** frappe.boot.time_zone: Datetime values are stored in `system` and shown in `user`. No conversion when either is missing. */
   timeZone?: { system?: string; user?: string };
-  /** Link titles by "Doctype::name" (getdoc's `_link_titles`, search results' labels). */
+  /** Link titles by "Doctype::name" (search results' labels; getdoc's `_link_titles` reach the form's link-title cache
+   *  through `FrappeForm` — pass them here yourself for read-only formatting outside a form). */
   linkTitles?: Record<string, string>;
   /** Translation of Select values and link labels (Desk's `__`). Default: identity. */
   translate?: (text: string) => string;

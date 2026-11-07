@@ -15,7 +15,12 @@
  *    "No changes in document" without a request; Submit asks "Permanently Submit {name}?" and runs `before_submit`
  *    first; Update skips `validate` / `before_save`; Cancel asks "Permanently Cancel {name}?" and runs
  *    `before_cancel`; double submits are ignored; after a save the server's document replaces the local one, then
- *    `after_save` → `refresh` (→ `on_submit`). Ctrl/⌘+S saves (or updates). Leaving the page while dirty asks first.
+ *    `after_save` → `refresh` (→ `on_submit`). Ctrl/⌘+S = Desk's `trigger_primary_action` (desk.js:389-403): the active
+ *    input is blurred, then the VISIBLE primary action runs (Save / Submit → confirm / Update / Amend; nothing when
+ *    `saveDisabled`, without the right, or while workflow actions replace the buttons) — document-level while this is
+ *    the topmost mounted form (`hotkeys={false}` opts out). Ctrl/⌘+Z / Ctrl/⌘+Shift+Z / Ctrl/⌘+Y undo / redo the user's
+ *    field changes outside text inputs. Leaving the page while dirty asks first (`beforeunload`); in-app navigation is
+ *    the host router's — `onDirtyChange` / `useUnsavedChangesBlocker`.
  *  - server errors: `FrappeErrorState` (the foundation's single rendering of FrappeError).
  *  - formEvents (D-24) instead of Desk Client Scripts.
  *  - header indicator: `resolveIndicator` (frappe.get_indicator precedence: Not Saved → workflow state with its style
@@ -28,11 +33,13 @@
  *    answer (unknown) → the same explanation marked `data-permissions="unknown"` and no button (rule 9, P3-1);
  *  - Amend: the app's `onAmend`, else a local copy (`amendDoc`: from_amend copy + `amended_from`), disabled when
  *    `alreadyAmended` (`is_document_amended`).
- * Not implemented here (reported): realtime "modified after you opened it", undo, connections. Workflow action buttons
+ * Not implemented here (reported): realtime "modified after you opened it", connections (an `extraTabs` slot hosts them). Workflow action buttons
  * come from A4's record layer (FrappeForm renders them; FrappeFormView takes `workflowActionsShown`).
  */
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "../../primitives/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../primitives/dropdown-menu";
 import { cn } from "../../lib/cn";
 import { useLocale } from "../../theme/ThemeProvider";
 import { Badge } from "../../primitives/badge";
@@ -56,11 +63,13 @@ import { buildFetchMap, fetchUpdates, isReadOnlyByFetch, type FetchEntry } from 
 import { buildLayout, sectionFields, type LayoutSection, type LayoutTab } from "./model/layout";
 import { checkMandatory, commaAnd, type MandatoryLine, type MandatoryResult } from "./model/mandatory";
 import { formActions, type FormAction } from "./model/actions";
+import { fieldErrorsFromFrappeError } from "./model/errors";
 import { controlStatus, ladderStatus } from "./model/status";
 import type { DefaultsContext } from "./model/defaults";
-import { TABLE_TYPES } from "./model/fieldtypes";
-import { runEvent, type FormController, type FormEventsConfig, type LinkQuery } from "./events";
+import { TABLE_TYPES, analyzeFieldtypes } from "./model/fieldtypes";
+import { runEvent, type CustomButton, type FormController, type FormEventsConfig, type LinkQuery } from "./events";
 import { useFormServices } from "./services";
+import { useLinkTitles } from "./linkTitles";
 import { FrappeField, type FrappeFieldProps } from "./FrappeField";
 import type { TableController } from "./FrappeChildTable";
 
@@ -127,9 +136,25 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   /** The form's controller (`frm`) for code outside the events. */
   controllerRef?: React.MutableRefObject<FormController | null>;
   className?: string;
+  // ---- P35 slots (fixed contract: other workstreams build on them) ----
+  /** Rendered in the header action area, after the primary action (e.g. a "⋯" menu). */
+  menu?: React.ReactNode;
+  /** Extra tabs appended after the form's own tabs (Connections, Activity …). A form without Tab Breaks then shows its
+   *  fields under a "Details" tab. `render` runs only while the tab is active. */
+  extraTabs?: Array<{ key: string; label: string; render: () => React.ReactNode }>;
+  /** Only the meta fields (breaks included) it accepts take part in the layout (Quick Entry uses it). Hidden / permission
+   *  statuses still apply; the mandatory check still covers every required field — keep required fields in. */
+  fieldFilter?: (df: FrappeDocField) => boolean;
+  /** Desk's keyboard shortcuts while this form is the topmost one mounted: Ctrl/⌘+S runs the visible primary action
+   *  (desk.js `trigger_primary_action`), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo (outside text inputs).
+   *  Default true; false registers nothing. */
+  hotkeys?: boolean;
 }
 
 type Overrides = Record<string, FieldOverrides>;
+/** Mounted forms with hotkeys, in mount order: only the last (topmost — e.g. a Quick Entry dialog over a form) answers. */
+const hotkeyStack: object[] = [];
+const initials = (text: string) => text.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
 const asList = (f: string | string[]) => (Array.isArray(f) ? f : [f]);
 
 export function FrappeFormView(props: FrappeFormViewProps) {
@@ -144,11 +169,15 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const issueKey = (i: DependsIssue) => `${i.doctype}.${i.fieldname}.${i.property}.${i.kind}`;
   const [initialIssues] = React.useState<DependsIssue[]>(() => analyzeDependencies(bundle, s.evaluator));
   const [issues, setIssues] = React.useState<DependsIssue[]>(initialIssues);
+  // fieldtypes without a control (shown read-only by FrappeField) are listed with the expression issues (P35)
+  const fieldtypeIssues = React.useMemo(() => analyzeFieldtypes(bundle), [bundle]);
   const seenIssues = React.useRef(new Set<string>(initialIssues.map(issueKey)));
   const [activeTab, setActiveTab] = React.useState<string | null>(null);
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const [saving, setSaving] = React.useState<FormAction | null>(null);
   const [error, setError] = React.useState<unknown>(null);
+  // P35 (A43): a MandatoryError / LinkValidationError from the server is also shown on the fields it names
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [notice, setNotice] = React.useState<string | null>(null);
   const [missing, setMissing] = React.useState<MandatoryResult | null>(null);
   const [confirm, setConfirm] = React.useState<"Submit" | "Cancel" | null>(null);
@@ -167,6 +196,18 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     queueMicrotask(() => setIssues((list) => [...list, i]));
   }, []);
   const evaluator = React.useMemo(() => ({ ...s.evaluator, onIssue: (i: DependsIssue) => { s.evaluator.onIssue?.(i); onIssue(i); } }), [s.evaluator, onIssue]);
+
+  // ---- getdoc's `_link_titles` (kept on the docinfo by the client, P35 F3) seed the link-title cache before the Link
+  //      fields render (Desk merges them into frappe._link_titles, request.js:295) ----
+  const titleCache = useLinkTitles();
+  const serverTitles = props.docinfo?._link_titles;
+  React.useMemo(() => {
+    if (!serverTitles || typeof serverTitles !== "object") return;
+    for (const [k, v] of Object.entries(serverTitles as Record<string, unknown>)) {
+      const at = k.indexOf("::");
+      if (at > 0 && typeof v === "string") titleCache.remember(k.slice(0, at), k.slice(at + 2), v);
+    }
+  }, [serverTitles, titleCache]);
 
   // ---- an incoming document replaces the local copy (load / reload / external save) ----
   React.useEffect(() => {
@@ -232,8 +273,27 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     }
   }, [store, meta, fetchMaps, s, doc.name]);
 
+  // ---- a new document of a workflow DocType starts in the workflow's default state (form/workflow.js:143-151,
+  //      model/workflow.js:28-38: the first state whose doc_status is the document's docstatus) ----
+  const wfDefaults = React.useMemo(() => workflowFromMeta(meta as never), [meta]);
+  React.useEffect(() => {
+    const cur = store.getDoc();
+    if (!cur.__islocal || !wfDefaults) return;
+    const field = wfDefaults.workflow_state_field;
+    if (!field || cur[field]) return;
+    const st = wfDefaults.states.find((x) => Number(x.doc_status) === Number(cur.docstatus ?? 0))?.state;
+    if (st) store.setValue(field, st);
+  }, [store, wfDefaults, doc.name]);
+
   // ---- the frm controller (D-24) ----
   const frmRef = React.useRef<FormController | null>(null);
+  const [customButtons, setCustomButtons] = React.useState<CustomButton[]>([]);
+  // functions defined further down (they close over the render's state); the controller calls the latest ones
+  const fns = React.useRef({
+    save: async (_a?: SaveAction): Promise<boolean> => false,
+    checkMandatory: (): boolean => true,
+    flash: (_key: "formNothingToUndo" | "formNothingToRedo"): void => {},
+  });
   /** Desk `frm.trigger`: handlers of the form's DocType; with a child DocType, its child handlers when it has any. */
   const trigger = React.useCallback(async (event: string, cdt?: string, cdn?: string, childOnly = false): Promise<boolean> => {
     const p = latestProps.current;
@@ -267,6 +327,18 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       addChild(table, values) { return store.addRow(table, { values }); },
       clearTable(table) { store.clearTable(table); },
       trigger: (event, cdt, cdn) => trigger(event, cdt, cdn),
+      save: (action) => fns.current.save(action),
+      checkMandatory: () => fns.current.checkMandatory(),
+      selectedWorkflowAction: null,
+      undo() { if (!store.undo()) fns.current.flash("formNothingToUndo"); },
+      redo() { if (!store.redo()) fns.current.flash("formNothingToRedo"); },
+      get canUndo() { return store.canUndo(); },
+      get canRedo() { return store.canRedo(); },
+      addCustomButton(label, handler, group) {
+        setCustomButtons((list) => [...list.filter((b) => !(b.label === label && b.group === group)), { label, handler, group }]);
+      },
+      removeCustomButton(label, group) { setCustomButtons((list) => list.filter((b) => !(b.label === label && b.group === group))); },
+      clearCustomButtons() { setCustomButtons((list) => (list.length ? [] : list)); },
     };
     frmRef.current = frm;
   }
@@ -274,6 +346,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
 
   // field-change events (Desk: after the model is set; child rows with (frm, cdt, cdn))
   React.useEffect(() => store.onFieldChange((c: FieldChange) => {
+    const key = c.parentfield ?? c.fieldname;
+    setFieldErrors((fe) => { if (!(key in fe)) return fe; const next = { ...fe }; delete next[key]; return next; });
     if (c.parentfield) void trigger(c.fieldname, c.doctype, c.name, true);
     else void trigger(c.fieldname);
   }), [store, trigger]);
@@ -285,12 +359,19 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     void (async () => {
       if (!setupDone.current) { setupDone.current = true; await trigger("setup"); }
       if (loadedName.current !== doc.name) { loadedName.current = doc.name; await trigger("onload"); }
+      frmRef.current!.clearCustomButtons(); // form.js:724, before the scripts' refresh adds them again
       await trigger("refresh");
     })();
   }, [doc.name, version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- layout, visibility, collapse ----
-  const layout = React.useMemo(() => buildLayout(meta, { isNew: !!doc.__islocal }), [meta, doc.__islocal]);
+  const fieldFilterRef = React.useRef(props.fieldFilter);
+  fieldFilterRef.current = props.fieldFilter;
+  const hasFieldFilter = !!props.fieldFilter;
+  const layout = React.useMemo(
+    () => buildLayout(meta, { isNew: !!doc.__islocal, fieldFilter: hasFieldFilter ? (df) => fieldFilterRef.current?.(df) ?? true : undefined }),
+    [meta, doc.__islocal, hasFieldFilter],
+  );
   const fieldStatus = (df: FrappeDocField) => {
     const e = eff.get(df.fieldname) ?? df;
     if (df.fieldname === "__newname") return doc.__islocal && permissions ? "Write" : "None"; // no permissions: nothing to name (P2-1)
@@ -304,7 +385,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     return tab.sections.some(sectionVisible);
   };
   const visibleTabs = layout.tabs.filter(tabVisible);
-  const currentTab = visibleTabs.find((tb) => tb.key === activeTab) ?? visibleTabs[0];
+  const extraTabs = (props.extraTabs ?? []).map((x) => ({ ...x, tabKey: `extra:${x.key}` }));
+  const activeExtra = extraTabs.find((x) => x.tabKey === activeTab);
+  const currentTab = activeExtra ? undefined : visibleTabs.find((tb) => tb.key === activeTab) ?? visibleTabs[0];
+  const tabCount = visibleTabs.length + extraTabs.length;
 
   React.useEffect(() => {
     const next: Record<string, boolean> = {};
@@ -350,7 +434,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         if (indexes.length > 1) await trigger(`${tf}_delete`, child);
       },
       move: (from, to) => { store.moveRow(tf, from, to); const r = store.getRows(tf)[to]; void trigger(`${tf}_move`, child, r?.name); },
-      setCell: (rowName, fieldname, value) => store.setValue(fieldname, value, { parentfield: tf, name: rowName }),
+      setCell: (rowName, fieldname, value) => store.setValue(fieldname, value, { parentfield: tf, name: rowName }, { record: true }),
       fieldsFor: (row) => resolveFields(childFields(child), row, doc, evaluator, overrides[child]),
       statusFor: (df, row) => statusOf(df, row, doc, true),
       cellProps: (df, row) => linkProps(df, child, { parentfield: tf, name: row.name }, tf),
@@ -382,16 +466,26 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   // submittable). Rights given as `levels` without `can()` are read from level 0.
   const can = (p: PermType) => (permissions?.can ? permissions.can(p, 0) : !!permissions?.levels?.[0]?.[p]);
   const permissionsUnknown = !permissions || permissions.known === false;
-  const actions = formActions({
-    docstatus: (doc.docstatus ?? 0) as 0 | 1 | 2, isNew: !!doc.__islocal, dirty: !!doc.__unsaved, isSubmittable: !!meta.is_submittable,
+  const actionsFor = (d: FrappeDoc) => formActions({
+    docstatus: (d.docstatus ?? 0) as 0 | 1 | 2, isNew: !!d.__islocal, dirty: !!d.__unsaved, isSubmittable: !!meta.is_submittable,
     perms: { write: can("write"), create: can("create"), submit: can("submit"), cancel: can("cancel"), amend: can("amend") },
     hasWorkflow: !!(permissions?.workflow ?? recWorkflow),
     canCancelWithWorkflow: props.canCancelWithWorkflow ?? (recWorkflow ? canCancelDocument(recWorkflow) : undefined),
     saveDisabled: props.saveDisabled,
     workflowActionsShown: props.workflowActionsShown, alreadyAmended: props.alreadyAmended,
   });
+  const actions = actionsFor(doc);
 
   const flash = (msg: string) => { setNotice(msg); setTimeout(() => setNotice((n) => (n === msg ? null : n)), 4000); };
+
+  /** `frappe.ui.form.check_mandatory`: false → the Missing Fields dialog, and the first missing field's tab opens. */
+  const mandatoryOk = (): boolean => {
+    const check = checkMandatory(bundle, store.getDoc(), { ...evaluator, overrides, translate: (l) => s.translate(bundle, l) });
+    if (check.ok) return true;
+    setMissing(check);
+    if (check.first) scrollToField(check.first.parentfield ?? check.first.fieldname);
+    return false;
+  };
 
   const save = async (action: SaveAction, confirmed = false): Promise<boolean> => {
     if (savingRef.current) return false;
@@ -406,13 +500,9 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         if (!(await trigger("validate"))) return false;
         if (!(await trigger("before_save"))) return false;
       }
+      if (!mandatoryOk()) return false;
       const current = store.getDoc();
-      const check = checkMandatory(bundle, current, { ...evaluator, overrides, translate: (l) => s.translate(bundle, l) });
-      if (!check.ok) {
-        setMissing(check);
-        if (check.first) scrollToField(check.first.parentfield ?? check.first.fieldname);
-        return false;
-      }
+      setFieldErrors({});
       const saved = await onSave(current, action);
       store.replace(saved);
       setVersion((v) => v + 1);
@@ -423,6 +513,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       return true;
     } catch (e) {
       setError(e);
+      const fe = fieldErrorsFromFrappeError(e, bundle, (l) => s.translate(bundle, l));
+      setFieldErrors(fe);
+      const first = Object.keys(fe)[0];
+      if (first) scrollToField(first);
       return false;
     } finally {
       savingRef.current = false;
@@ -493,7 +587,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const amend = () => {
     const p = latestProps.current;
     if (p.onAmend) { p.onAmend(store.getDoc()); return; }
-    const copy = amendDoc(bundle, store.getDoc(), { user: p.defaults?.user });
+    const copy = amendDoc(bundle, store.getDoc(), { user: p.defaults?.user, defaults: p.defaults });
     store.replace(copy);
     setVersion((v) => v + 1);
     p.onAmended?.(copy);
@@ -503,14 +597,57 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     if (a === "Save" || a === "Update" || a === "Submit") void save(a);
     else if (a === "Amend") amend();
   };
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-      e.preventDefault();
+  fns.current = {
+    // frm.save checks the right first (form.js validate_form_action): Save → write (create for a new doc), Submit / Update
+    // → submit; nothing without permissions or with saveDisabled
+    save: async (a) => {
       const d = store.getDoc();
-      if ((d.docstatus ?? 0) === 0 && can("write")) void save("Save");
-      else if (d.docstatus === 1 && d.__unsaved && can("submit")) void save("Update");
+      const action: SaveAction = a ?? ((d.docstatus ?? 0) === 1 ? "Update" : "Save");
+      const allowed = action === "Save" ? !props.saveDisabled && (d.__islocal ? can("create") || can("write") : can("write")) : can("submit");
+      // Submit asks first, as Desk's frm.save("Submit") → savesubmit → frappe.confirm (resolves false; Yes submits)
+      return allowed ? save(action, action !== "Submit") : false;
+    },
+    checkMandatory: mandatoryOk,
+    flash: (key) => flash(t(key)),
+  };
+
+  // ---- keyboard (desk.js trigger_primary_action; undo_manager shortcuts), document-level while topmost ----
+  const keyHandler = React.useRef<(e: KeyboardEvent) => void>(() => {});
+  keyHandler.current = (e: KeyboardEvent) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const key = e.key.toLowerCase();
+    if (key === "s" && !e.shiftKey) {
+      e.preventDefault();
+      if (missing || confirm || linked || savingRef.current) return; // a dialog of this form is open / already working
+      // blur first: a pending text edit is written (and may turn Submit into Save) before the action is chosen
+      const active = typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
+      if (active && active !== document.body) active.blur?.();
+      const a = actionsFor(store.getDoc());
+      if (!a.primary || a.primaryDisabled || a.primary === "Cancel") return;
+      if (a.primary === "Amend" && !props.onAmend && !canAmend(meta)) return;
+      runPrimary(a.primary);
+      return;
+    }
+    if (key === "z" || key === "y") {
+      // ignore_inputs is false for these (keyboard.js:47): the browser's own text undo runs inside an input
+      const tgt = e.target as HTMLElement | null;
+      if (tgt && (tgt.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tgt.tagName))) return;
+      e.preventDefault();
+      if (key === "y" || e.shiftKey) frmRef.current!.redo(); else frmRef.current!.undo();
     }
   };
+  React.useEffect(() => {
+    if (props.hotkeys === false || typeof document === "undefined") return;
+    const token = {};
+    hotkeyStack.push(token);
+    const onKey = (e: KeyboardEvent) => { if (hotkeyStack[hotkeyStack.length - 1] === token) keyHandler.current(e); };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      const i = hotkeyStack.indexOf(token);
+      if (i >= 0) hotkeyStack.splice(i, 1);
+    };
+  }, [props.hotkeys]);
 
   // ---- rendering ----
   const titleField = meta.title_field ? doc[meta.title_field] : undefined;
@@ -527,6 +664,16 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       avoidStatusOverride: (st) => !!recWorkflow.states.find((x) => x.state === st)?.avoid_status_override,
     } : null,
   });
+  // header image (Desk: the sidebar image from meta.image_field, form_sidebar.js) — undefined: no image_field
+  const imageSrc = meta.image_field ? String(doc[String(meta.image_field)] ?? "") : undefined;
+  // "See on Website" (form.js:1149-1158): a saved website generator whose server `__onload` says it is published. Without
+  // `__onload` (a doc not read through getdoc): `has_web_view` + the DocType's `is_published_field` + a route.
+  const onload = (doc.__onload ?? {}) as { is_website_generator?: unknown; published?: unknown };
+  const route = typeof doc.route === "string" ? doc.route.replace(/^\/+/, "") : "";
+  const published = onload.is_website_generator
+    ? !!onload.published
+    : !!meta.has_web_view && !!meta.is_published_field && !!Number(doc[String(meta.is_published_field)] ?? 0);
+  const webRoute = !doc.__islocal && route && published ? `/${route}` : null;
   const BUILTIN: Record<string, string> = { notSaved: t("formNotSaved"), draft: t("formDraft"), cancelled: t("formCancelled"), submitted: t("formSubmitted") };
   const TONE_VARIANT = { success: "success", warning: "warning", danger: "destructive", info: "info", brand: "brand", neutral: "outline" } as const;
   const indicator = ind ? { text: (ind.builtin && BUILTIN[ind.builtin]) || s.translate(bundle, ind.label), variant: TONE_VARIANT[ind.tone] } : null;
@@ -542,10 +689,11 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         key={df.fieldname}
         df={e}
         value={doc[df.fieldname]}
-        onChange={(v) => store.setValue(df.fieldname, v)}
+        onChange={(v) => store.setValue(df.fieldname, v, undefined, { record: true })}
         doc={doc}
         bundle={bundle}
         status={st}
+        error={fieldErrors[df.fieldname]}
         table={isTable ? tableController(df) : undefined}
         {...linkProps(e, meta.name)}
       />
@@ -590,17 +738,43 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   };
 
   return (
-    <div className={cn("min-w-0 space-y-5", className)} onKeyDown={onKeyDown} data-doctype={meta.name}>
+    <div className={cn("min-w-0 space-y-5", className)} data-doctype={meta.name}>
       {!props.hideToolbar && (
         <div className="flex flex-wrap items-center gap-3">
+          {imageSrc !== undefined && (
+            <Avatar className="size-10" data-form-image={imageSrc || undefined}>
+              {imageSrc && <AvatarImage src={imageSrc} alt="" />}
+              <AvatarFallback aria-hidden>{initials(htmlToText(String(titleField || "")) || doc.name)}</AvatarFallback>
+            </Avatar>
+          )}
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-lg font-semibold">{title}</h2>
             {!doc.__islocal && !!titleField && titleField !== doc.name && meta.autoname !== "hash" && <p className="truncate text-xs text-muted-foreground">{doc.name}</p>}
+            {webRoute && (
+              <a href={webRoute} target="_blank" rel="noopener noreferrer" data-web-link className="inline-flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline">
+                {t("formSeeOnWebsite")}<ExternalLink className="size-3" aria-hidden />
+              </a>
+            )}
           </div>
           {indicator && <Badge variant={indicator.variant}>{indicator.text}</Badge>}
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
           {!notice && permissionsUnknown && <span role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</span>}
           {props.toolbarExtra}
+          {customButtons.filter((b) => !b.group).map((b) => (
+            <Button key={`btn:${b.label}`} type="button" variant="outline" size="sm" data-custom-button={b.label} onClick={() => void b.handler()}>{s.translate(bundle, b.label)}</Button>
+          ))}
+          {[...new Set(customButtons.filter((b) => b.group).map((b) => b.group!))].map((g) => (
+            <DropdownMenu key={`grp:${g}`}>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="outline" size="sm" data-custom-group={g}>{s.translate(bundle, g)}<ChevronDown className="size-4" aria-hidden /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {customButtons.filter((b) => b.group === g).map((b) => (
+                  <DropdownMenuItem key={b.label} onSelect={() => void b.handler()}>{s.translate(bundle, b.label)}</DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ))}
           {actions.secondary && onCancelDoc && (
             <Button type="button" variant="outline" disabled={!!saving} loading={saving === "Cancel"} onClick={() => void startCancel()}>{actionLabel("Cancel")}</Button>
           )}
@@ -611,6 +785,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
               {actionLabel(actions.primary)}
             </Button>
           )}
+          {props.menu}
         </div>
       )}
 
@@ -619,9 +794,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           onRetry={error instanceof FrappeError && error.kind === "timestamp" && props.onReload ? () => void reload() : undefined} />
       )}
 
-      {issues.length > 0 && (
+      {issues.length + fieldtypeIssues.length > 0 && (
         <div role="note" className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
           <ul className="list-disc space-y-0.5 ps-4">
+            {fieldtypeIssues.map((i) => (
+              <li key={`ft.${i.doctype}.${i.fieldname}`} data-fieldtype-issue={i.fieldtype}>
+                {interpolate(t("formUnsupportedFieldtype"), { field: `${i.doctype}.${i.fieldname}`, type: i.fieldtype })}
+              </li>
+            ))}
             {issues.map((i) => (
               <li key={`${i.doctype}.${i.fieldname}.${i.property}.${i.kind}`}>
                 {i.kind === "unsupported"
@@ -633,14 +813,16 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </div>
       )}
 
-      {visibleTabs.length > 1 && (
-        <Tabs value={currentTab?.key} onValueChange={(v) => setActiveTab(v)}>
+      {tabCount > 1 && (
+        <Tabs value={activeExtra?.tabKey ?? currentTab?.key} onValueChange={(v) => setActiveTab(v)}>
           <TabsList className="max-w-full overflow-x-auto">
             {visibleTabs.map((tab) => <TabsTrigger key={tab.key} value={tab.key}>{tabLabel(tab)}</TabsTrigger>)}
+            {extraTabs.map((x) => <TabsTrigger key={x.tabKey} value={x.tabKey} data-extra-tab={x.key}>{x.label}</TabsTrigger>)}
           </TabsList>
         </Tabs>
       )}
-      {currentTab && <div className="space-y-8" role={visibleTabs.length > 1 ? "tabpanel" : undefined}>{currentTab.sections.map(renderSection)}</div>}
+      {activeExtra && <div className="space-y-8" role="tabpanel" data-extra-tab-panel={activeExtra.key}>{activeExtra.render()}</div>}
+      {currentTab && <div className="space-y-8" role={tabCount > 1 ? "tabpanel" : undefined}>{currentTab.sections.map(renderSection)}</div>}
 
       <Dialog open={!!missing} onOpenChange={(o) => { if (!o) setMissing(null); }}>
         <DialogContent>

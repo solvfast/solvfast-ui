@@ -10,8 +10,6 @@
  * `get_submitted_linked_docs` / `cancel_all_linked_docs`; Amend is disabled when `is_document_amended`.
  */
 import * as React from "react";
-import { Skeleton } from "../../primitives/skeleton";
-import { useLocale } from "../../theme/ThemeProvider";
 import { isAdministrator, rolePermissions } from "../services/permissions";
 import type { DocTypeMeta, FrappeDoc } from "../contract";
 import { useFrappeSettings } from "../FrappeProvider";
@@ -24,13 +22,19 @@ import { useWorkflow } from "../record/useWorkflow";
 import { FrappeWorkflowActions } from "../record/FrappeWorkflowActions";
 import { newDoc, type DefaultsContext } from "./model/defaults";
 import { FrappeFormView, type FrappeFormViewProps, type LinkedDoc } from "./FrappeFormView";
+import type { FormController } from "./events";
+import { FrappeFormServices } from "./services";
+import { useQuickEntryHost } from "./FrappeQuickEntry";
 
 export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "doc" | "docinfo" | "permissions" | "onSave" | "onCancelDoc"> {
   doctype: string;
   /** A saved document's name; omit (or pass a `new-…` name) for a new document. */
   name?: string;
-  /** Defaults for a new document: route options, user defaults, typed name (`nameField`). */
+  /** Defaults for a new document: route options, user defaults (`userDefaults` — e.g. `readFrappeBoot().userDefaults`),
+   *  typed name (`nameField`). */
   newDocDefaults?: DefaultsContext;
+  /** Quick Entry's "Edit Full Form" / a not-eligible target (P35): route to the full form with this unsaved document. */
+  onOpenFullForm?: (doc: FrappeDoc) => void;
 }
 
 const isNewName = (name?: string) => !name || name.startsWith("new-");
@@ -53,25 +57,10 @@ export function canCancelDoctype(meta: DocTypeMeta, session: SessionLike): boole
   return !!rolePermissions(meta.permissions, session.roles).levels[0]?.cancel;
 }
 
-/** Loading: skeleton blocks (with a foreground tint so they read in dark themes too) and, after 300 ms, a text
- *  status (CONTRACT §3: never a loader without text for more than 300 ms). */
-export function FormSkeleton() {
-  const { t } = useLocale();
-  const [slow, setSlow] = React.useState(false);
-  React.useEffect(() => { const id = setTimeout(() => setSlow(true), 300); return () => clearTimeout(id); }, []);
-  const block = "bg-foreground/10";
-  return (
-    <div className="space-y-4" aria-busy="true">
-      <Skeleton className={`h-7 w-1/3 ${block}`} />
-      <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className={`h-9 w-full ${block}`} />)}
-      </div>
-      <p role="status" className="text-sm text-muted-foreground">{slow ? t("loading") : ""}</p>
-    </div>
-  );
-}
+export { FormSkeleton } from "./FormSkeleton";
+import { FormSkeleton } from "./FormSkeleton";
 
-export function FrappeForm({ doctype, name, newDocDefaults, ...rest }: FrappeFormProps) {
+export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, ...rest }: FrappeFormProps) {
   const { session } = useFrappeSettings();
   const meta = useMetaBundle(doctype);
   const creating = isNewName(name);
@@ -90,6 +79,20 @@ export function FrappeForm({ doctype, name, newDocDefaults, ...rest }: FrappeFor
   const permissions = usePermissions(bundle, doc ?? undefined, loaded.data?.docinfo);
   const api = useFrappeApi();
   const wf = useWorkflow({ doc: doc ?? undefined, user: session?.user ?? "", roles: session?.roles, enabled: !!doc });
+  // "Create a new X" on a quick-entry eligible target opens FrappeQuickEntry (unless the app handles onCreateNew)
+  const [quickEntry, quickEntryHost] = useQuickEntryHost(onOpenFullForm);
+  const innerCtrl = React.useRef<FormController | null>(null);
+  const ctrlRef = rest.controllerRef ?? innerCtrl;
+  // after_workflow_action runs once the view holds the server's document (child effects run before this one)
+  const [afterWf, setAfterWf] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!afterWf) return;
+    const frm = ctrlRef.current;
+    setAfterWf(null);
+    if (!frm) return;
+    frm.selectedWorkflowAction = null;
+    void frm.trigger("after_workflow_action");
+  }, [afterWf]); // eslint-disable-line react-hooks/exhaustive-deps
   const [amended, setAmended] = React.useState(false);
   React.useEffect(() => {
     let live = true;
@@ -106,8 +109,10 @@ export function FrappeForm({ doctype, name, newDocDefaults, ...rest }: FrappeFor
   if (!bundle || !doc) return <FormSkeleton />;
 
   return (
+    <FrappeFormServices value={quickEntry}>
     <FrappeFormView
       {...rest}
+      controllerRef={ctrlRef}
       bundle={bundle}
       doc={doc}
       docinfo={loaded.data?.docinfo}
@@ -152,11 +157,24 @@ export function FrappeForm({ doctype, name, newDocDefaults, ...rest }: FrappeFor
       toolbarExtra={(
         <>
           {wf.workflow && !doc.__islocal && session?.user && (
-            <FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} onApplied={(d) => setSaved(d)} />
+            <FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} onApplied={(d) => setSaved(d)}
+              // P35 F2 (form/workflow.js:96-121): check_mandatory (mandatory_depends_on included — the server never
+              // checks it) → before_workflow_action with frm.selectedWorkflowAction → apply → after_workflow_action
+              beforeApply={async (action) => {
+                const frm = ctrlRef.current;
+                if (!frm) return true;
+                frm.selectedWorkflowAction = action;
+                const ok = frm.checkMandatory() && (await frm.trigger("before_workflow_action"));
+                if (!ok) frm.selectedWorkflowAction = null;
+                return ok;
+              }}
+              afterApply={(action) => setAfterWf(action)} />
           )}
           {rest.toolbarExtra}
         </>
       )}
     />
+    {quickEntryHost}
+    </FrappeFormServices>
   );
 }

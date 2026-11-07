@@ -14,8 +14,15 @@
  *    handed to `onValidated` (the form writes the fetch targets). Clearing reports `onValidated(null)` (targets → "").
  *    `ignore_link_validation` skips it. A Dynamic Link with no DocType yet searches nothing and clears typed text.
  *  - Titles: a picked result's label is remembered per "DocType::name" and shown for the value (Desk's link-title
- *    cache, scoped to the provider's client and session user — linkTitles.ts). UNVERIFIED: `show_title_field_in_link` targets — without boot this shows a label only when one is known.
- *  - "Create a new X": offered when `canCreate(doctype)` and not `only_select`; the app's `onCreateNew` writes back.
+ *    cache, scoped to the provider's client and session user — linkTitles.ts). getdoc's `_link_titles` are seeded into
+ *    that cache by FrappeFormView (P35 F3); a value set later shows its title once a search or pick has seen it.
+ *  - "Create a new X" (link.js:323-334): not for `only_select`; offered when the session may create the target (P35 F4:
+ *    the target's DocPerm rows × session roles, read from its meta once the field is focused; Administrator always; an
+ *    app `canCreate` override decides alone) AND something can create it: the app's `onCreateNew`, else FrappeForm's
+ *    Quick Entry when the target is quick-entry eligible (`quickEntryFields`). The new name is written back.
+ *  - The open-record link (P35 F4): the default URL only when the session may read the target (same source; the
+ *    target's meta is read when the field has a value and the user is neither the Administrator nor role-less); an app
+ *    `linkHref` override decides alone.
  */
 import * as React from "react";
 import { Plus } from "lucide-react";
@@ -31,6 +38,10 @@ import { useFormServices } from "./services";
 import { useLinkTitles } from "./linkTitles";
 import { FrappeError } from "../client";
 import { useFrappeMessages } from "../feedback/messages";
+import { useFrappeSettings } from "../FrappeProvider";
+import { useMetaBundle } from "../hooks/useDoc";
+import { isAdministrator, rolePermissions } from "../services/permissions";
+import { quickEntryFields } from "./model/quickEntry";
 
 
 type FilterDict = Record<string, unknown>;
@@ -115,6 +126,7 @@ export function FrappeLinkField({
   const s = useFormServices();
   const messages = useFrappeMessages();
   const titles = useLinkTitles();
+  const { session } = useFrappeSettings();
   const target = options ?? (df?.fieldtype === "Link" ? df.options : undefined) ?? "";
   const [busy, setBusy] = React.useState(false);
   const req = React.useRef(0);
@@ -170,23 +182,39 @@ export function FrappeLinkField({
   }, [target, df, fetchFields, onChange, onValidated, s, messages]);
 
   const title = value ? titles.get(target, value) ?? s.formatContext.linkTitles?.[`${target}::${value}`] : undefined;
-  const href = value && target ? s.linkHref(target, value) : undefined;
+  // ---- the target's rights (F4) and Quick Entry eligibility, from its meta when needed ----
+  const [focused, setFocused] = React.useState(false);
+  const admin = isAdministrator(session);
+  const wantsCreate = status === "Write" && !!target && !df?.only_select && (s.builtin.canCreate || s.canCreate(target)) && (!!s.onCreateNew || !!s.quickEntry);
+  // create: the rights (unless Administrator / role-less / overridden) or the Quick Entry eligibility — only once focused;
+  // read: for the open link of a value. Nothing is fetched for the Administrator's plain links or a role-less session.
+  const needCreateMeta = focused && wantsCreate && ((s.builtin.canCreate && !admin && !!session?.roles) || (!s.onCreateNew && !!s.quickEntry));
+  const needReadMeta = !!value && s.builtin.linkHref && !admin && !!session?.roles;
+  const needMeta = !!target && (needCreateMeta || needReadMeta);
+  const targetMeta = useMetaBundle(needMeta ? target : undefined).data?.meta;
+  const level0 = targetMeta && session?.roles ? rolePermissions(targetMeta.permissions, session.roles).levels[0] : undefined;
+  const mayRead = admin || !!level0?.read;
+  const mayCreate = s.builtin.canCreate ? admin || !!level0?.create : s.canCreate(target);
+  const quickEntryOk = !!targetMeta && quickEntryFields(targetMeta).eligible;
+  const href = value && target ? (s.builtin.linkHref ? (mayRead ? s.linkHref(target, value) : undefined) : s.linkHref(target, value)) : undefined;
 
   if (status === "None") return null;
   if (status === "Read") {
     return <ReadOnlyValue id={id} {...aria} value={title ?? value ?? ""} href={href} onLinkClick={s.onOpenLink && value ? (e) => s.onOpenLink!(target, value, e) : undefined} className={className} />;
   }
-  const canCreate = !!target && !df?.only_select && s.canCreate(target) && !!s.onCreateNew;
+  const createWith = s.onCreateNew ?? (quickEntryOk ? s.quickEntry : undefined);
+  const canCreate = wantsCreate && mayCreate && !!createWith;
   const actions = canCreate
     ? (typed: string): SuggestionAction[] => [{
       key: "create",
       icon: <Plus className="size-4" aria-hidden />,
       label: interpolate(t("formCreateNew"), { doctype: s.translate(undefined, target) }),
-      onSelect: (txt) => s.onCreateNew!({ doctype: target, typed: txt || typed, df: df ?? { fieldname: "", fieldtype: "Link", options: target }, doc, setValue: (name) => void commit(name) }),
+      onSelect: (txt) => createWith!({ doctype: target, typed: txt || typed, df: df ?? { fieldname: "", fieldtype: "Link", options: target }, doc, setValue: (name) => void commit(name) }),
     }]
     : undefined;
 
   return (
+    <div className="min-w-0" onFocus={focused ? undefined : () => setFocused(true)}>
     <LinkInput
       id={id}
       {...aria}
@@ -204,6 +232,7 @@ export function FrappeLinkField({
       invalid={invalid}
       placeholder={placeholder}
     />
+    </div>
   );
 }
 

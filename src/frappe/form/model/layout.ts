@@ -7,6 +7,9 @@
  *  - Section Break → new section (one column); Column Break → new column in the current section; Tab Break → new
  *    tab with an implicit section. Fold / Page Break are treated as Section Breaks (UNVERIFIED for Fold's folding).
  *  - Columns split the row equally.
+ * `fieldFilter` (P35): only the meta fields (breaks included) it accepts take part — a filtered-out Section / Column / Tab
+ * Break folds its fields into the previous container. The synthetic `__newname` is not filtered. Filtering never
+ * shows a field: hidden / permission statuses still apply on top.
  * Visibility (computed by the renderer from display statuses): a section with no visible control is hidden; a tab
  * that is hidden, unreadable, or has no visible section is hidden; the tab bar is hidden when one tab remains.
  */
@@ -25,8 +28,8 @@ export function newnameField(meta: DocTypeMeta, isNew: boolean): FrappeDocField 
   return { fieldname: "__newname", fieldtype: "Data", label: "Name", reqd: 1 };
 }
 
-export function buildLayout(meta: DocTypeMeta, opts: { isNew?: boolean } = {}): FormLayout {
-  const fields = [...(meta.fields ?? [])];
+export function buildLayout(meta: DocTypeMeta, opts: { isNew?: boolean; fieldFilter?: (df: FrappeDocField) => boolean } = {}): FormLayout {
+  const fields = (meta.fields ?? []).filter((f) => !opts.fieldFilter || opts.fieldFilter(f));
   const nn = newnameField(meta, !!opts.isNew);
   const hasTabs = fields.some((f) => f.fieldtype === "Tab Break");
   const tabs: LayoutTab[] = [];

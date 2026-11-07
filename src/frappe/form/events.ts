@@ -9,8 +9,11 @@
  * `after_cancel`; a parent field's name (after it changes); `<table>_add`, `before_<table>_remove`,
  * `<table>_remove`, `<table>_move`, `form_render` + `<table>_on_form_rendered` (row form opened); a Button field's name
  * (click). Child-row field changes go to `childEvents[<child DocType>][<fieldname>]` with `(frm, cdt, cdn)`.
- * Handlers run serially (promises awaited). `validate`, `before_save`, `before_submit`, `before_cancel` and
- * `before_<table>_remove` abort when a handler returns `false`, throws, or sets `frm.validated = false`.
+ * Workflow (P35, form/workflow.js:96-121): `before_workflow_action` (with `frm.selectedWorkflowAction` set) runs after the
+ * mandatory check and before `apply_workflow`, `after_workflow_action` after the server answered.
+ * Handlers run serially (promises awaited). `validate`, `before_save`, `before_submit`, `before_cancel`,
+ * `before_workflow_action` and `before_<table>_remove` abort when a handler returns `false`, throws, or sets
+ * `frm.validated = false`.
  */
 import type { FrappeDoc, FrappeDocField, SearchLinkOptions } from "../contract";
 
@@ -42,7 +45,29 @@ export interface FormController {
   clearTable(table: string): void;
   /** Trigger a registered event by name (Desk `frm.trigger`). */
   trigger(event: string, cdt?: string, cdn?: string): Promise<boolean>;
+  // ---- P35 (additive) ----
+  /** `frm.save(action)`: the form's own pipeline (validate → before_save → mandatory → server), after a permission
+   *  check. Default action: Save (Update for a submitted doc). Resolves true when the server accepted it. "Submit" opens
+   *  the "Permanently Submit" confirmation and resolves false (Desk `savesubmit`); confirming submits. */
+  save(action?: "Save" | "Submit" | "Update"): Promise<boolean>;
+  /** `frappe.ui.form.check_mandatory(frm)`: false (and the Missing Fields dialog opens) when a required value is empty. */
+  checkMandatory(): boolean;
+  /** The workflow action being applied (Desk `frm.selected_workflow_action`), set during `before_workflow_action`. */
+  selectedWorkflowAction: string | null;
+  /** Desk `frm.undo_manager.undo()` / `redo()` of the user's field changes ("Nothing left to undo" when empty). */
+  undo(): void;
+  redo(): void;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  /** `frm.add_custom_button(label, fn, group)`: a header button, or an item of the `group` dropdown (e.g. "Create").
+   *  Buttons are cleared on every refresh, before the `refresh` event (form.js:724 clear_custom_buttons). */
+  addCustomButton(label: string, handler: () => unknown, group?: string): void;
+  removeCustomButton(label: string, group?: string): void;
+  clearCustomButtons(): void;
 }
+
+/** A button added with `frm.addCustomButton`. */
+export interface CustomButton { label: string; group?: string; handler: () => unknown }
 
 export type FormEventHandler = (frm: FormController, cdt?: string, cdn?: string) => unknown;
 export type FormEvents = Record<string, FormEventHandler | FormEventHandler[] | undefined>;
@@ -55,7 +80,7 @@ export interface FormEventsConfig {
 }
 
 /** Events whose handlers can stop the action. */
-export const ABORTABLE = (event: string) => ["validate", "before_save", "before_submit", "before_cancel"].includes(event) || /^before_.+_remove$/.test(event);
+export const ABORTABLE = (event: string) => ["validate", "before_save", "before_submit", "before_cancel", "before_workflow_action"].includes(event) || /^before_.+_remove$/.test(event);
 
 /** Run the handlers of one event serially. Resolves false when an abortable event was stopped. */
 export async function runEvent(handlers: FormEventHandler | FormEventHandler[] | undefined, frm: FormController, event: string, cdt?: string, cdn?: string): Promise<boolean> {

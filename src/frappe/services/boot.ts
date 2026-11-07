@@ -9,7 +9,9 @@
  *                    rounding_method, hide_currency_symbol, use_number_format_from_currency, first_day_of_the_week, … },
  *     time_zone: { system, user },
  *     currencies: { <name>: { symbol, symbol_on_right, number_format, fraction_units } },
- *     translations: { <source>: <translated> } }
+ *     translations: { <source>: <translated> },
+ *     defaults: { <key>: value | [values] },                 (P35: frappe.defaults.get_defaults(user), Desk boot.user.defaults)
+ *     user_permissions: { <DocType>: [{ doc, is_default }] } } (P35: user_permission.get_user_permissions(user))
  *
  * Desk equivalents: frappe.session.user / user_fullname, frappe.user_roles, frappe.boot.lang, frappe.csrf_token,
  * frappe.boot.sysdefaults (frappe.defaults.get_defaults), frappe.boot.time_zone (boot.py set_time_zone), the `:Currency`
@@ -30,6 +32,10 @@ export interface FrappeBootPayload {
   time_zone?: { system?: string; user?: string };
   currencies?: Record<string, CurrencyInfo>;
   translations?: TranslationDictionary;
+  /** User defaults (`frappe.defaults.get_defaults(user)` — utils/user.py:196, Desk `frappe.boot.user.defaults`). */
+  defaults?: Record<string, unknown>;
+  /** User Permissions by DocType (`frappe.core.doctype.user_permission.user_permission.get_user_permissions`). */
+  user_permissions?: Record<string, { doc?: unknown; is_default?: unknown }[]>;
   [key: string]: unknown;
 }
 
@@ -44,6 +50,33 @@ export interface FrappeBoot {
   /** The raw sysdefaults that were sent (e.g. `first_day_of_the_week`, `link_field_results_limit`). */
   sysdefaults: Record<string, unknown>;
   isGuest: boolean;
+  /** New-document user defaults for `newDoc` (`<FrappeForm newDocDefaults={{ userDefaults: boot.userDefaults }}>`), from
+   *  `defaults` + `user_permissions` (P35, A-form E2 / D8). Absent when the boot carried neither. */
+  userDefaults?: Record<string, string | string[]>;
+}
+
+/**
+ * Desk's `frappe.defaults.get_user_default` sources (public/js/frappe/defaults.js:4-41) as one map for `newDoc`:
+ * every user default (string, or a list — `newDoc` uses a list only when it has exactly one value), then per DocType of
+ * the User Permissions: the `is_default` one wins (`get_user_permission_default` :24-40); otherwise, when the user has
+ * exactly one allowed value, that value (Desk: `in_user_permission` leaves only it). Keys are DocType names (Link
+ * fields to that DocType) or fieldnames, as `DefaultsContext.userDefaults` reads them.
+ */
+export function userDefaultsFromBoot(p: Pick<FrappeBootPayload, "defaults" | "user_permissions">): Record<string, string | string[]> | undefined {
+  const out: Record<string, string | string[]> = {};
+  for (const [k, v] of Object.entries(p.defaults && typeof p.defaults === "object" ? p.defaults : {})) {
+    if (typeof v === "string" && v) out[k] = v;
+    else if (Array.isArray(v)) { const list = v.filter((x): x is string => typeof x === "string" && !!x); if (list.length) out[k] = list; }
+  }
+  for (const [doctype, rows] of Object.entries(p.user_permissions && typeof p.user_permissions === "object" ? p.user_permissions : {})) {
+    if (!Array.isArray(rows)) continue;
+    const docs = rows.map((r) => (r && typeof r.doc === "string" ? r.doc : "")).filter(Boolean);
+    const def = rows.find((r) => r && typeof r.doc === "string" && r.doc && Number(r.is_default) === 1);
+    if (def) out[doctype] = def.doc as string;
+    else if (docs.length === 1) out[doctype] = docs[0];
+    else if (docs.length > 1 && typeof out[doctype] === "string" && !docs.includes(out[doctype] as string)) delete out[doctype]; // not permitted
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 const ROUNDING: RoundingMethod[] = ["Banker's Rounding (legacy)", "Banker's Rounding", "Commercial Rounding"];
@@ -90,5 +123,6 @@ export function readFrappeBoot(source: unknown = (globalThis as { __sf_boot?: un
     translations: translations && Object.keys(translations).length ? translations : undefined,
     sysdefaults: p.sysdefaults && typeof p.sysdefaults === "object" ? p.sysdefaults : {},
     isGuest,
+    ...(userDefaultsFromBoot(p) ? { userDefaults: userDefaultsFromBoot(p) } : {}),
   };
 }

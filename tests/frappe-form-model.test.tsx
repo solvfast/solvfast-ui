@@ -317,7 +317,8 @@ describe("primary action (docs 11 §7)", () => {
     expect(formActions({ docstatus: 0, isNew: false, dirty: false, isSubmittable: false, perms: all }).primary).toBe("Save");
     expect(formActions({ docstatus: 0, isNew: false, dirty: false, isSubmittable: true, perms: all, hasWorkflow: true }).primary).toBeNull();
     expect(formActions({ docstatus: 0, isNew: false, dirty: true, isSubmittable: true, perms: all, hasWorkflow: true }).primary).toBe("Save");
-    expect(formActions({ docstatus: 1, isNew: false, dirty: true, isSubmittable: true, perms: all })).toEqual({ primary: "Update", secondary: "Cancel", primaryDisabled: false });
+    // P35 F5: toolbar.js:668-689 is an else-if chain — Update, and no Cancel, while the submitted doc is dirty
+    expect(formActions({ docstatus: 1, isNew: false, dirty: true, isSubmittable: true, perms: all })).toEqual({ primary: "Update", secondary: null, primaryDisabled: false });
     expect(formActions({ docstatus: 1, isNew: false, dirty: false, isSubmittable: true, perms: all })).toMatchObject({ primary: null, secondary: "Cancel" });
     expect(formActions({ docstatus: 1, isNew: false, dirty: false, isSubmittable: true, perms: all, hasWorkflow: true, canCancelWithWorkflow: false }).secondary).toBeNull();
     expect(formActions({ docstatus: 2, isNew: false, dirty: false, isSubmittable: true, perms: all, alreadyAmended: true })).toMatchObject({ primary: "Amend", primaryDisabled: true });

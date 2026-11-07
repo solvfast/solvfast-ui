@@ -5,8 +5,11 @@
  *  2. Save — docstatus 0, save not disabled; with a workflow only when dirty;
  *  3. Update — docstatus 1, saved, submit permission, dirty;
  *  4. Cancel — docstatus 1, cancel permission; a SECONDARY button; with a workflow only when no transition leads to a
- *     cancelled state (`canCancelWithWorkflow`, from `can_cancel_document`);
- *  5. Amend — docstatus 2, amend permission (disabled when already amended).
+ *     cancelled state (`canCancelWithWorkflow`, from `can_cancel_document`). NOT while Update is offered: Desk's
+ *     ladder is an else-if chain (toolbar.js:668-689), and cancelling a dirty submitted doc would reload it from the
+ *     database and drop the `allow_on_submit` edits (P35 F5; before 0.7 both buttons showed);
+ *  5. Amend — docstatus 2, amend AND create permission (Desk's `amend_doc` → `copy_doc` → `validate_form_action("Create")`,
+ *     form.js:1297-1298; P35 F8 — before 0.7 amend alone), disabled when already amended.
  * The chosen action is then re-checked against the permission it maps to (Save → write — `create` for a new document
  * (UNVERIFIED: Desk checks `write` in frm.perm, which for new documents normally comes with `create`), Submit/Update →
  * submit, Cancel → cancel, Amend → amend). When workflow actions exist and the form is clean, the workflow replaces
@@ -46,9 +49,9 @@ export function formActions(a: ActionInput): ActionResult {
     else if (!a.saveDisabled && (!a.hasWorkflow || a.dirty)) primary = "Save";
   } else if (a.docstatus === 1) {
     if (!a.isNew && a.dirty && can("submit")) primary = "Update";
-    if (can("cancel") && (!a.hasWorkflow || a.canCancelWithWorkflow !== false)) secondary = "Cancel";
+    else if (can("cancel") && (!a.hasWorkflow || a.canCancelWithWorkflow !== false)) secondary = "Cancel";
   } else if (a.docstatus === 2) {
-    if (can("amend")) primary = "Amend";
+    if (can("amend") && can("create")) primary = "Amend";
   }
   if (primary === "Save" && !(a.isNew ? can("create") || can("write") : can("write"))) primary = null;
   if ((primary === "Submit" || primary === "Update") && !can("submit")) primary = null;

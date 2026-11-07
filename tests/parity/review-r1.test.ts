@@ -68,7 +68,7 @@ describe("F-09/W-04 action matrix (formActions)", () => {
   it("no write right: nothing to press", () => expect(run({ perms: {}, dirty: true }).primary).toBeNull());
   it("submitted: Cancel is SECONDARY; Update only when dirty and submit right", () => {
     expect(run({ docstatus: 1 })).toMatchObject({ primary: null, secondary: "Cancel" });
-    expect(run({ docstatus: 1, dirty: true })).toMatchObject({ primary: "Update", secondary: "Cancel" });
+    expect(run({ docstatus: 1, dirty: true })).toMatchObject({ primary: "Update", secondary: null }); // P35 F5: toolbar.js:668-689 — Update XOR Cancel
     expect(run({ docstatus: 1, dirty: true, perms: { cancel: true } }).primary).toBeNull();
   });
   it("cancelled: Amend, disabled when already amended", () => {
