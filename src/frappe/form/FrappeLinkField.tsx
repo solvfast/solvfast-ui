@@ -14,7 +14,8 @@
  *    handed to `onValidated` (the form writes the fetch targets). Clearing reports `onValidated(null)` (targets → "").
  *    `ignore_link_validation` skips it. A Dynamic Link with no DocType yet searches nothing and clears typed text.
  *  - Titles: a picked result's label is remembered per "DocType::name" and shown for the value (Desk's link-title
- *    cache, scoped to the provider's client and session user — linkTitles.ts). UNVERIFIED: `show_title_field_in_link` targets — without boot this shows a label only when one is known.
+ *    cache, scoped to the provider's client and session user — linkTitles.ts). getdoc's `_link_titles` are seeded into
+ *    that cache by FrappeFormView (P35 F3); a value set later shows its title once a search or pick has seen it.
  *  - "Create a new X" (link.js:323-334): not for `only_select`; offered when the session may create the target (P35 F4:
  *    the target's DocPerm rows × session roles, read from its meta once the field is focused; Administrator always; an
  *    app `canCreate` override decides alone) AND something can create it: the app's `onCreateNew`, else FrappeForm's
