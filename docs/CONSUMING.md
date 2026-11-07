@@ -344,10 +344,53 @@ don't get the package's glass surfaces (classes of your own, such as PMO's `glas
 Their portals go to `<body>`: fine with the default document scope; with `scope="element"`, pass the container from
 `usePortalContainer()` to them yourself.
 
+## 8. New in 0.7.0-dev (P35)
+
+No new entry points: everything is exported from `@solvfast/ui` (Core) or `@solvfast/ui/frappe`, and nothing was removed
+or renamed. All new Core props are optional; without them a component renders its 0.6.0 markup. Behaviour changes for
+existing consumers are listed in CHANGELOG.md (0.7.0-dev.1 → Changed) — check Ctrl/⌘+S, the page-size picker, the
+System-Manager list menu entries and the permission-gated Link "Create a new X".
+
+**Core (`@solvfast/ui`)** — record and list building blocks without a backend: `RecordMenu`, `RenameDialog`,
+`ReminderDialog`, `ConnectionsPanel`, `EmailComposer`, `PrintPreviewFrame`; `GroupBySidebar` (`ListView aside`); views
+`ViewSwitcher`, `ImageView`, `KanbanBoard`, `CalendarMonth`; fields `FileDropzone`, `MonthInput`; `EmptyState`; and new
+props: `StatusBadge color`, `LifecycleStateItem.step`, `SearchCombobox options / multiple`, `Timeline onItemSelect`,
+`IconStatCard trend`, `Stepper overflowCue`, `ListView pageSizes / selectAllMatching / layout="cards"`.
+
+```tsx
+import { Button, FileDropzone, MonthInput, EmptyState, StatusBadge } from "@solvfast/ui";
+
+<FileDropzone accept="image/*,.pdf" multiple maxSize={5 * 1024 * 1024} onFilesAdded={(files) => upload(files)} />
+<MonthInput value={month} onChange={setMonth} />            {/* "YYYY-MM" */}
+<StatusBadge label="Qualified" color="#7c3aed" />           {/* any CSS colour or a palette token */}
+<EmptyState title="No contacts yet" action={<Button onClick={create}>Add contact</Button>} />
+```
+
+**Frappe (`@solvfast/ui/frappe`)** — Quick Entry, the form ⋯ menu, print, Connections, e-mail, the group-by sidebar,
+List Settings and the other list views:
+
+```tsx
+import { FrappeListView, FrappeQuickEntry, FrappeViews } from "@solvfast/ui/frappe";
+
+// "Add ToDo" (shown only with the create right) opening Desk's Quick Entry; the list reloads after a save
+<FrappeListView
+  doctype="ToDo"
+  sidebar                                   // Desk's group-by sidebar with server counts (opt-in: extra requests)
+  create={{ render: (p) => <FrappeQuickEntry doctype="ToDo" {...p} onOpenFullForm={(doc) => openForm(doc)} /> }}
+/>
+
+// List / Report / Image / Kanban / Calendar, as the DocType allows
+<FrappeViews doctype="Task" />
+```
+
+The form pieces (`FrappeRecordMenu`, `FrappeConnections`) plug into `FrappeFormView`'s `menu` and `extraTabs` slots;
+see `docs/components/record.md` §5 and `docs/components/forms.md`. TODO(integration): `FrappeForm` mounts them by default.
+Every server write these components make has been tested only against the simulator (docs/LIMITATIONS.md).
+
 ## Known limitations
 The full list is in docs/LIMITATIONS.md. The ones most likely to matter:
-- The Frappe layer has passed tests against **simulated** Frappe requests only. **Real-site validation is deferred**
-  until the package is integrated into a real project; it has not been done.
+- The Frappe layer has been tested against recorded real Frappe 15.110 responses (read paths) and the in-package
+  simulator only. **No authenticated real-site validation has been done**, and no write has been verified on a site.
 - React 19, Tailwind 4, Frappe other than 15, and browsers other than Chromium are untested.
 - Intended differences from Sear: the fixed Actions column, the wrapping toolbar on phones, 180/120 ms buttons, and
   the shell fixes (docs/VALIDATION.md).

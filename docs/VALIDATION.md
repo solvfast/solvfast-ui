@@ -343,3 +343,20 @@ Not run for 0.3.0: list, cards, parts, motion and Frappe-demo parity — the cod
 | Client filtering | same file | calendar-day After / On or Before; Between with open ends; Timespan; Fiscal Year |
 | Frappe layer | tests/frappe.test.tsx | between / timespan / fiscal-year translation; no Fiscal Year request on page load; opening the filter loads it once and a Fiscal Year condition filters by the year's dates |
 | Everything else | `npm test`, `npm run build`, `node e2e/list-parity.mjs` | 193/193; boundaries and audit pass; list parity 32/44 as before |
+
+## 0.7.0-dev — P35 Form View / List View coverage (2026-11-07)
+
+Evidence class of everything below: **unit tests in jsdom and the in-package simulator.** No authenticated real Frappe
+site, no real browser for the new components, no write on a site. Row-by-row status: `docs/audit/p35/COVERAGE.md`.
+
+| Check | How | Result |
+|---|---|---|
+| Unit tests, merged tree | `npx vitest run` at `e6e4dd2` (worktree `p35-docs`; dependencies from the identical p33 lockfile) | **68 files, 1387 passed, 10 todo, 0 failed** — the only run on the merged HEAD |
+| Coverage of the fixed requirement list | `docs/audit/p35/COVERAGE.md` (denominator 301, fixed before implementation) | 148 / 301 = 49.2 % (0.6.0) → **257 / 301 = 85.4 %** (Form 154 / 181, List 103 / 120); 0 rows at `real-site` level; 61 COMPLETE rows listed as "needs real-site validation" |
+| Workstream gates (on each branch before merge) | `npm run typecheck`, `node scripts/check-boundaries.mjs` (source rules only — dist not built), `npm test` | all clean per workstream report; WS1's single failure (`tests/parity/review-r1.test.ts:71`, the old Update + Cancel expectation) is updated in the merged tree |
+| New test files | `frappe-form-p35` (51), `frappe-fieldtypes` (16), `frappe-quick-entry` (9), `record-actions` (12), `frappe-record-actions` (24), `list-p35` (9), `frappe-list-p35` (29), `views-switcher` (9), `frappe-views-{host,report,kanban,calendar,image}` (32), `views-showcase` (1), `list-p35-showcase`, `core-p35` (44) | test names start with the row id (`FV.<row>`, `LV.<row>`, `CORE.<gap>`) |
+| CRM adoption on 0.6.0 (WS6, CRM repository) | CRM `tsc`, `vite build`, route sweep, SD/SM + legacy screenshot diff, P35 migrated-UI script on 8 combinations | 30 tsc errors before and after (identical list, none in touched files); 376 PASS / 0 FAIL on the migrated UI; SD/SM screenshots within the noise floor (`docs/audit/p35/CRM-MIGRATION.md`) |
+
+**Not run for 0.7.0-dev.1 yet (TODO(integration)):** `npm run build` (dist boundary rules, regenerated styles),
+`npm run check:package`, Showcase build + `e2e/showcase-smoke.mjs`, `e2e/consumers/run.sh` (clean install of the new
+exports), pixel parity of the new components, any real-site check (`e2e/frappe-site/` prepared, never run).

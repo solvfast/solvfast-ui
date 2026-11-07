@@ -6,6 +6,125 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.1 (unreleased)
+
+P35 — Form View / List View coverage. Coverage of the fixed P35 requirement list (`docs/audit/p35/COVERAGE.md`, repository
+only): **148 / 301 = 49.2 % at 0.6.0 → 257 / 301 = 85.4 %** (Form 154 / 181, List 103 / 120). **No authenticated real-site
+validation has been done; every write path is simulator-only** (`docs/LIMITATIONS.md`). Exports: additions only — no export
+was removed or renamed (diff of `src/index.ts`, `src/frappe/index.ts`, `src/fields/index.ts`, `src/record/index.ts` and the
+`src/frappe/{form,record,form/model}` barrels, `0ef45c1..e6e4dd2`); `package.json` `exports` unchanged.
+
+> **TODO(integration)** — to be completed from the integration report: the version bump to `0.7.0-dev.1` in
+> `package.json` (still `0.6.0` at `e6e4dd2`), `FrappeForm`'s default ⋯ menu and Connections tab, `FrappeListView`'s
+> default create → Quick Entry / full form, `onQueryStateChange` and filters carried from the List view into
+> `FrappeViews`, and the final gate results. The entries below describe `e6e4dd2` (the five merged workstreams).
+
+### Added
+- **Form (`@solvfast/ui/frappe`)**
+  - `FrappeQuickEntry` (Desk's Quick Entry dialog over `FrappeFormView`, "Edit Full Form" hand-over), `useQuickEntryHost`,
+    `quickEntryFields` / `quickEntryFilter` (port of quick_entry.js:59-110); `FrappeForm` opens it from a Link's
+    "Create a new X" when the target is quick-entry eligible; `FrappeFormProps.onOpenFullForm`.
+  - `FrappeFormView` slots and options: `menu`, `extraTabs`, `fieldFilter`, `hotkeys`; header image from `meta.image_field`;
+    "See on Website" (`__onload.is_website_generator` + `published` + `route`, fallback `has_web_view`).
+  - Undo / Redo: `DocStore.undo/redo/canUndo/canRedo/eraseHistory`, `HistoryEntry`; Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl/⌘+Y.
+  - `FormController`: `addCustomButton` / `removeCustomButton` / `clearCustomButtons` (grouped buttons form a dropdown),
+    `save(action?)`, `checkMandatory()`, `selectedWorkflowAction`, `undo()` / `redo()` / `canUndo` / `canRedo`;
+    `before_workflow_action` is abortable; `FrappeWorkflowActionsProps.beforeApply` / `afterApply`.
+  - Server save errors on fields: `fieldErrorsFromFrappeError` (MandatoryError, LinkValidationError).
+  - Fieldtypes: Autocomplete control (`df.options`); `SUPPORTED_FIELDTYPES`, `analyzeFieldtypes`, `FieldtypeIssue`.
+  - `useUnsavedChangesBlocker` (router-agnostic in-app navigation guard); `defaultLinkHref`; `FormServices.builtin`,
+    `FormServices.quickEntry`.
+  - Client / boot: `getDoc` keeps getdoc's `_link_titles` (`linkTitlesOf`, `LoadedDocWithTitles`); `userDefaultsFromBoot`,
+    `FrappeBootPayload.defaults` / `user_permissions`, `FrappeBoot.userDefaults`.
+- **Record (Core `@solvfast/ui` + `@solvfast/ui/frappe`)**
+  - Core: `RecordMenu`, `groupMenuItems`, `RenameDialog`, `PrintPreviewFrame`, `printSrcDoc`, `ConnectionsPanel`,
+    `EmailComposer`, `isValidEmail`, `ReminderDialog` (+ `toFrappeDatetime`, `remindAtFor`, `reminderSetText`).
+  - Frappe: the form ⋯ menu `FrappeRecordMenu` + `formMenuItems` / `FORM_MENU_ORDER` / `printAllowedForStatus` /
+    `customizeHref` (Print, Email, Links, Duplicate, Copy to Clipboard, Rename, Reload, Delete, Remind Me, Undo / Redo,
+    Customize, New — Desk's order and rules); `FrappeFormPrint`, `FrappePrintPreview` (+ `downloadPdfUrl`, `printViewUrl`,
+    …); `FrappeConnections`, `connectionsFromMeta`, `useOpenCounts`; `FrappeEmailComposer`, `emailMakeArgs`;
+    `FrappeReminder`.
+- **List**
+  - Core: `GroupBySidebar` and `ListView` `aside` / `asideOpen`; multi-bucket grouping (`GroupBucket`); page-size picker
+    (`ListPagination pageSize/pageSizes/onPageSize`, `useListState().setPageSize`, `ListViewProps.pageSizes`); "Select all
+    {n} matching" (`ListViewProps.selectAllMatching`, `BulkAction.allMatching`, `SelectionMatching`); phone cards
+    (`ListViewProps.layout: "table" | "cards" | "auto"`, `ColumnDef.mobile`); `SavedFilter.global`, `SaveFilterOptions`,
+    `SavedFilters canSaveGlobal`, `ListViewProps.savedFiltersGlobal`; `FilterField.operators`; `ListActions.removeCondition`.
+  - Frappe: workflow state in the row indicator from the DocType (`indicatorWorkflowFromMeta`); Assigned To / Tags filter
+    fields, per-user / per-tag grouping, `TagsCell`; group-by sidebar with server counts and tag stats (`sidebar`,
+    `FrappeGroupBySidebar`, `useGroupByCounts`, `useTagStats`) + "Toggle Sidebar"; "Add {DocType}" (`create`,
+    `FrappeListCreate`); menu entries User Permissions / Role Permissions Manager / Customize / List Settings
+    (`FrappeListSettingsDialog`, `save_listview_settings`), `onNavigate`, `userPermissionsUrl`, `rolePermissionsUrl`,
+    `customizeUrl`; typed Bulk Edit value (`BulkEditValue`); `DESK_PAGE_SIZES`; `actsAsSystemManagerFor`.
+- **Views** — Core: `ViewSwitcher`, `ViewToolbar`, `ImageGrid`, `ImageView`, `KanbanBoard`, `CalendarMonth` and helpers;
+  Frappe: `FrappeViews`, `availableViews`, `FrappeReportView` (column picker incl. child fields, permission-aware inline
+  edit, totals), `FrappeImageView`, `FrappeKanbanView` (Kanban Board or Select-field mode), `FrappeCalendarView`,
+  `useFrappeViewList`. Gantt, Dashboard, Map, Tree and Inbox are not implemented (`docs/components/views.md` §7).
+- **Core capabilities for the CRM** — `StatusBadge` / `StatusDot` `color` (+ `STATUS_PALETTE`, `resolveStatusColor`,
+  `statusColorStyles`); `LifecycleStateItem.step` (`past` / `current` / `future` / `skipped` / `failed`); `FileDropzone`;
+  `SearchCombobox` static `options`, `multiple`, `values`, `variant`; `TimelineItem.icon` rendered + `tone`,
+  `Timeline onItemSelect` / `showActor`; `Suggestion.group` / `icon` (LinkInput, TagInput); `IconStatCard trend`;
+  `EmptyState`; `RichTextEditorHandle` (`insertText`, `insertHtml`, `focus`, `getHtml`) + `toolbarEnd`; `MonthInput`;
+  `Stepper overflowCue` / `followCurrent`; `AssigneeGroup` list variant shows `description` under the name.
+- **Simulator (`@solvfast/ui/frappe/testing`)** — SIMULATED handlers for `get_group_by_count`, `get_sidebar_stats`,
+  `save_listview_settings`, `get_open_count`, `get_html_and_style`, `communication.email.make`, `get_email_template`,
+  `create_new_reminder`, `get_kanban_boards`, `update_order_for_single_card`, `calendar.get_events`.
+- **Showcase** — SIMULATED pages `#frappe-form-p35`, `#frappe-record-actions`, `#p35-list`, `#frappe-views`; Core pages
+  `core-fields`, `file-dropzone`, `combobox-p35`, `empty-trend`, `record-p35`, `editor-stepper-p35`, `record-extras`.
+
+### Changed (behaviour visible to 0.6.0 consumers)
+- **Ctrl/⌘+S runs the visible primary action** (Desk's `trigger_primary_action`): Save, Submit (with its confirmation),
+  Update or Amend; it is document-level and only the topmost mounted form answers; it blurs the focused input first and
+  does nothing with `saveDisabled`, without rights or while workflow actions replace the buttons. `hotkeys={false}` opts out.
+  (0.6.0: save / update only, only with focus inside the form.)
+- **A dirty submitted document shows Update only** — no Cancel next to it (toolbar.js:668-689).
+- **Amend needs the amend and the create right**; Duplicate / Amend copies start from the new-doc defaults
+  (`no_copy` fields get their default, `__run_link_triggers`, `modified_by` reset, child rows keep `_amended_from`).
+- **Link "Create a new X" is offered only with the target's create right** (was: whenever `onCreateNew` was given), and
+  **the open-record link is hidden without read on the target** (and for a session without roles). App overrides
+  (`canCreate`, `linkHref`) still decide alone.
+- **Unsupported fieldtypes are read-only** (raw value) and listed in the form's issues banner (were editable text boxes).
+- `frm.save("Submit")` asks for confirmation first (Desk `savesubmit`); `frm.save()` checks the right first.
+- A required field forces its collapsible section open only while it is `null` (not for `""`, section.js:150).
+- A new document of a workflow DocType starts in the workflow's default state for its docstatus.
+- Workflow transitions run Desk's pre-steps: mandatory check (incl. `mandatory_depends_on`) → `before_workflow_action`
+  → `apply_workflow` → `after_workflow_action`.
+- **`FrappeListView` shows the page-size picker by default** (20 / 100 / 500 / 2500, stored in `user_settings`
+  `List.sf_ui.pageSize`; `pageSizes={[]}` hides it).
+- **System Managers see four more ⋯ entries** in `FrappeListView`: User Permissions, Role Permissions Manager, Customize,
+  List Settings (`menu={{ … : false }}` per entry). Import now also navigates through `onNavigate` when given.
+- **The empty-state "Create your first …" needs the create right** (was ungated).
+- **Workflow DocTypes show the workflow state in the row indicator by default** (`workflow={false}` opts out); with the
+  width cap it takes Desk's Status slot.
+- Frappe group-by: Assigned To / Tags rows go into one group per user / tag; user groups are labelled with full names;
+  the "no value" group is labelled **"Not Set" / "No Tags"** (was "—").
+- **Saved filters:** removing one asks for confirmation; **the localStorage adapter rejects a duplicate name** (it
+  replaced it before); System Managers get an "Is Global" checkbox in `FrappeListView` (`savedFiltersGlobal`).
+- `Timeline` renders `TimelineItem.icon` when set (it was ignored); `AssigneeGroup variant="list"` renders `description`
+  (it was ignored). Without those fields the markup is unchanged.
+- Types (source-compatible): `RichTextEditor` is a `forwardRef` component; `SearchCombobox` `search` and `onSelect` are
+  optional; `FormSkeleton` moved to its own module and is still exported from `@solvfast/ui/frappe`.
+- TODO(integration): default ⋯ menu and Connections tab in `FrappeForm`; default create → Quick Entry in `FrappeListView`.
+
+### Fixed (native Frappe 15.110 mismatches, `docs/audit/p35/C-native.md`)
+- F1 Ctrl+S (above). F2 workflow pre / post steps (above). F3 getdoc `_link_titles` are kept and seed the link-title cache,
+  so saved forms show Link titles without a search. F4 Link create / open permission defaults (above). F5 Update without
+  Cancel (above; `tests/parity/review-r1.test.ts` updated to the native expectation). F6 in-app navigation:
+  `onDirtyChange` + `useUnsavedChangesBlocker`. F8 Amend right and copy defaults (above). F7 stale `docs/FRAPPE.md` /
+  `docs/LIMITATIONS.md` (Docs below). **F9 not fixed:** no source boundary rule yet forbids `src/frappe/**` from importing
+  `./testing` (the dist rule exists).
+
+### Docs
+- `docs/FRAPPE.md` rewritten: the entry's contents, every whitelisted method called (rows via `reportview.get`;
+  `get_list` for lookups only), writes, `user_settings`, realtime, validation status.
+- `docs/LIMITATIONS.md` rewritten for 0.7.0-dev.1: no authenticated real-site validation, simulator-only areas, views not
+  implemented and why, known bugs; stale "Not supported: child tables, realtime, per-user list settings" removed.
+- `docs/components/forms.md` (P35 APIs, behaviour changes, regenerated fieldtype table — Attach uploads), `record.md` §5,
+  `list.md` (stale "selection-bar buttons only", "sidebar not reproduced", "List Settings read only" removed),
+  `views.md` (new), `p35-core.md` (new). `views.md` and `p35-core.md` are not in `package.json` `files` yet.
+- `docs/audit/p35/COVERAGE.md`, `docs/audit/p35/CRM-MIGRATION.md` (new); `docs/release/COMPONENT-COMPLETION-MATRIX.md` and
+  `LISTVIEW-FRAPPE-PARITY.md` marked superseded where stale.
+
 ## [0.6.0] — 2026-11-06
 
 Version decision: **0.6.0** (minor), not 0.5.1. Reason, checked on the public surface `v0.5.0..HEAD`: `src/index.ts` gains

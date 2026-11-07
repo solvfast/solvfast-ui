@@ -3,16 +3,18 @@
 SOLV FAST product UI kit: Sear's design, packaged — theme, primitives, app shell and List View, with an optional
 Frappe layer. React 18 · Tailwind 3 (or precompiled CSS) · Radix.
 
-**Status: 0.3.0** — a private package on GitHub Packages (install: [docs/CONSUMING.md](docs/CONSUMING.md#install)). The
-Frappe layer has passed tests against simulated Frappe requests; real-site validation is deferred until the package is
-integrated into a real project (not done). See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+**Status: 0.6.0 released; 0.7.0-dev.1 in development** — a private package on GitHub Packages (install:
+[docs/CONSUMING.md](docs/CONSUMING.md#install)). The Frappe layer is tested against recorded real Frappe 15.110 responses
+(read paths) and an in-package simulator; **no authenticated real-site validation has been done and no write has been
+verified on a site** (not done until the package is integrated into a real project). See [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ## Entry points
 
 | Import | What |
 |---|---|
 | `@solvfast/ui` | `ThemeProvider`, primitives (below), `PageHeader`, `AppShell` (navbar, sidebar, mobile nav, app switcher, notifications), `ListView` and its parts, `useListState` |
-| `@solvfast/ui/frappe` | `FrappeListView`, `useFrappeList`, `FrappeProvider`, `createFrappeClient` — needs `@tanstack/react-query` 5; the core never imports it |
+| `@solvfast/ui/frappe` | Frappe DocTypes on stock Frappe 15 methods: `FrappeListView`, `FrappeForm`, `FrappeQuickEntry`, record panels (workflow, timeline, assign, ⋯ menu, print, Connections, e-mail), `FrappeViews` (Report, Image, Kanban, Calendar), `FrappeProvider`, `createFrappeClient` — needs `@tanstack/react-query` 5; the core never imports it ([docs/FRAPPE.md](docs/FRAPPE.md)) |
+| `@solvfast/ui/frappe/testing` | the in-package simulated Frappe backend (`createFixtureTransport`) for tests and demos; `@solvfast/ui/frappe` never imports it |
 | `@solvfast/ui/toast` | `Toaster`, `toast` — needs `sonner` 1.7 or 2 (optional peer dependency); the core never imports it |
 | `@solvfast/ui/chart` | `ChartContainer`, `ChartTooltip(Content)`, `ChartLegend(Content)`, `ChartStyle` — needs `recharts` 2 (optional peer dependency); the core never imports it |
 | `@solvfast/ui/form` | `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormDescription`, `FormMessage`, `useFormField` — needs `react-hook-form` 7 (optional peer dependency); the core never imports it |
@@ -67,7 +69,7 @@ Everything else — the no-Tailwind path, the shell, the List View, fonts, insta
 ## Documentation
 
 - [docs/CONSUMING.md](docs/CONSUMING.md) — installing and using the package
-- [docs/FRAPPE.md](docs/FRAPPE.md) — the Frappe layer: requirements, endpoints, behaviour, limits
+- [docs/FRAPPE.md](docs/FRAPPE.md) — the Frappe layer: requirements, methods called, behaviour, validation status
 - [docs/FEATURES.md](docs/FEATURES.md) — List View feature coverage and fixes relative to Sear and PMO
 - [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — what is not done, not verified, or intentionally different
 - [CHANGELOG.md](CHANGELOG.md) · [VENDORED.md](VENDORED.md) (where the code comes from) · [docs/VALIDATION.md](docs/VALIDATION.md) (evidence) · [docs/RELEASING.md](docs/RELEASING.md) (release checklist)

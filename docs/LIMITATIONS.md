@@ -137,7 +137,6 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
 - Server mode: the selection keeps keys across pages, but `bulkActions` receive row objects only for rows on the
   current page (keys for all).
 - Grouped: collapsing a group can re-balance column widths (all groups still share the header's columns).
-
 - `layout="auto"` switches to cards only where a phone media query matches; `layout="cards"` forces them.
 - Select all matching ends when a row is unchecked or the query changes.
 
