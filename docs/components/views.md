@@ -93,7 +93,9 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
   - each child field gets an alias: `` `tabTask Item`.`qty` as 'Task Item:qty' ``, plus `` `tabTask Item`.`name` as 'Task Item:name' ``;
   - the order is qualified and there is no `group_by` (report_view.js:136), so a site answers one row per child row.
 
-  **The simulator answers one row per parent with its first child row.**
+  **The simulator answers one row per parent with its first child row.** No recorded real response covers this request
+  form, the response key form (the decoder strips quotes around `'Child:f'` defensively) or the row-per-child shape.
+  This sub-path is BLOCKED-REQUIRES-REAL-FRAPPE.
 - **Inline edit:** `isCellEditable(df, row, levels)` ports report_view.js:758-771:
   - the user has the write right on the field's permlevel;
   - the document is not submitted, unless the field has `allow_on_submit`;
@@ -136,7 +138,8 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
   - Enter opens a card; Space selects it.
 - **States:** loading shows skeleton cards; there are also an empty state and an error state.
 - **Paging:** the list pager.
-- **Data:** `FrappeImageView` requests `image_field` and `title_field` with the list fields (image_view.js:21-29).
+- **Data:** `FrappeImageView` requests `image_field` and `title_field` with the list fields (image_view.js:21-29). No
+  recorded real `reportview.get` response includes an Attach Image column, so reading that field is simulator-only evidence.
 - **Not reproduced:** the PhotoSwipe gallery and zoom, `get_attached_images`, the Like heart on cards.
 
 ## 5. Kanban — `KanbanBoard` (Core) and `FrappeKanbanView`
@@ -166,6 +169,11 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
   8. A move calls `update_order_for_single_card({board_name, docname, from_colname, to_colname, old_index, new_index})`
      (kanban_board.py:131-161; args as kanban_board.bundle.js:175-184).
   9. The answer replaces the board, and the card's field is patched.
+
+  **Desk quirk, reproduced:** the server pops `old_index` from the column's `order` JSON without checking the name
+  (kanban_board.py:147-151). With a list filter active, the displayed column omits cards that are still in `order`, so
+  the index sent can pop a different name than the card that moved. Desk sends Sortable DOM indices and behaves the same
+  way, so this is Desk's behaviour, not a defect introduced here.
 - **Group mode:** this is a package addition with no Desk equivalent. It is used when there is no board, or when `groupBy`
   is set. The columns are the Select field's options, plus "Not set". A move calls `frappe.client.set_value`.
 - **Gates:**
@@ -205,6 +213,9 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
   uses `ifnull(end, '2199-12-31')`).
 - **Optional source:** `source: { method }` sends Desk's `get_events` arguments
   (`doctype, start, end, field_map, filters`, calendar.js:358-367).
+- **Untested paths:** the demo DocType uses Date fields only. These paths have no test yet:
+  - the `23:59:59` end bound for a Datetime start field;
+  - an `allDay` mapped to a Check field.
 - **Not reproduced:**
   - week and day views;
   - dragging or resizing events (`update_event`);
