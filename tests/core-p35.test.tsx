@@ -7,7 +7,7 @@ import * as React from "react";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Users } from "lucide-react";
 import {
-  RichTextEditor, type RichTextEditorHandle, LinkInput, IconStatCard, EmptyState, Button, type Suggestion, Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
+  MonthInput, formatMonthValue, parseMonthValue, RichTextEditor, type RichTextEditorHandle, LinkInput, IconStatCard, EmptyState, Button, type Suggestion, Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
   type LifecycleStateItem,
 } from "../src";
 
@@ -466,5 +466,45 @@ describe("CORE.G15 RichTextEditor insert API + toolbar slot", () => {
   it("CORE.G15 without the new props the editor is unchanged (no toolbar slot)", () => {
     const { container } = wrap(<RichTextEditor value="" onChange={() => {}} />);
     expect(container.querySelector("[data-toolbar-end]")).toBeNull();
+  });
+});
+
+describe("CORE.G20 MonthInput (month granularity)", () => {
+  it("CORE.G20 parses / formats YYYY-MM in en and ar", () => {
+    expect(parseMonthValue("2026-03")).toEqual({ y: 2026, m: 3 });
+    expect(parseMonthValue("2026-13")).toBeNull();
+    expect(formatMonthValue("2026-03")).toBe("March 2026");
+    expect(formatMonthValue("2026-03", "ar")).toBe("مارس ٢٠٢٦");
+  });
+  it("CORE.G20 opens a month grid, picks with the mouse; clears with ×; min / max disable months", async () => {
+    const change = vi.fn();
+    wrap(<MonthInput aria-label="Readiness" value="2026-03" onChange={change} min="2026-02" max="2026-10" />);
+    const trigger = screen.getByRole("button", { name: "Readiness: March 2026" });
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "March 2026" }).getAttribute("aria-pressed")).toBe("true");
+    expect((within(dialog).getByRole("button", { name: "January 2026" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(dialog).getByRole("button", { name: "November 2026" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole("button", { name: "June 2026" }));
+    expect(change).toHaveBeenLastCalledWith("2026-06");
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(change).toHaveBeenLastCalledWith(null);
+  });
+  it("CORE.G20 keyboard: arrows move (mirrored in RTL), Up/Down by a row, PageDown changes year, Enter picks", async () => {
+    const change = vi.fn();
+    wrap(<MonthInput aria-label="m" value="2026-05" onChange={change} />, "ar");
+    fireEvent.click(screen.getByRole("button", { name: /^m: / }));
+    const dialog = await screen.findByRole("dialog");
+    const may = within(dialog).getByRole("button", { name: "مايو ٢٠٢٦" });
+    may.focus();
+    // RTL: ArrowLeft moves forward (to June)
+    fireEvent.keyDown(may, { key: "ArrowLeft" });
+    await screen.findByRole("button", { name: "يونيو ٢٠٢٦" });
+    expect(within(dialog).getByRole("button", { name: "يونيو ٢٠٢٦" }).tabIndex).toBe(0);
+    fireEvent.keyDown(dialog.querySelector("[data-month='6']")!, { key: "ArrowDown" }); // September
+    fireEvent.keyDown(dialog.querySelector("[data-month='9']")!, { key: "PageDown" }); // 2027
+    expect(dialog.querySelector("[data-year]")!.textContent).toBe("٢٠٢٧");
+    fireEvent.click(dialog.querySelector("[data-month='9']")!); // Enter / Space on a <button> fire click
+    expect(change).toHaveBeenLastCalledWith("2027-09");
   });
 });

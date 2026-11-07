@@ -33,3 +33,5 @@ export type { TimeParts, DurationParts, DurationOptions, DurationUnits } from ".
 // P35 core
 export { FileDropzone, fileMatchesAccept, formatFileSize, validateFiles } from "./FileDropzone";
 export type { FileDropzoneProps, FileDropzoneLabels, FileRejection, FileRejectionReason } from "./FileDropzone";
+export { MonthInput, parseMonthValue, toMonthValue, formatMonthValue } from "./MonthInput";
+export type { MonthInputProps } from "./MonthInput";

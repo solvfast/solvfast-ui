@@ -19,6 +19,10 @@ export const coreEn = {
   // IconStatCard trend (G23): screen-reader direction
   coreTrendUp: "Up",
   coreTrendDown: "Down",
+  // MonthInput (G20)
+  corePickMonth: "Pick a month",
+  corePrevYear: "Previous year",
+  coreNextYear: "Next year",
 };
 export const coreAr: { [K in keyof typeof coreEn]: string } = {
   coreStepSkipped: "تم تخطّيها",
@@ -36,4 +40,7 @@ export const coreAr: { [K in keyof typeof coreEn]: string } = {
   coreComboSelected: "{n} محدّدة",
   coreTrendUp: "ارتفاع",
   coreTrendDown: "انخفاض",
+  corePickMonth: "اختر شهراً",
+  corePrevYear: "السنة السابقة",
+  coreNextYear: "السنة التالية",
 };
