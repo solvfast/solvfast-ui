@@ -29,12 +29,12 @@ const en = (k: keyof typeof defaultMessages.en) => defaultMessages.en[k];
 const bodyRows = () => [...document.querySelectorAll<HTMLElement>("tbody tr")].filter((tr) => !tr.hasAttribute("aria-hidden") && tr.querySelectorAll("td").length > 1);
 const pause = () => act(() => new Promise((r) => setTimeout(r, 450)));
 
-function mount(transport: FrappeTransport, props: Partial<React.ComponentProps<typeof FrappeListView>> = {}, doctype = "ToDo") {
+function mount(transport: FrappeTransport, props: Partial<React.ComponentProps<typeof FrappeListView>> = {}, doctype = "ToDo", session?: { user: string; roles?: string[] }) {
   const client = createFrappeClient({ transport });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
-      <QueryClientProvider client={qc}><FrappeProvider client={client}><FrappeListView doctype={doctype} storage={null} {...props} /></FrappeProvider></QueryClientProvider>
+      <QueryClientProvider client={qc}><FrappeProvider client={client} session={session}><FrappeListView doctype={doctype} storage={null} {...props} /></FrappeProvider></QueryClientProvider>
     </ThemeProvider>,
   );
 }
@@ -595,7 +595,8 @@ describe("Desk's list conventions: subject first, empty states, selection bar pl
   it("empty: 'you haven't created a …' + the create action; with filters: 'no … found' + Clear filters", async () => {
     const mock = createMockFrappe({ rows: [] });
     const onCreate = vi.fn();
-    mount(mock.transport, { onCreate });
+    // P35: the create action needs the create right (the Administrator has every right, permissions.py:506-507)
+    mount(mock.transport, { onCreate }, "ToDo", { user: "Administrator" });
     expect(await screen.findByText("You haven't created a ToDo yet")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Create your first ToDo" }));
     expect(onCreate).toHaveBeenCalled();

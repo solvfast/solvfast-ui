@@ -42,6 +42,9 @@ export interface FilterField {
   fieldtype?: string;
   /** `type: "link"` to a tree (nested set): also offer the hierarchy operators (`NESTED_SET_OPERATORS`, server-side only). */
   tree?: boolean;
+  /** Offer only these operators (in this order) instead of the type's defaults — e.g. a list-valued column such as Desk's
+   *  "Assigned To" / "Tags", which only `like` / `not like` / `is` can test. */
+  operators?: Operator[];
 }
 export interface FilterCondition { id: string; field: string; operator: Operator; value: string; }
 export interface FilterQuery { conjunction: "and" | "or"; conditions: FilterCondition[]; }
@@ -85,6 +88,7 @@ export const VALUELESS_OPERATORS: Operator[] = ["is_set", "is_not_set"];
  * - "Is" (Set / Not Set) is one entry standing for is_set / is_not_set, as in Frappe.
  */
 export function operatorsFor(field: FilterField | undefined, opts: { fiscalYears?: boolean } = {}): Operator[] {
+  if (field?.operators?.length) return field.operators.filter((op) => op !== "is_not_set");
   const type = field?.type ?? "text";
   if (type === "date") {
     const ops: Operator[] = field?.fieldtype === "Datetime" ? [] : ["equals", "not_equals"];
@@ -267,7 +271,8 @@ export const activeConditionCount = (query: FilterQuery | undefined) => (query ?
 
 // ---- quick filters (PMO lib/quick-filters.ts): they write into the same query, with stable `q:<field>` ids ----------
 const quickId = (field: string) => `q:${field}`;
-export const quickOperator = (field: FilterField): Operator => (field.type === "text" ? "like" : "equals");
+export const quickOperator = (field: FilterField): Operator =>
+  field.operators?.length ? (field.operators.includes("equals") ? "equals" : field.operators[0]) : field.type === "text" ? "like" : "equals";
 export const getQuickValue = (query: FilterQuery, field: string) => query.conditions.find((c) => c.id === quickId(field))?.value ?? "";
 export function setQuickValue(query: FilterQuery, field: FilterField, value: string): FilterQuery {
   const conditions = query.conditions.filter((c) => c.id !== quickId(field.name));

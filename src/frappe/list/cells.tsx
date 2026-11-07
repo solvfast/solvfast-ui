@@ -39,6 +39,29 @@ export function AssigneesCell({ value, userInfo }: { value: unknown; userInfo: R
   );
 }
 
+/** `_user_tags` (",a,b", tag.py) → the row's tags (Desk's tag column, list_view.js:799-809); a tag click filters the list by
+ *  it (`_user_tags like %tag%`, as the sidebar's tag stats do, list_sidebar.js:232-247). */
+export function parseTags(value: unknown): string[] {
+  return String(value ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+}
+export function TagsCell({ value }: { value: unknown }) {
+  const actions = useListActions();
+  const tags = parseTags(value);
+  if (!tags.length) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1" data-tags="">
+      {tags.slice(0, 3).map((tag) => {
+        const pill = <Badge variant="secondary" className="font-normal">{tag}</Badge>;
+        return actions ? (
+          <button key={tag} type="button" className="rounded-md hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={(e) => { e.stopPropagation(); actions.applyCondition("_user_tags", "like", tag); }}>{pill}</button>
+        ) : <span key={tag}>{pill}</span>;
+      })}
+      {tags.length > 3 && <span className="text-xs text-muted-foreground" dir="ltr">+{tags.length - 3}</span>}
+    </span>
+  );
+}
+
 export function CommentsCell({ row }: { row: Record<string, unknown> }) {
   const n = commentCount(row);
   if (!n) return <span className="text-muted-foreground">—</span>;
@@ -56,16 +79,18 @@ export interface RowMetaColumnOptions {
   assignees?: boolean;
   comments?: boolean;
   likes?: boolean;
+  tags?: boolean;
   userInfo: Record<string, ReportviewUser>;
   /** Start hidden (offered in the column manager) — used when the app curates its own columns. */
   hidden: boolean;
-  labels: { indicator: string; assigned: string; comments: string; likes: string };
+  labels: { indicator: string; assigned: string; comments: string; likes: string; tags?: string };
 }
 
 /** Columns for the row metadata Desk shows; `render` closes over the response's `user_info`. */
 export function rowMetaColumns(o: RowMetaColumnOptions): { indicator?: ColumnDef<Record<string, unknown>>; trailing: ColumnDef<Record<string, unknown>>[] } {
   const base = { sortable: false, filterable: false, hidden: o.hidden };
   const trailing: ColumnDef<Record<string, unknown>>[] = [];
+  if (o.tags) trailing.push({ ...base, key: "_user_tags", label: o.labels.tags ?? "Tags", render: (r) => <TagsCell value={r._user_tags} /> });
   if (o.assignees) trailing.push({ ...base, key: "_assign", label: o.labels.assigned, render: (r) => <AssigneesCell value={r._assign} userInfo={o.userInfo} /> });
   if (o.comments) trailing.push({ ...base, key: "_comments", label: o.labels.comments, render: (r) => <CommentsCell row={r} /> });
   if (o.likes) trailing.push({ ...base, key: "_liked_by", label: o.labels.likes, render: (r) => <LikesCell value={r._liked_by} /> });

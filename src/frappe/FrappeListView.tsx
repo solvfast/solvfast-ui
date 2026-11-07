@@ -12,14 +12,14 @@ import { FrappeProvider } from "./FrappeProvider";
 import { useFrappeClient } from "./FrappeProvider";
 import { useLocale } from "../theme/ThemeProvider";
 import { usePermissions } from "./hooks/usePermissions";
-import { useFrappeList, type FrappeListOptions } from "./useFrappeList";
+import { invalidateFrappeList, useFrappeList, type FrappeListOptions } from "./useFrappeList";
 import { FrappeBulkActions, useFrappeBulkActions, type FrappeBulkOptions } from "./list/FrappeBulkActions";
 import type { FrappeListMeta } from "./meta";
 import type { BulkAction } from "../list/parts/ListFooter";
 import { useListRealtime } from "./list/realtime";
 import type { RealtimePort } from "./contract";
 import { createFrappeSavedFilters, createFrappeUserSettings } from "./list/storage";
-import { Download, FileSpreadsheet, MoreHorizontal, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, MoreHorizontal, Plus, Upload } from "lucide-react";
 import { Button } from "../primitives/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/dropdown-menu";
 import { useFrappeSettings } from "./FrappeProvider";
@@ -61,8 +61,17 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    * Priority, Comment). The default stays "bar" (0.4.x).
    */
   bulk?: FrappeBulkOptions;
-  /** Offers "Create your first {DocType}" in the empty list (Desk: only when the user may create). */
+  /** Offers "Create your first {DocType}" in the empty list — only when the user may create (level-0 `create`, from
+   *  `session.roles`; unknown rights → not offered, rule 9). */
   onCreate?: () => void;
+  /**
+   * Desk's primary "Add {DocType}" button (list_view.js:279-296 `set_primary_action`), shown only when the user may create
+   * (`frappe.model.can_create`; here the level-0 `create` right from `session.roles` — unknown rights hide it). Omit: no
+   * built-in button (`primaryAction` / `onCreate` as before). `false`: never (also no empty-state create). An object:
+   * `label` (default "Add {DocType}"), `onCreate` (e.g. route to the new form), or `render` — a dialog the list opens
+   * (e.g. a Quick Entry); its `onCreated(doc)` reloads the list and closes it. An app `primaryAction` still wins.
+   */
+  create?: false | FrappeListCreate;
   /** Reload on the server's `list_update` (debounced 2 s, 15 s for large tables; not while rows are selected). */
   realtime?: RealtimePort;
   /** Override the realtime quiet period (ms). Default 2000, 15000 for large tables. */
@@ -90,6 +99,12 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
   ioLabels?: Partial<ExportDialogLabels & { importEntry: string; exportEntry: string; moreActions: string; reportExportEntry: string }>;
 }
 
+export interface FrappeListCreate {
+  label?: string;
+  onCreate?: () => void;
+  render?: (p: { open: boolean; onOpenChange(open: boolean): void; onCreated(doc: Record<string, unknown>): void }) => React.ReactNode;
+}
+
 /** Desk's Import route as a URL: the Data Import list with `reference_doctype` as a route option (`router.js:548-566`). */
 /**
  * UI row identity vs the Frappe document name. Selection is keyed by the list's `rowKey` (kept across pages); every server
@@ -109,7 +124,7 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
+function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, ...rest }: FrappeListViewProps<T>) {
   // `columnLimit` defaults ON here: Desk always caps the generated columns by window width (list_view.js:432-444);
   // app-curated `columns` are never capped. `columnLimit={false}` keeps every `in_list_view` column.
   // Like: the session user decides; "Liked by me" narrows the list server-side like Desk's filter (always ANDed)
@@ -235,6 +250,18 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   const headerActions: BulkAction<T>[] | undefined = header && f.meta && (bulk || showExport)
     ? [...hb.actions.map((a) => (sel.missing.length ? { ...a, disabled: () => t("listBulkUnresolved") } : a)), ...(rest.bulkActions ?? [])]
     : rest.bulkActions;
+  // Create: Desk shows "Add {DocType}" and the empty-state create only with `frappe.model.can_create` (list_view.js:279-296, 497-537)
+  const mayCreate = create !== false && perms.can("create");
+  const [creating, setCreating] = React.useState(false);
+  const createCfg = typeof create === "object" ? create : undefined;
+  const startCreate = createCfg?.render ? () => setCreating(true) : (createCfg?.onCreate ?? onCreate);
+  const addButton = mayCreate && createCfg && startCreate ? (
+    <Button className="gap-1.5 shrink-0" onClick={startCreate} data-testid="sf-list-add"><Plus className="h-4 w-4" aria-hidden /> {createCfg.label ?? t("listAddDoctype").replace("{doctype}", doctype)}</Button>
+  ) : undefined;
+  const createdNode = mayCreate && createCfg?.render ? createCfg.render({
+    open: creating, onOpenChange: setCreating,
+    onCreated: () => { setCreating(false); void invalidateFrappeList(queryClient, doctype); },
+  }) : null;
   const server = typeof serverStorage === "object" ? serverStorage : serverStorage ? {} : null;
   const storage = React.useMemo(() => {
     if (rest.storage !== undefined || !server || !f.ready) return rest.storage;
@@ -255,8 +282,9 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       storage={storage}
       emptyMessage={rest.emptyMessage ?? t("listEmptyNone").replace("{doctype}", doctype)}
       emptyFilteredMessage={rest.emptyFilteredMessage ?? t("listEmptyFilteredDoctype").replace("{doctype}", doctype)}
-      emptyAction={rest.emptyAction ?? (onCreate ? { label: t("listCreateFirst").replace("{doctype}", doctype), onClick: onCreate } : undefined)}
+      emptyAction={rest.emptyAction ?? (mayCreate && startCreate ? { label: t("listCreateFirst").replace("{doctype}", doctype), onClick: startCreate } : undefined)}
       selectable={rest.selectable ?? (bulk ? true : undefined)}
+      primaryAction={rest.primaryAction ?? addButton}
       toolbarActions={menuNode || rest.toolbarActions ? <>{rest.toolbarActions}{menuNode}</> : undefined}
       renderBulkActions={header ? (ctx) => { clearRef.current = ctx.clear; return rest.renderBulkActions?.(ctx); } : renderBulk}
       bulkActions={headerActions}
@@ -268,6 +296,7 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       rowKey={rowKey ?? data.rowKey}
     />
     {header && hb.dialogs}
+    {createdNode}
     {bulkMessage && <p className="mt-2 text-sm text-muted-foreground" role="status">{bulkMessage}</p>}
     {f.bundle && exporting && (
       <FrappeExportDialog api={api} bundle={f.bundle} open onOpenChange={(o) => !o && setExporting(null)} selectedNames={exporting.names}

@@ -145,11 +145,12 @@ export function ListTable<T>({
   };
   const selecting = !!selection && !!selectionHeader && selectionHeader.count > 0;
 
-  const renderRow = (row: T) => {
+  // a row can sit in several groups (multi-bucket `groupOf`): its React key carries the group
+  const renderRow = (row: T, group?: string) => {
     const on = !!selection?.isSelected(row);
     return (
       <tr
-        key={rowKey(row)}
+        key={group === undefined ? rowKey(row) : `${group}\u0000${rowKey(row)}`}
         tabIndex={onRowClick ? 0 : undefined}
         onClick={() => onRowClick?.(row)}
         onKeyDown={(e) => { if (onRowClick && e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); }}
@@ -202,7 +203,7 @@ export function ListTable<T>({
             </button>
           </td>
         </tr>
-        {open && g.rows.map(renderRow)}
+        {open && g.rows.map((r) => renderRow(r, g.key))}
       </tbody>
     );
   };
@@ -283,7 +284,7 @@ export function ListTable<T>({
                 <tr><td colSpan={colCount} className="py-12 text-center text-muted-foreground">{empty ?? t("noData")}</td></tr>
               )}
             </tbody>
-          ) : groups ? groups.map(renderGroup) : <tbody>{rows.map(renderRow)}</tbody>}
+          ) : groups ? groups.map(renderGroup) : <tbody>{rows.map((r) => renderRow(r))}</tbody>}
         </table>
       </div>
     </Card>

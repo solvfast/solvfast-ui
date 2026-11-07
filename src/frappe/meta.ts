@@ -108,6 +108,11 @@ export function filterFieldsFromMeta(meta: DocMeta, t: (k: keyof Messages) => st
   const extra: FilterField[] = [
     { name: "owner", label: t("listOwner"), type: "link", fieldtype: "Link", link_doctype: "User" },
     { name: "modified_by", label: t("listModifiedBy"), type: "link", fieldtype: "Link", link_doctype: "User" },
+    // Desk's std_fields (model.js:120-137): "Assigned To" (`_assign`, a JSON list) and "Tags" (`_user_tags`, ",a,b") — list
+    // values, so only like / not like / is can test them (the sidebar's assigned_to filter is `_assign like %user%`,
+    // list_sidebar_group_by.js:262-268); the value is picked from User / Tag.
+    { name: "_assign", label: t("listAssigned"), type: "link", fieldtype: "Text", link_doctype: "User", operators: ["like", "not_like", "is_set", "is_not_set"] },
+    { name: "_user_tags", label: t("listTags"), type: "link", fieldtype: "Data", link_doctype: "Tag", operators: ["like", "not_like", "is_set", "is_not_set"] },
     ...(submittable ? [{ name: "docstatus", label: t("listIndicator"), type: "select" as const, fieldtype: "Int",
       options: [{ value: "0", label: t("listDraft") }, { value: "1", label: t("listSubmitted") }, { value: "2", label: t("listCancelled") }] }] : []),
   ];
@@ -139,7 +144,8 @@ export function childFilterFields(meta: DocMeta, children: Record<string, DocMet
 
 /** Columns for a DocType (`in_list_view` fields visible; others offered in the column manager). */
 export function columnsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string): ColumnDef<Record<string, unknown>>[] {
-  const fields = filterFieldsFromMeta(meta, t);
+  // "Assigned To" / "Tags" are filter fields only: their columns are the row-metadata cells (list/cells.tsx)
+  const fields = filterFieldsFromMeta(meta, t).filter((f) => !ROW_OPTIONAL_FIELDNAMES.includes(f.name));
   const usable = new Map((meta.fields || []).map((df) => [df.fieldname, df]));
   const listed = fields.filter((f) => usable.get(f.name)?.in_list_view).map((f) => f.name);
   const title = titleOf(meta, fields);
