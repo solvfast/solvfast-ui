@@ -55,8 +55,8 @@ The implemented views are partial: **Report** has no Report Builder `save_report
 charts, no multi-column sort, no column widths and no child-cell editing; **Calendar** is a month view only (no week /
 day view, no event drag / resize, no Calendar View documents, no time-zone conversion; in `reportview` mode rows without
 an end date are left out); **Kanban** cannot create a board, add / archive / reorder columns or edit Kanban Settings;
-**Image** has no gallery / zoom. Filters carry between Report, Image, Kanban and Calendar, not yet from `FrappeListView`
-(TODO(integration)).
+**Image** has no gallery / zoom. In `FrappeViews` the List view's filters and sort carry into the other views
+(`onQueryStateChange`).
 
 **Form View.** Grid CSV download / upload; e-mail preview (and schedule, signature, reply-all); Markdown / HTML Editor
 previews and a code editor; real controls for Signature, Geolocation, Barcode and Icon (shown read-only and reported);
@@ -93,16 +93,22 @@ ungrouped lists (they page).
 - **Kanban** with a filtered list: the server's `update_order_for_single_card` pops `old_index` blindly
   (kanban_board.py:147-151), as on Desk.
 - **Import:** not reproduced — Google Sheets, "Report Error", changing the import type after creation.
-- **Default wiring (TODO(integration)):** at the time of writing `FrappeForm` does not mount the ⋯ menu or the Connections
-  tab by default and `FrappeListView` does not open Quick Entry by default; the components exist and are passed through
-  `menu` / `extraTabs` / `create`. Integration commits for these defaults, for automatic `boot.userDefaults` and for
-  filters carried into `FrappeViews` exist on the integration branch (`ab8988b`, `6463470`, `f1fa767`) — not verified here.
+- **Form ⋯ menu (default on, `menu={false}` opts out):** Rename and Delete call the server but do not re-route — the host
+  routes with `onRenamed` / `onDeleted`. Duplicate and New open an unsaved document in the same form; it lives in
+  FrappeForm state (a remount or a change of the `name` prop drops it, as for Amend) and the form keeps its `name` prop —
+  route with `menu.onOpened`. Reload is not offered for a new document or a local copy.
+- **Connections tab** (default on when the DocType has a dashboard, `connections={false}` opts out): a form without Tab
+  Breaks therefore shows a "Details" + "Connections" tab bar.
+- **List create** (`create={{ … }}` without `render` / `onCreate`): Quick Entry for eligible DocTypes; a DocType that is not
+  eligible goes to `create.onOpenFullForm`, and without it the Quick Entry dialog shows the whole form (Desk would route).
+- **User defaults:** `FrappeProvider` applies `boot.userDefaults` to new documents (`userDefaults={false}` opts out);
+  `remember_last_selected_value` is not reproduced.
+- **Simulator coverage gaps:** Communication Links are not simulated; `get_kanban_boards` skips the permission engine when
+  the Kanban Board meta is not loaded; Kanban's `private` permission query is a local rule.
 - **`@solvfast/ui/frappe/testing`** (the simulator) ships as its own entry; `@solvfast/ui/frappe` never imports it.
 
 ## Known bugs
 
-- `TagInput` keeps its suggestion list open after Enter adds a tag, until focus leaves; inside a dialog it can cover the
-  next button. TODO(integration): a fix is on the integration branch (`b39b3c6`), not verified here — re-check before release.
 - `DataGrid` has a fixed minimum width (`32rem`): on a 390 px phone it scrolls horizontally.
 
 ## Environment

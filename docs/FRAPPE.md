@@ -100,6 +100,9 @@ Frappe drops arguments a whitelisted function doesn't declare, so "Match any" to
 - **Errors.** Frappe's message (from `_server_messages` or the exception) is shown by kind, with Retry only where retrying
   can help. With the React Query client the package creates, 4xx errors are not retried and network / 5xx errors are
   retried twice (`frappeRetry`). A server MandatoryError / LinkValidationError on a form save is shown on the field.
+- **Form defaults.** `FrappeForm` shows Desk's ⋯ menu and, when the DocType has a dashboard, a Connections tab
+  (`menu={false}` / `connections={false}` opt out); `FrappeListView create` opens Quick Entry for eligible DocTypes;
+  `FrappeProvider` applies `boot.userDefaults` to new documents (`userDefaults={false}` opts out).
 - **Keyboard (form).** Ctrl/⌘+S runs the visible primary action (Desk's `trigger_primary_action`); Ctrl/⌘+Z and
   Ctrl/⌘+Shift+Z / Ctrl/⌘+Y undo / redo outside text inputs; `hotkeys={false}` turns them off.
 

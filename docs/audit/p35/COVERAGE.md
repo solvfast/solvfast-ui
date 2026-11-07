@@ -1,19 +1,12 @@
 # P35 — consolidated Form View / List View coverage (`@solvfast/ui` 0.7.0-dev.1)
 
-Baseline: `@solvfast/ui` 0.6.0 (`0ef45c1`), audited in `A-form.md` and `B-list.md` (this folder). Now: branch
-`feat/0.7.x/p35-docs` at `e6e4dd2` = 0.6.0 + the five merged P35 package workstreams (WS1 form, WS2 record, WS3 list,
-WS4 views, WS5 core). WS6 (CRM adoption) changed the CRM, not the package — see `CRM-MIGRATION.md`.
-
-> **TODO(integration)** — the integration step (FrappeForm default ⋯ menu + Connections tab, FrappeListView default
-> create → Quick Entry, filters carried from the List view into `FrappeViews`, version `0.7.0-dev.1`, final gates) was
-> still running when this file was written. Rows whose limitation says "TODO(integration)" are COMPLETE through the
-> exported component and become default behaviour only once that step lands. The status of no row depends on it.
-> Observed on the integration branch (`p35-pkg`, commit subjects only — **not verified here; re-check the lines that cite
-> them**): `ab8988b` FrappeForm default ⋯ menu + Connections tab · `6463470` FrappeListView create → Quick Entry / full
-> form by default, `onQueryStateChange`, FrappeViews carries List filters · `0a12462` simulator handler context
-> (permission engine, row filter, print settings, clock; docinfo lists Communications) · `f1fa767` FrappeProvider
-> `userDefaults` applied to new documents · `b39b3c6` TagInput closes its suggestion list after creating a tag; ListView
-> status columns (`ColumnDef.status`) render StatusBadge with a configured colour.
+Baseline: `@solvfast/ui` 0.6.0 (`0ef45c1`), audited in `A-form.md` and `B-list.md` (this folder). Now: `0.7.0-dev.1` =
+0.6.0 + the five merged P35 package workstreams (WS1 form, WS2 record, WS3 list, WS4 views, WS5 core; merged at `e6e4dd2`)
++ the integration step (`feat/0.7.x/p35-coverage` at `410169d`, merged into `feat/0.7.x/p35-docs`). Integration made the
+record features defaults: `FrappeForm` mounts the ⋯ menu (`FrappeRecordMenu`) and a Connections tab, `FrappeListView`
+`create` opens `FrappeQuickEntry` (or the host's full form), `FrappeViews` carries the List view's filters and sort,
+`FrappeProvider` applies `boot.userDefaults`; it also gave the simulator handlers the permission engine and row filter
+(`FixtureContext`). WS6 (CRM adoption) changed the CRM, not the package — see `CRM-MIGRATION.md`.
 
 **Nothing in this file was exercised against an authenticated real Frappe site.** "COMPLETE" means "a cited test exercises
 the behaviour"; it never means "verified on a site". The only real-Frappe evidence in the package is recorded 15.110
@@ -41,11 +34,11 @@ site (**no row has this**). "(+real meta)" = a real 15.110 DocType meta as input
 
 ## 2. Totals (same denominator as the baseline)
 
-| | Applicable rows | COMPLETE baseline (0.6.0) | COMPLETE now (e6e4dd2) | Coverage baseline | Coverage now |
+| | Applicable rows | COMPLETE baseline (0.6.0) | COMPLETE now (0.7.0-dev.1) | Coverage baseline | Coverage now |
 |---|---:|---:|---:|---:|---:|
-| Form View (A–P) | 181 | 79 | **154** | 43.6 % | **85.1 %** |
+| Form View (A–P) | 181 | 79 | **155** | 43.6 % | **85.6 %** |
 | List View (A–J) | 120 | 69 | **103** | 57.5 % | **85.8 %** |
-| **Total** | **301** | **148** | **257** | **49.2 %** | **85.4 %** |
+| **Total** | **301** | **148** | **258** | **49.2 %** | **85.7 %** |
 
 Status counts (C / P / M / N/A / B):
 
@@ -61,13 +54,13 @@ Status counts (C / P / M / N/A / B):
 | FV H. Lifecycle | 14 | 10 / 4 / 0 / 0 / 0 | 14 / 0 / 0 / 0 / 0 | 4 |
 | FV I. Workflow | 9 | 7 / 0 / 0 / 1 / 1 | 7 / 0 / 0 / 1 / 1 | 0 |
 | FV J. Status / header | 11 | 7 / 3 / 1 / 0 / 0 | 10 / 1 / 0 / 0 / 0 | 3 |
-| FV K. Menus / actions | 16 | 0 / 5 / 10 / 1 / 0 | 14 / 1 / 0 / 1 / 0 | 14 |
+| FV K. Menus / actions | 16 | 0 / 5 / 10 / 1 / 0 | 15 / 0 / 0 / 1 / 0 | 15 |
 | FV L. Print / PDF | 7 | 0 / 4 / 1 / 1 / 1 | 4 / 1 / 0 / 1 / 1 | 4 |
 | FV M. Connections | 6 | 0 / 0 / 6 / 0 / 0 | 6 / 0 / 0 / 0 / 0 | 6 |
 | FV N. Submission | 6 | 5 / 1 / 0 / 0 / 0 | 6 / 0 / 0 / 0 / 0 | 1 |
 | FV O. Email composer | 9 | 0 / 0 / 9 / 0 / 0 | 8 / 0 / 1 / 0 / 0 | 8 |
 | FV P. Website link | 4 | 0 / 0 / 4 / 0 / 0 | 4 / 0 / 0 / 0 / 0 | 4 |
-| **FV total** | **184** | **79 / 62 / 38 / 3 / 2** | **154 / 23 / 2 / 3 / 2** | **79** |
+| **FV total** | **184** | **79 / 62 / 38 / 3 / 2** | **155 / 22 / 2 / 3 / 2** | **80** |
 
 | Section | Rows | Baseline C / P / M / N/A / B | Now C / P / M / N/A / B | Moved |
 |---|---|---|---|---|
@@ -83,34 +76,37 @@ Status counts (C / P / M / N/A / B):
 | LV J. List menu (⋯) | 11 | 4 / 1 / 6 / 0 / 0 | 10 / 0 / 1 / 0 / 0 | 6 |
 | **LV total** | **123** | **69 / 17 / 31 / 3 / 3** | **103 / 6 / 8 / 3 / 3** | **37** |
 
-Of the 257 COMPLETE rows, **176** rest on the simulator for at least part of their evidence and **61** are
+Of the 258 COMPLETE rows, **177** rest on the simulator for at least part of their evidence and **62** are
 listed in §5 because their essential behaviour is a server write or aggregate. Evidence level `real-site`: **0 rows**.
 
-Test run on the merged tree (`e6e4dd2`, this worktree, `npx vitest run`): **68 files, 1387 passed, 10 todo, 0 failed**.
-This is the only run on the merged HEAD; the workstream reports cite runs on their own branches. Build, boundary
-(dist part), package audit and Showcase e2e gates were not run here (TODO(integration)).
+Tests on the merged tree (this worktree after merging `410169d`, `npx vitest run`): **72 files, 1415 passed, 10 todo,
+0 failed** (at `e6e4dd2`, before integration: 68 files, 1387 passed). Integration gates (`ws/integration.md` §4, run at
+`826013d`; `410169d` changes only `e2e/consumers/run.sh`): typecheck exit 0; `npm run build` exit 0 (775 files, 888.7 kB
+packed, styles regenerated identical); `check:boundaries` OK incl. dist rules; `check:package` OK (13 exports, 507 built
+files); `showcase:build` OK; `e2e/showcase-smoke.mjs` PASS (73 sections × 4 combinations, 0 page / console errors);
+`e2e/consumers/run.sh` both consumers tsc + build OK, one React copy. None of these is a real-site check.
 
 ## 3. Reclassifications against the workstream proposals
 
 | Row | Workstream proposal | Here | Why |
 |---|---|---|---|
-| LV.D6, LV.D7 | WS3: BLOCKED-REQUIRES-REAL-FRAPPE | COMPLETE (simulator), §5 | Implemented and tested on simulator handlers for `get_group_by_count` / `get_sidebar_stats`. Same evidence class as the baseline's COMPLETE F3 / F10 / F11 (simulated server writes); rule 3. WS3 itself offered this ("COMPLETE if the integrator counts sim like F3"). |
+| LV.D6, LV.D7 | WS3 and the integration report: BLOCKED-REQUIRES-REAL-FRAPPE | COMPLETE (simulator), §5 | Implemented and tested on simulator handlers for `get_group_by_count` / `get_sidebar_stats`. Same evidence class as the baseline's COMPLETE F3 / F10 / F11 (simulated server writes); rule 3. WS3 itself offered this ("COMPLETE if the integrator counts sim like F3"). |
 | LV.J7 | WS3: BLOCKED | COMPLETE (simulator), §5 | `save_listview_settings` write tested on the simulator; rule 3. |
 | LV.H2 | WS4: BLOCKED | COMPLETE (simulator), §5 | All four view levels implemented and sim-tested (board API, `update_order_for_single_card`, `set_value` group mode); rule 3. Board creation / column editing are listed as limitations. |
 | LV.H1, LV.H3 | WS4: PARTIAL | PARTIAL | Kept — because of missing features (no `save_report` / aggregates / multi-sort; month view only), not because a sub-path is blocked. |
 | FV.L3 | WS2: "COMPLETE (shape only)" | PARTIAL | `download_pdf` is not simulated: only the URL shape and the simulator's refusal are tested. A URL shape is not the behaviour. |
 | FV.K14 | WS2: PARTIAL (menu only) | COMPLETE | WS1's docStore history + Ctrl/⌘+Z / Ctrl/⌘+Shift+Z are tested (`FV.K14 …`); WS2's entries call it. |
-| FV.K6 | WS2: PARTIAL | PARTIAL | Agreed: the copy is handed to `onDuplicate`; opening it in a form is not wired or tested. |
+| FV.K6 | WS2: PARTIAL | COMPLETE | Integration opens the copy in `FrappeForm` (`FV.K6 Duplicate opens the copy in the form…; saving it inserts a new Deal`). |
 | FV.K11 | WS2: "integrator decides" | N/A (extra) | Rule 5: the denominator is fixed. Built anyway (Customize → Desk URL, System Manager only). LV.J6 (List Customize) is a separate, counted row. |
 | FV.K12 | WS2: COMPLETE via Connections | COMPLETE | "Links" opens the Connections tab (A-form already recommended "subsumed by Connections"). No `linked_with` dialog — stated as a limitation. |
-| FV.K3, FV.M1 | WS2: COMPLETE (component) | COMPLETE | Rule 1: tested through `FrappeRecordMenu` / `FrappeConnections` and the `menu` / `extraTabs` slots. Not mounted by `FrappeForm` by default at `e6e4dd2` — TODO(integration). |
+| FV.K3, FV.M1 | WS2: COMPLETE (component) | COMPLETE | Mounted by `FrappeForm` by default after integration and tested there (`tests/frappe-form-integration.test.tsx`). |
 | LV.G3–G7, LV.G9 | WS3: "Quick Entry is WS1" (MISSING / PARTIAL) | COMPLETE | WS1's `FrappeQuickEntry` is in the merged tree with 9 tests (`FV.F6 …`, `tests/frappe-quick-entry.test.tsx`). |
-| LV.G8 | WS3: PARTIAL | COMPLETE | Both halves are tested through public API: `FrappeQuickEntry` hands back the saved doc (`FV.F6 … hands back the server doc and closes`) and `create.render(p).onCreated` reloads the list (`LV.G1 … onCreated reloads the list and closes`). Same rule as FV.K3 / FV.M1; default wiring is TODO(integration). |
-| FV.E2 | WS1: "COMPLETE with caveat" | COMPLETE | Tested through `FrappeForm newDocDefaults.userDefaults`; the caveat (the app passes `boot.userDefaults`) is a limitation. |
+| LV.G8 | WS3: PARTIAL | COMPLETE | Both halves are tested through public API: `FrappeQuickEntry` hands back the saved doc (`FV.F6 … hands back the server doc and closes`) and `create.render(p).onCreated` reloads the list (`LV.G1 … onCreated reloads the list and closes`). Integration made it the default and tested the junction (`LV.G1 LV.G8 FV.F6 create={{}} … saving inserts the Note and reloads the list`). |
+| FV.E2 | WS1: "COMPLETE with caveat" | COMPLETE | Automatic since integration (`FrappeProvider userDefaults`, `FV.E2 FV.D8 boot user defaults pre-fill …`). |
 | FV.A29–A31, FV.A35 | WS1: MISSING → PARTIAL | PARTIAL | Reported and rendered read-only (tested); no real control. |
 | FV.A16–A18, A32, A33, A5, A10, A41 | WS1: stay PARTIAL | PARTIAL | Dispatch now tested; the missing sub-features (preview, TZ, currency symbol, placeholders) keep them PARTIAL. |
 
-No row went down. 116 rows moved: 57 PARTIAL → COMPLETE, 52 MISSING → COMPLETE, 7 MISSING → PARTIAL.
+No row went down. 117 rows moved: 58 PARTIAL → COMPLETE, 52 MISSING → COMPLETE, 7 MISSING → PARTIAL.
 
 ## 4. Matrices
 
@@ -225,7 +221,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.D5 | submit | COMPLETE | COMPLETE | Frappe | `m/actions.ts` | prr1 "no submit right…"; simp "submit needs submit…"; ff Submit flow | — | simulator, unit | — |
 | FV.D6 | cancel | COMPLETE | COMPLETE | Frappe | `m/actions.ts`, `FFV` | p27 "no Cancel on a submitted doc…"; simp server cancel check | — | simulator, unit | — |
 | FV.D7 | amend | COMPLETE | COMPLETE | Frappe | `m/actions.ts`, `FFV` | p27 "…no Amend on a cancelled one"; ffp "FV.H6 no Amend without the create right…" | — | simulator, unit | — |
-| FV.D8 | User Permissions | PARTIAL | PARTIAL | Frappe (server-side in sim) | `services/boot.ts` `userDefaultsFromBoot` (is_default) | simp "User Permissions … lists only rows…"; ffp "FV.E2 userDefaultsFromBoot: … the is_default User Permission wins…" | `#frappe-permissions` | simulator, unit | applied only when the app passes `boot.userDefaults` (TODO(integration): `f1fa767`); search_link User Permission filtering is server-side and unverified |
+| FV.D8 | User Permissions | PARTIAL | PARTIAL | Frappe (server-side in sim) | `services/boot.ts` `userDefaultsFromBoot` (is_default); `FrappeProvider userDefaults` | simp "User Permissions … lists only rows…"; ffp "FV.E2 userDefaultsFromBoot: … the is_default User Permission wins…"; fint "FV.E2 FV.D8 boot user defaults pre-fill a new document's Link without newDocDefaults; userDefaults={false} opts out" | `#frappe-permissions` | simulator, unit | `is_default` now applied automatically through `FrappeProvider`; search_link User Permission filtering is server-side and unverified |
 | FV.D9 | Server authoritative | COMPLETE | COMPLETE | Frappe | `FFV` error path | p27 "direct invocation of hidden actions: the server refuses…" | — | simulator | — |
 | FV.D10 | Workflow read-only (allow_edit) | COMPLETE | COMPLETE | Frappe | `usePermissions` → `m/status.ts` | fh "workflow state without an allow_edit role…"; p27 | `#frappe-workflow` | simulator | — |
 | FV.D11 | Tab hidden by permlevel | PARTIAL | **COMPLETE** | Frappe | `FFV` tab visibility | ffp "FV.D11 a tab whose fields are all permlevel 1 is hidden for a user who cannot read level 1" | — | simulator | — |
@@ -235,7 +231,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
 | FV.E1 | `df.default` keywords, casts, mandatory Table row | COMPLETE | COMPLETE | Frappe | `m/defaults.ts` | ffm "applies df.default keywords…"; ff "a new ToDo gets Desk's defaults" | `#frappe-forms` new-todo | simulator (+real meta), unit | browser clock; `:DocType` defaults reported, left empty |
-| FV.E2 | Session / user defaults | PARTIAL | **COMPLETE** | Frappe | `services/boot.ts` `userDefaultsFromBoot`; `FForm` `newDocDefaults.userDefaults` | ffp "FV.E2 userDefaultsFromBoot…", "FV.E2 FrappeForm newDocDefaults.userDefaults pre-fill a Link…" | — | unit, simulator | not automatic at e6e4dd2: the app passes `newDocDefaults={{ userDefaults: boot.userDefaults }}` — TODO(integration): integration commit `f1fa767` ("FrappeProvider userDefaults … applied to new documents") observed, not verified here; `remember_last_selected_value` not reproduced |
+| FV.E2 | Session / user defaults | PARTIAL | **COMPLETE** | Frappe | `services/boot.ts` `userDefaultsFromBoot`; `FrappeProvider userDefaults` (default `boot.userDefaults`, `false` opts out); `FForm` `newDocDefaults.userDefaults` | ffp "FV.E2 userDefaultsFromBoot…", "FV.E2 FrappeForm newDocDefaults.userDefaults pre-fill a Link…"; fint "FV.E2 FV.D8 boot user defaults pre-fill a new document's Link without newDocDefaults; userDefaults={false} opts out" | — | unit, simulator | `remember_last_selected_value` not reproduced; the app's own `newDocDefaults.userDefaults` wins |
 | FV.E3 | fetch_from (+ fetch_if_empty) | COMPLETE | COMPLETE | Frappe | `m/fetch.ts`, `FFV` | ff "…a pick validates and fetches"; ffm fetch map; pds fetch_from lock | `#frappe-forms` todo | simulator (+real meta) | server re-fetches on save |
 | FV.E4 | Dependent link values (link_filters `eval:`) | COMPLETE | COMPLETE | Frappe | `FLF` | ff "link_filters (client-only) and setQuery merge…" | — | unit | dependent Links not auto-cleared (Desk neither) |
 | FV.E5 | Auto values on a new doc | COMPLETE | COMPLETE | Frappe | `FFV`, `m/layout.ts` | rff "fetches the target of a defaulted Link…"; ffm `__newname` | `#frappe-forms` new-todo | simulator | naming-series preview not shown |
@@ -331,20 +327,20 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 |---|---|---|---|---|---|---|---|---|---|
 | FV.K1 | Custom buttons (`frm.add_custom_button`) | PARTIAL | **COMPLETE** | Frappe | `events.ts` `FormController.addCustomButton/removeCustomButton/clearCustomButtons`; `FFV` | ffp "FV.K1 buttons added in refresh render in the header and run their handler; K2 grouped ones form a dropdown", "FV.K1 buttons are cleared before every refresh…" | `#frappe-form-p35` | simulator | — |
 | FV.K2 | Create dropdown | MISSING | **COMPLETE** | Frappe | grouped custom buttons → DropdownMenu | ffp "FV.K1 … K2 grouped ones form a dropdown" | `#frappe-form-p35` | simulator | make_ entries from the dashboard are not generated automatically (app adds them) |
-| FV.K3 | Three-dot menu | MISSING | **COMPLETE** | both | Core `RecordMenu`; Frappe `FrappeRecordMenu`, `formMenuItems`; `FFV` `menu` slot | ra "FV.K3 groups items with separators…"; fra "FV.K3 FV.K16 a System Manager gets Desk's menu…"; ffp "FV.K3/K16 menu slot renders after the primary action" | `#frappe-record-actions` | simulator, unit | FrappeForm does not mount it by default at e6e4dd2: the app passes `menu={<FrappeRecordMenu …/>}` — TODO(integration) |
-| FV.K4 | Print (form) | MISSING | **COMPLETE** | Frappe | `FrappeFormPrint`, `formPrint.ts`; menu entry in `FrappeRecordMenu` | fra "FV.K4 FV.L1 Print follows Print Settings… and the print right; never on a new doc"; fra "FV.K3 FV.K16 a System Manager gets Desk's menu…" (entry rendered) | `#frappe-record-actions` | simulator | the dialog is tested standalone; clicking the menu entry → dialog is not asserted |
-| FV.K5 | Email | MISSING | **COMPLETE** | both | menu → `FrappeEmailComposer` | fra "FV.K5 FV.K8 FV.K9 FV.K15 Email < cancelled…"; fra "FV.K3 FV.K16 …" (entry rendered); composer: see O | `#frappe-record-actions` | simulator, unit | the composer is tested standalone; clicking the menu entry → composer is not asserted |
-| FV.K6 | Duplicate | PARTIAL | PARTIAL | Frappe | `copyDoc` (from defaults); menu → `onDuplicate(copy)` | fra "FV.K6 FV.K7 Duplicate hands a local copy (no request)…"; ffp "FV.K6 a Duplicate gets the no_copy field's default…" | `#frappe-record-actions` | simulator | opening the copy in a FrappeForm (`store.replace(copy)`) is not wired or tested — TODO(integration) |
+| FV.K3 | Three-dot menu | MISSING | **COMPLETE** | both | Core `RecordMenu`; Frappe `FrappeRecordMenu`, `formMenuItems`; `FForm` `menu` (default on), `FFV` `menu` (node or `(ctx: FrappeFormMenuContext) => node`) | fint "FV.K3 FV.M1 the ⋯ menu and the Connections tab are on by default; menu={false} / connections={false} remove them…", "FV.K3 FV.K16 a System Manager gets Desk's menu in the form, with no extra request for docinfo"; ra "FV.K3 groups items with separators…"; fra "FV.K3 FV.K16 …" | `#frappe-record-actions` | simulator, unit | — |
+| FV.K4 | Print (form) | MISSING | **COMPLETE** | Frappe | `FrappeFormPrint`, `formPrint.ts`; menu entry | fint "FV.K4 Print opens FrappeFormPrint for the form's document (get_html_and_style preview)"; fra "FV.K4 FV.L1 Print follows Print Settings…" | `#frappe-record-actions` | simulator | — |
+| FV.K5 | Email | MISSING | **COMPLETE** | both | menu → `FrappeEmailComposer` | fint "FV.K5 Email opens FrappeEmailComposer prefilled from the document; sending records a Communication"; fra "FV.K5 FV.K8 FV.K9 FV.K15 …" | `#frappe-record-actions` | simulator | see O |
+| FV.K6 | Duplicate | PARTIAL | **COMPLETE** | Frappe | `copyDoc` (from defaults); `FForm` opens the local copy (a host `onDuplicate` replaces it) | fint "FV.K6 Duplicate opens the copy in the form (no request); saving it inserts a new Deal and keeps D-1"; ffp "FV.K6 a Duplicate gets the no_copy field's default…"; fra "FV.K6 FV.K7 …" | `#frappe-record-actions` | simulator | the copy lives in FrappeForm state (a remount or a `name` change drops it); the form keeps its `name` prop — route with `menu.onOpened` |
 | FV.K7 | Copy to clipboard | MISSING | **COMPLETE** | Frappe | `FrappeRecordMenu` | fra "FV.K6 FV.K7 … Copy to Clipboard writes JSON.stringify(doc)" | `#frappe-record-actions` | simulator | — |
 | FV.K8 | Rename | PARTIAL | **COMPLETE** | both | Core `RenameDialog`; `FrappeRecordMenu` → `frappe.rename_doc` | ra "FV.K8 requires a name…"; fra "FV.K8 Rename sends frappe.rename_doc…" | `#frappe-record-actions` | simulator | title path (`update_document_title`, queued rename) not implemented |
 | FV.K9 | Delete | PARTIAL | **COMPLETE** | both | `RecordMenu` confirm; `FrappeRecordMenu` → `frappe.client.delete` | fra "FV.K9 Delete asks 'Permanently delete {title} ({name})?'…", "FV.K9 permission negative…", "FV.K9 a server refusal surfaces…"; ra "FV.K9 a destructive item asks first…" | `#frappe-record-actions` | simulator | — |
-| FV.K10 | Reload | PARTIAL | **COMPLETE** | Frappe | `FrappeRecordMenu` `onReload` | fra "FV.K10 FV.K15 FV.K14 Reload asks first when dirty…" | `#frappe-record-actions` | simulator | confirms when dirty (deliberate difference from Desk) |
+| FV.K10 | Reload | PARTIAL | **COMPLETE** | Frappe | menu → the form's reload | fint "FV.K10 Reload re-reads the document from the server (getdoc) and shows the server's value"; fra "FV.K10 FV.K15 FV.K14 Reload asks first when dirty…" | `#frappe-record-actions` | simulator | confirms when dirty (deliberate difference from Desk); not offered for a new document or a local copy |
 | FV.K11 | Customize | N/A | N/A | — | extra: `customizeHref`, menu entry for System Manager | fra "FV.K6 FV.K11 FV.K14 …Customize for System Manager only…" (extra, not counted) | `#frappe-record-actions` | simulator | N/A kept (fixed denominator); built anyway as a Desk-URL hand-off |
-| FV.K12 | Links (linked_with) | MISSING | **COMPLETE** | Frappe | menu "Links" → `onShowConnections` | fra "FV.K16 every entry with every right and every host capability, in Desk order", "FV.K3 FV.K16 a System Manager gets Desk's menu…" (entry rendered); Connections: see M | `#frappe-record-actions` | simulator, unit | opens the Connections tab, no `linked_with` dialog; clicking "Links" → `onShowConnections` is not asserted |
+| FV.K12 | Links (linked_with) | MISSING | **COMPLETE** | Frappe | menu "Links" → `showTab("extra:connections")` | fint "FV.K12 FV.M3 Links switches to the Connections tab, which counts the linked Deal Notes (get_open_count)" | `#frappe-record-actions` | simulator | opens the Connections tab (offered only when it exists); no `linked_with` dialog |
 | FV.K13 | Remind Me | MISSING | **COMPLETE** | both | Core `ReminderDialog`; `FrappeReminder` → `create_new_reminder` | ra "FV.K13 default 1 hour from now…"; fra "FV.K13 Remind Me → create_new_reminder…" | `#frappe-record-actions` | simulator | — |
-| FV.K14 | Undo / Redo | MISSING | **COMPLETE** | Frappe | `m/docStore.ts` history; `FFV` Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl/⌘+Y; menu entries | ffp "FV.K14 Ctrl+Z outside inputs undoes the user's last change…", "FV.K14 negative…"; fra "FV.K10 FV.K15 FV.K14 …Undo / Redo follow the host state" | `#frappe-form-p35` | simulator | only user input is recorded (as Desk) |
-| FV.K15 | New {DocType} | MISSING | **COMPLETE** | Frappe | `formMenuItems` (create, not in_create, not single) | fra "FV.K5 FV.K8 FV.K9 FV.K15 … New = create, not in_create" | `#frappe-record-actions` | simulator, unit | — |
-| FV.K16 | Menu permission-aware & configurable | MISSING | **COMPLETE** | Frappe | `formMenuItems` + `exclude` / `extra` | fra "FV.K16 every entry with every right…"; ra "FV.K16 a rejected action is shown under the trigger…" | `#frappe-record-actions` | unit, simulator | — |
+| FV.K14 | Undo / Redo | MISSING | **COMPLETE** | Frappe | `m/docStore.ts` history; `FFV` Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl/⌘+Y; menu entries → `frm.undo()` / `frm.redo()` | ffp "FV.K14 Ctrl+Z outside inputs undoes the user's last change…", "FV.K14 negative…"; fint "FV.K14 Undo / Redo in the menu follow the form's history (controller undo / redo)" | `#frappe-form-p35` | simulator | only user input is recorded (as Desk) |
+| FV.K15 | New {DocType} | MISSING | **COMPLETE** | Frappe | `formMenuItems` (create, not in_create, not single); `FForm` opens a new document (a host `onNew` replaces it) | fint "FV.K15 New opens a new Deal in the form; a host onNew replaces it"; fra "FV.K5 FV.K8 FV.K9 FV.K15 … New = create, not in_create" | `#frappe-record-actions` | simulator, unit | — |
+| FV.K16 | Menu permission-aware & configurable | MISSING | **COMPLETE** | Frappe | `formMenuItems` + `exclude` / `extra`; `FrappeFormMenuOptions` | fint "FV.K16 options pass through: exclude drops entries, extra adds the host's own; a node replaces the menu", "FV.K16 permission negative: a Viewer (read only) gets no Duplicate, Rename, Delete, Print, Email, Customize or New"; fra "FV.K16 every entry…" | `#frappe-record-actions` | unit, simulator | Rename / Delete do not re-route: the host routes with `onRenamed` / `onDeleted` |
 
 ### FV.L. Print / PDF
 
@@ -362,9 +358,9 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
-| FV.M1 | Connections tab | MISSING | **COMPLETE** | both | Core `ConnectionsPanel`; `FrappeConnections`; `FFV` `extraTabs` | ra "FV.M1 groups with count badges…"; ffp "FV.M1 extraTabs: a form without Tab Breaks gets a Details tab plus the extra tabs…", "FV.M1 extraTabs are appended after the form's own tabs…" | `#frappe-record-actions` | simulator, unit | FrappeForm does not add the tab by default at e6e4dd2: the app passes `extraTabs` — TODO(integration) |
+| FV.M1 | Connections tab | MISSING | **COMPLETE** | both | Core `ConnectionsPanel`; `FrappeConnections`; `FForm` `connections` (default on when `connectionsFromMeta` finds a dashboard); `FFV` `extraTabs` | fint "FV.K3 FV.M1 the ⋯ menu and the Connections tab are on by default…; no dashboard → no tab"; ra "FV.M1 groups with count badges…"; ffp "FV.M1 extraTabs…" ×2 | `#frappe-record-actions` | simulator, unit | a form without Tab Breaks gets a "Details" + "Connections" tab bar |
 | FV.M2 | Linked doctypes (`meta.__dashboard`) | MISSING | **COMPLETE** | Frappe | `connections.ts` `connectionsFromMeta` | fra "FV.M2 connectionsFromMeta reads the recorded real 15.110 dashboards (User, Customer)…" | `#frappe-record-actions` | unit (recorded-real metas as input) | `override_doctype_dashboards` hooks need a site |
-| FV.M3 | Counts (`get_open_count`) | MISSING | **COMPLETE** | Frappe | `useOpenCounts` | fra "FV.M3 FV.M4 FrappeConnections on the real User meta: get_open_count…", "FV.M3 the Deal dashboard counts…" | `#frappe-record-actions` | simulator | server counts via `frappe.get_all`; real behaviour unverified |
+| FV.M3 | Counts (`get_open_count`) | MISSING | **COMPLETE** | Frappe | `useOpenCounts` | fra "FV.M3 FV.M4 FrappeConnections on the real User meta: get_open_count…", "FV.M3 the Deal dashboard counts…"; fint "FV.K12 FV.M3 Links switches to the Connections tab…" | `#frappe-record-actions` | simulator | server counts via `frappe.get_all`; real behaviour unverified |
 | FV.M4 | Navigation | MISSING | **COMPLETE** | Frappe | `FrappeConnections` `onOpenList` / `listHref` / `onNew` | fra "FV.M3 FV.M4 …open list / new with the link filter…" | `#frappe-record-actions` | simulator | — |
 | FV.M5 | Empty / loading | MISSING | **COMPLETE** | both | `ConnectionsPanel` | ra "FV.M5 empty, notice, loading and error-with-retry states…"; fra "FV.M5 FV.M6 a new document asks to save first…" | `#frappe-record-actions` | unit, simulator | — |
 | FV.M6 | Permission-aware | MISSING | **COMPLETE** | Frappe | `FrappeConnections` `canRead`; server READ check | fra "FV.M5 FV.M6 … the server's READ check refuses an outsider…"; "FV.M3 FV.M4 … canRead hides" | `#frappe-record-actions` | simulator | — |
@@ -391,7 +387,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.O5 | Preview | MISSING | MISSING | — | — | none | — | — | not implemented |
 | FV.O6 | Validation | MISSING | **COMPLETE** | both | `isValidEmail`; disabled reason | ra "FV.O6 validates…", "FV.O6 without the e-mail right…" | `#frappe-record-actions` | unit | — |
 | FV.O7 | Sending state | MISSING | **COMPLETE** | both | `EmailComposer` busy | ra "FV.O1 … busy while sending…" | `#frappe-record-actions` | unit | — |
-| FV.O8 | Server integration (`communication.email.make`) | MISSING | **COMPLETE** | Frappe | `email.ts` `emailMakeArgs` | fra "FV.O8 sends email.make with Desk's arguments…", "FV.O8 after sending, the document's docinfo query is invalidated…" | `#frappe-record-actions` | simulator | `print_letterhead` always 1; no schedule / signature / reply-all; real sending unverified |
+| FV.O8 | Server integration (`communication.email.make`) | MISSING | **COMPLETE** | Frappe | `email.ts` `emailMakeArgs` | fra "FV.O8 sends email.make with Desk's arguments…", "FV.O8 after sending, the document's docinfo query is invalidated…"; sctx "FV.O8 FrappeEmailComposer → email.make → docinfo re-read → FrappeTimeline lists the Communication", "FV.O8 SIM.ctx email.make checks the e-mail right with the engine (if_owner)…" | `#frappe-record-actions` | simulator | `print_letterhead` always 1; no schedule / signature / reply-all; real sending unverified |
 | FV.O9 | Errors | MISSING | **COMPLETE** | both | `EmailComposer` error line | ra "FV.O1 … a refusal is shown and the draft kept"; fra "FV.O9 FV.O6 …the SIMULATED server's 403 is shown…" | `#frappe-record-actions` | unit, simulator | — |
 
 ### FV.P. Website link
@@ -470,8 +466,8 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | LV.D3 | Group by Created By | PARTIAL | **COMPLETE** | Frappe | `useFrappeList.tsx` (full-name labels) | flp "LV.D3 group by Created By is labelled with the users' full names" | `#p35-list` | simulator | — |
 | LV.D4 | Group by Tags | PARTIAL | **COMPLETE** | Frappe | `useFrappeList.tsx` | flp "LV.D4 group by Tags: one group per tag, untagged rows under 'No Tags'" | `#p35-list` | simulator | **behaviour change**: "no value" group labelled "Not Set" / "No Tags" (was "—") |
 | LV.D5 | Group by any field incl. custom | COMPLETE | COMPLETE | Frappe | `useFrappeList.tsx` | F "C1 server grouping…"; L | `#frappe-list-view` | unit | — |
-| LV.D6 | Sidebar group-by with server counts | MISSING | **COMPLETE** | both | Core `GroupBySidebar`, `ListView aside`; Frappe `FrappeGroupBySidebar`, `useGroupByCounts` (`get_group_by_count`) | lp "LV.D6 lists values with counts…", "LV.D6 ListView aside renders next to the list…"; flp "LV.D6 Assigned To + Created By counts from get_group_by_count…", "LV.D6 the session user is listed first as 'Me'…" | `#p35-list` | simulator | opt-in (`sidebar`); server aggregate approximated by the simulator (no permissions, no child conditions); WS3 proposed BLOCKED — reclassified |
-| LV.D7 | Sidebar tag stats | MISSING | **COMPLETE** | Frappe | `useTagStats` (`get_sidebar_stats`) | flp "LV.D7 tag stats from get_sidebar_stats; a tag filters `like`, 'No Tags' filters `not like %,%`" | `#p35-list` | simulator | as D6; WS3 proposed BLOCKED — reclassified |
+| LV.D6 | Sidebar group-by with server counts | MISSING | **COMPLETE** | both | Core `GroupBySidebar`, `ListView aside`; Frappe `FrappeGroupBySidebar`, `useGroupByCounts` (`get_group_by_count`) | lp "LV.D6 lists values with counts…", "LV.D6 ListView aside renders next to the list…"; flp "LV.D6 Assigned To + Created By counts from get_group_by_count…", "LV.D6 the session user is listed first as 'Me'…"; sctx "LV.D6 SIM.ctx get_group_by_count uses the transport's filter: child-table conditions and the session's row permissions" | `#p35-list` | simulator | opt-in (`sidebar`); server aggregate approximated by the simulator (now with child-table filters and row permissions); WS3 and the integration report keep it BLOCKED — reclassified by rule 3 |
+| LV.D7 | Sidebar tag stats | MISSING | **COMPLETE** | Frappe | `useTagStats` (`get_sidebar_stats`) | flp "LV.D7 tag stats from get_sidebar_stats; a tag filters `like`, 'No Tags' filters `not like %,%`"; sctx "LV.D7 SIM.ctx get_sidebar_stats counts only readable rows, with child-table filters" | `#p35-list` | simulator | as D6; WS3 and the integration report keep it BLOCKED — reclassified by rule 3 |
 | LV.D8 | Group counts (exact / "+") | COMPLETE | COMPLETE | Core | `ListView.tsx` | L "C1 server mode…"; F | `#frappe-list-view` | unit | — |
 | LV.D9 | Expand / collapse groups | COMPLETE | COMPLETE | Core | `ListTable.tsx` | L "…collapsible" | List View | unit | collapse state not persisted |
 | LV.D10 | Grouping with filters & pagination | COMPLETE | COMPLETE | Core + Frappe | `useListState.ts`; `query.ts` | L "C1 client mode…"; F | `#frappe-list-view` | unit | — |
@@ -523,21 +519,21 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
-| LV.G1 | "+ Add {DocType}" button | PARTIAL | **COMPLETE** | Frappe | `FrappeListView` `create` (gated by level-0 create) | flp "LV.G1 'Add Memo' for a System Manager; render() opens; onCreated reloads the list and closes", "LV.G1 label and onCreate…", "LV.G1 negative controls…" | `#p35-list` | simulator | shown only when `create` is passed (no default dialog at e6e4dd2) — TODO(integration) |
+| LV.G1 | "+ Add {DocType}" button | PARTIAL | **COMPLETE** | Frappe | `FrappeListView` `create` (gated by level-0 create; default dialog = `FrappeQuickEntry`) | lint "LV.G1 LV.G8 FV.F6 create={{}} on a Quick Entry DocType opens FrappeQuickEntry; saving inserts the Note and reloads the list", "LV.G1 a DocType that is not Quick Entry eligible goes to the host's full form…", "LV.G1 negative: an app render / onCreate still wins, and a Reader (no create right) gets no Add button"; flp "LV.G1 …" ×3 | `#p35-list` | simulator | shown only when `create` is passed |
 | LV.G2 | Empty-state "Create your first…" | PARTIAL | **COMPLETE** | Frappe | `FrappeListView` | flp "LV.G2 the empty-state 'Create your first …' only with the create right" | `#p35-list` | simulator | **behaviour change**: gated by the create right |
-| LV.G3 | Quick Entry dialog | MISSING | **COMPLETE** | Frappe | `FrappeQuickEntry` (Dialog over `FrappeFormView`) | fqe "FV.F6 shows only the quick-entry fields, saves through savedocs, hands back the server doc and closes" | `#frappe-form-p35` | simulator | saves through `savedocs` (Desk: `frappe.client.save`); no Submit step; the list hosts it only through `create.render` |
+| LV.G3 | Quick Entry dialog | MISSING | **COMPLETE** | Frappe | `FrappeQuickEntry` (Dialog over `FrappeFormView`), default for `FrappeListView create` | lint "LV.G1 LV.G8 FV.F6 create={{}} on a Quick Entry DocType opens FrappeQuickEntry…"; fqe "FV.F6 shows only the quick-entry fields, saves through savedocs…" | `#frappe-form-p35`, `#p35-list` | simulator | saves through `savedocs` (Desk: `frappe.client.save`); no Submit step |
 | LV.G4 | Metadata-driven QE fields | MISSING | **COMPLETE** | Frappe | `m/quickEntry.ts` `quickEntryFields`, `quickEntryFilter` | fqe "FV.F6 real 15.110 metas: ToDo / Note / User eligible…", "FV.F6 the field rule…" | — | unit (recorded-real metas as input) | 15.110 never applies the "too many fields" limit; the port keeps that |
 | LV.G5 | Required-field handling in QE | MISSING | **COMPLETE** | Frappe | `FrappeQuickEntry` → `FrappeFormView` mandatory check | fqe "FV.F6 the form's mandatory check runs: Save with an empty required field opens Missing Fields, nothing is sent" | — | simulator | — |
 | LV.G6 | Link "Create a new X" | PARTIAL | **COMPLETE** | Frappe | `FLF`; `useQuickEntryHost` | fqe "FV.F6 FrappeForm: typing in a Link to a quick-entry DocType offers Create; saving it sets the Link"; ffp "FV.F6 'Create a new Contact'…" | `#frappe-form-p35` | simulator | — |
 | LV.G7 | Client validation in QE | MISSING | **COMPLETE** | Frappe | `FrappeQuickEntry` (same save pipeline as the form) | fqe "FV.F6 the form's mandatory check runs…" | — | simulator | only the mandatory step is asserted inside the dialog; `validate` / `depends_on` are covered by the form tests |
-| LV.G8 | Save → refresh list / redirect | MISSING | **COMPLETE** | Frappe | `FrappeListView` `create.render(p).onCreated` → `invalidateFrappeList`; `FrappeQuickEntry onCreated` | flp "LV.G1 … render() opens; onCreated reloads the list and closes"; fqe "FV.F6 shows only the quick-entry fields… hands back the server doc and closes" | `#p35-list` | simulator | the two halves are tested separately; the app connects `create={{ render: (p) => <FrappeQuickEntry … {...p}/> }}` — TODO(integration) |
-| LV.G9 | Full-form fallback ("Edit Full Form") | PARTIAL | **COMPLETE** | Frappe | `FrappeQuickEntry onOpenFullForm`; `FrappeForm onOpenFullForm` | fqe "FV.F6 'Edit Full Form' hands over the document as typed; a not-eligible DocType goes straight to onOpenFullForm", "FV.F6 a DocType that is not quick-entry eligible and no onOpenFullForm…" | `#frappe-form-p35` | simulator | routing is the app's |
+| LV.G8 | Save → refresh list / redirect | MISSING | **COMPLETE** | Frappe | default create: `FrappeQuickEntry onCreated` → `invalidateFrappeList` + close | lint "LV.G1 LV.G8 FV.F6 create={{}} on a Quick Entry DocType opens FrappeQuickEntry; saving inserts the Note and reloads the list"; flp "LV.G1 … onCreated reloads the list and closes" | `#p35-list` | simulator | routing to the new document is the app's |
+| LV.G9 | Full-form fallback ("Edit Full Form") | PARTIAL | **COMPLETE** | Frappe | `create.onOpenFullForm`; `FrappeQuickEntry onOpenFullForm`; `FrappeForm onOpenFullForm` | lint "LV.G1 'Edit Full Form' in the default Quick Entry hands the typed document to onOpenFullForm and closes", "LV.G1 a DocType that is not Quick Entry eligible goes to the host's full form with an unsaved new document (no dialog)"; fqe "FV.F6 'Edit Full Form'…" | `#frappe-form-p35` | simulator | without `onOpenFullForm`, a non-eligible DocType shows the whole form in the dialog (Desk would route) |
 
 ### LV.H. View switcher
 
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
-| LV.H0 | View switcher | MISSING | **COMPLETE** | both | Core `ViewSwitcher`, `switcherOptions`; Frappe `availableViews`, `FrappeViews` | vsw "LV.H0 offers only available, implemented views…", "LV.H0 a bare DocType…", "LV.H0 is_tree / Geolocation / Communication…"; fvh "LV.H0 offers List, Report, Kanban…", "LV.H0 showUnavailable lists the rest disabled; filters carry from the Report view into the Kanban view" | `#frappe-views` | unit, simulator | filters do not carry over from `FrappeListView` (no exposed query state) |
+| LV.H0 | View switcher | MISSING | **COMPLETE** | both | Core `ViewSwitcher`, `switcherOptions`; Frappe `availableViews`, `FrappeViews` (List view `onQueryStateChange` carries filters / sort) | vsw "LV.H0 offers only available, implemented views…", "LV.H0 a bare DocType…"; fvh "LV.H0 showUnavailable lists the rest disabled; filters carry from the Report view into the Kanban view"; lint "LV.H0 onQueryStateChange reports the applied filters and sort", "LV.H0 filters applied in the List view reach the Report view after switching" | `#frappe-views` | unit, simulator | — |
 | LV.H1 | Report view | MISSING | **PARTIAL** | Frappe (+Core ListView) | `FrappeReportView`, `report.ts` (`isCellEditable`, `columnTotals`) | fvr "LV.H1 column picker lists every field incl. child-table fields…", "LV.H1 inline edit → frappe.client.set_value…", "LV.H1 a refused save keeps the editor open…", "LV.H1 without write permission (Reader) no cell is editable", "LV.H1 totals row…", "LV.H1 group by (loaded rows)…", "LV.H1 child columns are requested as Desk's report view does…" | `#frappe-views` | simulator | no `save_report`, SQL aggregate group-by, charts, multi-sort, child-cell edit; child-column row shape and `set_value` unverified on a site |
 | LV.H2 | Kanban | MISSING | **COMPLETE** | both | Core `KanbanBoard`; `FrappeKanbanView`, `kanban.ts` | fvk "LV.H2 columns with counts…", "LV.H2 keyboard: Move to… menu and Alt+Arrow…", "LV.H2 drag and drop…; a rejected move is taken back…", "LV.H2 board mode…", "LV.H2 moving a card → update_order_for_single_card…", "LV.H2 group mode (no board)…", "LV.H2 filters shared… read-only without write permission" | `#frappe-views` | simulator | no board creation, column add / archive, Kanban Settings; Kanban Board API approximated by the simulator; WS4 proposed BLOCKED — reclassified |
 | LV.H3 | Calendar | MISSING | **PARTIAL** | both | Core `CalendarMonth`; `FrappeCalendarView` | fvc "LV.H3 monthGrid…", "LV.H3 events on each day they cover…", "LV.H3 Arabic / RTL…", "LV.H3 reportview with the visible range…", "LV.H3 get_events source…", "LV.H3 an explicit field map…" | `#frappe-views` | unit, simulator | month view only; no week / day view, no event drag (`update_event`), no TZ conversion; reportview mode drops rows without an end date |
@@ -586,7 +582,7 @@ response covers. Derivation: every COMPLETE row whose cited test reaches a write
 Data Import) or a P35 simulator handler (`src/frappe/testing/handlers/*.ts`: `get_group_by_count`, `get_sidebar_stats`,
 `save_listview_settings`, `get_open_count`, `communication.email.make`, `get_email_template`, `get_html_and_style`,
 `create_new_reminder`, `kanban_board.*`, `calendar.get_events`), plus the two reads whose response shape was built in the
-test. **61 rows.** The BLOCKED rows (FV.I9, FV.L7, LV.A6b, LV.C14, LV.F19) and the PARTIAL rows with server paths
+test. **62 rows.** The BLOCKED rows (FV.I9, FV.L7, LV.A6b, LV.C14, LV.F19) and the PARTIAL rows with server paths
 (LV.H1 child columns + `set_value`, LV.H3 `get_events`, LV.D11 `user_settings.group_by_fields`, FV.L3 `download_pdf`)
 come on top.
 
@@ -609,6 +605,7 @@ come on top.
 | FV.I1 | Action buttons | baseline | `apply_workflow` | simulator, unit | a real Workflow (FV.I9 stays BLOCKED) |
 | FV.I2 | Approve / Reject / custom actions (+ Desk pre/post steps) | P35 | `apply_workflow` (+ client pre/post steps) | simulator | transition `condition`s |
 | FV.I4 | State refresh after apply | baseline | `apply_workflow` response | unit | docstatus changes made by the transition |
+| FV.K6 | Duplicate | P35 | `savedocs` (insert of the local copy) | simulator | naming of the new document, `no_copy` handling on the server |
 | FV.K8 | Rename | P35 | `frappe.rename_doc` | simulator | merge, link updates, queued rename |
 | FV.K9 | Delete | P35 | `frappe.client.delete` | simulator | link checks (LinkExistsError), `on_trash` |
 | FV.K13 | Remind Me | P35 | `create_new_reminder` | simulator | Reminder notification delivery |
@@ -657,7 +654,9 @@ come on top.
 ## 6. New features implemented (P35)
 
 Every item below is additive (no export removed or renamed — diff of `src/index.ts`, `src/frappe/index.ts`, `src/fields/index.ts`,
-`src/record/index.ts`, `src/frappe/{form,record,form/model}/index.ts` between `0ef45c1` and `e6e4dd2` shows additions only).
+`src/record/index.ts`, `src/frappe/{form,record,form/model}/index.ts` between `0ef45c1` and `e6e4dd2` shows additions only;
+the integration export snapshot of the built `dist/*.d.ts` confirms **0 removed exports** against 0.6.0 and 66 widened
+signatures — CHANGELOG.md lists the ones a consumer could notice).
 Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.md` (WS3), `views.md` (WS4), `p35-core.md` (WS5).
 
 | # | Feature (rows) | Previous gap | Architectural decision | Public API | Files | Tests | Showcase |
@@ -667,7 +666,7 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
 | 3 | Server errors on fields (FV.A43) | server MandatoryError / LinkValidationError shown only as a page error | Parse Frappe's exception field list / messages into a field map; clear on the field's next change | `fieldErrorsFromFrappeError`, `FieldErrorSource` | `m/errors.ts`, `FFV` | `ffp` FV.A43 ×3 | `#frappe-forms` save-error |
 | 4 | Form slots, header image, See on Website (FV.J9, J10, P1–P4, B6; enables K3, M1) | no menu / extra-tab slot; no image_field; no website link | Fixed slot contract on `FrappeFormView` so record features plug in without editing the form | `menu`, `extraTabs`, `fieldFilter`, `buildLayout(meta, { isNew, fieldFilter })` | `FFV`, `m/layout.ts` | `ffp` FV.K3/K16, FV.M1 ×2, FV.B6, FV.J9 ×2, FV.P1–P4, FV.P2 ×2 | `#frappe-form-p35` |
 | 5 | Quick Entry + Link "Create a new X" (FV.F6; LV.G3–G9) | no quick-entry dialog; create offered without rights | Literal port of quick_entry.js:59-110; dialog = `FrappeFormView` with `fieldFilter` (one save pipeline); saves through `savedocs` | `FrappeQuickEntry`, `useQuickEntryHost`, `quickEntryFields`, `quickEntryFilter`, `FrappeFormProps.onOpenFullForm` | `FrappeQuickEntry.tsx`, `m/quickEntry.ts`, `FForm` | `fqe` (9) | `#frappe-form-p35` |
-| 6 | User defaults from boot (FV.E2, D8) | the app had to compute user defaults | Read `defaults` / `user_permissions` from the boot payload; the app passes them to the form | `FrappeBootPayload.defaults/user_permissions`, `FrappeBoot.userDefaults`, `userDefaultsFromBoot` | `services/boot.ts` | `ffp` FV.E2 ×2 | — |
+| 6 | User defaults from boot (FV.E2, D8) | the app had to compute user defaults | Read `defaults` / `user_permissions` from the boot payload; since integration `FrappeProvider` applies them automatically | `FrappeBootPayload.defaults/user_permissions`, `FrappeBoot.userDefaults`, `userDefaultsFromBoot` | `services/boot.ts` | `ffp` FV.E2 ×2 | — |
 | 7 | Undo / Redo (FV.K14) | not implemented | docStore history of user input only (base_control.js:220), erased on replace | `DocStore.undo/redo/canUndo/canRedo/eraseHistory`, `HistoryEntry`, `FormController.undo/redo` | `m/docStore.ts`, `FFV`, `events.ts` | `ffp` FV.K14 ×2 | `#frappe-form-p35` |
 | 8 | Custom buttons / Create dropdown (FV.K1, K2) | apps rendered their own buttons | `frm.add_custom_button` semantics, cleared before every refresh | `FormController.addCustomButton/removeCustomButton/clearCustomButtons`, `CustomButton` | `events.ts`, `FFV` | `ffp` FV.K1 ×2 | `#frappe-form-p35` |
 | 9 | Form ⋯ menu (FV.K3–K10, K12, K13, K15, K16) | no document menu | Core `RecordMenu` (generic, confirm via AlertDialog) + pure `formMenuItems` rule table in Desk order + `FrappeRecordMenu` | `RecordMenu`, `groupMenuItems`, `RenameDialog`, `ReminderDialog`; `formMenuItems`, `FORM_MENU_ORDER`, `printAllowedForStatus`, `customizeHref`, `FrappeRecordMenu`, `FrappeReminder` | `src/record/{RecordMenu,RenameDialog,ReminderDialog}.tsx`, `src/frappe/record/{formMenu.ts,FrappeRecordMenu.tsx,FrappeReminder.tsx}` | `ra`, `fra` (FV.K* tests) | `#frappe-record-actions` |
@@ -685,6 +684,8 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
 | 21 | View switcher + Report / Image / Kanban / Calendar (LV.H0–H3, H5) | List view only | Headless list state shared by every view (`useFrappeViewList`); switcher offers only implemented, available views | Core `ViewSwitcher`, `ViewToolbar`, `ImageGrid`, `ImageView`, `KanbanBoard`, `CalendarMonth` (+ helpers); Frappe `availableViews`, `FrappeViews`, `FrappeReportView`, `FrappeImageView`, `FrappeKanbanView`, `FrappeCalendarView`, `useFrappeViewList` | `src/list/views/*`, `src/frappe/views/*`, `testing/handlers/views.ts` | `vsw`, `fvh`, `fvr`, `fvi`, `fvk`, `fvc` (42) | `#frappe-views` |
 | 22 | Core capabilities the CRM needed (D-crm N1–N11, A18) | see `CRM-MIGRATION.md` §4 | All optional props; without them the 0.6.0 markup renders (tested per gap) | `StatusBadge/StatusDot color`, `STATUS_PALETTE`, `resolveStatusColor`, `statusColorStyles`; `LifecycleStateItem.step`, `LifecycleStep`; `FileDropzone`; `SearchCombobox options/multiple/values/variant`; `TimelineItem.icon/tone`, `Timeline onItemSelect/showActor`; `Suggestion.group/icon`; `IconStatCard trend`; `EmptyState`; `RichTextEditorHandle`, `toolbarEnd`; `MonthInput`; `Stepper overflowCue/followCurrent`; `AssigneeGroup` description line | `src/primitives/*`, `src/record/*`, `src/fields/{FileDropzone,MonthInput,autocomplete}.tsx`, `src/cards/StatCard.tsx` | `tests/core-p35.test.tsx` (44, `CORE.*`) | `core-fields`, `file-dropzone`, `combobox-p35`, `empty-trend`, `record-p35`, `editor-stepper-p35`, `record-extras` |
 
+| 23 | Integration: defaults and wiring (FV.K3–K6, K10, K12, K14–K16, M1, M3, E2, D8; LV.G1, G3, G8, G9, H0) | record features had to be mounted by the app; Duplicate could not open in the form; Quick Entry not the list default; List filters did not reach other views; user defaults manual; simulator handlers role-only | Defaults on with explicit opt-outs (`menu={false}`, `connections={false}`, `userDefaults={false}`); the menu gets the live form through `FrappeFormMenuContext`; docinfo passed only for the loaded name | `FrappeForm menu` / `connections`, `FrappeFormMenuOptions` (`onOpened`), `FrappeFormConnectionsOptions`, `FrappeFormMenuContext`; `FrappeListCreate.onOpenFullForm` / `defaults`; `FrappeListViewProps.onQueryStateChange`; `FrappeProviderProps.userDefaults`; `ColumnDef.status`; `FixtureContext` (testing) | `FForm`, `FFV`, `FrappeListView.tsx`, `views/FrappeViews.tsx`, `FrappeProvider.tsx`, `src/fields/TagInput.tsx`, `src/list/model/columns.ts`, `testing/fixtureTransport.ts`, `testing/handlers/*` | `tests/frappe-form-integration.test.tsx` (12), `frappe-list-integration.test.tsx` (6), `sim-context.test.tsx` (7), `core-integration.test.tsx` (3) | `#frappe-record-actions` (now FrappeForm's default menu + tab) |
+
 ## 7. Remaining gaps
 
 ### 7.1 Missing functionality (status MISSING)
@@ -699,15 +700,15 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
   A35 Icon (read-only, no control) · A32 JSON (no validation) · A33 Phone (no country picker) · A40 Fold (no folding) ·
   A41 placeholders on non-Data controls · A42 required mark untested at FrappeField level · B4 `collapsible_depends_on`
   not recomputed on change · B7 no real-viewport e2e · C5 workflow-state mandatory expression untested · D4 create-only /
-  write-only roles on a new doc untested · D8 User Permission defaults only when the app passes them · G10 attach in a row
-  untested · J8 naming-series preview · K6 Duplicate not opened in the form · L3 `download_pdf` not simulated.
+  write-only roles on a new doc untested · D8 search_link User Permission filtering is server-side and unverified · G10 attach in a row
+  untested · J8 naming-series preview · L3 `download_pdf` not simulated.
 - **List:** LV.B3 Date In / Not In · D11 sidebar "Edit" modal · E12 relative modified time · H1 Report (no `save_report`,
   aggregates, charts, multi-sort, child-cell edit) · H3 Calendar (month only) · I5 "Load more" only when grouped.
 
 ### 7.3 Backend-dependent
 - BLOCKED: FV.I9 real Workflow · FV.L7 real print formats / letterheads · LV.A6b `user_settings` `List.sf_ui` merge ·
   LV.C14 List Filter permissions · LV.F19 every bulk write on a real site.
-- The 61 rows of §5, plus the server sub-paths of LV.H1, H3, D11 and FV.L3.
+- The 62 rows of §5, plus the server sub-paths of LV.H1, H3, D11 and FV.L3.
 
 ### 7.4 Real-Frappe validation gaps
 - No authenticated real-site session has been run (`e2e/frappe-site/` is prepared, never run). No write has been verified
@@ -716,13 +717,18 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
 - Simulator fidelity limits found in P35 (test-fidelity, not product behaviour): the P35 list handlers use a local row
   matcher (no child-table conditions, no simulated permissions); `reportview.get` answers one row per parent for child
   columns and has no `aggregate_function`; `frappe.client.set_value` has no child-table branch; `download_pdf` is not
-  simulated; print preview HTML is a placeholder; the record handlers' permission check is role-only.
-  TODO(integration): `0a12462` gives the handlers the permission engine, row filter, print settings and clock — not
-  verified here.
+  simulated; print preview HTML is a placeholder. Since integration the P35 handlers use the transport's permission
+  engine and row filter (`FixtureContext`, `tests/sim-context.test.tsx`); still not simulated: Communication Links, the
+  engine for `get_kanban_boards` when the Kanban Board meta is not loaded, Kanban's `private` permission query.
 
 ### 7.5 Known bugs and deviations
-- **TagInput** keeps its suggestion list ("No results") open after Enter adds a tag until focus leaves; in a dialog it can
-  cover the next button (seen in the CRM bulk Tags popup, 8/8 combinations; `ws/crm.md`). TODO(integration): `b39b3c6` reports a fix — not verified here.
+- Fixed by integration: `TagInput` no longer keeps its "No results" list open after Enter / comma creates a tag
+  (`CORE.M7 …`, `tests/core-integration.test.tsx`); `ListView` status cells render a configured colour through
+  `ColumnDef.status` (`CORE.G17 …`).
+- Form menu: Rename / Delete do not re-route — the host routes with `onRenamed` / `onDeleted`; Duplicate / New open a local
+  document in FrappeForm state (a remount or a `name` change drops it, as for Amend).
+- `FrappeListView create` without `create.onOpenFullForm`: a DocType that is not Quick Entry eligible shows the whole form
+  in the Quick Entry dialog (Desk routes to the full form).
 - **DataGrid** has a fixed `min-w-[32rem]`: on a 390 px phone it scrolls horizontally (blocked the CRM M10 migration).
 - **Kanban** with a filtered list: `update_order_for_single_card` pops `old_index` blindly (kanban_board.py:147-151) and
   can move a different name — Desk behaves the same; documented in `views.md` §5.
@@ -740,4 +746,4 @@ Report Builder (`save_report`, aggregates, charts) · Kanban board creation / co
 day views, event drag, Calendar View documents · Gantt / Tree / Dashboard adapters · Datetime TZ while editing · Markdown /
 HTML previews, signature pad, JSON validation · sidebar "Edit" modal and "assigned to me" · rename title path
 (`update_document_title`) · e-mail preview, schedule, signature, reply-all · Quick Entry Submit step · filters carried from
-`FrappeListView` into `FrappeViews` (TODO(integration)) · an export-list snapshot gate (E-tests §7).
+an export-list snapshot gate in CI (the integration snapshot script exists in the session scratchpad only).

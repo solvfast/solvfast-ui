@@ -383,8 +383,21 @@ import { FrappeListView, FrappeQuickEntry, FrappeViews } from "@solvfast/ui/frap
 <FrappeViews doctype="Task" />
 ```
 
-The form pieces (`FrappeRecordMenu`, `FrappeConnections`) plug into `FrappeFormView`'s `menu` and `extraTabs` slots;
-see `docs/components/record.md` §5 and `docs/components/forms.md`. TODO(integration): `FrappeForm` mounts them by default.
+`FrappeForm` shows Desk's ⋯ menu and, when the DocType has a dashboard, a Connections tab by default; route the
+documents it opens or changes with the menu callbacks, or turn them off:
+
+```tsx
+<FrappeForm
+  doctype="Deal" name={name}
+  menu={{ onRenamed: (n) => navigate(`/deals/${n}`), onDeleted: () => navigate("/deals") }}
+  connections={{ onOpenList: (doctype, filters) => openList(doctype, filters) }}
+/>
+<FrappeForm doctype="Note" name={name} menu={false} connections={false} />
+```
+
+Duplicate / New open an unsaved document in the same form (`menu.onOpened(doc, "duplicate" | "new")` tells the app).
+`FrappeProvider` applies `boot.userDefaults` to new documents (`userDefaults={false}` opts out). See
+`docs/components/forms.md` §2.4 and `docs/components/record.md` §5.
 Every server write these components make has been tested only against the simulator (docs/LIMITATIONS.md).
 
 ## Known limitations
