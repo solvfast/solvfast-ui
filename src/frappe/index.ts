@@ -104,3 +104,15 @@ export {
   statusLabel as importStatusLabel, statusTone as importStatusTone, DONT_IMPORT, IMPORT_LOG_TABLE_LIMIT,
 } from "./list/importMapping";
 export type { DataImportLabels, ImportFieldOption, GroupedImportWarnings, PreviewColumnView } from "./list/importMapping";
+
+// P35 list
+export { indicatorWorkflowFromMeta } from "./list/indicator";
+export { TagsCell, parseTags } from "./list/cells";
+export { DESK_PAGE_SIZES, userPermissionsUrl, rolePermissionsUrl, customizeUrl } from "./FrappeListView";
+export type { FrappeListCreate } from "./FrappeListView";
+export { FrappeGroupBySidebar, useGroupByCounts, useTagStats, sortGroupByCounts, filtersWithout, sidebarFilterField, DEFAULT_SIDEBAR_GROUP_BY } from "./list/FrappeGroupBySidebar";
+export type { FrappeGroupBySidebarProps, GroupByCount } from "./list/FrappeGroupBySidebar";
+export { FrappeListSettingsDialog, initialListSettingsFields, SAVE_LISTVIEW_SETTINGS_METHOD } from "./list/FrappeListSettingsDialog";
+export type { FrappeListSettingsDialogProps, ListSettingsField } from "./list/FrappeListSettingsDialog";
+export { BulkEditValue, bulkEditValue } from "./list/FrappeBulkActions";
+export { actsAsSystemManagerFor } from "./services/permissions";

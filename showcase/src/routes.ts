@@ -100,3 +100,12 @@ export const GROUPS: Group[] = [
 ];
 
 export const PAGES = GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g })));
+
+// P35 list
+{
+  const p35List = () => import("./pages/p35-list");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = { id: "p35-list", title: l("Desk list features (SIMULATED)", "ميزات قائمة ديسك (محاكاة)"), description: l("Workflow indicator, Assigned To / Tags, group-by sidebar with counts, Add {DocType}, page sizes, select all matching, Is Global saved filters, List Settings, card layout — on the in-page simulator.", "مؤشر سير العمل، المُسند إليه / الوسوم، الشريط الجانبي بالأعداد، إضافة، أحجام الصفحة، تحديد كل المطابق، التصفيات العامة، إعدادات القائمة، تخطيط البطاقات — على المحاكي."), Component: from(p35List, "P35ListPage") };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}
