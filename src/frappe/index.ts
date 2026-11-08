@@ -139,3 +139,6 @@ export type { ReportEditable, ReportEditInfo, ReportEditMode, ReportEditOptions 
 
 // P36 selection — what a bulk action leaves selected (Desk list_view.js / bulk_operations.js)
 export { selectionAfterBulk } from "./list/bulk";
+
+// P36b search — Desk's awesome bar + Global Search dialog over frappe.utils.global_search.search (docs/components/search.md)
+export * from "./search";

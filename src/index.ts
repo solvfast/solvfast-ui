@@ -222,3 +222,7 @@ export type { GroupBucket } from "./list/model/group";
 export type { SaveFilterOptions } from "./list/model/storage";
 export type { SelectionMatching } from "./list/parts/ListTable";
 export type { ListActions } from "./list/ListActionsContext";
+
+// P36b search — the header's global search (Desk awesome bar + Global Search dialog), Core (docs/components/search.md)
+export * from "./shell/search";
+export type { NavbarSearchSlot } from "./shell/Navbar";
