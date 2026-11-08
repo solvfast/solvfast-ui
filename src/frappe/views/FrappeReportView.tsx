@@ -2,13 +2,15 @@
  * FrappeReportView — Desk's Report view (frappe/public/js/frappe/views/reports/report_view.js) on the package's
  * `ListView`: every field of the DocType in the column picker (hidden until chosen), the child tables' fields too
  * (`Child:field`, requested as Desk does, :869-884), the list's filters / search / sort / paging, inline cell editing
- * through `frappe.client.set_value` (Desk's `set_control_value`, :682-697) where `isCellEditable` allows it, a totals
- * row over the loaded rows (:1523-1549), and Group by over the loaded rows.
+ * through `frappe.client.set_value` (Desk's `set_control_value`, :682-696) where `isCellEditable` allows it — by
+ * default exactly Desk's rule (P36; docs/components/views.md §3), parent AND child-table cells —, a totals row over
+ * the loaded rows (:1523-1549), and Group by over the loaded rows.
  *
  * Not reproduced from Desk: saving as a Report Builder report (`save_report`), the SQL aggregate Group By
  * (`aggregate_function` / `aggregate_on_field`, reportview.py:161-176 — here grouping is the list's, over loaded rows),
- * charts, multi-column sort, column widths / reordering by drag, "Pick Columns" per child table, editing child cells,
- * `add_totals_row` saved in user settings, print / export entries (use `FrappeReportExportDialog`).
+ * charts, multi-column sort, column widths / reordering by drag, "Pick Columns" per child table, editors for the
+ * fieldtypes outside `INLINE_EDIT_TYPES`, `add_totals_row` saved in user settings, print / export entries (use
+ * `FrappeReportExportDialog`).
  */
 import * as React from "react";
 import { QueryClientContext } from "@tanstack/react-query";
@@ -28,12 +30,31 @@ import { FrappeProvider } from "../FrappeProvider";
 import { usePermissions } from "../hooks/usePermissions";
 import { describeError } from "../feedback/FrappeErrorState";
 import type { FrappeClient } from "../client";
-import type { FrappeDocField } from "../contract";
+import type { DocPermissions, FrappeDocField } from "../contract";
 import type { FrappeFilter } from "../query";
-import { patchCachedRows, useFrappeViewList } from "./useFrappeViewList";
-import { columnTotals, isCellEditable, NUMERIC_TYPES } from "./report";
+import { updateCachedRows, useFrappeViewList } from "./useFrappeViewList";
+import { columnTotals, deskCanWrite, INLINE_EDIT_TYPES, isCellEditable, isNonStdField, NUMERIC_TYPES, rowFromSavedDoc, type ReportEditMode } from "./report";
 
 type Row = Record<string, unknown>;
+
+/** What a custom `editable` rule receives besides the field and the loaded row. */
+export interface ReportEditInfo {
+  /** Desk's verdict for this cell (`isCellEditable`, mode "desk"). */
+  desk: boolean;
+  /** The report's DocType. */
+  doctype: string;
+  /** Set for a child-table column (`Child:field`): the child DocType. The save then targets the child row. */
+  childDoctype?: string;
+  /** Rights per permlevel of the session on the DocType (`usePermissions`). */
+  levels: DocPermissions;
+}
+/**
+ * Which cells are editable inline. `"desk"` (default) = Frappe 15.110's report view exactly; `"strict"` = Desk plus the
+ * server's own checks (field permlevel write, submit right on submitted documents, `read_only_depends_on` always
+ * evaluated); a function decides itself (`info.desk` carries Desk's verdict). A child cell needs its child row
+ * (`Child:name`) whatever the rule says.
+ */
+export type ReportEditable = ReportEditMode | ((df: FrappeDocField, row: Row, info: ReportEditInfo) => boolean);
 type Managed = "rows" | "columns" | "rowKey" | "mode" | "total" | "onStateChange" | "loading" | "error" | "onRetry" | "onLoadMore"
   | "totalLabel" | "hasMore" | "onTotalClick" | "searchHint" | "selectionScope" | "filterFields" | "groupByOptions" | "searchFields" | "pageSize";
 
@@ -45,13 +66,16 @@ export interface FrappeReportViewProps extends Omit<ListViewProps<Row>, Managed>
   pageSize?: number;
   /** Fields offered in Group by (grouping of the loaded rows). */
   groupByFields?: string[];
-  /** Inline cell editing where allowed (`isCellEditable`). Default true. */
+  /** Inline cell editing on / off. Default true. Which cells: `editable`. */
   inlineEdit?: boolean;
+  /** The editability rule. Default `"desk"` (Frappe 15.110's report view, docs/components/views.md §3). */
+  editable?: ReportEditable;
   /** Start with the totals row shown (Desk: off until "Show Totals"). Default false. */
   totals?: boolean;
   /** The applied list state after each change (to carry filters / sort to another view). */
   onQueryStateChange?: (state: ListQueryState) => void;
-  /** A cell was saved (the server's document). */
+  /** A cell was saved: the row as it was, the column key (`field`, or `Child:field` for a child cell) and the
+   *  server's (parent) document. */
   onCellSaved?: (row: Row, fieldname: string, doc: Row) => void;
 }
 
@@ -60,9 +84,9 @@ export function FrappeReportView(props: FrappeReportViewProps) {
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function EditableCell({ row, df, label, onSave }: { row: Row; df: FrappeDocField; label: string; onSave: (value: unknown) => Promise<void> }) {
+function EditableCell({ row, valueKey, df, label, onSave }: { row: Row; valueKey: string; df: FrappeDocField; label: string; onSave: (value: unknown) => Promise<void> }) {
   const { t } = useLocale();
-  const value = row[df.fieldname];
+  const value = row[valueKey];
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -72,6 +96,8 @@ function EditableCell({ row, df, label, onSave }: { row: Row; df: FrappeDocField
   const commit = async (raw: string) => {
     const typed = NUMERIC_TYPES.has(df.fieldtype) ? (raw.trim() === "" ? null : Number(raw)) : df.fieldtype === "Check" ? (raw === "1" ? 1 : 0) : raw;
     if (typeof typed === "number" && Number.isNaN(typed)) { setError(t("reportSaveFailed").replace("{field}", label)); return; }
+    // datatable submitEditing (cellmanager.js:553-556): an unchanged value sends nothing
+    if (typed === value || (typed === "" && (value === null || value === undefined))) { setEditing(false); return; }
     setBusy(true); setError("");
     try { await onSave(typed); setEditing(false); }
     catch (e) { setError(describeError(e).bodies[0] || t("reportSaveFailed").replace("{field}", label)); }
@@ -111,7 +137,7 @@ function EditableCell({ row, df, label, onSave }: { row: Row; df: FrappeDocField
   );
 }
 
-function Inner({ doctype, client, baseFilters, pageSize, groupByFields, inlineEdit = true, totals: totalsInitial = false, onQueryStateChange, onCellSaved, ...rest }: FrappeReportViewProps) {
+function Inner({ doctype, client, baseFilters, pageSize, groupByFields, inlineEdit = true, editable = "desk", totals: totalsInitial = false, onQueryStateChange, onCellSaved, ...rest }: FrappeReportViewProps) {
   const { t, language } = useLocale();
   const v = useFrappeViewList({ doctype, client, baseFilters, pageSize, groupByFields, childColumns: true, scope: "report" });
   const perms = usePermissions(v.bundle);
@@ -119,23 +145,49 @@ function Inner({ doctype, client, baseFilters, pageSize, groupByFields, inlineEd
   const [saved, setSaved] = React.useState("");
   const dfs = React.useMemo(() => new Map((v.doc?.fields ?? []).map((f) => [f.fieldname, f as unknown as FrappeDocField])), [v.doc]);
 
-  const save = React.useCallback(async (row: Row, df: FrappeDocField, label: string, value: unknown) => {
-    // Desk: frappe.db.set_value(doctype, docname, { [fieldname]: value }) (report_view.js:682-697) → frappe.client.set_value
-    const res = await v.client.call("frappe.client.set_value", { doctype, name: String(row.name), fieldname: JSON.stringify({ [df.fieldname]: value }) });
-    const doc = (res.message ?? {}) as Row;
-    patchCachedRows(v.queryClient, doctype, String(row.name), { [df.fieldname]: doc[df.fieldname] ?? value, ...(doc.modified ? { modified: doc.modified } : {}) });
+  const children = v.bundle?.children;
+
+  const save = React.useCallback(async (row: Row, df: FrappeDocField, key: string, label: string, value: unknown, childDoctype?: string) => {
+    // Desk: frappe.db.set_value(doctype, docname, { [fieldname]: value }) (report_view.js:682-696) → frappe.client.set_value;
+    // a child cell targets the child row (`cell.doctype` / `cell.name` = `Child:name`, :629-632, :1287-1292)
+    const target = childDoctype ? { doctype: childDoctype, name: String(row[`${childDoctype}:name`]) } : { doctype, name: String(row.name) };
+    const res = await v.client.call("frappe.client.set_value", { ...target, fieldname: JSON.stringify({ [df.fieldname]: value }) });
+    // :688-692 — no `message` is a failure
+    if (!res.message || typeof res.message !== "object") throw new Error(t("reportSaveFailed").replace("{field}", label));
+    const doc = res.message as Row;
+    // :639-670 — the row is refreshed from the returned (parent) document, child keys from its child row
+    updateCachedRows(v.queryClient, doctype, (r) => rowFromSavedDoc(r, doc));
     setSaved(t("reportSaved").replace("{field}", label));
-    onCellSaved?.(row, df.fieldname, doc);
+    onCellSaved?.(row, key, doc);
   }, [v.client, v.queryClient, doctype, onCellSaved, t]);
 
-  const columns = React.useMemo<ColumnDef<Row>[]>(() => v.listProps.columns.map((c) => {
-    const df = dfs.get(fieldOf(c));
-    if (!inlineEdit || !df || c.key.includes(":") || !perms.levels[df.permlevel ?? 0]?.write) return c;
-    const label = loc(c.label, language);
-    return { ...c, render: (row: Row) => (isCellEditable(df, row, perms.levels)
-      ? <EditableCell row={row} df={df} label={label} onSave={(val) => save(row, df, label, val)} />
-      : <DefaultCell value={row[df.fieldname]} col={c} />) };
-  }), [v.listProps.columns, dfs, inlineEdit, perms.levels, language, save]);
+  const columns = React.useMemo<ColumnDef<Row>[]>(() => {
+    if (!inlineEdit) return v.listProps.columns;
+    const meta = v.bundle?.meta;
+    const rule = { fields: meta?.fields ?? v.doc?.fields ?? [], levels: perms.levels, issingle: meta?.issingle };
+    return v.listProps.columns.map((c) => {
+      const key = fieldOf(c);
+      const childDoctype = key.includes(":") ? key.split(":")[0] : undefined;
+      const fieldname = childDoctype ? key.slice(childDoctype.length + 1) : key;
+      const df = (childDoctype ? children?.[childDoctype]?.fields.find((f) => f.fieldname === fieldname) : dfs.get(key)) as FrappeDocField | undefined;
+      if (!df || !INLINE_EDIT_TYPES.has(df.fieldtype)) return c; // no editor for this fieldtype in this package
+      if (typeof editable !== "function") {
+        // column level (build_column :1170-1173) and can_write: no cell of this column can pass
+        const f = df as FrappeDocField & { is_virtual?: unknown };
+        if (!isNonStdField(fieldname) || f.read_only || f.is_virtual || !deskCanWrite(perms.levels, meta)) return c;
+      }
+      const label = loc(c.label, language);
+      const can = (row: Row) => {
+        const child = childDoctype ? { name: row[`${childDoctype}:name`] } : undefined;
+        if (typeof editable !== "function") return isCellEditable(df, row, { ...rule, child, mode: editable });
+        const desk = isCellEditable(df, row, { ...rule, child });
+        return (!child || !!child.name) && editable(df, row, { desk, doctype, childDoctype, levels: perms.levels });
+      };
+      return { ...c, render: (row: Row) => (can(row)
+        ? <EditableCell row={row} valueKey={key} df={df} label={label} onSave={(val) => save(row, df, key, label, val, childDoctype)} />
+        : <DefaultCell value={row[key]} col={c} />) };
+    });
+  }, [v.listProps.columns, v.bundle, v.doc, children, dfs, inlineEdit, editable, perms.levels, language, save, doctype]);
 
   const onState = v.listProps.onStateChange;
   const onStateChange = React.useCallback((s: ListQueryState) => { onState(s); onQueryStateChange?.(s); }, [onState, onQueryStateChange]);

@@ -23,7 +23,7 @@ No view here reaches "site".
 | View | (1) Switcher | (2) Implementation | (3) Data | (4) Actions / filters | Evidence (tests) |
 |---|---|---|---|---|---|
 | List | yes | `FrappeListView` (pre-existing, WS3) | sim + recorded reads (pre-existing) | yes (pre-existing) | B-list.md sections A–J |
-| Report | yes | `FrappeReportView` on `ListView` | sim: `reportview.get` with Desk's child-column field form, `frappe.client.set_value` | filters, search, sort, paging, group-by (loaded rows), column picker including child-table fields, inline edit (permission-aware), totals | `tests/frappe-views-report.test.tsx` (`LV.H1 …`, 9 tests) |
+| Report | yes | `FrappeReportView` on `ListView` | sim: `reportview.get` with Desk's child-column field form, `frappe.client.set_value` | filters, search, sort, paging, group-by (loaded rows), column picker including child-table fields, inline edit (Desk 15.110 rule by default, child cells included; `editable` opt-in), totals | `tests/frappe-views-report.test.tsx` (`LV.H1 …`, 26 tests) |
 | Image | yes, only when `image_field` names a field | Core `ImageGrid` / `ImageView` + `FrappeImageView` | sim: `reportview.get` with `image_field` + `title_field` | filters, search, sort, paging, selection, keyboard | `tests/frappe-views-image.test.tsx` (`LV.H5 …`, 7 tests) |
 | Kanban | yes, when the DocType has a Kanban Board or a Select field | Core `KanbanBoard` + `FrappeKanbanView` | sim: `get_kanban_boards`, `frappe.client.get` (board), `reportview.get` (all rows), `update_order_for_single_card` / `set_value` | move by drag, by the "Move to…" menu or by Alt+Arrow keys; filters and search; read-only without write permission | `tests/frappe-views-kanban.test.tsx` (`LV.H2 …`, 8 tests) |
 | Calendar | yes, with a field map or a Date / Datetime field | Core `CalendarMonth` + `FrappeCalendarView` | sim: `reportview.get` with a date range, or `frappe.desk.calendar.get_events` | month navigation, filters and search, event click | `tests/frappe-views-calendar.test.tsx` (`LV.H3 …`, 6 tests) |
@@ -96,20 +96,122 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
   **The simulator answers one row per parent with its first child row.** No recorded real response covers this request
   form, the response key form (the decoder strips quotes around `'Child:f'` defensively) or the row-per-child shape.
   This sub-path is BLOCKED-REQUIRES-REAL-FRAPPE.
-- **Inline edit:** `isCellEditable(df, row, levels)` ports report_view.js:758-771:
-  - the user has the write right on the field's permlevel;
-  - the document is not submitted, unless the field has `allow_on_submit`;
-  - the document is not cancelled;
-  - the field is not read-only, virtual or hidden, and is not a standard field.
+- **Inline edit (P36: Desk 15.110 by default).** Which cells can be edited is what Desk actually does. It was read
+  from the code paths, not from comments. Citations: `report_view.js` = `frappe/public/js/frappe/views/reports/report_view.js`;
+  datatable = `frappe-datatable` 1.20.4 `src/cellmanager.js` (the version pinned in Frappe's `package.json`).
 
-  It differs from Desk on purpose in three ways:
-  - 15.110's trailing clause (:772-777) makes fields of a DocType without a Table field read-only. That looks like a
-    defect, so it is not reproduced.
-  - A field with `read_only_depends_on` is never edited inline, because the expression is not evaluated here.
-  - Child cells are read-only.
+  **How Desk decides.**
+  - `build_row` (report_view.js:1285-1337) gives each cell `editable: this.is_editable(col.docfield, d)`. A child-table
+    cell gets `editable: Boolean(name && this.is_editable(col.docfield, d))`, where `name` is the row's `Child:name`.
+  - `is_editable(df, data)` (:758-780) has two parts. First the base checks: `frappe.model.can_write(this.doctype)`,
+    `data.docstatus !== 1 || df.allow_on_submit`, `data.docstatus !== 2`, `!df.read_only`, `!df.is_virtual`,
+    `!df.hidden` and `frappe.model.is_non_std_field(df.fieldname)`. If one fails, it returns `false`. Otherwise it returns
+    `this.meta.fields.some(df => df.fieldtype === "Table") || (df.read_only_depends_on && !evaluate(...))`.
+  - The datatable refuses to edit only when `cell.editable === false` or `column.editable === false` (datatable:442-449).
+    So when the DocType has no Table field and the field has no `read_only_depends_on`, `is_editable` returns that
+    empty value (`undefined`, `null` or `""`). That is not `=== false`, so **the cell can be edited**.
+  - The column-level flag is `is_non_std_field && !read_only && !is_virtual` (:1170-1173). It adds nothing to the cell rule.
+  - Frappe's own Cypress test `cypress/integration/report_view.js` confirms this. It edits `enabled` of
+    `Custom Submittable DocType`, a DocType without a Table field whose field has no `read_only_depends_on`
+    (fixture `cypress/fixtures/custom_submittable_doctype.js`), and expects the `frappe.client.set_value` call.
+  - The P35 docs, `CRM-MIGRATION.md` §5.5 and the code comment ("don't check read_only_depends_on if there's child
+    table fields") read the trailing clause as "a DocType without a Table field is read-only". The runtime does not
+    behave that way.
 
-  A save calls `frappe.client.set_value({doctype, name, fieldname: {"<field>": value}})` (Desk `set_control_value`,
-  :682-697). The cell changes only after the server answers. A refusal keeps the editor open and shows the server's message.
+  **Truth table.** Every row assumes the base checks pass; if one fails the cell is not editable.
+
+  | DocType has a `Table` field | `read_only_depends_on` | Parent cell | Child-table cell |
+  |---|---|---|---|
+  | yes | none | editable | editable when the row has a child row (`Child:name`) |
+  | yes | set (any value) | editable (**not evaluated**) | editable when the row has a child row |
+  | no | none | editable (empty value ≠ `false`) | not editable (`Boolean(undefined)`) |
+  | no | evaluates false on the row | editable | editable when the row has a child row |
+  | no | evaluates true on the row | not editable | not editable |
+
+  A `Table MultiSelect` field does not count as `Table` here (:774). The column picker does offer its fields
+  (`frappe.model.table_fields`), so a DocType whose only table is a Table MultiSelect falls under the "no" rows.
+
+  | Base check | Source | Rule |
+  |---|---|---|
+  | write right | `frappe.model.can_write` (model/model.js:382-384) | `boot.user.can_write` is built from the **permlevel-0** DocPerm rows only (user.py:95-106, 131-137, 171-172; permissions.py:540-543). It counts `write`, and also `create` on a non-Single DocType. The field's permlevel is **not** checked. Child cells use the parent DocType's right. |
+  | submitted | `data.docstatus !== 1 \|\| df.allow_on_submit` | Only `allow_on_submit` fields. For a child cell, the child field's flag and the parent row's docstatus. |
+  | cancelled | `data.docstatus !== 2` | Never editable. |
+  | field flags | `!read_only && !is_virtual && !hidden` | Static flags from the meta (DocField + property setters). |
+  | standard field | `is_non_std_field` (model/model.js:64-78, 191-195) | `name`, `owner`, `creation`, `modified`, `modified_by`, `_user_tags`, `_comments`, `_assign`, `_liked_by`, `docstatus`, `idx`, `parent`, `parenttype`, `parentfield`. |
+  | fieldtype | — | Not part of the rule. Desk edits any fieldtype through the field's own control (:698-729), and opens Text Editor in a dialog. |
+
+  **`read_only_depends_on` evaluation** (`evaluate_read_only_depends_on`, :731-756). It runs on the **loaded row**:
+  `name`, `docstatus`, the visible columns and the `Child:field` keys. It never sees the whole document.
+  - A boolean is used as is.
+  - `eval:<js>` runs `frappe.utils.eval` (utils.js:1076-1088) with `doc` = the row and nothing else (no `parent`). A
+    field that is not loaded is `undefined`, so `eval:doc.locked` is false and the cell is editable. In Desk an error
+    is a `frappe.throw` and the row is not built. This package treats the cell as not editable. The pure
+    `isCellEditable` reports the problem through its `onIssue` option; `FrappeReportView` does not surface it.
+  - `fn:` needs `this.frm`. The report view has none, so it falls through to the fieldname form: `data["fn:…"]` is
+    `undefined`, which means editable.
+  - Otherwise the expression is a fieldname. Desk reads `data[expression]`: an array counts by its length, any other
+    value by its truthiness.
+
+  **Save** (`get_editing_object` → `set_control_value`, :624-696).
+  - Desk calls `frappe.db.set_value(cell.doctype, cell.name, {[fieldname]: value})` (db.js:60-73). That is a POST to
+    `frappe.client.set_value` with `{doctype, name, fieldname: '{"<field>": value}'}`. Desk's `value: undefined` goes out
+    as `value=` (jQuery.param); this package leaves the key out. The server's `if not value:` treats both the same.
+  - A child cell sends the **child** DocType and the child row's name.
+  - An unchanged value sends nothing (datatable `submitEditing`:553-556).
+  - Desk shows the new value at once and puts the old one back on failure. A response without `message` counts as a
+    failure (:688-692).
+  - On success Desk refreshes the row's keys from the returned document (:639-670). `Child:field` keys come from the
+    child row with the same name.
+
+  **What the server enforces** (`frappe.client.set_value`, client.py:173-207 → `Document.save`, document.py:376-435).
+  - The `"Cannot edit standard fields"` guard (:182-183) compares the raw `fieldname` argument. The report view always sends
+    a JSON object, so this guard never fires for it.
+  - A child DocType is resolved to its parent through `parenttype` / `parent`, and the PARENT is saved (:195-203). The
+    response is the parent's `as_dict()`.
+  - `check_permission("write")` (:404). `check_if_latest` (:850-878) never conflicts, because the document is loaded
+    fresh on the server.
+  - `check_docstatus_transition` (:880-918): a submitted document needs the **`submit`** right (update after submit),
+    and a cancelled one fails with "Cannot edit cancelled document".
+  - `validate_higher_perm_levels` (:783-806) **silently resets** a field whose permlevel the user cannot write. No
+    error is raised: the save succeeds with the old value.
+  - `_validate_update_after_submit` (base_document.py:1050-1085) refuses changes to fields without `allow_on_submit`.
+  - Then `validate`, `before_save` / `before_update_after_submit` and the DocType's own checks run.
+
+  **This package.**
+  - `isCellEditable(df, row, {fields, levels, issingle?, child?, mode?, onIssue?})` implements the truth table above.
+    `fields` is the report DocType's fields and `levels` is `usePermissions(bundle).levels`.
+  - Desk's empty "editable" value becomes `true` for a parent cell and `false` for a child cell.
+  - `FrappeReportView` applies the rule to every cell, child-table columns included. Child-cell edits post to
+    `frappe.client.set_value` on the child row, as Desk does.
+  - The cell changes only after the server answers. A refusal keeps the editor open with the server's message; Desk
+    instead shows the value at once and reverts it.
+  - After a save, every loaded row of that document is refreshed from the response (`rowFromSavedDoc`). Desk refreshes
+    only the first one.
+  - Cells whose fieldtype has no editor here (outside `INLINE_EDIT_TYPES`: Text Editor, Datetime, Time, Color, Rating,
+    Attach, …) stay read-only even when Desk would edit them.
+  - Two differences remain. A `read_only_depends_on` that fails to evaluate makes the cell read-only here, where Desk
+    throws. Without `session.roles` the rights are unknown (`usePermissions` rule 9), so nothing is editable.
+
+  **Opt-in: a different rule** (the default stays `"desk"`).
+
+  ```tsx
+  <FrappeReportView doctype="Task" />                        {/* editable="desk": Frappe 15.110 */}
+  <FrappeReportView doctype="Task" editable="strict" />
+  <FrappeReportView doctype="Task" editable={(df, row, info) => info.desk && df.fieldname !== "status"} />
+  <FrappeReportView doctype="Task" inlineEdit={false} />    {/* no inline editing at all */}
+  ```
+
+  - `"strict"` keeps Desk's conditions and adds what the server would refuse or silently undo:
+    - the `write` right at level 0 (Desk's `can_write` also accepts `create`);
+    - the `write` right on the field's own permlevel;
+    - the `submit` right on a submitted document;
+    - `read_only_depends_on` evaluated even when the DocType has a Table field.
+  - A function receives `(df, row, {desk, doctype, childDoctype?, levels})`. `info.desk` is Desk's verdict for that cell.
+  - Whatever the rule says, a child cell needs its child row, and the fieldtype needs an editor.
+
+  The request shape, the child-row save and the server checks were checked in the simulator only. Since P36 that
+  includes `reportSetValueHandler` in `src/frappe/testing/handlers/views.ts`, which implements client.py:195-203, the
+  submit right and `_validate_update_after_submit`. **The editor behaviour has not been run against a real site.**
 - **Totals:** "Show totals" sums the visible numeric columns over the **loaded rows (this page)**, as Desk's
   `get_columns_totals` does (:1523-1549). The totals appear in a card under the table, not in a table row.
 - **Group by:** the list's Group by (`groupByFields`) groups the loaded rows (rule C1, chunk of 200).
@@ -119,7 +221,7 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
   - charts;
   - multi-column sort;
   - column widths;
-  - editing child cells;
+  - editors for fieldtypes outside `INLINE_EDIT_TYPES`;
   - `add_totals_row` in user settings.
 
 ## 4. Image — `ImageGrid`, `ImageView` (Core) and `FrappeImageView`
