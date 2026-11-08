@@ -132,3 +132,7 @@ export { FrappeListSettingsDialog, initialListSettingsFields, SAVE_LISTVIEW_SETT
 export type { FrappeListSettingsDialogProps, ListSettingsField } from "./list/FrappeListSettingsDialog";
 export { BulkEditValue, bulkEditValue } from "./list/FrappeBulkActions";
 export { actsAsSystemManagerFor } from "./services/permissions";
+
+// P36 report — Report view inline editing as Frappe 15.110 (docs/components/views.md §3)
+export { deskCanWrite, evaluateReportReadOnlyDependsOn, isNonStdField, rowFromSavedDoc, updateCachedRows } from "./views";
+export type { ReportEditable, ReportEditInfo, ReportEditMode, ReportEditOptions } from "./views";
