@@ -11,7 +11,13 @@
  *  - `openOnClickWhenFilled`: a click / tap on the box opens the FULL list (search "") even when it shows a value —
  *    the shown text is selected so typing replaces it and filters; Escape restores; picking replaces the value. Enter on
  *    a closed box opens the list; Home / End move to the first / last row while the list is open and nothing is typed;
- *    a chevron shows the box opens a list (pointer toggle; keyboard users have ArrowDown / Enter).
+ *    a chevron shows the box opens a list (pointer toggle; keyboard users have ArrowDown / Enter / Space).
+ *    P36c: Space on a filled, closed box with nothing typed opens the full list (Desk Select / native <select>);
+ *    once the list is open or text is typed, Space types. Every keyboard open (Enter / ArrowDown / Space) selects the
+ *    shown text, like a click, so typing replaces it (before P36c Enter / ArrowDown left the caret after the label).
+ *    Arrows wrap at both ends (Awesomplete next() / previous(), as Desk's Link). No Ctrl+N / Ctrl+P bindings (cmdk's,
+ *    not Desk's).
+ *  - Height: the box is the DS field height (`sf-field-fill` + `h-9`, 36 px), like Input / Select / DateField.
  *  - `selectedIndicator`: the current value's row carries a check mark and `aria-selected="true"`.
  *  - `selectedValue`, `emptyText`, `searchPlaceholder`, `keepValueWhenEmptied`: see the props.
  */
@@ -55,7 +61,9 @@ export interface LinkInputProps {
   onBlur?: () => void;
   /** P36b: a click / tap on the box opens the full list even when it already shows a value (like a select). The value
    *  is kept until another row is picked; typing filters; Escape restores. Also: Enter on a closed box opens the list,
-   *  Home / End jump to the first / last row while nothing is typed, and a chevron is shown. Default false (Desk:
+   *  so does a plain Space on a filled closed box with nothing typed (P36c; Space types once the list is open or text
+   *  is typed); a keyboard open selects the shown text like a click (P36c); Home / End jump to the first / last row
+   *  while nothing is typed, and a chevron is shown. Default false (Desk:
    *  only an empty box lists results on focus). */
   openOnClickWhenFilled?: boolean;
   /** P36b: mark the current value's row with a check mark and `aria-selected="true"` (the highlighted row is then
@@ -179,7 +187,20 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
               if (selectLike) {
                 // an IME composition's Enter / arrows belong to the IME
                 if (e.nativeEvent.isComposing) return;
-                if (e.key === "Enter" && !sugg.open && draft == null) { e.preventDefault(); openFull(false); return; }
+                // P36c: every keyboard open (Enter / ArrowDown / Space) selects the shown text, like a click, so typing
+                // replaces it and searches afresh (the SearchableSelect it replaces reopened into an empty search box);
+                // before, Enter / ArrowDown left the caret after the label and typing appended to it ("Enterprise dealsSMB").
+                if ((e.key === "Enter" || e.key === "ArrowDown") && !sugg.open && draft == null) { e.preventDefault(); openFull(true); return; }
+                // P36c: a plain Space on a FILLED, closed box that shows the picked value (nothing typed) opens the full
+                // list instead of appending a space to the label. Desk's Select (a native <select>, select.js:2) opens
+                // on Space; Desk's Link also ends up opening its list on Space, but only after inserting the space and
+                // searching for "<label> " (awesomplete.js:70 input → link.js:265 search_link → awesomplete.js:166/333).
+                // Space types normally everywhere else: list open, text typed, empty box, a modifier held, default mode.
+                if (e.key === " " && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !sugg.open && draft == null && shownText) {
+                  e.preventDefault();
+                  openFull(true);
+                  return;
+                }
                 if ((e.key === "Home" || e.key === "End") && sugg.open && !draft && count > 0) {
                   e.preventDefault();
                   setActive(e.key === "Home" ? 0 : count - 1);

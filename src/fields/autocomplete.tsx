@@ -233,7 +233,9 @@ export function SuggestionList({
   );
 }
 
-/** Arrow / Enter / Escape handling over options + actions. Returns true when the key was handled. */
+/** Arrow / Enter / Escape handling over options + actions. Returns true when the key was handled.
+ *  The arrows wrap at both ends, as Desk's Link (Awesomplete 1.1.5 `next()` / `previous()`, awesomplete.js:234-245).
+ *  No Ctrl+N / Ctrl+P / Ctrl+J / Ctrl+K: those are cmdk's `vimBindings`, not Desk keys (P36c). */
 export function handleListKey(
   e: React.KeyboardEvent,
   s: { open: boolean; count: number; active: number; setActive: (i: number) => void; onEnter: (i: number) => void; onOpen: () => void; onClose: () => void },
