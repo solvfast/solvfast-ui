@@ -131,8 +131,9 @@ export interface SelectionMatching {
   onSelect: () => void;
 }
 
-/** "{n} items selected" / "All {n} matching records selected", the "Select all {n} matching" offer, and Clear. */
-function SelectionHeaderContent({ count, onClear, matching, allShownSelected }: { count: number; onClear: () => void; matching?: SelectionMatching; allShownSelected: boolean }) {
+/** "{n} items selected" / "All {n} matching records selected", the "Select all {n} matching" offer, and Clear. Exported
+ *  (P36c views) so the non-table views (Image) show the same selection header. */
+export function SelectionHeaderContent({ count, onClear, matching, allShownSelected }: { count: number; onClear: () => void; matching?: SelectionMatching; allShownSelected: boolean }) {
   const { t } = useLocale();
   const n = matching?.label ?? String(matching?.total ?? "");
   return (
