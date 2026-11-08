@@ -222,3 +222,7 @@ export type { GroupBucket } from "./list/model/group";
 export type { SaveFilterOptions } from "./list/model/storage";
 export type { SelectionMatching } from "./list/parts/ListTable";
 export type { ListActions } from "./list/ListActionsContext";
+
+// P36b social — Desk's Share dialog / shared-with avatars and the liked-by heart + list (Frappe-free)
+export { ShareDialog, SharedAvatars, SHARE_RIGHTS, LikedBy } from "./record";
+export type { ShareDialogProps, ShareDialogLabels, SharedAvatarsProps, ShareEntry, ShareRight, ShareRights, LikedByProps, LikedByUser } from "./record";

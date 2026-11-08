@@ -34,3 +34,8 @@ export type { ReminderDialogProps, RemindIn } from "./ReminderDialog";
 
 // P35 core
 export type { LifecycleStep } from "./types";
+// P36b social
+export { ShareDialog, SharedAvatars, SHARE_RIGHTS } from "./ShareDialog";
+export type { ShareDialogProps, ShareDialogLabels, SharedAvatarsProps, ShareEntry, ShareRight, ShareRights } from "./ShareDialog";
+export { LikedBy } from "./LikedBy";
+export type { LikedByProps, LikedByUser } from "./LikedBy";

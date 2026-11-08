@@ -43,3 +43,17 @@ export { FrappeEmailComposer } from "./FrappeEmailComposer";
 export type { FrappeEmailComposerProps } from "./FrappeEmailComposer";
 export { FrappeReminder, CREATE_REMINDER_METHOD } from "./FrappeReminder";
 export type { FrappeReminderProps } from "./FrappeReminder";
+// P36b social
+export { FrappeSidebarShare } from "./FrappeSidebarShare";
+export type { FrappeSidebarShareProps } from "./FrappeSidebarShare";
+export { FrappeSidebarLikes } from "./FrappeSidebarLikes";
+export type { FrappeSidebarLikesProps } from "./FrappeSidebarLikes";
+export { FrappeComments, focusCommentBox } from "./FrappeComments";
+export type { FrappeCommentsProps } from "./FrappeComments";
+export {
+  SHARE_GET_USERS_METHOD, SHARE_ADD_METHOD, SHARE_SET_PERMISSION_METHOD, canShareDocument, shareAddArgs, setPermissionArgs, shareRows, mergeShareAnswer, shareEntries,
+} from "./share";
+export type { DocShareRow } from "./share";
+export { TOGGLE_LIKE_METHOD, likedByOf, toggleLikeArgs, nextLikedBy, applyLikeToCaches } from "./like";
+export { ADD_COMMENT_METHOD, UPDATE_COMMENT_METHOD, COMMENT_PUBLICITY_METHOD, COMMENT_DELETE_ROLES, commentRights, canPublishComment, mentionSearchWith } from "./comments";
+export type { CommentRights } from "./comments";
