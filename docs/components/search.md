@@ -29,6 +29,13 @@ function HeaderSearch() {
 `search={{ slot }}` (new, additive) renders the node at every width — the bar shows its input from `md` up and an icon
 button below it. The existing `search` forms (object, node, `false`) are unchanged.
 
+**Phone header (P36c).** Below `md` the search icon is one more 32×32 header button, so the `Navbar` keeps the title's
+room by spacing, not by shrinking anything: the pane's inline padding is 12px (desktop 24px) and the icon buttons sit 2px
+apart (desktop 4px) — 18px more title width at every phone width (in the CRM: 106 → 124px at 390px, 76 → 94px at 360px).
+The buttons keep the DS header size (`icon-sm`, 32×32, above WCAG 2.5.8's 24px), the trigger keeps its accessible name
+(`globalSearchOpen`), one tap opens the full-screen dialog, and Ctrl/⌘+G still opens it. Long titles still truncate with an
+ellipsis; nothing wraps or overflows.
+
 An app without Frappe data passes its own source to the Core bar:
 
 ```tsx
