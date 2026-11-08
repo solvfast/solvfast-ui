@@ -38,7 +38,6 @@
  */
 import * as React from "react";
 import { ChevronDown, ExternalLink } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "../../primitives/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../primitives/dropdown-menu";
 import { cn } from "../../lib/cn";
 import { useLocale } from "../../theme/ThemeProvider";
@@ -72,6 +71,7 @@ import { useFormServices } from "./services";
 import { useLinkTitles } from "./linkTitles";
 import { FrappeField, type FrappeFieldProps } from "./FrappeField";
 import type { TableController } from "./FrappeChildTable";
+import { FrappeFormImage } from "./FrappeFormImage";
 
 /** What the form needs from `usePermissions` (foundation). */
 export interface FormPermissions {
@@ -681,8 +681,9 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       avoidStatusOverride: (st) => !!recWorkflow.states.find((x) => x.state === st)?.avoid_status_override,
     } : null,
   });
-  // header image (Desk: the sidebar image from meta.image_field, form_sidebar.js) — undefined: no image_field
-  const imageSrc = meta.image_field ? String(doc[String(meta.image_field)] ?? "") : undefined;
+  // header image (Desk: the sidebar image from meta.image_field, form_sidebar.js) — none without image_field; P36b
+  // attachimage: Desk's "Change" → Upload / Remove (user_image.js) through FrappeFormImage
+  const imageField = meta.image_field ? String(meta.image_field) : undefined;
   // "See on Website" (form.js:1149-1158): a saved website generator whose server `__onload` says it is published. Without
   // `__onload` (a doc not read through getdoc): `has_web_view` + the DocType's `is_published_field` + a route.
   const onload = (doc.__onload ?? {}) as { is_website_generator?: unknown; published?: unknown };
@@ -758,11 +759,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     <div className={cn("min-w-0 space-y-5", className)} data-doctype={meta.name}>
       {!props.hideToolbar && (
         <div className="flex flex-wrap items-center gap-3">
-          {imageSrc !== undefined && (
-            <Avatar className="size-10" data-form-image={imageSrc || undefined}>
-              {imageSrc && <AvatarImage src={imageSrc} alt="" />}
-              <AvatarFallback aria-hidden>{initials(htmlToText(String(titleField || "")) || doc.name)}</AvatarFallback>
-            </Avatar>
+          {imageField !== undefined && (
+            <FrappeFormImage bundle={bundle} doc={doc} df={eff.get(imageField) ?? fieldsByName.get(imageField)} canWrite={!permissionsUnknown && can("write")}
+              initials={initials(htmlToText(String(titleField || "")) || doc.name)} getDocInfo={() => latestProps.current.docinfo}
+              setValue={(v) => store.setValue(imageField, v, undefined, { record: true })} save={() => fns.current.save()} />
           )}
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-lg font-semibold">{title}</h2>

@@ -28,3 +28,10 @@ export type { FrappeQuickEntryProps } from "./FrappeQuickEntry";
 export { useUnsavedChangesBlocker } from "./unsavedChanges";
 export type { UnsavedChangesBlocker, UnsavedChangesBlockerOptions } from "./unsavedChanges";
 export { defaultLinkHref } from "./services";
+// P36b attachimage — Desk's Attach / Attach Image controls (attach.js, attach_image.js) and the image_field menu (user_image.js)
+export { FrappeAttachField, useFrappeAttach, attachUploadOptions, fileIdForUrl, MAX_FILE_SIZE_METHOD, ATTACH_FIELD_FOLDER } from "./FrappeAttachField";
+export type { FrappeAttachFieldProps, UseFrappeAttachOptions } from "./FrappeAttachField";
+export { FrappeAttachHost, useAttachHost, attachSaveAction } from "./attachHost";
+export type { FrappeAttachHostValue } from "./attachHost";
+export { FrappeFormImage } from "./FrappeFormImage";
+export type { FrappeFormImageProps } from "./FrappeFormImage";

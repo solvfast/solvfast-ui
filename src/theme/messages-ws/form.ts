@@ -15,6 +15,18 @@ export const formEn = {
   formEditFullForm: "Edit Full Form",
   /** Custom button group default (Desk "Create" dropdown, toolbar.js make_group). */
   formCreateGroup: "Create",
+  // ---- P36b attachimage: Attach / Attach Image control (attach.js, attach_image.js) and the image_field menu
+  //      (form_sidebar.html:8-18, user_image.js) ----
+  /** attach.js:22 "Reload File". */
+  formAttachReload: "Reload File",
+  /** attachments.js:228 — remove_attach failed without a server message. */
+  formAttachErrors: "There were errors",
+  /** form_sidebar.html:11-14: the image's "Change" menu with "Upload" / "Remove". */
+  formImageChange: "Change",
+  formImageUpload: "Upload",
+  formImageRemove: "Remove",
+  /** Accessible name of the image preview (attach_image.js:156-169 popover). */
+  formAttachPreview: "Preview of {0}",
 };
 export const formAr: { [K in keyof typeof formEn]: string } = {
   formSeeOnWebsite: "عرض على الموقع",
@@ -26,4 +38,10 @@ export const formAr: { [K in keyof typeof formEn]: string } = {
   formLeaveUnsaved: "لديك تغييرات غير محفوظة. هل تريد مغادرة هذه الصفحة وفقدانها؟",
   formEditFullForm: "تحرير النموذج الكامل",
   formCreateGroup: "إنشاء",
+  formAttachReload: "إعادة رفع الملف",
+  formAttachErrors: "حدثت أخطاء",
+  formImageChange: "تغيير",
+  formImageUpload: "رفع",
+  formImageRemove: "إزالة",
+  formAttachPreview: "معاينة {0}",
 };

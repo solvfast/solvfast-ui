@@ -35,3 +35,6 @@ export { FileDropzone, fileMatchesAccept, formatFileSize, validateFiles } from "
 export type { FileDropzoneProps, FileDropzoneLabels, FileRejection, FileRejectionReason } from "./FileDropzone";
 export { MonthInput, parseMonthValue, toMonthValue, formatMonthValue } from "./MonthInput";
 export type { MonthInputProps } from "./MonthInput";
+// P36b attachimage — the Core attach control UI (Frappe attach.js / attach_image.js)
+export { AttachInput, parseAttachValue } from "./AttachInput";
+export type { AttachInputProps, AttachInputLabels } from "./AttachInput";
