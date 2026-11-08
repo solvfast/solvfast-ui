@@ -465,3 +465,18 @@ describe("P36b social — Comments (desk/form/utils.py, form_timeline.js, footer
     expect(within(commentEl("C-ME")).queryByRole("button", { name: "Publish" })).toBeNull();
   });
 });
+
+// ---- Showcase -------------------------------------------------------------------------------------------------------
+
+describe("P36b social — Showcase", () => {
+  it("P36B.social.22 the Showcase page renders the three parts on the simulator, labelled SIMULATED", async () => {
+    const { P36bSocialPage } = await import("../showcase/src/pages/p36b-social");
+    render(<ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><P36bSocialPage /></ThemeProvider>);
+    expect(screen.getAllByText(/SIMULATED/).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("button", { name: "Share this document" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Like" })).toBeTruthy();
+    expect(await screen.findByRole("textbox", { name: "Comment" })).toBeTruthy();
+    const { PAGES } = await import("../showcase/src/routes");
+    expect(PAGES.some((p) => p.id === "p36b-social")).toBe(true);
+  });
+});

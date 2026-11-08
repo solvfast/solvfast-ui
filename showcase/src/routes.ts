@@ -161,3 +161,17 @@ const p35form = () => import("./pages/frappe-p35-form");
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P36b social
+const p36bSocial = () => import("./pages/p36b-social");
+{
+  const page: Page = {
+    id: "p36b-social",
+    title: l("Form sidebar: Share, Like, Comments (SIMULATED)", "الشريط الجانبي: المشاركة والإعجاب والتعليقات (محاكاة)"),
+    description: l("SIMULATED — Desk's Share dialog (Everyone + users, Can Read / Write / Submit / Share), the liked-by heart and list, and comments with mentions, edit, delete and publish, on the in-browser simulator.", "محاكاة — حوار المشاركة في ديسك (الجميع والمستخدمون، القراءة / الكتابة / الاعتماد / المشاركة)، وقلب الإعجاب وقائمة المعجبين، والتعليقات مع الإشارات والتعديل والحذف والنشر، على المحاكي داخل المتصفّح."),
+    Component: from(p36bSocial, "P36bSocialPage"),
+  };
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}
