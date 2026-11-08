@@ -91,7 +91,8 @@ export function FrappeTimeline({
 
   return (
     <div className="space-y-3">
-      {canComment ? <CommentComposer onSubmit={addComment} searchMentions={mentionSearch} labels={rest.composerLabels} /> : null}
+      {/* P36b social: `data-sf-comment-box` is where the sidebar's comment counter goes (FrappeComments variant "count") */}
+      {canComment ? <div data-sf-comment-box=""><CommentComposer onSubmit={addComment} searchMentions={mentionSearch} labels={rest.composerLabels} /></div> : null}
       <Timeline
         {...rest} items={items}
         loading={q.isLoading || meta.isLoading}
