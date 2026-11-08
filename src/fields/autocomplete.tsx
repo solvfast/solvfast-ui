@@ -6,6 +6,7 @@
  *    aria-activedescendant, ArrowUp/Down, Enter, Escape). Options keep the pointer from blurring the input.
  */
 import * as React from "react";
+import { Check } from "lucide-react";
 import { cn } from "../lib/cn";
 import { useLocale } from "../theme/ThemeProvider";
 import { Popover, PopoverAnchor, PopoverContent } from "../primitives/popover";
@@ -116,27 +117,69 @@ interface SuggestionListProps {
   onAction: (a: SuggestionAction) => void;
   /** Shown for an option: label, then description when it differs from the value. */
   className?: string;
+  /** P36b: mark the option whose value is the field's current value (a check mark + `aria-selected="true"`). While it
+   *  is set, `aria-selected` reports the current value (select pattern) and the highlighted row is announced through the
+   *  input's `aria-activedescendant` only. `undefined` (the default) keeps today's rendering: no check, `aria-selected`
+   *  on the highlighted row. `null` = indicator on, no option is the current value. */
+  selectedValue?: string | null;
+  /** P36b: text of the "no results" row (default: the `noResults` chrome string). */
+  emptyText?: React.ReactNode;
+  /** P36b: keep the highlighted row scrolled into view while the arrows move through a long list. */
+  scrollActiveIntoView?: boolean;
+  /** P36b: called when Escape dismisses the list. The popover's document-level Escape listener closes the list before
+   *  the input's own keydown handler runs (in a browser), so an owner that must undo typing on Escape does it here. */
+  onEscape?: () => void;
 }
 
-export function SuggestionList({ open, onDismiss, anchor, listId, options, actions = [], active, setActive, status, onPick, onAction, className }: SuggestionListProps) {
+export function SuggestionList({
+  open, onDismiss, anchor, listId, options, actions = [], active, setActive, status, onPick, onAction, className,
+  selectedValue, emptyText, scrollActiveIntoView, onEscape,
+}: SuggestionListProps) {
   const { t } = useLocale();
   const anchorRef = React.useRef<HTMLDivElement>(null);
   const showEmpty = status === "idle" && options.length === 0;
-  const renderOption = (o: Suggestion, i: number) => (
-    <div
-      key={`o-${o.value}`}
-      id={`${listId}-${i}`}
-      role="option"
-      aria-selected={active === i}
-      className={cn("cursor-pointer rounded-md px-3 py-1.5 text-sm", o.icon != null && "flex items-center gap-2", active === i && "bg-accent text-accent-foreground")}
-      onMouseDown={(e) => e.preventDefault()}
-      onMouseEnter={() => setActive(i)}
-      onClick={() => onPick(o)}
-    >
-      {o.icon != null ? <span aria-hidden className="inline-flex shrink-0 items-center justify-center" data-suggestion-icon="">{o.icon}</span> : null}
-      {o.icon != null ? <div className="min-w-0 flex-1">{optionText(o)}</div> : optionText(o)}
-    </div>
-  );
+  const indicator = selectedValue !== undefined;
+  React.useEffect(() => {
+    if (!scrollActiveIntoView || !open || active < 0) return;
+    const el = typeof document !== "undefined" ? document.getElementById(`${listId}-${active}`) : null;
+    if (el && typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "nearest" });
+  }, [scrollActiveIntoView, open, active, listId]);
+  const renderOption = (o: Suggestion, i: number) => {
+    const current = indicator && selectedValue != null && o.value === selectedValue;
+    if (!indicator) return (
+      <div
+        key={`o-${o.value}`}
+        id={`${listId}-${i}`}
+        role="option"
+        aria-selected={active === i}
+        className={cn("cursor-pointer rounded-md px-3 py-1.5 text-sm", o.icon != null && "flex items-center gap-2", active === i && "bg-accent text-accent-foreground")}
+        onMouseDown={(e) => e.preventDefault()}
+        onMouseEnter={() => setActive(i)}
+        onClick={() => onPick(o)}
+      >
+        {o.icon != null ? <span aria-hidden className="inline-flex shrink-0 items-center justify-center" data-suggestion-icon="">{o.icon}</span> : null}
+        {o.icon != null ? <div className="min-w-0 flex-1">{optionText(o)}</div> : optionText(o)}
+      </div>
+    );
+    return (
+      <div
+        key={`o-${o.value}`}
+        id={`${listId}-${i}`}
+        role="option"
+        aria-selected={current}
+        data-active={active === i ? "" : undefined}
+        data-current={current ? "" : undefined}
+        className={cn("flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm", active === i && "bg-accent text-accent-foreground")}
+        onMouseDown={(e) => e.preventDefault()}
+        onMouseEnter={() => setActive(i)}
+        onClick={() => onPick(o)}
+      >
+        <Check aria-hidden data-selected-indicator="" className={cn("size-4 shrink-0", current ? "opacity-100" : "opacity-0")} />
+        {o.icon != null ? <span aria-hidden className="inline-flex shrink-0 items-center justify-center" data-suggestion-icon="">{o.icon}</span> : null}
+        <div className="min-w-0 flex-1">{optionText(o)}</div>
+      </div>
+    );
+  };
   return (
     <Popover open={open} onOpenChange={(o) => { if (!o) onDismiss(); }}>
       <PopoverAnchor asChild>
@@ -147,6 +190,7 @@ export function SuggestionList({ open, onDismiss, anchor, listId, options, actio
         className="w-[--radix-popover-trigger-width] min-w-[14rem] max-w-[90vw] p-1"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
+        onEscapeKeyDown={onEscape ? () => onEscape() : undefined}
         onInteractOutside={(e) => { if (anchorRef.current?.contains(e.target as Node)) e.preventDefault(); }}
       >
         <div id={listId} role="listbox" className="max-h-72 overflow-y-auto" aria-busy={status === "loading" || undefined}>
@@ -154,7 +198,7 @@ export function SuggestionList({ open, onDismiss, anchor, listId, options, actio
             <div role="status" className="px-3 py-2 text-sm text-muted-foreground">{t("formSearching")}</div>
           )}
           {status === "error" && <div role="status" className="px-3 py-2 text-sm text-destructive">{t("formSearchFailed")}</div>}
-          {showEmpty && <div role="status" className="px-3 py-2 text-sm text-muted-foreground">{t("noResults")}</div>}
+          {showEmpty && <div role="status" className="px-3 py-2 text-sm text-muted-foreground">{emptyText ?? t("noResults")}</div>}
           {options.some((o) => o.group) ? groupRuns(options).map((run) => (
             run.group ? (
               <div key={`g-${run.start}`} role="group" aria-labelledby={`${listId}-g${run.start}`} data-suggestion-group="">
@@ -170,12 +214,14 @@ export function SuggestionList({ open, onDismiss, anchor, listId, options, actio
                 key={`a-${a.key}`}
                 id={`${listId}-${i}`}
                 role="option"
-                aria-selected={active === i}
-                className={cn("flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-sm text-primary", active === i && "bg-accent")}
+                aria-selected={indicator ? false : active === i}
+                data-active={indicator && active === i ? "" : undefined}
+                className={cn("flex cursor-pointer items-center gap-2 rounded-md py-1.5 text-sm text-primary", indicator ? "px-2" : "px-3", active === i && "bg-accent")}
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => onAction(a)}
               >
+                {indicator && <span aria-hidden className="size-4 shrink-0" />}
                 {a.icon}
                 <span className="truncate">{a.label}</span>
               </div>

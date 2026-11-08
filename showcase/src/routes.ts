@@ -198,3 +198,13 @@ const p36bSocial = () => import("./pages/p36b-social");
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P36b linkinput
+{
+  const p36bLinkInput = () => import("./pages/p36b-linkinput");
+  const group = GROUPS.find((g) => g.id === "components")!;
+  const page: Page = { id: "p36b-linkinput", title: l("LinkInput as a picker", "LinkInput كمنتقٍ"), description: l("Opt-in select-like LinkInput: open on click when filled, a check mark and aria-selected on the current value, Escape restores, a None row — in-memory options.", "‏LinkInput شبيه بالقائمة (اختياري): يفتح بالنقر وهو ممتلئ، وعلامة صح و aria-selected على القيمة الحالية، و Escape يستعيد، وصف «بدون» — خيارات في الذاكرة."), Component: from(p36bLinkInput, "LinkInputSelectLikePage") };
+  group.pages.push(page);
+  // a Components page: PAGES keeps the navigation order (rebuilt from GROUPS, as the P35 core block does)
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}
