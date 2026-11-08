@@ -77,6 +77,7 @@ function SplitGrid({ testId, layout, narrow, cardsBelow }: { testId: string; lay
 
 export function DataGridResponsivePage() {
   const tr = useTr();
+  const { language } = useLocale(); // a language switch re-seeds the demo rows
   const [narrow, setNarrow] = React.useState(false);
   return (
     <div className="space-y-12">
@@ -90,17 +91,17 @@ export function DataGridResponsivePage() {
             <Button type="button" size="sm" variant={narrow ? "outline" : "default"} aria-pressed={!narrow} onClick={() => setNarrow(false)}>{tr(l("Full width", "العرض الكامل"))}</Button>
             <Button type="button" size="sm" variant={narrow ? "default" : "outline"} aria-pressed={narrow} onClick={() => setNarrow(true)}>{tr(l("Narrow column (352 px)", "عمود ضيّق (352 بكسل)"))}</Button>
           </div>
-          <SplitGrid testId="dg-auto" layout="auto" narrow={narrow} />
+          <SplitGrid key={language} testId="dg-auto" layout="auto" narrow={narrow} />
         </Example>
       </Section>
       <Section title={l("Cards", "البطاقات")} description={l("layout=\"cards\" at any width. The primary column (mobile: \"primary\") is the card's title; the others are label / value lines in column order; mobile: false leaves a column (here Code) off the card.", "‏layout=\"cards\" بأي عرض. العمود الأساسي (mobile: \"primary\") عنوان البطاقة؛ والبقية أسطر تسمية / قيمة بترتيب الأعمدة؛ و mobile: false يُخرج العمود (هنا الرمز) من البطاقة.")}>
         <Example code={`<DataGrid layout="cards" … />`}>
-          <SplitGrid testId="dg-cards" layout="cards" />
+          <SplitGrid key={language} testId="dg-cards" layout="cards" />
         </Example>
       </Section>
       <Section title={l("Table (default)", "الجدول (الافتراضي)")} description={l("layout=\"table\" — unchanged for existing grids: a 32rem minimum width that scrolls sideways inside the grid frame on a phone. That scroll is the host's explicit choice (minTableWidth sets or removes it).", "‏layout=\"table\" — بلا تغيير للشبكات الحالية: حدّ أدنى للعرض 32rem يُمرَّر أفقياً داخل إطار الشبكة على الهاتف. هذا التمرير اختيار صريح من المضيف (minTableWidth يضبطه أو يزيله).")}>
         <Example code={`<DataGrid rows={rows} … />   // layout="table", minTableWidth="32rem"`}>
-          <SplitGrid testId="dg-table" layout="table" />
+          <SplitGrid key={language} testId="dg-table" layout="table" />
         </Example>
         <Props rows={[
           ["layout", "\"table\" | \"cards\" | \"auto\"", l("Default \"table\". \"auto\" switches on the grid's container width.", "الافتراضي \"table\". ‏\"auto\" يبدّل حسب عرض حاوية الشبكة.")],
