@@ -1,8 +1,8 @@
 """
 Seed a dedicated validation site for @solvfast/ui's Frappe layer — synthetic data only. PREPARED, NOT RUN (README.md).
 
-    cd <bench>/sites
-    ../env/bin/python <solvfast-ui>/e2e/frappe-site/seed.py sfui-test.localhost <private-dir>
+    cd <staging-bench>/sites      # P36: never a bench of the shared production server
+    SFUI_STAGING_SITE=sfui-test.localhost ../env/bin/python <solvfast-ui>/e2e/frappe-site/seed.py sfui-test.localhost <private-dir>
 
 Safety: refuses any site but `sfui-test.localhost`, a site with any app but `frappe`, or a site that already has ToDos.
 Creates, on that site only:
@@ -24,6 +24,16 @@ from datetime import date, datetime, timedelta
 SITE, OUT = sys.argv[1], sys.argv[2]
 if SITE != "sfui-test.localhost":
 	sys.exit("refusing: this script only seeds sfui-test.localhost")
+# P36: the same guards as staging-seed.py, BEFORE frappe is imported — the site must be in SFUI_STAGING_SITE, the
+# working directory must not be inside a production bench of the shared server, and <OUT> (mode 700, outside every
+# git work tree) must hold the owner's APPROVED_STAGING for this site with allow_write.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import staging_guards as G  # noqa: E402
+
+G.check_site(SITE)
+G.check_cwd()
+G.read_approval(G.check_private_dir(OUT), SITE, need_write=True)
+G.no_frappe_guard()
 
 import frappe  # noqa: E402
 from frappe.permissions import add_permission, setup_custom_perms, update_permission_property  # noqa: E402

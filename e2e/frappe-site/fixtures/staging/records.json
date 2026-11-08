@@ -1,0 +1,46 @@
+{
+  "about": "P36 staging records. Every name / title starts with SFUI. Dates are fixed so expected totals are reproducible.",
+  "contacts_from": "../records.json#contacts",
+  "parents": {
+    "count": 24,
+    "title_pattern": "SFUI Parent {n:02d}",
+    "status_cycle": ["Draft", "Open", "Closed"],
+    "contact_indexes_cycle": [1, 2, 3, 4, 5, 6],
+    "due_date_start": "2026-12-01",
+    "due_date_step_days": 1,
+    "items_cycle": [0, 2, 12],
+    "owner_cycle": ["writer", "manager"],
+    "tags_cycle": [["sfui-red"], ["sfui-blue"], ["sfui-red", "sfui-blue"], []],
+    "assign_cycle": [["writer"], ["manager"], []],
+    "submit_every": 5,
+    "level1_value": "SFUI L1 secret value",
+    "note": "contact index 4 is also linked from a parent, so deleting that contact must raise LinkExistsError"
+  },
+  "workflow_docs": [
+    {"key": "wf_small", "subject": "SFUI Small Request", "amount": 200, "owner": "writer"},
+    {"key": "wf_large", "subject": "SFUI Large Request", "amount": 5000, "owner": "writer"},
+    {"key": "wf_self", "subject": "SFUI Self Approval Probe", "amount": 50, "owner": "manager"}
+  ],
+  "attachments_doc": {"title": "SFUI Attach Probe"},
+  "print_format": {
+    "doctype": "Print Format", "name": "SFUI P36 Print", "doc_type": "SFUI Test Parent", "module": "SFUI Test", "standard": "No",
+    "custom_format": 1, "print_format_type": "Jinja", "disabled": 0,
+    "html": "<h1>{{ doc.title }}</h1><p class=\"sfui-p36\">SFUI-P36-PRINT-MARKER {{ doc.status }}</p>"
+  },
+  "letter_head": {
+    "doctype": "Letter Head", "letter_head_name": "SFUI P36 Letter Head", "source": "HTML", "is_default": 0,
+    "content": "<p>SFUI-P36-LETTERHEAD</p>"
+  },
+  "email_template": {
+    "doctype": "Email Template", "name": "SFUI P36 Template", "subject": "SFUI about {{ doc.title }}",
+    "use_html": 0, "response": "SFUI-P36-TEMPLATE {{ doc.status }}"
+  },
+  "kanban_board": {
+    "doctype": "Kanban Board", "kanban_board_name": "SFUI P36 Board", "reference_doctype": "SFUI Test Parent", "field_name": "status", "private": 0,
+    "columns": [{"column_name": "Draft", "status": "Active", "indicator": "Gray"}, {"column_name": "Open", "status": "Active", "indicator": "Orange"}, {"column_name": "Closed", "status": "Active", "indicator": "Green"}]
+  },
+  "list_filters": [
+    {"key": "lf_manager", "filter_name": "SFUI P36 Manager only", "for_user": "manager", "filters": "[[\"SFUI Test Parent\",\"status\",\"=\",\"Open\"]]"},
+    {"key": "lf_global", "filter_name": "SFUI P36 Global", "for_user": "", "filters": "[[\"SFUI Test Parent\",\"status\",\"=\",\"Closed\"]]"}
+  ]
+}

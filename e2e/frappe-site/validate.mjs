@@ -1,4 +1,5 @@
-// Real-site validation of @solvfast/ui's Frappe layer — READ-ONLY. PREPARED, NOT RUN (deferred; see README.md).
+// LEGACY (P34) real-site validation of @solvfast/ui's Frappe layer on ToDo — READ-ONLY. PREPARED, NOT RUN. P36 superseded
+// it with run-matrix.mjs; kept for its ToDo filter checks (V1–V8, R1–R5), and refused unless BASE is the guarded harness.
 //   node e2e/frappe-site/validate.mjs <harnessUrl> <privateDir> <outDir>
 // <privateDir> holds validator.json (the test account; never printed or saved elsewhere) and expected.json (seed.py:
 // totals computed in Python from the inserted rows). Writes results.json, results.md and screenshots to <outDir>.
@@ -7,6 +8,12 @@ import fs from "node:fs";
 import { chromium } from "playwright-core";
 
 const [BASE, PRIV, OUT] = process.argv.slice(2);
+// P36: only the local harness preview (vite.config.ts), whose proxy refuses every non-approved, production or loopback
+// target, may be driven; anything else is refused before a browser starts. Superseded by run-matrix.mjs.
+if (BASE !== "http://127.0.0.1:4821") {
+  console.error("REFUSED (P36): validate.mjs drives only the guarded harness preview http://127.0.0.1:4821 (see README.md; prefer run-matrix.mjs)");
+  process.exit(2);
+}
 const creds = JSON.parse(fs.readFileSync(`${PRIV}/validator.json`, "utf8"));
 const X = JSON.parse(fs.readFileSync(`${PRIV}/expected.json`, "utf8"));
 fs.mkdirSync(OUT, { recursive: true });

@@ -19,6 +19,16 @@ Records the Frappe-created side effects (Contact, Notification Settings, DocShar
 """
 from __future__ import annotations
 
+# ---- P36: DISABLED. This script targets the PRODUCTION site internal.solvfaster.com, which P36 forbids. -------------
+# It is kept (not deleted) for the record; the staging replacement is staging-seed.py. The exit below is the first executable
+# statement, before any other import, so nothing in this file can reach a site.
+import sys as _p36_sys  # noqa: E402
+
+_p36_sys.exit(
+	"REFUSED (P36): seed-crm-site.py targets the production site internal.solvfaster.com. P36 forbids any script from touching "
+	"production data. Use staging-seed.py against an owner-approved, isolated STAGING site (e2e/frappe-site/README.md)."
+)
+
 import os
 import secrets
 import sys
