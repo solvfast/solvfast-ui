@@ -161,3 +161,17 @@ const p35form = () => import("./pages/frappe-p35-form");
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P36 datagrid — DataGrid's responsive layout (table / cards / auto on the container width)
+{
+  const p36datagrid = () => import("./pages/p36-datagrid");
+  const group = GROUPS.find((g) => g.id === "components")!;
+  const page: Page = {
+    id: "datagrid-responsive",
+    title: l("DataGrid on phones", "DataGrid على الهاتف"),
+    description: l("DataGrid's responsive layout: a card per row below a container width (layout=\"auto\"), or always (\"cards\"); inline editing, row menu, add and delete stay; no sideways scroll.", "التخطيط المتجاوب لـ DataGrid: بطاقة لكل صف تحت عرض معيّن للحاوية (layout=\"auto\") أو دائماً (\"cards\")؛ يبقى التحرير في المكان وقائمة الصف والإضافة والحذف؛ بلا تمرير أفقي."),
+    Component: from(p36datagrid, "DataGridResponsivePage"),
+  };
+  group.pages.push(page);
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}

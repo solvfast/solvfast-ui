@@ -52,7 +52,7 @@ All of them share these rules:
 | `ReadOnlyValue` | node | How a read-only field shows: text, never an input. `align="end"` for numbers, `multiline`, `href` for links, `emptyText`. |
 | `LinkInput` | `string \| null` | A text box that searches (`search(text)`, `debounceMs` default 500). The first result is highlighted. Enter picks it, but only when the typed text appears in the result (Desk's `input_matches_item`). Hand-typed text goes to `onCommitText` on blur. Optional `actions` rows (e.g. "Create a new X"), an `href` open button and a clear (×) button. |
 | `TagInput` | `string[]` | Pills with optional search. Chosen values are hidden from the results. × or Backspace removes a pill. Duplicates are dropped. `validate` may reject an entry (silently) or canonicalise it. `allowCreate` adds free text on Enter or comma. |
-| `DataGrid<R>` | rows (caller-owned) | An editable table. One row is edited inline at a time. It has a "No." column, row checkboxes with select-all and Delete, Add Row (which jumps to the last page), and per-row Insert Above/Below, Duplicate, Move Up/Down, Delete and Edit Row. Pages hold 50 rows. Required empty cells are marked. Desk's keyboard shortcuts: Ctrl/⌘+↑/↓ inserts above/below, Ctrl/⌘+Shift+↑/↓ inserts at the top/end, Shift+Alt+↓ duplicates, Esc stops editing. `editable={false}`, `canAdd`, `canDelete`. |
+| `DataGrid<R>` | rows (caller-owned) | An editable table. One row is edited inline at a time. It has a "No." column, row checkboxes with select-all and Delete, Add Row (which jumps to the last page), and per-row Insert Above/Below, Duplicate, Move Up/Down, Delete and Edit Row. Pages hold 50 rows. Required empty cells are marked. Desk's keyboard shortcuts: Ctrl/⌘+↑/↓ inserts above/below, Ctrl/⌘+Shift+↑/↓ inserts at the top/end, Shift+Alt+↓ duplicates, Esc stops editing. `editable={false}`, `canAdd`, `canDelete`. Phones: `layout="cards" \| "auto"` (below). |
 | `Rating` | stars `\| null` | A slider whose arrows follow the reading direction, plus Home, End and Delete. Half steps (`allowHalf`). Clicking the current value clears it unless `required`. |
 | `ColorInput` | `"#RRGGBB" \| null` | Only `^#[0-9A-F]{6}$` is accepted (a missing `#` is added). A swatch opens the browser's picker. |
 | `FieldShell` | — | Label, required star (bold when required, as Desk does), description or error line. |
@@ -65,6 +65,45 @@ import { NumberInput, TimeInput, DataGrid } from "@solvfast/ui";
 <NumberInput aria-label="Amount" kind="currency" precision={2} numberFormat="#.###,##" value={amount} onChange={setAmount} />
 <TimeInput aria-label="Start" value={start} onChange={setStart} withSeconds={false} />
 ```
+
+### DataGrid on phones (0.7.x, P36)
+
+`DataGrid` keeps its table by default (`layout="table"`, markup unchanged): a `32rem` minimum width that scrolls
+sideways inside the grid frame on a narrow screen. A host opts in to a phone layout:
+
+| Prop | Meaning |
+|---|---|
+| `layout` | `"table"` (default) · `"cards"`: one card per row at any width · `"auto"`: cards while the grid's **own container** is narrower than `cardsBelow`, the table otherwise. `"auto"` measures the container with a `ResizeObserver` (not the window), so a grid in a narrow form column switches on a desktop too. Until the container is measured (server render, a hidden tab) it is the table. |
+| `cardsBelow` | `"auto"` only: container width in px below which rows are cards. Default `640`. |
+| `minTableWidth` | `"table"` only: the minimum width that scrolls sideways (the explicit opt-in to horizontal scroll). Default `"32rem"`; a CSS length or px number; `false` = none. Cards and the table of `"auto"` never get one. |
+| `column.mobile` | As ListView's `ColumnDef.mobile`: `"primary"` = the card's title (default: the first column not set to `false`); `false` = left off the card, including its editor. Every other column is a label / value line, in column order. |
+
+**A card** shows the row's checkbox (when rows can be deleted), its number ("No." for screen readers), the primary value
+as the title, the other columns as label / value lines, an **Edit** toggle and the row's **⋯** menu (Edit Row, Insert
+Above / Below, Duplicate, Move Up / Down, Delete). Values wrap instead of being cut off. "Select all rows", Delete for the
+selection, Add Row, the pager, the required marks (`required` star, `isInvalid` ring, `invalid` frame) and `emptyText`
+are as in the table.
+
+**Editing** is the grid's model: one row at a time. Tapping a card's value starts editing that row and focuses the tapped
+column's editor; the editors take the card's full width, each in a group named by its column label. The Edit toggle
+(`aria-pressed`, "Edit row {n}") starts / ends editing from the keyboard and focuses the first editor. Escape (focus
+returns to the toggle) or a tap outside the grid stops. Desk's shortcuts (Ctrl/⌘+↑/↓, Ctrl/⌘+Shift+↑/↓, Shift+Alt+↓)
+work inside a card. `inlineEdit={false}`: tapping a card or its Edit button calls `onOpenRow`. `editable={false}`: no
+toggle, checkbox, menu or Add Row. Right-to-left: logical spacing only (the card mirrors).
+
+`DataGrid` has no footer: a running total (e.g. "must total 100 %") stays the host's line under the grid. Don't set
+`mobile: false` on a required or editable column unless the host offers `onOpenRow` to reach it.
+
+```tsx
+<DataGrid layout="auto" label="Stage split" rows={rows} getRowKey={(r) => r.id} onAddRow={add} onDeleteRows={remove}
+  columns={[
+    { key: "code", label: "Code", mobile: false, renderCell: (r) => r.code },
+    { key: "name", label: "Name", required: true, mobile: "primary", renderCell: (r) => r.name, renderEditor: nameEditor },
+    { key: "share", label: "Share %", align: "end", renderCell: (r) => `${r.share}%`, renderEditor: shareEditor },
+  ]} />
+```
+
+Showcase: Components → "DataGrid on phones" (`#datagrid-responsive`). Browser check: `node e2e/datagrid-mobile.mjs <url>`.
 
 ---
 
