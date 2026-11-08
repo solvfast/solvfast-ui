@@ -190,14 +190,14 @@ Not run by the docs step (integrator's): typecheck, build, boundaries, package c
 
 ## Integrator gate results
 
-TODO(integrator): fill in after the final integrator run on this branch.
+Integrator run on `feat/0.7.x/p36-int` at 0.7.0-dev.4 (package gates at 6ea5eb9; CRM `crm/p36b-070` c38335f against a local pack of this version, sha1 b3c568ffee15, mock mode). SIMULATOR / mock evidence only — no real Frappe site.
 
 | Check | Result |
 |---|---|
-| `npm run typecheck` | TODO(integrator) |
-| `npx vitest run` | TODO(integrator) |
-| `npm run build` | TODO(integrator) |
-| `check:boundaries` (source + dist) | TODO(integrator) |
-| `check:package` | TODO(integrator) |
-| `node e2e/frappe-site/matrix/render.mjs --check` | TODO(integrator) |
-| CRM regression (`crm/p36b-070` against a local pack of 0.7.0-dev.4, mock mode) | TODO(integrator) |
+| `npm run typecheck` | OK |
+| `npx vitest run` | 85 files: 1678 passed, 10 todo, 0 failed |
+| `npm run build` | OK; tarball 899 files, 1089.4 kB (styles/* restored after the build) |
+| `check:boundaries` (source + dist) | OK |
+| `check:package` | OK |
+| `node e2e/frappe-site/matrix/render.mjs --check` | VALIDATION-MATRIX.md is current (94 tests prepared, none run) |
+| CRM regression (`crm/p36b-070` against a local pack of 0.7.0-dev.4, mock mode) | tsc 30 errors (= baseline); vite build OK; route sweep 82 loads / 0 console errors; mock flows 16/0; records-assign 111/0; 28 lists 112/112; legacy 56/0; p35 376/0; p36 336/0; p36-legacy 10/0; LinkInput 1448/0; Global Search 188/0; lifecycle labels PASS; tags+assign en 43/43, ar 43/43; actions en 22/22, ar 22/22 (first ar run hit an 8 s wait timeout in the assign dialog; two reruns 22/22); SD/SM outside shots vs v073f: 171 identical, 1 different (sd-playbook-1 dark-ar-390, 2 px = known noise) |
