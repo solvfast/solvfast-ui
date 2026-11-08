@@ -99,7 +99,7 @@ async function openSidebarDialog(s: Site, language: "en" | "ar" = "en") {
 const MEMBERS_ARGS = { doctype: "User Group Member", parent_doctype: "User Group", filters: JSON.stringify({ parent: "Field Team" }), fields: JSON.stringify(["user"]), limit: 20 };
 
 describe("P36C.usergroup — form sidebar Add to ToDo (assign_to.js:142-160, 191-197)", () => {
-  it("P36C.usergroup.1 the field follows Assign To; picking a group reads its members as Desk does and REPLACES the users to assign (deduplicated, Assign to me unticked)", async () => {
+  it("P36C.usergroup.1 the field follows Assign To; picking a group reads its members as Desk does and REPLACES the users to assign (Assign to me unticked; a repeated member row listed once — DS)", async () => {
     const s = site();
     const dlg = await openSidebarDialog(s);
     const field = within(dlg).getByTestId("sf-assign-group");
@@ -116,10 +116,11 @@ describe("P36C.usergroup — form sidebar Add to ToDo (assign_to.js:142-160, 191
     expect(calls(s.t, "frappe.desk.search.search_link").some((c) => c.args.doctype === "User Group")).toBe(true);
     await waitFor(() => expect(calls(s.t, USER_GROUP_MEMBERS_METHOD).filter((c) => c.args.doctype === "User Group Member")).toHaveLength(1));
     expect(calls(s.t, USER_GROUP_MEMBERS_METHOD).find((c) => c.args.doctype === "User Group Member")!.args).toEqual(MEMBERS_ARGS);
-    // replaced (not merged): sara is not a member and drops out; lina once; the disabled nadia kept
+    // replaced (not merged): sara is not a member and drops out; the disabled nadia kept; lina's repeated row once (a DS
+    // choice: Desk's pills would keep it and the server would answer the repeat with "Already in …")
     await waitFor(() => expect(pills(dlg)).toEqual(["lina@example.com", "omar@example.com", "nadia@example.com"]));
     expect((within(dlg).getByRole("checkbox", { name: "Assign to me" }) as HTMLElement).getAttribute("aria-checked")).toBe("false");
-    expect(within(dlg).getByRole("status").textContent).toBe("3 member(s) of Field Team added to Assign To.");
+    expect(within(dlg).getByRole("status").textContent).toBe("The users to assign are now the 3 member(s) of Field Team.");
   }, 20000);
 
   it("P36C.usergroup.2 Add sends assign_to.add with the expanded list; the server keeps duplicates out and does not filter disabled users", async () => {

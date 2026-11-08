@@ -54,7 +54,7 @@ export const sidebarEn = {
   sbAssignGroup: "Assign To User Group",
   sbAssignGroupSearch: "Search user groups",
   sbAssignGroupEmpty: "{0} has no members.",
-  sbAssignGroupMembers: "{1} member(s) of {0} added to Assign To.",
+  sbAssignGroupMembers: "The users to assign are now the {1} member(s) of {0}.",
 };
 
 export const sidebarAr: { [K in keyof typeof sidebarEn]: string } = {
@@ -108,5 +108,5 @@ export const sidebarAr: { [K in keyof typeof sidebarEn]: string } = {
   sbAssignGroup: "إسناد إلى مجموعة مستخدمين",
   sbAssignGroupSearch: "البحث في مجموعات المستخدمين",
   sbAssignGroupEmpty: "لا يوجد أعضاء في {0}.",
-  sbAssignGroupMembers: "أُضيف {1} من أعضاء {0} إلى قائمة الإسناد.",
+  sbAssignGroupMembers: "أصبح المستخدمون المُسنَد إليهم أعضاء {0} ({1}).",
 };

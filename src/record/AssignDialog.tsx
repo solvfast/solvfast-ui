@@ -80,7 +80,8 @@ export interface AssignGroupSource {
   debounceMs?: number;
 }
 
-/** Members with duplicates dropped (first wins); a member whose label is only its id borrows a known label. */
+/** Members with duplicates dropped (first wins — a DS choice: Desk's pills keep a repeated row that is not the last one,
+ *  multiselect_pills.js:54-75); a member whose label is only its id borrows a known label. */
 export function uniqueMembers(members: UserOption[], known: UserOption[] = []): UserOption[] {
   const seen = new Set<string>();
   const out: UserOption[] = [];
@@ -137,7 +138,7 @@ export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, si
   // a refused group search (Desk: the 403's "Not permitted" message, request.js:149-177) is shown under the field too
   const searchGroups = React.useCallback<SearchFn>(async (txt) => {
     if (!groups) return [];
-    try { return await groups.search(txt); }
+    try { const r = await groups.search(txt); setGroupMsg((m) => (m?.error ? null : m)); return r; }
     catch (e) { setGroupMsg({ error: true, text: e instanceof Error ? e.message : String(e) }); throw e; }
   }, [groups]);
 

@@ -119,7 +119,8 @@ confirm, description, due, priority, low, medium, high, remove ("Remove {0}"), n
 `groups?: AssignGroupSource` = `{ search(text) → Suggestion[]; members(group) → UserOption[]; label?; placeholder?; debounceMs? }`.
 A `LinkInput` after the users list (Desk's field order); hidden with `single`. Picking a group **replaces** the users to assign with
 its members, as Desk's `set_value("assign_to", members)` does — the earlier choice (and "Assign to me", unless you are a member) is
-dropped, not merged; duplicate member rows are listed once (`uniqueMembers`); an empty group empties the list (Add stays disabled, a
+dropped, not merged; a repeated member row is listed once (`uniqueMembers` — a DS choice: Desk's pills keep an inner repeat and the
+server answers it with "Already in …"; the Table MultiSelect refuses repeats when a group is edited in Desk, table_multiselect.js:108-111); an empty group empties the list (Add stays disabled, a
 note says so); re-picking the same group or clearing it changes nothing; a refused search or members read is shown under the field
 (`role="alert"`) and the list is kept. Strings: `sbAssignGroup`, `sbAssignGroupSearch`, `sbAssignGroupEmpty`, `sbAssignGroupMembers`.
 
