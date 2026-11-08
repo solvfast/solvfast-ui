@@ -135,6 +135,8 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
       selectedValue={selectedIndicator ? (selectedValue !== undefined ? selectedValue : (value ?? null)) : undefined}
       emptyText={emptyText}
       scrollActiveIntoView={selectLike || selectedIndicator}
+      // Escape restores the shown value (the popover's own Escape listener closes the list first in a browser)
+      onEscape={selectLike ? () => setDraft(null) : undefined}
       open={sugg.open && editable}
       onDismiss={sugg.close}
       listId={listId}

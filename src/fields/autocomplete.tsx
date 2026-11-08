@@ -126,11 +126,14 @@ interface SuggestionListProps {
   emptyText?: React.ReactNode;
   /** P36b: keep the highlighted row scrolled into view while the arrows move through a long list. */
   scrollActiveIntoView?: boolean;
+  /** P36b: called when Escape dismisses the list. The popover's document-level Escape listener closes the list before
+   *  the input's own keydown handler runs (in a browser), so an owner that must undo typing on Escape does it here. */
+  onEscape?: () => void;
 }
 
 export function SuggestionList({
   open, onDismiss, anchor, listId, options, actions = [], active, setActive, status, onPick, onAction, className,
-  selectedValue, emptyText, scrollActiveIntoView,
+  selectedValue, emptyText, scrollActiveIntoView, onEscape,
 }: SuggestionListProps) {
   const { t } = useLocale();
   const anchorRef = React.useRef<HTMLDivElement>(null);
@@ -187,6 +190,7 @@ export function SuggestionList({
         className="w-[--radix-popover-trigger-width] min-w-[14rem] max-w-[90vw] p-1"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
+        onEscapeKeyDown={onEscape ? () => onEscape() : undefined}
         onInteractOutside={(e) => { if (anchorRef.current?.contains(e.target as Node)) e.preventDefault(); }}
       >
         <div id={listId} role="listbox" className="max-h-72 overflow-y-auto" aria-busy={status === "loading" || undefined}>

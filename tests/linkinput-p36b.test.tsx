@@ -174,6 +174,16 @@ describe("P36b LinkInput — select-like opt-in", () => {
     expect(input.getAttribute("aria-expanded")).toBe("false");
     expect(input.placeholder).toBe("Select a lifecycle");
     expect(log).toEqual([]);
+    // the browser path: the popover's document-level Escape listener closes the list before the input sees the key
+    fireEvent.click(input);
+    await flush();
+    fireEvent.change(input, { target: { value: "smb" } });
+    await flush();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await flush();
+    expect(input.getAttribute("aria-expanded")).toBe("false");
+    expect(input.value).toBe("Sales pipeline");
+    expect(log).toEqual([]);
   });
 
   it("P36B.linkinput.6 clearing: × clears; keepValueWhenEmptied restores an emptied box on blur", async () => {
