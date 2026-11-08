@@ -161,3 +161,17 @@ const p35form = () => import("./pages/frappe-p35-form");
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P36b sidebar — Desk's Form Sidebar (SIMULATED backend operations)
+{
+  const p36bSidebar = () => import("./pages/p36b-sidebar");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = {
+    id: "frappe-form-sidebar",
+    title: l("Form Sidebar (P36b)", "الشريط الجانبي للنموذج (P36b)"),
+    description: l("SIMULATED backend operations: Assigned To (add with details, Done, remove), Attachments (upload, Library, Link, remove, max_attachments), Tags (add with suggestions, remove) and the Share / Likes / Comments slots, in Desk's order.", "عمليات خلفية محاكاة: مُسنَد إلى (إضافة مع التفاصيل، تم، إزالة)، والمرفقات (رفع، المكتبة، رابط، حذف، الحد الأقصى)، والوسوم (إضافة مع الاقتراحات، إزالة) ومنافذ المشاركة والإعجابات والتعليقات، بترتيب ديسك."),
+    Component: from(p36bSidebar, "FormSidebarPage"),
+  };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}

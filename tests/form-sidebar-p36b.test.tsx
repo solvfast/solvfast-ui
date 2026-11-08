@@ -18,6 +18,8 @@ import {
 import type { AttachmentInfo, DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
 import { createFixtureTransport, simScenario, type FixtureTransport, type SimulatedPermissions } from "../src/frappe/testing";
 import { withSimulatedSidebar } from "../src/frappe/testing/handlers/sidebar";
+import { FormSidebarPage } from "../showcase/src/pages/p36b-sidebar";
+import { PAGES } from "../showcase/src/routes";
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -64,7 +66,7 @@ function mount(s: { t: FixtureTransport; client: ReturnType<typeof createFrappeC
   return render(
     <QueryClientProvider client={qc}>
       <FrappeProvider client={s.client} queryClient={qc} session={{ user: ses.user, fullName: ses.fullName, roles: ses.roles }}>
-        <ThemeProvider defaultLanguage={language} storageKeys={null as never}>{ui}</ThemeProvider>
+        <ThemeProvider defaultLanguage={language} storageKeys={null}>{ui}</ThemeProvider>
       </FrappeProvider>
     </QueryClientProvider>,
   );
@@ -129,12 +131,12 @@ describe("P36B.sidebar — native structure", () => {
   });
 
   it("P36B.sidebar.5 Core FormSidebar: the comment count scrolls to (focuses) the comments slot; hidden / loading / error states", () => {
-    const { unmount } = render(<ThemeProvider storageKeys={null as never}><FormSidebar commentCount={3} comments={<textarea aria-label="Comment box" />} /></ThemeProvider>);
+    const { unmount } = render(<ThemeProvider storageKeys={null}><FormSidebar commentCount={3} comments={<textarea aria-label="Comment box" />} /></ThemeProvider>);
     fireEvent.click(screen.getByRole("button", { name: "3 comments" }));
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Comment box");
     unmount();
     expect(FORM_SIDEBAR_SECTIONS).toEqual(["userActions", "assign", "attachments", "tags", "share", "stats", "meta", "comments"]);
-    const h = render(<ThemeProvider storageKeys={null as never}><FormSidebar hidden assign={<p>x</p>} /></ThemeProvider>);
+    const h = render(<ThemeProvider storageKeys={null}><FormSidebar hidden assign={<p>x</p>} /></ThemeProvider>);
     expect(h.container.textContent).toBe("");
   });
 });
@@ -396,3 +398,13 @@ describe("P36B.sidebar — pure rules", () => {
   });
 });
 
+describe("P36B.sidebar — showcase (SIMULATED)", () => {
+  it("P36B.sidebar.22 the Form Sidebar page is routed under Frappe and renders the simulated sidebar, labelled SIMULATED", async () => {
+    expect(PAGES.find((p) => p.id === "frappe-form-sidebar")?.group.id).toBe("frappe");
+    render(<ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><FormSidebarPage /></ThemeProvider>);
+    expect(screen.getAllByText(/SIMULATED/).length).toBeGreaterThan(0);
+    expect(await screen.findByText("itinerary.pdf")).toBeTruthy();
+    expect(await screen.findByText("offsite")).toBeTruthy();
+    expect(await screen.findByText("Khaled Q")).toBeTruthy();
+  });
+});
