@@ -1,4 +1,4 @@
-# Known limitations — @solvfast/ui 0.7.0-dev.3 (unreleased)
+# Known limitations — @solvfast/ui 0.7.0-dev.4 (unreleased)
 
 What this version does **not** do, has **not** been verified, or does differently on purpose. The row-by-row status of the
 Form View and List View requirements is in `docs/audit/p35/COVERAGE.md` (repository only).
@@ -14,7 +14,8 @@ repository — the requirement matrix `docs/audit/p36/VALIDATION-MATRIX.md`, the
 staging seed / teardown scripts — but nothing has run: it **requires an owner-approved, isolated staging site** (own
 database, credentials, Redis and workers; never a production site — the scripts refuse production names and loopback).
 Until it runs, every real-site result is BLOCKED. P36 batch 2 (0.7.0-dev.3) added 16 catalogue tests for its server paths
-(11 + 5 for the Attach Image control; 91 in all); none has run.
+(11 + 5 for the Attach Image control; 91 in all); none has run. The P36c owner-decision batch (0.7.0-dev.4) added 3
+more (V-IMAGE-2, F-SB-ASSIGN-2, V-REPORT-3; **94 in all**); none has run. P36c evidence is jsdom + the simulator only.
 
 | Area | Evidence |
 |---|---|
@@ -47,6 +48,13 @@ SQL or every permission rule. These behaviours have **only** simulator (or stub)
   (`FrappeAttachField`) — `upload_file` with `fieldname` and a `new-…` docname, `optimize`, the Library / Link forms,
   `frappe.core.api.file.get_max_file_size`, `remove_attach` on Clear and the save that follows (see "Attach / Attach Image"
   below).
+- **Every P36c server path (0.7.0-dev.4):** the Image view's bulk writes (the List view's methods, from checked cards);
+  Assign To User Group — the group search (`search_link` on User Group) and the members read (`frappe.desk.reportview.get_list`
+  on User Group Member with `parent_doctype: "User Group"`, `limit: 20`), answered by the sidebar wrapper's
+  `childTableList` (has_child_permission: a valid parent, then read on it). Not simulated: User Permissions on the member
+  rows, the table field's permlevel. Since 0.7.0-dev.4 `createFixtureTransport` ships Frappe's **User Group** and **User
+  Group Member** metas by default (`BUILTIN_FIXTURE_META`), so a consumer test that counted the built-in metas or relied on
+  "DocType User Group not found" sees them.
 - **Simulator wrappers still needed for batch 2:** the built-in docinfo answers `attachments: []` / `tags: ""` and
   `files.upload` refuses everything but Data Import unless the transport is wrapped in `withSimulatedSidebar` (exported
   from `@solvfast/ui/frappe/testing`); the built-in bulk handler does not refuse Cancel for submitted back links — the
@@ -137,11 +145,19 @@ ungrouped lists (they page).
   `remember_last_selected_value` is not reproduced.
 - **Report view bulk actions** (`FrappeReportView bulk`, since 0.7.0-dev.3) are opt-in, as in `FrappeListView`; Desk
   always shows the checkboxes. A document shown on several Report rows (one per child-table row) is sent once — Desk sends
-  one name per checked row and the server reports the repeat as failed. No `task_id` progress bar. The Image view has no
-  Actions surface (Desk's Image view inherits the List view's), a follow-up.
+  one name per checked row and the server reports the repeat as failed — kept as an intended deviation (owner decision,
+  0.7.0-dev.4) and pinned by tests for every name-taking action (`tests/views-p36c.test.tsx` P36C.views.20–31). No
+  `task_id` progress bar.
+- **Image view bulk actions** (`FrappeImageView bulk`, since 0.7.0-dev.4) are opt-in, as in the List / Report views (Desk
+  always shows the card checkboxes). Differences from Desk's Image view: a selection strip above the cards (select-all on
+  the page, "{n} items selected", Clear) that Desk's Image view does not have (its header is commented out); the card
+  checkbox stays on phones (Desk hides it, `hidden-xs`); the rows request `docstatus`, so Print works on submittable
+  DocTypes (Desk's image rows carry none, so its Print refuses every card for non-Administrators); no shift-click range
+  select; "Add {DocType}" is the host's `primaryAction` (no built-in create / Quick Entry). Like heart, gallery and
+  `get_attached_images` are still not reproduced.
 - **Form Sidebar** (`FrappeFormSidebar`, since 0.7.0-dev.3): the host places it (`FrappeFormView` does not mount it);
   not hidden on phones; no sidebar image, Follow / Followed by, Reviews (energy points), auto-repeat, page views or
-  sidebar extension; no "Assign To User Group"; uploads show waiting / uploading / uploaded / failed but no percentage
+  sidebar extension; uploads show waiting / uploading / uploaded / failed but no percentage
   (`fetch` has no upload progress); no Google Drive; the Library tab is a text search
   (`get_files_by_search_text`), not Desk's folder tree. Attach "+" and tag editing are offered to every reader, as Desk;
   the server refuses without write. `disable_document_sharing` is not read from the site: pass `sharingDisabled`.
@@ -152,8 +168,23 @@ ungrouped lists (they page).
   gating is the app's choice to render the bar. The awesome bar's rows come from the boot lists the app passes
   (`deskSearchBootFrom(frappe.boot)`); a boot without `can_read` / `can_create` lists (e.g. a custom page boot) yields
   pages and recents only. Recents are in memory per tab, as Desk's `route_history`.
-- **LinkInput picker mode** (opt-in, since 0.7.0-dev.3): Space types (it does not open), arrows wrap at the ends, no
-  Ctrl+N/J/P/K bindings; `FrappeLinkField` does not expose the picker props.
+- **Assign To User Group** (since 0.7.0-dev.4; `FrappeAssignTo layout="sidebar"` `userGroups`, list / report Actions →
+  Assign To `bulk.userGroups`, both default on): picking a group **replaces** the users to assign with its members and
+  unticks Assign to me, as Desk (assign_to.js:142-160) — not a merge with users already picked. Desk reads the members with
+  `frappe.db.get_list`'s default limit, so only a group's **first 20 members** are assigned (reproduced). Differences: a
+  repeated member row is listed and sent once (Desk sends it twice; the server answers "Already in … ToDo list"); a status /
+  "has no members" line under the field; a refused read shows the server message under the field and keeps the list (Desk:
+  modal msgprint); a known full name replaces the user id in the pill. The opt-in bar's `AssignPicker` popover has no group
+  field. `FrappeBulkActions`' user search still lacks Desk's `{user_type: "System User", enabled: 1}` filter (pre-existing).
+- **LinkInput picker mode** (opt-in, since 0.7.0-dev.3; reviewed in 0.7.0-dev.4 against Desk): a plain Space on a filled,
+  closed box with nothing typed opens the full list (Desk's Select is a native `<select>`); once the list is open, while
+  typing, on an empty box or with a modifier, Space types. Every keyboard open (Enter / ArrowDown / Space) selects the shown
+  text so typing replaces it. Arrows wrap at the ends (= Desk's Awesomplete). No Ctrl+N/J/P/K (cmdk's `vimBindings`, not a
+  Desk key). Height is the DS field height, 36 px (as Input / Select / DateField). Intended differences from Desk's Link:
+  opens the full list on a filled box (click / Enter / ArrowDown / Space), selects the shown text, marks the current value
+  (`aria-selected`), keeps the value when emptied (opt-in), Escape restores the shown value, Home / End move in the open
+  list. The default mode (`FrappeLinkField`) is unchanged; `FrappeLinkField` does not expose the picker props. The default
+  mode's candidate changes (item 7 of the owner's P36c message) are pending: the message was cut off.
 - **Terminology — Lifecycle (since 0.7.0-dev.3):** the design system calls Frappe's Workflow feature **Lifecycle**
   (ar **دورة الحياة**) in its own chrome — today only two message values: `listBulkWorkflow` ("Lifecycle", the opt-in
   `selectionMode="bar"` menu button) and `listBulkWorkflowNone` ("No lifecycle action applies to all the selected
@@ -219,6 +250,14 @@ site yet**.
 - **`export_query` writes an Access Log** before it refuses a user without `export`. [L-EXPORT-1]
 - **`user_settings.save` merges shallowly:** a Desk save of `List` without the package's `sf_ui` key drops it (LV.A6b).
   [L-USERSET-1]
+- **A name sent twice to a bulk method** (what Desk's Report view sends for a document on two rows): update saves it twice,
+  `add_multiple` answers "Already in the following Users ToDo list", `add_tags` is a no-op the second time, `delete_items`
+  retries the repeat once and ends in a realtime "Failed to delete 1 documents" message. The package sends each name once.
+  [V-REPORT-3, V-REPORT-2]
+- **User Group members are a child-table read.** `reportview.get_list` on User Group Member needs `parent_doctype` naming
+  a DocType with a User Group Member table (else 403; without it the child itself is taken as the parent, also 403), then read on User Group — which every Desk User has by
+  default (`user_group.json`); `limit` becomes the page length (Desk sends 20). Creating a group needs System Manager.
+  [F-SB-ASSIGN-2]
 - Also: bulk submit / cancel / update answer HTTP 200 with a per-document failed list, bulk delete reports failures by
   realtime msgprint [L-BULK-2, L-BULK-3]; User Permissions filter list rows silently while `getdoc` of a hidden record is
   403 [L-PERM-1]; whether User Permissions apply to the sidebar's `assigned_to` counts (`frappe.qb.get_query`) is recorded,
@@ -279,6 +318,12 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
 - List: grouped rows share one table and column layout.
 
 ## Rendering
+
+- **Navbar on phones (since 0.7.0-dev.4, a default change for every `Navbar` / `AppShell` consumer):** below `md` the
+  header uses 12 px inline padding (was 16 px) and 2 px between its icon buttons (was 4 px); the page title gets 18 px more
+  (CRM: 106 → 124 px at 390 px, 76 → 94 px at 360 px). Buttons stay 32 × 32, the search trigger keeps its name and
+  Ctrl/⌘+G; desktop (≥ `md`) is unchanged. There is no opt-out prop. Measured in Chromium on a local CRM build only (no
+  physical device).
 
 - Path B (no Tailwind): a sheet whose edge falls on a half pixel (e.g. the 75 %-wide sheet at 390 px) can anti-alias
   slightly differently from path A; glass can re-rasterize slightly differently after a stylesheet is added at runtime

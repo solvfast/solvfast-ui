@@ -49,7 +49,7 @@ Frappe behaviour is cited from Frappe 15.110.0, apps/frappe commit ab7e5ae (sour
 | MISSING | 6 | 4 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 5 | 0 |
 
-Catalogue: **91 tests** — 77 API (run by `run-matrix.mjs`; 19 read, 58 write / server-rejection needing `--write`), 7 browser (`--browser`, harness), 7 manual (infrastructure).
+Catalogue: **94 tests** — 80 API (run by `run-matrix.mjs`; 19 read, 61 write / server-rejection needing `--write`), 7 browser (`--browser`, harness), 7 manual (infrastructure).
 
 ## 3. P36 areas → tests
 
@@ -490,20 +490,20 @@ Catalogue: **91 tests** — 77 API (run by `run-matrix.mjs`; 19 read, 58 write /
 
 | id | Requirement | P35 | P35 evidence | Category | Real-site tests | Real-site | Note |
 |---|---|---|---|---|---|---|---|
-| LV.F1 | Edit (typed value control) | COMPLETE | simulator | (c) W | L-BULK-1 | BLOCKED (not run) |  |
+| LV.F1 | Edit (typed value control) | COMPLETE | simulator | (c) W | L-BULK-1, V-REPORT-3 | BLOCKED (not run) |  |
 | LV.F2 | Export (selection) | COMPLETE | simulator | (e) | L-EXPORT-1 | BLOCKED (not run) | download_template on a site |
-| LV.F3 | Assign To | COMPLETE | simulator, unit | (c) W | L-ASSIGN-1 | BLOCKED (not run) |  |
+| LV.F3 | Assign To | COMPLETE | simulator, unit | (c) W | L-ASSIGN-1, F-SB-ASSIGN-2, V-REPORT-3 | BLOCKED (not run) |  |
 | LV.F4 | Clear Assignment | COMPLETE | simulator | (c) W | L-ASSIGN-1 | BLOCKED (not run) |  |
 | LV.F5 | Apply Assignment Rule | COMPLETE | simulator | (c) W | L-ASSIGN-1 | BLOCKED (not run) |  |
-| LV.F6 | Add Tags | COMPLETE | simulator | (c) W | L-TAG-2 | BLOCKED (not run) |  |
+| LV.F6 | Add Tags | COMPLETE | simulator | (c) W | L-TAG-2, V-REPORT-3 | BLOCKED (not run) |  |
 | LV.F7 | Print | COMPLETE | simulator | (c) W | F-PDF-1 | BLOCKED (not run) | needs the staging PDF engine (manual) |
-| LV.F8 | Submit | COMPLETE | simulator | (c) W | L-BULK-2, L-BULK-5, V-REPORT-2 | BLOCKED (not run) |  |
-| LV.F9 | Cancel | COMPLETE | simulator | (c) W | L-BULK-2, L-BULK-5, V-REPORT-2 | BLOCKED (not run) |  |
-| LV.F10 | Delete | COMPLETE | simulator | (c) W | F-MENU-2, L-BULK-3 | BLOCKED (not run) |  |
+| LV.F8 | Submit | COMPLETE | simulator | (c) W | L-BULK-2, L-BULK-5, V-REPORT-2, V-IMAGE-2 | BLOCKED (not run) |  |
+| LV.F9 | Cancel | COMPLETE | simulator | (c) W | L-BULK-2, L-BULK-5, V-REPORT-2, V-IMAGE-2 | BLOCKED (not run) |  |
+| LV.F10 | Delete | COMPLETE | simulator | (c) W | F-MENU-2, L-BULK-3, V-REPORT-3 | BLOCKED (not run) |  |
 | LV.F11 | Workflow bulk actions | COMPLETE | simulator | (c) W | L-BULK-4 | BLOCKED (not run) |  |
 | LV.F12 | Permission-aware menu | COMPLETE | unit, simulator | (c) P | L-BULK-2, S-API-1, S-API-3, S-UI-1 | BLOCKED (not run) |  |
 | LV.F13 | Destructive confirmation | COMPLETE | simulator | (c) W | L-BULK-2, L-BULK-3 | BLOCKED (not run) |  |
-| LV.F14 | UI keys → document names | COMPLETE | simulator | (b) | L-BULK-1, V-REPORT-2 | BLOCKED (not run) |  |
+| LV.F14 | UI keys → document names | COMPLETE | simulator | (b) | L-BULK-1, V-REPORT-2, V-REPORT-3 | BLOCKED (not run) |  |
 | LV.F15 | Selection across filters / pages | COMPLETE | unit, simulator | (b) | L-HDR-1 | BLOCKED (not run) |  |
 | LV.F16 | Header selection mode | COMPLETE | unit, simulator | (b) | L-HDR-1 | BLOCKED (not run) |  |
 | LV.F17 | Empty selection | COMPLETE | unit | (a) | L-HDR-1 | BLOCKED (not run) |  |
@@ -529,11 +529,11 @@ Catalogue: **91 tests** — 77 API (run by `run-matrix.mjs`; 19 read, 58 write /
 | id | Requirement | P35 | P35 evidence | Category | Real-site tests | Real-site | Note |
 |---|---|---|---|---|---|---|---|
 | LV.H0 | View switcher | COMPLETE | unit, simulator | (b) | V-SWITCH-1 | BLOCKED (not run) |  |
-| LV.H1 | Report view | PARTIAL | simulator | (c) A | V-REPORT-1, V-REPORT-2 | BLOCKED (not run) | PARTIAL: child columns + inline set_value |
+| LV.H1 | Report view | PARTIAL | simulator | (c) A | V-REPORT-1, V-REPORT-2, V-REPORT-3 | BLOCKED (not run) | PARTIAL: child columns + inline set_value |
 | LV.H2 | Kanban | COMPLETE | simulator | (c) W | V-KANBAN-1 | BLOCKED (not run) |  |
 | LV.H3 | Calendar | PARTIAL | unit, simulator | (e) | V-CAL-1 | BLOCKED (not run) | PARTIAL; get_events read |
 | LV.H4 | Gantt | MISSING | — | (a) | — | — (not in real-site scope) | MISSING |
-| LV.H5 | Image | COMPLETE | unit, simulator | (e) | V-IMAGE-1 | BLOCKED (not run) | image_field column read |
+| LV.H5 | Image | COMPLETE | unit, simulator | (e) | V-IMAGE-1, V-IMAGE-2 | BLOCKED (not run) | image_field column read |
 | LV.H6 | Dashboard | MISSING | — | (b) | — | — (not in real-site scope) | MISSING (Dashboard Chart documents) |
 | LV.H7 | Map | MISSING | — | (a) | — | — (not in real-site scope) | MISSING |
 | LV.H8 | Tree | MISSING | — | (a) | — | — (not in real-site scope) | MISSING |
@@ -1041,6 +1041,17 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Frappe source:** desk/form/utils.py:26-50 add_comment (check_permission :31-32); desk/form/utils.py:53-69 update_comment (owner or Administrator :58-59); desk/form/utils.py:72-79 update_comment_publicity (owner or System Manager :75-76); core/doctype/comment/comment.json (permissions: System Manager, Website Manager); core/doctype/comment/comment.py:58-59 after_insert → notify_mentions; desk/notifications.py:390-440 notify_mentions / extract_mentions; desk/doctype/notification_log/notification_log.py:73-100 enqueue_create_notification; desk/form/load.py:146-160 add_comments (published :158); public/js/frappe/form/footer/form_timeline.js:607-676, 723-760 (Desk UI)
 - **Evidence to capture:** statuses / exc_type, the comment's published flag in docinfo, Notification Log count (recorded)
 
+#### F-SB-ASSIGN-2 — P36c — Assign To User Group: group read right, members read (child get_list + limit), assign_to.add / add_multiple with the members
+
+- **Kind / automation:** reject · api
+- **Rows:** LV.F3
+- **User / role:** sysmgr, reader, writer, manager
+- **Preconditions:** a System Manager account (seed with --with-system-manager: User Group create / delete = System Manager, user_group.json); the run creates one User Group named after the run tag with 5 members (manager, writer, reader, restricted, field) and deletes it at the end (the teardown does not know User Group); 2 fresh drafts A, B by writer (restricted cannot read them)
+- **Steps:** (1) sysmgr: frappe.client.insert User Group {name: '<tag> group', user_group_members: 5 rows} (2) reader: frappe.desk.search.search_link('User Group', <tag>) — the dialog's group field (3) reader: frappe.desk.reportview.get_list {doctype: 'User Group Member', parent_doctype: 'User Group', filters: {parent: group}, fields: ['user']} without a limit, then with limit 2 (Desk's frappe.db.get_list sends limit 20) (4) reader: the same without parent_doctype; then with parent_doctype 'SFUI Test Parent' (5) writer: assign_to.add {doctype, name: A, assign_to: the members who can read A} — the sidebar's Add to ToDo after picking the group (6) writer: assign_to.add on B with every member incl. restricted (RECORDED) (7) writer: assign_to.add_multiple {name: [A, B], assign_to: the readable members, bulk_assign, re_assign} — the list Actions → Assign To dialog (8) sysmgr: frappe.client.delete the User Group
+- **Expected Frappe behaviour:** reader (Desk User has read on User Group) finds the group and reads its 5 members; limit 2 → 2 rows (limit becomes limit_page_length, so Desk expands a group to its first 20 members); no parent_doctype → 403 (check_read_permission falls back to the child itself as the parent, a table → '… is not a valid parent DocType'); a parent without a User Group Member table → 403 (same message); add on A → 200, one open ToDo per member; add on B with restricted → expected 403 and a rollback (the automatic share runs as writer, who holds no share right — as F-SB-ASSIGN-1; recorded); add_multiple → 200, B gets the members, A's repeats answer 'Already in the following Users ToDo list'. Not producible with the seed (not run): a site that removed Desk User's read on User Group (search and members read → 403)
+- **Frappe source:** public/js/frappe/form/sidebar/assign_to.js:142-160 user_group_list (set_value replaces the users; assign_to_me unticked); public/js/frappe/db.js:5-26 get_list (limit 20 when absent); desk/reportview.py:40-50 get_list → execute; model/db_query.py:566-586 check_read_permission (parent_doctype, else the queried DocType itself :582); permissions.py:763-846 has_child_permission (invalid parent — a table, or no table of the child — :792-805; read on the parent :839-846); core/doctype/user_group/user_group.json (autoname Prompt; System Manager all, Desk User read); desk/form/assign_to.py:43-139 add, :143-151 add_multiple
+- **Evidence to capture:** member rows (user ids), statuses / exc_type, docinfo.assignments owners per document, the cleanup status
+
 ### 5.2 List
 
 #### L-FETCH-1 — fetch, pagination, sort, filters, counts
@@ -1297,6 +1308,28 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Expected Frappe behaviour:** 2 report rows named P; submit [P, P, Q] → failed [P] (the second copy is no longer a draft) although P and Q are both submitted — the false failure the package's de-duplication avoids; cancel [P, Q] → failed [], both docstatus 2
 - **Frappe source:** public/js/frappe/views/reports/report_view.js:9 (extends ListView), :360 (checkboxColumn), :371-374 (onCheckRow → Actions), :1339-1352 get_checked_items; desk/reportview.py:27-50 get (one row per child row); desk/doctype/bulk_update/bulk_update.py:85, 99-100
 - **Evidence to capture:** row count, failed lists, docstatus after
+
+#### V-IMAGE-2 — P36c — Image view Actions: rows carry docstatus, bulk Submit / Cancel on checked cards
+
+- **Kind / automation:** write · api
+- **Rows:** LV.H5, LV.F8, LV.F9
+- **User / role:** manager
+- **Preconditions:** SFUI Test Parent image_field = attach_image (overlay); fresh drafts A and B by manager (SFUI Manager: submit + cancel)
+- **Steps:** (1) manager: reportview.get with [name, title, attach_image, docstatus] filtered on A, B — what FrappeImageView requests (the package adds docstatus; Desk's image_view.js set_fields does not) (2) manager: submit_cancel_or_update_docs(action='submit', [A, B]) — Actions → Submit on both cards (3) manager: the same reportview.get (the reload) (4) manager: action='cancel', [A] (5) browser (optional, not in the harness): FrappeViews bulk on SFUI Test Parent, Image view → tick 2 cards → 'Add' gives way to Actions, the strip shows '2 items selected' + Clear → Submit → the confirmation counts 2 → cleared and reloaded
+- **Expected Frappe behaviour:** the keys include attach_image and docstatus, both rows docstatus 0; submit → failed [] and both docstatus 1 on the reload; cancel [A] → failed [], A docstatus 2. Desk's Image view rows carry no docstatus (image_view.js:23-31), so its Print check (bulk_operations.js:16-40) refuses every card for a non-Administrator — the package's rows carry it (documented difference)
+- **Frappe source:** public/js/frappe/views/image/image_view.js:6 (extends ListView), :17-21 setup_view, :23-31 set_fields (no docstatus), :113-114 card checkbox; public/js/frappe/list/list_view.js:1855-2128 get_actions_menu_items (inherited); public/js/frappe/list/bulk_operations.js:16-40 (Print's docstatus check); desk/reportview.py:27-50 get; desk/doctype/bulk_update/bulk_update.py:51-114 submit_cancel_or_update_docs / _bulk_action
+- **Evidence to capture:** response keys, docstatus per step, failed lists
+
+#### V-REPORT-3 — P36c — Report view de-dup: what each name-taking bulk method does with a name sent twice (Desk's per-row names)
+
+- **Kind / automation:** write · api
+- **Rows:** LV.F14, LV.H1, LV.F1, LV.F3, LV.F6, LV.F10
+- **User / role:** manager
+- **Preconditions:** fresh drafts P and D by manager, each with 2 child rows (two Report rows per document)
+- **Steps:** (1) manager: submit_cancel_or_update_docs(action='update', [P, P], data {notes}) (2) manager: assign_to.add_multiple(name=[P, P], assign_to=[reader]) (3) manager: tag.add_tags(['sfui-p36c'], dt, docs=[P, P]) (4) manager: reportview.delete_items(items=[D, D]) (5) (Submit / Cancel with a repeat: V-REPORT-2. The package sends each name once for all of these — P36C.views.20–31)
+- **Expected Frappe behaviour:** update [P, P] → failed [] (P saved twice; Version rows recorded); add_multiple → 200, ONE open ToDo for reader on P and the msgprint 'Already in the following Users ToDo list' for the repeat; add_tags → 200, the tag once in _user_tags; delete_items [D, D] → 200, D deleted, the repeat fails, is retried once (delete_bulk) and ends in the REALTIME msgprint 'Failed to delete 1 documents: D' — not in the HTTP answer (recorded)
+- **Frappe source:** public/js/frappe/views/reports/report_view.js:1339-1352 get_checked_items (one name per checked row); desk/doctype/bulk_update/bulk_update.py:74-114 _bulk_action (update :95-98); desk/form/assign_to.py:43-139 add (duplicate open ToDo :69-70, :135-137), :143-151 add_multiple; desk/doctype/tag/tag.py:43-49 add_tags, :87-94 DocTags.add (no-op when present); desk/reportview.py:575-615 delete_items / delete_bulk (retry :608-610, realtime msgprint :611-615)
+- **Evidence to capture:** failed lists, ToDo owners, _user_tags, getdoc status of D, Version count of P (recorded)
 
 ### 5.4 Security
 

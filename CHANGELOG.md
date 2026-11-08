@@ -6,6 +6,109 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.4 (unreleased) — P36 owner decisions
+
+P36c — the owner's final decisions on the batch-2 open items: LinkInput picker keyboard reviewed against Desk, a small
+phone-header title gain, the Report view's de-duplication kept and pinned by tests, Commission & Referral not migrated,
+**Image view Actions** and **Assign To User Group** implemented. `package.json` `version` is `0.7.0-dev.4` (not tagged, not
+published). Coverage of the fixed P35 list is unchanged (**258 / 301**; `docs/audit/p35/COVERAGE.md` §11). **No real-site
+validation:** evidence is jsdom unit tests and the in-package simulator. Index: `docs/audit/p36c/README.md` (repository
+only).
+
+Owner decisions (final): (1) LinkInput picker: review every difference against Desk, keep native keyboard behaviour,
+document the intentional differences; (2) the 390 px header is acceptable, take a small title-space gain without a
+redesign; (3) the Report view keeps its per-document de-duplication (intended deviation) with regression tests for every
+name-taking action; (4) CRM Commission & Referral is **not** migrated (every-row editing, no card layout, horizontal
+scroll kept); (5) the Image view gets Desk's Actions; (6) Assign To User Group is added. Item 7 of the owner's message was
+cut off: the LinkInput **default-mode** candidates are unchanged, pending the owner.
+
+### Added
+- **Image view Actions (`@solvfast/ui/frappe`)** — `FrappeImageView` `bulk?: FrappeBulkOptions` gives the checked cards
+  Desk's Actions menu, as Desk's Image view inherits it from the List view (image_view.js:6, :17-21, :113): Edit, Export,
+  Assign To, Clear Assignment, Apply Assignment Rule, Add Tags, Print, Submit, Cancel, Delete and the workflow's actions,
+  with the List view's permission gates and selection outcomes through the shared `useFrappeSelectionActions`. "Add
+  {DocType}" (the host's `primaryAction`) gives way to Actions while cards are checked. `FrappeViews` `bulk` now reaches
+  the Image view too (`image.bulk` overrides). Opt-in, as in the List / Report views.
+- **Core `ImageView`** (additive) gains the List view's selection props — `primaryAction`, `bulkActions`,
+  `renderBulkActions`, `selectionMode`, `renderActionsMenu`, `onActionsOpenChange`, `actionsLabel` — and, with any of them,
+  the Add ↔ Actions swap and a selection strip (select-all on the page, "{n} items selected", Clear). A plain `selectable`
+  `ImageView` is unchanged.
+- **Assign To User Group** — Core `AssignDialog` `groups?: AssignGroupSource` (`search`, `members`, `label`, `placeholder`,
+  `debounceMs`; hidden with `single`) and `uniqueMembers`; Frappe `FrappeAssignTo layout="sidebar"` `userGroups` (Add to
+  ToDo) and `FrappeBulkOptions.userGroups` (the list / report Actions → Assign To dialog), both **default on**, and the
+  helpers `userGroupSource`, `getUserGroupMembers`, `searchUserGroups`, `userGroupMembersArgs`, `USER_GROUP_DOCTYPE`,
+  `USER_GROUP_MEMBER_DOCTYPE`, `USER_GROUP_MEMBERS_FIELD`, `USER_GROUP_MEMBERS_METHOD`, `USER_GROUP_MEMBERS_LIMIT`. As
+  Desk (assign_to.js:142-160): picking a group **replaces** the users to assign with its members and unticks Assign to me;
+  the members are read with `frappe.desk.reportview.get_list` on User Group Member (`parent_doctype: "User Group"`,
+  `limit: 20` — Desk's `frappe.db.get_list` default, so a group expands to its first 20 members). Empty group → list
+  emptied, Add disabled; a refused read shows the server message under the field. The `assign_to.add` / `add_multiple`
+  payloads are unchanged (only the `assign_to` list changes). The opt-in bar's `AssignPicker` popover has no group field.
+- **Messages** (en + ar): `sbAssignGroup`, `sbAssignGroupSearch`, `sbAssignGroupEmpty`, `sbAssignGroupMembers`.
+- **Simulator (SIMULATED)** — `withSimulatedSidebar` answers `frappe.desk.reportview.get_list` on a child DocType with
+  `parent_doctype` (Frappe's has_child_permission: a valid parent with a table of the child, then read on the parent;
+  `limit` / `start` / `fields`), recorded in `store.calls`.
+
+### Changed (behaviour visible to 0.7.0-dev.3 consumers)
+1. **`Navbar` on phones — a default change for every `Navbar` / `AppShell` consumer.** Below `md` the header uses 12 px
+   inline padding (was 16 px) and 2 px between its icon buttons (was 4 px). The page title gets 18 px more at every phone
+   width (CRM: 106 → 124 px at 390 px, 76 → 94 px at 360 px; truncated CRM titles 68 → 48 per theme over 27 routes × en /
+   ar × 390 / 360). Buttons stay 32 × 32 (`icon-sm`), the search trigger keeps its accessible name and Ctrl/⌘+G; desktop
+   (≥ `md`) is unchanged. No opt-out prop.
+2. **LinkInput picker mode keyboard** (`openOnClickWhenFilled`, opt-in): a plain **Space** on a filled, closed box with
+   nothing typed opens the full list instead of appending a space (Desk's Select is a native `<select>`); Space still
+   types once the list is open, while typing, on an empty box, with a modifier or during IME composition, and never in the
+   default mode. **Every keyboard open (Enter / ArrowDown / Space) selects the shown text**, as a click does (see Fixed).
+   No prop or API change; the default mode (`FrappeLinkField`) is unchanged.
+3. **Assign To dialogs show a group field by default:** `FrappeAssignTo layout="sidebar"` (`userGroups={false}` opts out)
+   and the Actions → Assign To dialog of `FrappeListView` / `FrappeReportView` (`bulk={{ userGroups: false }}` opts out).
+4. **Simulator ships Frappe's User Group and User Group Member metas by default** (`createFixtureTransport`,
+   `BUILTIN_FIXTURE_META`; integrator `44bff60`), so the group field works on every simulated site. A consumer test that
+   counted the built-in metas, or expected "DocType User Group not found", sees them.
+5. `useFrappeBulkActions` follows the DocType meta once it loads: bulk **Edit** opens on the first editable field (see
+   Fixed).
+
+### Fixed
+- **Bulk Edit in the Report and Image views opened an empty field picker** (integrator `44bff60`): `useFrappeBulkActions`
+  chose its field while the view's DocType meta was still the empty placeholder. It now follows the meta once it arrives.
+  Regression test `P36C.views.32` (fails without the fix).
+- **LinkInput picker mode, keyboard reopen:** after a keyboard pick the caret sat after the label, so Enter / ArrowDown
+  reopened with the text unselected and typing appended to it ("Enterprise dealsSMB", 0 rows). Every keyboard open now
+  selects the shown text (`P36C.linkinput.9`; default mode unchanged, `.10`).
+
+### Deviations from Desk (each deliberate; details in `docs/audit/p36c/README.md` §3)
+- **LinkInput picker mode** (opt-in; supersedes the 0.7.0-dev.3 LinkInput entry): opens the full list on a filled box (click / tap / Enter / ArrowDown / Space; Desk's
+  Link never does, link.js:35-41), selects the shown text, marks the current value (`aria-selected`), Escape restores the
+  shown value, Home / End move in the open list, `keepValueWhenEmptied`. **Reviewed and no longer differences:** arrows
+  wrap (= Awesomplete), no Ctrl+N / Ctrl+P (cmdk's `vimBindings`; not Desk keys), height = the DS field height, 36 px (the
+  4 px came from the old CRM picker, a 40 px `Button`).
+- **Image view Actions:** a selection strip (select-all on the page, count, Clear) that Desk's Image view lacks (its header
+  is commented out, image_view.js:161-177); the card checkbox stays on phones (Desk `hidden-xs`); the rows request
+  `docstatus`, so **Print works** on submittable DocTypes (Desk's image rows carry none and its Print check refuses every
+  card for non-Administrators); no shift-click range select; `bulk` is opt-in.
+- **Report view** keeps sending a document shown on several rows **once** (owner decision 3), now pinned for every
+  name-taking action: Submit, Cancel, Delete, Edit, Assign To, Clear Assignment, Apply Assignment Rule, Add Tags, Print,
+  Export, Workflow (`P36C.views.20–31`).
+- **Assign To User Group:** a repeated member row is listed and sent once (Desk sends it twice and the server answers
+  "Already in … ToDo list"); a status / "has no members" line under the field; a refusal is shown under the field and keeps
+  the list (Desk: modal msgprint); a known full name replaces the user id in the pill; a refused members read keeps the
+  list (Desk unticks Assign to me first, which empties the list when it was ticked). The owner's brief said "merge"; Desk **replaces**, and
+  the package follows Desk.
+- **Phone header:** DS chrome with no Desk equivalent (Desk keeps its 300 px search bar on phones).
+
+### Validation status
+- **No real-site validation.** No Frappe site was contacted, seeded, read or written. Evidence: `tests/views-p36c.test.tsx`
+  (27), `tests/usergroup-p36c.test.tsx` (14), `tests/linkinput-p36c.test.tsx` (10), `tests/header-p36c.test.tsx` (3) — jsdom
+  + the simulator. LinkInput and the header were also measured in Chromium on local static builds (showcase; CRM in mock
+  mode) — not a Frappe site.
+- Coverage of the fixed list is unchanged (**258 / 301**); 8 rows gained evidence (LV.F1, LV.F3, LV.F8, LV.F9, LV.F12,
+  LV.F14, LV.H1, LV.H5) — `docs/audit/p35/COVERAGE.md` §11.
+- Real-site validation stays **prepared, not run**: the catalogue gained 3 P36c tests (now **94**: 80 API, 7 browser,
+  7 manual) — V-IMAGE-2, F-SB-ASSIGN-2 (needs the `sysmgr` account), V-REPORT-3 (`docs/audit/p36/VALIDATION-MATRIX.md` §5).
+  LinkInput and the Navbar are client-only. Every real-site result is BLOCKED.
+- Integration gates at this docs commit: `npx vitest run` — 85 files, 1678 passed, 10 todo, 0 failed (0.7.0-dev.3: 81 files, 1624); `node e2e/frappe-site/matrix/render.mjs --check` current;
+  `tests/frappe-site-guards.test.ts` 23 passed. Integrator gates (typecheck, boundaries, build, CRM regression):
+  `docs/audit/p36c/README.md` "Integrator gate results".
+
 ## 0.7.0-dev.3 (unreleased) — P36 batch 2
 
 P36 batch 2 (P36b) — owner-requested features: LinkInput picker mode, Submit / Cancel in the Report view, Frappe Global

@@ -323,6 +323,55 @@ Regression of crm/p36b-070: see docs/audit/p36b/README.md
 ### 8.4 Still not migrated
 - **Commission & Referral (M10):** unchanged — the tables keep the DS `Table`. A `DataGrid` migration changes the editing
   model (every row editable → one row at a time, "Add year" → "Add Row", extra No. / checkbox / ⋯ columns) and needs
-  **owner approval** first; no card layout (owner rule, §5.3).
+  **owner approval** first; no card layout (owner rule, §5.3). **(P36c) Owner decided: not migrated** (§9.3).
 - Country / City / Organization-by-name, `ClientPicker`, `MultiSearchableSelect`, `TypeFilterPicker`, `AppliesToPicker`:
   unchanged (§5.1).
+
+## 9. P36c — owner decisions (CRM side)
+
+The package side of the P36c batch is `@solvfast/ui` 0.7.0-dev.4 (`docs/audit/p36c/README.md`). The CRM pin is still
+`@solvfast/ui` 0.6.0; nothing below is merged, pushed or deployed. Every CRM check ran on a local static build in **mock data
+mode** against a local pack of the package workstream branch — no site, bench, database or cache.
+
+### 9.1 Pickers P1–P5 — final state on `crm/p36b-070`
+- `crm/p36b-070` = `f7bd1da` + **`c38335f`** (fast-forward from `crm/p36c-pickers`). `c38335f` is **comment-only**
+  (`components/CrmOptionLinkInput.tsx`, +3 header lines describing the reviewed keyboard and the field height); no CRM
+  behaviour or call site changed (`0d1e1c6` / `31c4999` untouched). Everything below comes from the package's `LinkInput`
+  picker mode.
+- The four "remaining differences" of §8.1 were reviewed against Desk (owner decision P36c-1):
+
+| §8.1 difference | P36c result |
+|---|---|
+| Space types instead of opening | **changed in the package:** a plain Space on a filled, closed picker with nothing typed opens the full list (Desk's Select is a native `<select>`, select.js:2); Space still types once the list is open or text is typed |
+| (found during the review) after a keyboard pick, reopening and typing appended to the label ("Enterprise dealsSMB", 0 rows) | **fixed in the package:** every keyboard open (Enter / ArrowDown / Space) selects the shown text, as a click does |
+| Arrows wrap | **kept** — it is Desk's Link behaviour (Awesomplete `next()` / `previous()` wrap); cmdk's `loop: false` was the outlier |
+| No Ctrl+N / Ctrl+P | **kept absent** — cmdk's default `vimBindings`, not a Desk key (Desk's Ctrl+P is Print, and Desk shortcuts skip inputs) |
+| Text box 4 px shorter | **kept at 36 px** — the DS field height (Input / Select / DateField / every `FrappeLinkField`); the replaced SearchableSelect was a 40 px DS `Button` (`h-10`) beside 36 px fields on the same forms |
+
+- QA (scratch copy `f7bd1da` + local pack; the later `c38335f` is comment-only): the P36b `linkinput.mjs` unchanged
+  **1168 / 0**; the updated script (+ Space opens / text selected, typing after Space filters, Space while typing types,
+  Escape restores, box = 36 px; × 7 pickers × 8 combinations) **1448 / 0**, 0 console errors (v073f: 1280 / 168 — the 168
+  are the Space checks before the change). Standard suite identical to the integrator's `v073f` (typecheck 30, route sweep
+  82 loads / 2 pre-existing issues, mock 16 / 0, records-assign 111 / 0, 28 lists 112 / 112, legacy 56 / 0, `p35.mjs`
+  376 / 0, tags/assign 43 / 43 ×2, actions-p33 22 / 22 ×2, `p36.mjs` 336 / 0, `p36-legacy.mjs` 10 / 0, `search-p36b.mjs`
+  188 / 0); Service Desk / Service Management configuration (still `SearchableSelect`) identical in the screenshot diff.
+
+### 9.2 Header — the title gain comes from the package
+- **No CRM commit** (`crm/p36c-header` has none after `f7bd1da`): `CrmAppLayout.tsx` already composes the search in the
+  package `Navbar`'s right group. The package `Navbar` now uses 12 px padding and 2 px icon gaps below `md` (owner decision
+  P36c-2: header acceptable; a small title-space gain) — a default change for every `Navbar` consumer on phones.
+- Measured on the CRM (f7bd1da + local pack, 27 route titles, en / ar, light / dark): title room **106 → 124 px at 390**,
+  **76 → 94 px at 360**; truncated titles 68 → 48 per theme; e.g. ar "جهات الاتصال" (Contacts) now fits at 390. Buttons stay
+  32 × 32, search trigger named and one tap, no overflow, desktop identical. Standard suite and `search-p36b.mjs`
+  (188 / 0) identical to `v073f`; Service Desk / Service Management frames unchanged.
+
+### 9.3 Commission & Referral (M10) — **not migrated (owner decision P36c-4)**
+Every-row editing stays (the DS `Table` with inline inputs); no `DataGrid`, no card layout; horizontal scrolling on phones
+is kept. Closes the §5.3 / §8.4 question for now.
+
+### 9.4 Package features that reach the CRM only on a 0.7 pin (unverified in the CRM)
+- **Assign To User Group:** `FrappeEntityList` passes `bulk` to `FrappeListView`, so on a 0.7 pin in Frappe data mode its
+  Actions → Assign To dialog shows the group field by default (`bulk.userGroups`; pass `{ userGroups: false }` to keep it
+  out). The record panel's `FrappeAssignTo` uses `single`, which hides the group field. Not exercised in the CRM (mock mode
+  does not use the Frappe adapter).
+- **Image view Actions / Report de-dup:** the CRM renders no `FrappeImageView` / `FrappeReportView`; no effect.

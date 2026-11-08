@@ -1339,6 +1339,108 @@ export const TESTS = [
     expect: "Core module → 'Core Modules … cannot be searched in Global Search.'; duplicate → 'Document Type … has been repeated.'; reader and restricted both get SFUI Test Contact rows — restricted also for contacts outside its User Permissions (no row-level filter; opening them is still 403); More returns the next page; a new contact appears only after the sync (≤ 15 min)",
     cite: ["desk/doctype/global_search_settings/global_search_settings.py:22-40 validate, :46-51 order by idx", "utils/global_search.py:233-279 update_global_search (queue), :362-413 sync_global_search, :465-526 search", "hooks.py:201-206 (sync every 15 min)", "core/doctype/doctype/doctype.py:588-602 rebuild_for_doctype", "model/meta.py:217-223 get_global_search_fields"],
     evidence: "validation messages, row counts per account (names only), timestamps of the sync" },
+
+  // ---------------------------------------------------------------- P36c (owner decisions, 0.7.0-dev.4) ----------------
+  // Server behaviour behind the P36c package changes: Image view Actions (decision 5), Assign To User Group (decision 6) and
+  // the Report view's per-document de-duplication for every name-taking action (decision 3). LinkInput (decision 1) and the
+  // phone Navbar (decision 2) are client-only: no real-site test. In the package these are jsdom + simulator evidence only.
+  { id: "V-IMAGE-2", area: "Views", feature: "P36c — Image view Actions: rows carry docstatus, bulk Submit / Cancel on checked cards", kind: "write", automated: "api", users: ["manager"],
+    rows: ["LV.H5", "LV.F8", "LV.F9"],
+    pre: "SFUI Test Parent image_field = attach_image (overlay); fresh drafts A and B by manager (SFUI Manager: submit + cancel)", steps: ["manager: reportview.get with [name, title, attach_image, docstatus] filtered on A, B — what FrappeImageView requests (the package adds docstatus; Desk's image_view.js set_fields does not)", "manager: submit_cancel_or_update_docs(action='submit', [A, B]) — Actions → Submit on both cards", "manager: the same reportview.get (the reload)", "manager: action='cancel', [A]", "browser (optional, not in the harness): FrappeViews bulk on SFUI Test Parent, Image view → tick 2 cards → 'Add' gives way to Actions, the strip shows '2 items selected' + Clear → Submit → the confirmation counts 2 → cleared and reloaded"],
+    expect: "the keys include attach_image and docstatus, both rows docstatus 0; submit → failed [] and both docstatus 1 on the reload; cancel [A] → failed [], A docstatus 2. Desk's Image view rows carry no docstatus (image_view.js:23-31), so its Print check (bulk_operations.js:16-40) refuses every card for a non-Administrator — the package's rows carry it (documented difference)",
+    cite: ["public/js/frappe/views/image/image_view.js:6 (extends ListView), :17-21 setup_view, :23-31 set_fields (no docstatus), :113-114 card checkbox", "public/js/frappe/list/list_view.js:1855-2128 get_actions_menu_items (inherited)", "public/js/frappe/list/bulk_operations.js:16-40 (Print's docstatus check)", "desk/reportview.py:27-50 get", "desk/doctype/bulk_update/bulk_update.py:51-114 submit_cancel_or_update_docs / _bulk_action"],
+    evidence: "response keys, docstatus per step, failed lists",
+    async run(ctx) {
+      const m = ctx.as("manager");
+      const [A, B] = [await newParent(ctx, "manager", { title: "image-a" }), await newParent(ctx, "manager", { title: "image-b" })].map((d) => d?.name);
+      if (!A || !B) return;
+      const rows = async () => {
+        const r = await m.call("frappe.desk.reportview.get", { doctype: "SFUI Test Parent", fields: J(["`tabSFUI Test Parent`.`name`", "`tabSFUI Test Parent`.`title`", "`tabSFUI Test Parent`.`attach_image`", "`tabSFUI Test Parent`.`docstatus`"]), filters: J([["name", "in", [A, B]]]), page_length: 20 });
+        const keys = r.message?.keys ?? [];
+        const ds = Object.fromEntries((r.message?.values ?? []).map((v) => [v[keys.indexOf("name")], v[keys.indexOf("docstatus")]]));
+        return { keys, ds };
+      };
+      const r0 = await rows();
+      ctx.check("image rows carry attach_image and docstatus", r0.keys.includes("attach_image") && r0.keys.includes("docstatus"), ["attach_image", "docstatus"], r0.keys);
+      ctx.check("both drafts (docstatus 0)", r0.ds[A] === 0 && r0.ds[B] === 0, [0, 0], [r0.ds[A], r0.ds[B]]);
+      const bulk = (names, action) => m.call("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs", { doctype: "SFUI Test Parent", docnames: J(names), action });
+      const s = await bulk([A, B], "submit");
+      ctx.check("submit both cards → none failed", is(s, 200) && J(s.message) === "[]", [], s.message);
+      const r1 = await rows();
+      ctx.check("reload: both submitted", r1.ds[A] === 1 && r1.ds[B] === 1, [1, 1], [r1.ds[A], r1.ds[B]]);
+      const c = await bulk([A], "cancel");
+      const r2 = await rows();
+      ctx.check("cancel one card → none failed, A cancelled", is(c, 200) && J(c.message) === "[]" && r2.ds[A] === 2, "[] + docstatus 2", { failed: c.message, docstatus: r2.ds[A] });
+    } },
+  { id: "F-SB-ASSIGN-2", area: "Form", feature: "P36c — Assign To User Group: group read right, members read (child get_list + limit), assign_to.add / add_multiple with the members", kind: "reject", automated: "api", users: ["sysmgr", "reader", "writer", "manager"],
+    rows: ["LV.F3"],
+    pre: "a System Manager account (seed with --with-system-manager: User Group create / delete = System Manager, user_group.json); the run creates one User Group named after the run tag with 5 members (manager, writer, reader, restricted, field) and deletes it at the end (the teardown does not know User Group); 2 fresh drafts A, B by writer (restricted cannot read them)", steps: ["sysmgr: frappe.client.insert User Group {name: '<tag> group', user_group_members: 5 rows}", "reader: frappe.desk.search.search_link('User Group', <tag>) — the dialog's group field", "reader: frappe.desk.reportview.get_list {doctype: 'User Group Member', parent_doctype: 'User Group', filters: {parent: group}, fields: ['user']} without a limit, then with limit 2 (Desk's frappe.db.get_list sends limit 20)", "reader: the same without parent_doctype; then with parent_doctype 'SFUI Test Parent'", "writer: assign_to.add {doctype, name: A, assign_to: the members who can read A} — the sidebar's Add to ToDo after picking the group", "writer: assign_to.add on B with every member incl. restricted (RECORDED)", "writer: assign_to.add_multiple {name: [A, B], assign_to: the readable members, bulk_assign, re_assign} — the list Actions → Assign To dialog", "sysmgr: frappe.client.delete the User Group"],
+    expect: "reader (Desk User has read on User Group) finds the group and reads its 5 members; limit 2 → 2 rows (limit becomes limit_page_length, so Desk expands a group to its first 20 members); no parent_doctype → 403 (check_read_permission falls back to the child itself as the parent, a table → '… is not a valid parent DocType'); a parent without a User Group Member table → 403 (same message); add on A → 200, one open ToDo per member; add on B with restricted → expected 403 and a rollback (the automatic share runs as writer, who holds no share right — as F-SB-ASSIGN-1; recorded); add_multiple → 200, B gets the members, A's repeats answer 'Already in the following Users ToDo list'. Not producible with the seed (not run): a site that removed Desk User's read on User Group (search and members read → 403)",
+    cite: ["public/js/frappe/form/sidebar/assign_to.js:142-160 user_group_list (set_value replaces the users; assign_to_me unticked)", "public/js/frappe/db.js:5-26 get_list (limit 20 when absent)", "desk/reportview.py:40-50 get_list → execute", "model/db_query.py:566-586 check_read_permission (parent_doctype, else the queried DocType itself :582)", "permissions.py:763-846 has_child_permission (invalid parent — a table, or no table of the child — :792-805; read on the parent :839-846)", "core/doctype/user_group/user_group.json (autoname Prompt; System Manager all, Desk User read)", "desk/form/assign_to.py:43-139 add, :143-151 add_multiple"],
+    evidence: "member rows (user ids), statuses / exc_type, docinfo.assignments owners per document, the cleanup status",
+    async run(ctx) {
+      if (!ctx.has("sysmgr")) return ctx.block("no sysmgr account: User Group create / delete needs System Manager (seed without --with-system-manager)");
+      const acc = ctx.X.accounts;
+      const members = ["manager", "writer", "reader", "restricted", "field"].map((k) => acc[k]).filter(Boolean);
+      const group = `${ctx.tag} group`;
+      const ins = await ctx.as("sysmgr").call("frappe.client.insert", { doc: J({ doctype: "User Group", name: group, user_group_members: members.map((u) => ({ doctype: "User Group Member", user: u })) }) });
+      ctx.check("sysmgr creates the User Group", is(ins, 200), 200, { status: ins.status, exc_type: ins.exc_type });
+      if (!is(ins, 200)) return;
+      try {
+        const s = await ctx.as("reader").call("frappe.desk.search.search_link", { doctype: "User Group", txt: ctx.tag, page_length: 10 });
+        ctx.check("reader finds the group (Desk User read)", is(s, 200) && (s.message ?? []).some((x) => x.value === group), group, (s.message ?? []).length);
+        const read = (args) => ctx.as("reader").call("frappe.desk.reportview.get_list", { doctype: "User Group Member", filters: J({ parent: group }), fields: J(["user"]), ...args });
+        const all = await read({ parent_doctype: "User Group" });
+        ctx.check("members read with parent_doctype User Group → the 5 members", is(all, 200) && J((all.message ?? []).map((x) => x.user).sort()) === J([...members].sort()), members.length, (all.message ?? []).length);
+        const two = await read({ parent_doctype: "User Group", limit: 2 });
+        ctx.check("limit 2 → 2 rows (Desk's frappe.db.get_list sends limit 20)", is(two, 200) && (two.message ?? []).length === 2, 2, (two.message ?? []).length);
+        const none = await read({});
+        ctx.check("no parent_doctype → 403", is(none, 403, "PermissionError"), 403, { status: none.status, exc_type: none.exc_type });
+        const bad = await read({ parent_doctype: "SFUI Test Parent" });
+        ctx.check("a parent without a User Group Member table → 403", is(bad, 403, "PermissionError"), 403, { status: bad.status, exc_type: bad.exc_type });
+        const [A, B] = [await newParent(ctx, "writer", { title: "group-a" }), await newParent(ctx, "writer", { title: "group-b" })].map((d) => d?.name);
+        if (!A || !B) return;
+        const owners = async (n) => ((await getdoc(ctx.as("manager"), "SFUI Test Parent", n)).body?.docinfo?.assignments ?? []).map((a) => a.owner).sort();
+        const readable = members.filter((u) => u !== acc.restricted);
+        const add = await ctx.as("writer").call("frappe.desk.form.assign_to.add", { doctype: "SFUI Test Parent", name: A, assign_to: J(readable), description: `${ctx.tag} user group` });
+        const onA = await owners(A);
+        ctx.check("add with the members who can read A → 200, one ToDo each", is(add, 200) && J(onA) === J([...readable].sort()), readable.length, onA.length);
+        const withR = await ctx.as("writer").call("frappe.desk.form.assign_to.add", { doctype: "SFUI Test Parent", name: B, assign_to: J(members), description: `${ctx.tag} user group` });
+        ctx.record("add on B with every member incl. restricted (no read on B; writer holds no share right)", { status: withR.status, exc_type: withR.exc_type, owners_on_B: (await owners(B)).length });
+        const multi = await ctx.as("writer").call("frappe.desk.form.assign_to.add_multiple", { doctype: "SFUI Test Parent", name: J([A, B]), assign_to: J(readable), description: `${ctx.tag} user group bulk`, bulk_assign: true, re_assign: true });
+        const onB = await owners(B);
+        ctx.check("add_multiple [A, B] → 200, B has every readable member, A's repeats answer 'Already in'", is(multi, 200) && readable.every((u) => onB.includes(u)) && /Already in/i.test(String(multi.body?._server_messages ?? "")), "200 + B assigned + 'Already in'", { status: multi.status, owners_on_B: onB.length });
+      } finally {
+        const del = await ctx.as("sysmgr").call("frappe.client.delete", { doctype: "User Group", name: group });
+        ctx.check("sysmgr deletes the User Group (cleanup)", is(del, 200), 200, { status: del.status, exc_type: del.exc_type });
+      }
+    } },
+  { id: "V-REPORT-3", area: "Views", feature: "P36c — Report view de-dup: what each name-taking bulk method does with a name sent twice (Desk's per-row names)", kind: "write", automated: "api", users: ["manager"],
+    rows: ["LV.F14", "LV.H1", "LV.F1", "LV.F3", "LV.F6", "LV.F10"],
+    pre: "fresh drafts P and D by manager, each with 2 child rows (two Report rows per document)", steps: ["manager: submit_cancel_or_update_docs(action='update', [P, P], data {notes})", "manager: assign_to.add_multiple(name=[P, P], assign_to=[reader])", "manager: tag.add_tags(['sfui-p36c'], dt, docs=[P, P])", "manager: reportview.delete_items(items=[D, D])", "(Submit / Cancel with a repeat: V-REPORT-2. The package sends each name once for all of these — P36C.views.20–31)"],
+    expect: "update [P, P] → failed [] (P saved twice; Version rows recorded); add_multiple → 200, ONE open ToDo for reader on P and the msgprint 'Already in the following Users ToDo list' for the repeat; add_tags → 200, the tag once in _user_tags; delete_items [D, D] → 200, D deleted, the repeat fails, is retried once (delete_bulk) and ends in the REALTIME msgprint 'Failed to delete 1 documents: D' — not in the HTTP answer (recorded)",
+    cite: ["public/js/frappe/views/reports/report_view.js:1339-1352 get_checked_items (one name per checked row)", "desk/doctype/bulk_update/bulk_update.py:74-114 _bulk_action (update :95-98)", "desk/form/assign_to.py:43-139 add (duplicate open ToDo :69-70, :135-137), :143-151 add_multiple", "desk/doctype/tag/tag.py:43-49 add_tags, :87-94 DocTags.add (no-op when present)", "desk/reportview.py:575-615 delete_items / delete_bulk (retry :608-610, realtime msgprint :611-615)"],
+    evidence: "failed lists, ToDo owners, _user_tags, getdoc status of D, Version count of P (recorded)",
+    async run(ctx) {
+      const m = ctx.as("manager");
+      const P = (await newParent(ctx, "manager", { title: "report-dedup", items: [childRow(1), childRow(2)] }))?.name;
+      const D = (await newParent(ctx, "manager", { title: "report-dedup-del", items: [childRow(1), childRow(2)] }))?.name;
+      if (!P || !D) return;
+      const u = await m.call("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs", { doctype: "SFUI Test Parent", docnames: J([P, P]), action: "update", data: J({ notes: `${ctx.tag} dedup` }) });
+      ctx.check("update [P, P] → none failed", is(u, 200) && J(u.message) === "[]", [], u.message);
+      const versions = await m.call("frappe.client.get_count", { doctype: "Version", filters: J([["ref_doctype", "=", "SFUI Test Parent"], ["docname", "=", P]]) });
+      ctx.record("Version rows of P after the repeated update", { status: versions.status, count: versions.message });
+      const a = await m.call("frappe.desk.form.assign_to.add_multiple", { doctype: "SFUI Test Parent", name: J([P, P]), assign_to: J([ctx.X.accounts.reader]), description: `${ctx.tag} dedup`, bulk_assign: true, re_assign: true });
+      const owners = ((await getdoc(m, "SFUI Test Parent", P)).body?.docinfo?.assignments ?? []).map((x) => x.owner);
+      ctx.check("add_multiple [P, P] → one ToDo + 'Already in' for the repeat", is(a, 200) && owners.filter((o) => o === ctx.X.accounts.reader).length === 1 && /Already in/i.test(String(a.body?._server_messages ?? "")), "1 ToDo + msgprint", { status: a.status, todos: owners.length });
+      const t = await m.call("frappe.desk.doctype.tag.tag.add_tags", { tags: J(["sfui-p36c"]), dt: "SFUI Test Parent", docs: J([P, P]) });
+      const tags = String(docOf(await getdoc(m, "SFUI Test Parent", P))?._user_tags ?? "").split(",").filter((x) => x === "sfui-p36c");
+      ctx.check("add_tags [P, P] → 200, the tag once", is(t, 200) && tags.length === 1, 1, tags.length);
+      const del = await m.call("frappe.desk.reportview.delete_items", { items: J([D, D]), doctype: "SFUI Test Parent" });
+      const gone = await getdoc(m, "SFUI Test Parent", D);
+      ctx.check("delete_items [D, D] → 200 and D deleted", is(del, 200) && gone.status === 404, "200, then getdoc 404", { status: del.status, after: gone.status });
+      ctx.record("delete_items repeat: the 'Failed to delete' msgprint is realtime (not in the HTTP answer)", { server_messages_in_answer: !!del.body?._server_messages });
+    } },
 ];
 
 // ------------------------------------------------------------------------------------------------------------------
