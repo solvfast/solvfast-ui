@@ -99,3 +99,39 @@ Expected Frappe behaviours the run will confirm or refute (read from Frappe 15.1
 - Before a release: the full gate set (build, `check:package`, showcase build + smoke, clean consumers) on this branch.
 - `docs/audit/p35/B-list.md` F16 ("default is still bar") is left as P35 history; COVERAGE §8 and CRM-MIGRATION §5.4 record
   the resolution.
+
+## Batch 1 — integrator's final checks (2026-11-08)
+
+**Package 0.7.0-dev.2** (`feat/0.7.x/p36-int`):
+
+| Check | Result |
+|---|---|
+| typecheck | clean |
+| `npx vitest run` | 1505 passed + the export regression test, 0 failed |
+| `npm run build` | ✓ (styles regenerated identical) |
+| `check:boundaries` (source + dist rules) | OK |
+| `check:package` | OK (778 files, 921.8 kB) |
+| showcase smoke | PASS, 74 sections × 4 combinations, 0 console errors |
+| `e2e/datagrid-mobile.mjs` | PASS |
+| consumers a and b | tsc ✓, build ✓, one React copy each |
+| Export snapshot (d.ts names) vs 0.6.0 | 0 removed; 227 added (core +87, frappe +136, testing +4). One declaration moved file (`FormSkeleton`). The `isCellEditable` signature break is dev.1 → dev.2 only, never released. |
+
+**CRM:**
+- `crm/p36-ds` `431cf9e` on 0.6.0: the full table is in `CRM-MIGRATION.md` §5.2. Bulk actions (`p33/actions-p33.mjs`) 22 / 22 en + ar.
+- `crm/p36-needs-070` `bf46479` against a local 0.7.0-dev.2 pack: the results are in §5.2. Bulk actions 22 / 22 en + ar, so the per-action selection changes keep every CRM bulk action working.
+- The CRM's explicit `selectionMode="header"` must stay on 0.6.0, where the default is the bar. On 0.7 it becomes redundant.
+
+**Correction to the P35 report (Decision 5).** P35 stated that Desk 15.110 makes fields read-only on DocTypes without a Table field. That was wrong:
+- `is_editable` returns the empty `read_only_depends_on` value as is (`report_view.js:772-777`, `build_row` :1330).
+- frappe-datatable 1.20.4 refuses only `editable === false` (`cellmanager.js:442-449`).
+- So Desk edits those fields. The P35 default was closer to Desk than the P35 report claimed.
+- The default now reproduces Desk exactly; `editable="strict"` is the opt-in.
+
+**Server rules read from Frappe source (W4), not observed.** The staging run must check them first:
+- the server enforces only `reqd` (`mandatory_depends_on` is client-side);
+- a permlevel write without that level returns 200 and the value is silently reset;
+- Amend is checked against `create`;
+- any Desk User can create global saved filters and delete other users' filters;
+- `toggle_like` has no permission check;
+- `export_query` writes an Access Log before refusing;
+- `user_settings.save` merges shallowly (LV.A6b).
