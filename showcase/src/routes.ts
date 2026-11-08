@@ -217,3 +217,12 @@ const p36bSocial = () => import("./pages/p36b-social");
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P36b attachimage — Desk's Attach Image / Attach controls and the form image menu (SIMULATED backend operations)
+{
+  const p36bAttachImage = () => import("./pages/p36b-attachimage");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = { id: "p36b-attachimage", title: l("Attach Image (SIMULATED)", "إرفاق صورة (محاكاة)"), description: l("Desk's Attach Image control: the uploader (My Device / Library / Link), save after upload, preview, Clear with remove_attach, Reload File and the form image's Change menu, on the in-page simulator.", "عنصر إرفاق الصورة في ديسك: أداة الرفع (جهازي / المكتبة / رابط)، والحفظ بعد الرفع، والمعاينة، والمسح مع remove_attach، وإعادة رفع الملف، وقائمة تغيير صورة النموذج، على المحاكي."), Component: from(p36bAttachImage, "P36bAttachImagePage") };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}

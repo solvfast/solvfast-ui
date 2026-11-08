@@ -440,3 +440,21 @@ describe("P36b attachimage — the form image (meta.image_field) menu (SIMULATED
     expect(onSave).not.toHaveBeenCalled();
   });
 });
+
+describe("P36b attachimage — showcase (SIMULATED)", () => {
+  it("P36B.attachimage.25 the page is routed under Frappe, labelled SIMULATED, and a FrappeForm inside FrappeAttachHost saves after an upload", async () => {
+    const { PAGES } = await import("../showcase/src/routes");
+    const { P36bAttachImagePage } = await import("../showcase/src/pages/p36b-attachimage");
+    expect(PAGES.find((p) => p.id === "p36b-attachimage")?.group.id).toBe("frappe");
+    render(<ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><P36bAttachImagePage /></ThemeProvider>);
+    expect(screen.getAllByText(/SIMULATED/).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("link", { name: "/files/depot-front.png" })).toBeTruthy();
+    const form = document.querySelector<HTMLElement>('[data-doctype="Site Visit"]')!;
+    fireEvent.click(within(form).getByRole("button", { name: /Report Attach/ }));
+    const dialog = await screen.findByRole("dialog");
+    chooseFile(dialog, "visit.pdf", "application/pdf");
+    upload(dialog);
+    await waitFor(() => expect(within(form).getByRole("link", { name: /\/files\/visit\.pdf/ })).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/frappe\.desk\.form\.save\.savedocs/)).toBeTruthy(), { timeout: 3000 });
+  });
+});
