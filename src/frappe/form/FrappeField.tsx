@@ -7,8 +7,10 @@
  * (fetch_from lock, empty read fields hidden). "None" renders nothing; "Read" renders the formatted value
  * (`formatValue`, docs `12` §9) — never an input.
  * Writing (docs `12` §1.4): Data-like text writes 500 ms after typing stops and on blur (in a grid: on blur only);
- * numbers, dates, times, selects, links and checks write on change / blur. Data options Email / Phone / URL are checked
- * softly (the field is flagged; the server rejects on save, as in Desk).
+ * numbers, dates, times, selects, links and checks write on change / blur. Data options Email / Phone / Name / URL are
+ * checked softly with Desk's own patterns (the field is flagged; the server rejects on save, as in Desk); the input stays
+ * type="text" whatever the option (P36d, data.js:4-5). Data / Link inputs carry Desk's maxlength and "Data Clipped"
+ * paste warning; numeric inputs select their text on focus (int.js:7-12); placeholders are translated (P36d).
  * Stored formats (docs `12` §7): Date `YYYY-MM-DD`, Datetime `YYYY-MM-DD HH:mm:ss` (edited in the browser's zone —
  * UNVERIFIED for sites whose system and user zones differ; read-only display converts through formatValue), Time
  * `HH:mm:ss`, Duration seconds, Rating a 0…1 fraction, Check 0/1. Text Editor stores plain sanitized HTML (Desk wraps it
@@ -49,6 +51,7 @@ import { FrappeDynamicLinkField, FrappeLinkField } from "./FrappeLinkField";
 import { FrappeChildTable, type TableController } from "./FrappeChildTable";
 import { FrappeTableMultiSelect } from "./FrappeTableMultiSelect";
 import type { LinkQuery } from "./events";
+import { useFrappeMessages } from "../feedback/messages";
 
 export interface FrappeFieldProps {
   df: EffectiveField;
@@ -79,16 +82,36 @@ export interface FrappeFieldProps {
 
 const TEXTAREA_TYPES = new Set(["Small Text", "Text", "Long Text", "Code", "JSON", "HTML Editor", "Markdown Editor"]);
 const MONO_TYPES = new Set(["Code", "JSON", "HTML Editor", "Markdown Editor"]);
-const MAXLEN_TYPES = new Set(["Data", "Password", "Read Only"]);
+const MAXLEN_TYPES = new Set(["Data", "Link", "Dynamic Link", "Password", "Read Only"]);
 const NUMBER_KIND: Record<string, "int" | "float" | "currency" | "percent"> = { Int: "int", "Long Int": "int", Float: "float", Currency: "currency", Percent: "percent" };
 
-/** Desk's soft Data validators (data.js:280-313; utils.js:455-477). The server is the real gate. */
+// Desk's client patterns, verbatim (frappe.utils.validate_type, utils.js:450-480). JS `\w` is ASCII-only, as in Desk.
+const PHONE_RE = /^([0-9 +_\-,.*#()]){1,20}$/;
+const NAME_RE = /^[\w][\w'-]*([ \w][\w'-]+)*$/;
+const EMAIL_RE =
+  /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+// eslint-disable-next-line no-useless-escape
+const URL_RE = /^((([A-Za-z0-9.+-]+:(?:\/\/)?)(?:[-;:&=\+\,\w]@)?[A-Za-z0-9.-]+(:[0-9]+)?|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)$/i;
+
+/** `frappe.utils.split_emails` (utils.js:839-853): comma / newline separated, a separator inside "quotes" kept. */
+export function splitEmails(txt: string): string[] {
+  if (!txt) return [];
+  return txt.split(/[,\n](?=(?:[^"]|"[^"]*")*$)/g).map((e) => e.trim()).filter(Boolean);
+}
+
+/**
+ * Desk's soft Data validators — ControlData.validate (data.js:280-313) over frappe.utils.validate_type (utils.js:450-480):
+ * options Phone / Name / URL test the raw text, Email tests every address of `split_emails`. The field is only FLAGGED
+ * (`df.invalid` → `has-error`, base_input.js:217-226); the value is kept and the server is the real gate on save
+ * (base_document.py `_validate_data_fields`:922-955). An empty value is never flagged.
+ */
 export function dataOptionInvalid(options: string | undefined, value: unknown): boolean {
-  const v = typeof value === "string" ? value.trim() : "";
+  const v = typeof value === "string" ? value : value == null ? "" : String(value);
   if (!v) return false;
-  if (options === "Email") return v.split(/[,\n]/).map((e) => e.trim()).filter(Boolean).some((e) => !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(e));
-  if (options === "Phone") return !/^([0-9 +_\-,.*#()]){1,20}$/.test(v);
-  if (options === "URL") return !(/^[a-z][a-z0-9+.-]*:\/\/[^\s/]+/i.test(v) || v.startsWith("/"));
+  if (options === "Email") return splitEmails(v).some((e) => !EMAIL_RE.test(e));
+  if (options === "Phone") return !PHONE_RE.test(v);
+  if (options === "Name") return !NAME_RE.test(v);
+  if (options === "URL") return !URL_RE.test(v);
   return false;
 }
 
@@ -136,8 +159,8 @@ export function autocompleteOptions(options: unknown, translate: (s: string) => 
   return out;
 }
 
-function AutocompleteControl({ df, value, onChange, translate, invalid, ...rest }: {
-  df: FrappeDocField; value: string; onChange: (v: string) => void; translate: (s: string) => string; invalid?: boolean;
+function AutocompleteControl({ df, value, onChange, translate, invalid, placeholder, ...rest }: {
+  df: FrappeDocField; value: string; onChange: (v: string) => void; translate: (s: string) => string; invalid?: boolean; placeholder?: string;
   id?: string; "aria-label"?: string; "aria-describedby"?: string;
 }) {
   const options = React.useMemo(() => autocompleteOptions(df.options, translate), [df.options, translate]);
@@ -153,7 +176,7 @@ function AutocompleteControl({ df, value, onChange, translate, invalid, ...rest 
   return (
     <LinkInput {...rest} value={value || null} displayValue={options.find((o) => o.value === value)?.label ?? null}
       onChange={(v) => accept(v)} onCommitText={(t) => accept(t)} search={search} debounceMs={0} invalid={invalid}
-      placeholder={df.placeholder ? str(df.placeholder) : undefined} />
+      placeholder={placeholder} />
   );
 }
 const num = (v: unknown): number | null => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -164,6 +187,7 @@ export function FrappeField(props: FrappeFieldProps) {
   const { df, value, onChange, doc, parent, bundle, onlyInput, markMissing = true, error, className } = props;
   const { t } = useLocale();
   const s = useFormServices();
+  const messages = useFrappeMessages();
   const autoId = React.useId();
   const id = props.id ?? `sf-ff-${df.fieldname}-${autoId}`;
   const rowDoc: FrappeDoc = doc ?? ({ doctype: bundle?.doctype ?? "", name: "", [df.fieldname]: value } as FrappeDoc);
@@ -181,6 +205,17 @@ export function FrappeField(props: FrappeFieldProps) {
   const aria = onlyInput ? { "aria-label": label } : {};
   const ft = df.fieldtype;
   const fc = s.formatContext;
+  // P36D.fields: the placeholder goes through __() (data.js:244, select.js:31)
+  const placeholder = df.placeholder ? s.translate(bundle, str(df.placeholder)) : undefined;
+  // P36D.fields: Desk's maxlength (data.js:229-238: Data / Link / Dynamic Link / Password / Read Only, `df.length || 140`;
+  // none on a Single) and its "Data Clipped" msgprint when a longer text is pasted (data.js:19-62; the browser clips it)
+  const maxLength = MAXLEN_TYPES.has(ft) && !bundle?.meta?.issingle ? Number(df.length) || 140 : undefined;
+  const onPaste = maxLength ? (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData?.getData("text") ?? "";
+    if (pasted.length > maxLength) {
+      messages.show([{ title: t("fieldsDataClippedTitle"), indicator: "orange", message: interpolate(t("fieldsDataClipped"), { length: pasted.length, max: maxLength }) }]);
+    }
+  } : undefined;
   const shell = (control: React.ReactNode, opts: { inline?: boolean; noLabelFor?: boolean } = {}) =>
     onlyInput ? <div className={className}>{control}</div> : (
       <FieldShell label={label} htmlFor={opts.noLabelFor ? undefined : id} labelId={`${id}-label`} required={required} bold={!!df.bold}
@@ -234,7 +269,7 @@ export function FrappeField(props: FrappeFieldProps) {
     const linkProps = {
       df, value: (value as string | null | undefined) ?? null, onChange: (v: string | null) => onChange(v), doc: rowDoc, parent: parent ?? rowDoc,
       referenceDoctype: bundle?.doctype, query: props.query, fetchFields: props.fetchFields, onValidated: props.onLinkValidated,
-      formFields: props.formFields, status, invalid, ...common,
+      formFields: props.formFields, status, invalid, placeholder, maxLength, onPaste, ...common,
       ...(onlyInput || read ? {} : { "aria-labelledby": undefined }),
     };
     return shell(ft === "Link" ? <FrappeLinkField {...linkProps} /> : <FrappeDynamicLinkField {...linkProps} />, { noLabelFor: read });
@@ -249,7 +284,8 @@ export function FrappeField(props: FrappeFieldProps) {
       : dfPrecision ?? fc.floatPrecision ?? null;
     return shell(
       <NumberInput {...common} kind={kind} value={num(value)} onChange={(v) => onChange(v)} precision={precision}
-        numberFormat={fc.numberFormat} rounding={fc.roundingMethod} onUnparsable="clear" invalid={invalid} />,
+        numberFormat={fc.numberFormat} rounding={fc.roundingMethod} onUnparsable="clear" invalid={invalid}
+        selectOnFocus placeholder={placeholder} />,
     );
   }
 
@@ -271,7 +307,7 @@ export function FrappeField(props: FrappeFieldProps) {
       const cur = str(value);
       return shell(
         <Select value={cur === "" ? EMPTY : cur} onValueChange={(v) => onChange(v === EMPTY ? "" : v)}>
-          <SelectTrigger {...common} className={cn(invalid && FIELD_INVALID)}><SelectValue placeholder={df.placeholder ? str(df.placeholder) : undefined} /></SelectTrigger>
+          <SelectTrigger {...common} className={cn(invalid && FIELD_INVALID)}><SelectValue placeholder={placeholder} /></SelectTrigger>
           <SelectContent>
             {[...new Set(opts)].map((o) => <SelectItem key={o || EMPTY} value={o === "" ? EMPTY : o}>{o === "" ? " " : s.translate(bundle, o)}</SelectItem>)}
             {cur && !opts.includes(cur) && <SelectItem value={cur}>{cur}</SelectItem>}
@@ -301,24 +337,27 @@ export function FrappeField(props: FrappeFieldProps) {
     case "Text Editor":
       return shell(<RichTextEditor id={id} ariaLabel={label} value={str(value)} onChange={(html) => onChange(html)} />, { noLabelFor: true });
     case "Autocomplete":
-      return shell(<AutocompleteControl {...common} df={df} value={str(value)} onChange={(v) => onChange(v)} translate={(x) => s.translate(bundle, x)} invalid={invalid} />);
+      return shell(<AutocompleteControl {...common} df={df} value={str(value)} onChange={(v) => onChange(v)} translate={(x) => s.translate(bundle, x)} invalid={invalid} placeholder={placeholder} />);
     default:
       break;
   }
 
   if (TEXTAREA_TYPES.has(ft)) {
     return shell(
-      <DebouncedText {...common} multiline debounce={!onlyInput} value={str(value)} onChange={(v) => onChange(v)}
+      <DebouncedText {...common} multiline debounce={!onlyInput} value={str(value)} onChange={(v) => onChange(v)} placeholder={placeholder}
         className={cn(MONO_TYPES.has(ft) && "font-mono", invalid && FIELD_INVALID)} {...(MONO_TYPES.has(ft) ? { dir: "ltr" } : {})} />,
     );
   }
-  // Data and the string types without their own control
-  const type = ft === "Password" ? "password" : df.options === "Email" ? "email" : df.options === "Phone" || ft === "Phone" ? "tel" : df.options === "URL" ? "url" : "text";
-  const maxLength = MAXLEN_TYPES.has(ft) ? Number(df.length) || 140 : undefined;
+  // Data and the string types without their own control. P36D.fields: Desk's Data control is ALWAYS `<input type="text"
+  // autocomplete="off">` (data.js:4-5, :15) — options Email / Phone / URL / Name only change the validation, not the
+  // input type (a type="email" input would strip newlines from an address list and change the mobile keyboard).
+  // Password (password.js) and the Phone fieldtype (not a Data option) keep their own types.
+  const type = ft === "Password" ? "password" : ft === "Phone" ? "tel" : "text";
+  const ltr = ft === "Phone" || (ft === "Data" && ["Email", "Phone", "URL"].includes(str(df.options)));
   return shell(
     <>
-      <DebouncedText {...common} type={type} maxLength={maxLength} debounce={!onlyInput} value={str(value)} onChange={(v) => onChange(v)}
-        className={cn(invalid && FIELD_INVALID)} {...(type !== "text" ? { dir: "ltr" } : {})} placeholder={df.placeholder ? str(df.placeholder) : undefined} />
+      <DebouncedText {...common} type={type} autoComplete="off" maxLength={maxLength} onPaste={onPaste} debounce={!onlyInput} value={str(value)} onChange={(v) => onChange(v)}
+        className={cn(invalid && FIELD_INVALID)} {...(ltr ? { dir: "ltr" } : {})} placeholder={placeholder} />
       {softInvalid && !onlyInput && <span className="sr-only" role="status">{interpolate(t("formInvalidFormat"), { type: str(df.options) })}</span>}
     </>,
   );

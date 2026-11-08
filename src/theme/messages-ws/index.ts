@@ -7,6 +7,7 @@ import { coreEn, coreAr } from "./core";
 import { searchEn, searchAr } from "./search";
 import { sidebarEn, sidebarAr } from "./sidebar";
 import { socialEn, socialAr } from "./social";
+import { fieldsEn, fieldsAr } from "./fields";
 
-export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn };
-export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr };
+export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn };
+export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr };
