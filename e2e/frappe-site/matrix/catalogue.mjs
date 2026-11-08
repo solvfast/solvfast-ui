@@ -931,6 +931,308 @@ export const TESTS = [
     rows: ["FV.H8", "FV.K16", "LV.F12", "LV.J10", "FV.D10"],
     pre: "harness form + list", steps: ["reader: form shows no Save / Submit / Delete / Duplicate; list shows no '+ Add', no bulk Delete / Edit", "writer: no Submit / Cancel / Delete", "S-API-1 / F-SUBMIT-2 / F-MENU-2 must also FAIL the direct calls — UI hiding alone is not proof"],
     expect: "UI and server agree", cite: ["(server side) S-API-1, F-SUBMIT-2, F-CANCEL-2, F-MENU-2"], evidence: "screenshots per account" },
+  // ---------------------------------------------------------------- P36b (batch 2, 0.7.0-dev.3) ------------------------
+  // Server behaviour behind the batch-2 UI (Report view Submit / Cancel, Form Sidebar, Share / Like / Comments, Global
+  // Search). The package UI for these is not in the harness: these API tests validate Frappe's answers the package relies
+  // on, not the package's screens. Tests without `rows` cover features that have no COVERAGE row (COVERAGE.md §10).
+  { id: "L-BULK-5", area: "List", feature: "P36b — bulk Submit / Cancel: docstatus eligibility, unknown name, 20 / 500 thresholds", kind: "write", automated: "api", users: ["manager"],
+    rows: ["LV.F8", "LV.F9", "LV.F18"],
+    pre: "fresh drafts created by manager (SFUI Test Parent is submittable; SFUI Manager has submit + cancel); the 20-name step needs the site's background worker only for its recorded outcome",
+    steps: ["manager: create drafts A, B, C, D", "submit_cancel_or_update_docs(action='submit', [A])", "action='submit' on [A, B] (A is already submitted)", "action='cancel' on [A, C] (C is a draft)", "action='submit' on [C, 'SFUI-P36B-NOPE']", "action='submit' with 501 names (non-existent)", "action='submit' with D repeated 20 times"],
+    expect: "[A] → failed []; [A, B] → failed [A] (submit only takes drafts), B submitted; cancel [A, C] → failed [C] (cancel only takes submitted), A cancelled; [C, unknown] → 404 DoesNotExistError (get_doc is outside the try) and C STAYS submitted (commit per document); 501 names → 417 ValidationError 'Bulk operations only support up to 500 documents.' (title 'Too Many Documents'); 20 names → 200 with NO `message` and the alert 'Bulk operation is enqueued in background.' (D's docstatus afterwards depends on the worker: recorded)",
+    cite: ["desk/doctype/bulk_update/bulk_update.py:51-71 submit_cancel_or_update_docs (< 20 sync, 20–500 enqueue, > 500 throw)", "desk/doctype/bulk_update/bulk_update.py:74-114 _bulk_action (get_doc :82 outside the try; draft-only submit :85; submitted-only cancel :92; else failed :99-100; commit :101)"],
+    evidence: "failed lists, statuses / exc_type, docstatus after each step, `_server_messages` of the 20-name call (redacted)",
+    async run(ctx) {
+      const m = ctx.as("manager");
+      const bulk = (names, action) => m.call("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs", { doctype: "SFUI Test Parent", docnames: J(names), action });
+      const ds = async (n) => docOf(await getdoc(m, "SFUI Test Parent", n))?.docstatus;
+      const [A, B, C, D] = [await newParent(ctx, "manager", { title: "b5a" }), await newParent(ctx, "manager", { title: "b5b" }), await newParent(ctx, "manager", { title: "b5c" }), await newParent(ctx, "manager", { title: "b5d" })].map((d) => d?.name);
+      const s1 = await bulk([A], "submit");
+      ctx.check("submit [draft] → no failure", is(s1, 200) && J(s1.message) === "[]", [], s1.message);
+      const s2 = await bulk([A, B], "submit");
+      ctx.check("submit [submitted, draft] → the submitted one fails", is(s2, 200) && J(s2.message) === J([A]), [A], s2.message);
+      ctx.check("B submitted", (await ds(B)) === 1, 1, await ds(B));
+      const c1 = await bulk([A, C], "cancel");
+      ctx.check("cancel [submitted, draft] → the draft fails", is(c1, 200) && J(c1.message) === J([C]), [C], c1.message);
+      ctx.check("A cancelled", (await ds(A)) === 2, 2, await ds(A));
+      const u = await bulk([C, "SFUI-P36B-NOPE"], "submit");
+      ctx.check("unknown name → the whole request fails (404)", is(u, 404, "DoesNotExistError"), "404 DoesNotExistError", { status: u.status, exc_type: u.exc_type });
+      ctx.check("…but C, handled before it, stays submitted", (await ds(C)) === 1, 1, await ds(C));
+      const big = await bulk(Array.from({ length: 501 }, (_, i) => `SFUI-P36B-NOPE-${i}`), "submit");
+      ctx.check("501 names → 417 ValidationError", is(big, 417, "ValidationError"), "417 ValidationError", { status: big.status, exc_type: big.exc_type });
+      const q = await bulk(Array.from({ length: 20 }, () => D), "submit");
+      ctx.check("20 names → 200, no message, enqueued alert", is(q, 200) && q.message === undefined && /enqueued/i.test(String(q.body?._server_messages ?? "")), "200, no message, 'enqueued'", { status: q.status, message: q.message, alert: /enqueued/i.test(String(q.body?._server_messages ?? "")) });
+      ctx.record("D after the queued job (worker-dependent)", { docstatus: await ds(D) });
+    } },
+  { id: "V-REPORT-2", area: "Views", feature: "P36b — Report view Submit / Cancel: one name per checked row (Desk) vs once per document (package)", kind: "write", automated: "api", users: ["manager"],
+    rows: ["LV.H1", "LV.F8", "LV.F9", "LV.F14"],
+    pre: "a fresh draft P with 2 child rows and a fresh draft Q without rows, both by manager", steps: ["manager: reportview.get with fields [parent.name, `tabSFUI Test Child`.`item_code`] filtered on P (what the Report view draws)", "manager: submit_cancel_or_update_docs(action='submit', [P, P, Q]) — what Desk sends when both of P's rows and Q are checked (get_checked_items: one name per datatable row)", "manager: action='cancel' with [P, Q] — what the package sends (`uniqueNames`)", "browser (optional, not in the harness): FrappeReportView bulk — check P's two rows + Q → Actions → Submit → the confirmation counts 2 documents"],
+    expect: "2 report rows named P; submit [P, P, Q] → failed [P] (the second copy is no longer a draft) although P and Q are both submitted — the false failure the package's de-duplication avoids; cancel [P, Q] → failed [], both docstatus 2",
+    cite: ["public/js/frappe/views/reports/report_view.js:9 (extends ListView), :360 (checkboxColumn), :371-374 (onCheckRow → Actions), :1339-1352 get_checked_items", "desk/reportview.py:27-50 get (one row per child row)", "desk/doctype/bulk_update/bulk_update.py:85, 99-100"],
+    evidence: "row count, failed lists, docstatus after",
+    async run(ctx) {
+      const m = ctx.as("manager");
+      const P = (await newParent(ctx, "manager", { title: "report-bulk", items: [childRow(1), childRow(2)] }))?.name;
+      const Q = (await newParent(ctx, "manager", { title: "report-bulk-q" }))?.name;
+      const r = await m.call("frappe.desk.reportview.get", { doctype: "SFUI Test Parent", fields: J(["`tabSFUI Test Parent`.`name`", "`tabSFUI Test Child`.`item_code`"]), filters: J([["name", "=", P]]), page_length: 100 });
+      ctx.check("one report row per child row (2)", (r.message?.values ?? []).length === 2, 2, (r.message?.values ?? []).length);
+      const bulk = (names, action) => m.call("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs", { doctype: "SFUI Test Parent", docnames: J(names), action });
+      const d = await bulk([P, P, Q], "submit");
+      ctx.check("Desk's per-row names: the repeated P is reported failed", is(d, 200) && J(d.message) === J([P]), [P], d.message);
+      const c = await bulk([P, Q], "cancel");
+      ctx.check("unique names: none failed", is(c, 200) && J(c.message) === "[]", [], c.message);
+      const st = [docOf(await getdoc(m, "SFUI Test Parent", P))?.docstatus, docOf(await getdoc(m, "SFUI Test Parent", Q))?.docstatus];
+      ctx.check("both cancelled", J(st) === J([2, 2]), [2, 2], st);
+    } },
+  { id: "F-SB-ASSIGN-1", area: "Form", feature: "P36b — Form Sidebar Assign: add (read right), share when the assignee cannot read, Done (assignee only), remove (read right)", kind: "reject", automated: "api", users: ["writer", "reader", "restricted", "manager"],
+    rows: [],
+    pre: "a fresh draft by writer linked to contact #12 (restricted cannot read it: its User Permissions allow contacts 1–2 only); sharing not disabled on the site", steps: ["restricted: frappe.desk.form.assign_to.add {doctype, name, assign_to: [reader]} (cannot read the document)", "reader: assign_to.add {…, assign_to: [writer], description, date, priority: 'Medium'} (read only)", "writer: assign_to.add {…, assign_to: [reader]}; writer: the same again (duplicate)", "writer: assign_to.add {…, assign_to: [restricted]} (assignee without read)", "manager: getdoc → docinfo.assignments; frappe.share.get_users", "writer: assign_to.close {…, assign_to: reader} (not the assignee)", "reader: assign_to.close {…, assign_to: reader}", "reader: assign_to.remove {…, assign_to: writer} (someone else's assignment, read only)"],
+    expect: "restricted → 403 (check_permission = read); reader → 200 (the server needs read, not write — Desk shows '+' to readers); writer → 200, then the duplicate → 200 + msgprint 'Already in the following Users ToDo list'; assigning restricted → 200 and a DocShare (read) for restricted + msgprint 'Shared with the following Users with Read access'; docinfo.assignments lists the open ToDos (owner = allocated_to); close by a non-assignee → 417 'Only the assignee can complete this to-do.'; close by reader → 200 (ToDo Closed, gone from docinfo.assignments); reader's remove of writer's assignment → 200 (server: read only; Desk's client offers remove only to the assignee or a writer — RECORDED as a Desk-vs-server difference)",
+    cite: ["desk/form/assign_to.py:42-139 add (check_permission :67-68; duplicate :70-71, 135-137; share when the assignee lacks read :101-113)", "desk/form/assign_to.py:195-200 close (:197-198 assignee only)", "desk/form/assign_to.py:176-178 remove → set_status :203-232 (read check :206-207)", "desk/form/load.py:100-143 get_docinfo (assignments :128)", "public/js/frappe/form/sidebar/assign_to.js:94-131, 344-370 (Desk UI)"],
+    evidence: "statuses / exc_type, _server_messages (redacted), docinfo.assignments owners, DocShare rows of the document",
+    async run(ctx) {
+      const d = await newParent(ctx, "writer", { title: "sb-assign" });
+      if (!d) return;
+      const add = (who, to) => ctx.as(who).call("frappe.desk.form.assign_to.add", { doctype: "SFUI Test Parent", name: d.name, assign_to: J([to]), description: `${ctx.tag} sidebar assign`, priority: "Medium" });
+      const acc = ctx.X.accounts;
+      const rs = await add("restricted", acc.reader);
+      ctx.check("restricted (no read) → 403", is(rs, 403, "PermissionError"), 403, { status: rs.status, exc_type: rs.exc_type });
+      const rd = await add("reader", acc.writer);
+      ctx.check("reader (read only) may assign → 200", is(rd, 200), 200, { status: rd.status, exc_type: rd.exc_type });
+      const w1 = await add("writer", acc.reader);
+      ctx.check("writer assigns reader → 200", is(w1, 200), 200, w1.status);
+      const w2 = await add("writer", acc.reader);
+      ctx.check("duplicate → 200 with 'Already in … ToDo list'", is(w2, 200) && /Already in/i.test(String(w2.body?._server_messages ?? "")), "200 + msgprint", { status: w2.status, msg: /Already in/i.test(String(w2.body?._server_messages ?? "")) });
+      const w3 = await add("writer", acc.restricted);
+      ctx.check("assigning a user without read → 200 + shared", is(w3, 200) && /Shared with/i.test(String(w3.body?._server_messages ?? "")), "200 + 'Shared with…'", { status: w3.status, exc_type: w3.exc_type });
+      const shares = (await ctx.as("manager").call("frappe.share.get_users", { doctype: "SFUI Test Parent", name: d.name })).message ?? [];
+      ctx.check("restricted got a read DocShare", shares.some((s) => s.user === acc.restricted && s.read === 1), "share row for restricted", shares.map((s) => ({ read: s.read, everyone: s.everyone })));
+      const owners = () => getdoc(ctx.as("manager"), "SFUI Test Parent", d.name).then((g) => (g.body?.docinfo?.assignments ?? []).map((a) => a.owner).sort());
+      ctx.check("docinfo.assignments lists writer, reader, restricted", J(await owners()) === J([acc.reader, acc.restricted, acc.writer].sort()), "3 owners", (await owners()).length);
+      const cl = await ctx.as("writer").call("frappe.desk.form.assign_to.close", { doctype: "SFUI Test Parent", name: d.name, assign_to: acc.reader });
+      ctx.check("close by a non-assignee → 417", is(cl, 417), 417, { status: cl.status, exc_type: cl.exc_type });
+      const ok = await ctx.as("reader").call("frappe.desk.form.assign_to.close", { doctype: "SFUI Test Parent", name: d.name, assign_to: acc.reader });
+      ctx.check("close by the assignee → 200, gone from docinfo.assignments", is(ok, 200) && !(await owners()).includes(acc.reader), "200, reader gone", ok.status);
+      const rm = await ctx.as("reader").call("frappe.desk.form.assign_to.remove", { doctype: "SFUI Test Parent", name: d.name, assign_to: acc.writer });
+      ctx.record("reader removes writer's assignment (server checks read only; Desk's UI gates it on write)", { status: rm.status, exc_type: rm.exc_type, writer_still_assigned: (await owners()).includes(acc.writer) });
+    } },
+  { id: "F-SB-ATTACH-1", area: "Form", feature: "P36b — Form Sidebar Attachments: upload, Library, Link, max_attachments, remove", kind: "reject", automated: "api", users: ["writer", "reader", "manager"],
+    rows: [],
+    pre: "SFUI Test Parent has max_attachments 3; two fresh drafts by writer (P receives the attachments, L is the library source)", steps: ["writer: upload_file (multipart) to L — the library source file", "writer: upload_file (multipart, is_private 1) to P", "writer: upload_file JSON {doctype, docname: P, library_file_name: <L's File>} (Library tab)", "writer: upload_file JSON {doctype, docname: P, file_url: 'https://example.com/sfui-p36b.txt', is_private: 0} (Link tab; no file part)", "writer: a 4th upload to P", "manager: getdoc P → docinfo.attachments", "reader: upload_file to P", "reader: frappe.desk.form.utils.remove_attach {fid, dt, dn} (POST) on the multipart file", "writer: remove_attach on it"],
+    expect: "3 × 200 (File docs attached to P; the Library copy takes the source's is_private / file_url / file_name; the Link one is a remote file_url); the 4th → 417 AttachmentLimitReached 'Maximum Attachment Limit of 3 has been reached…'; docinfo.attachments has 3 rows (name, file_name, file_url, is_private); reader upload → 403 (write on P); reader remove → 403 (File.has_permission delete → owner or write on the attached document); writer remove → 200, 2 attachments left and an 'Attachment Removed' comment",
+    cite: ["handler.py:174-263 upload_file (library_file_name :208-218, check_write_permission :220-221, 266-282)", "core/doctype/file/file.py:93-124 before_insert (validate_attachment_limit :100, 333-357)", "core/doctype/file/file.py:872-911 has_permission (owner :883-884; write on the attached document :906-907)", "core/doctype/file/file.py:183-190 on_trash ('Attachment Removed')", "desk/form/utils.py:19-23 remove_attach (DELETE / POST)", "desk/form/load.py:124 docinfo.attachments", "public/js/frappe/form/sidebar/attachments.js:30-55, 137-146, 161-174, 211-236 (Desk UI)"],
+    evidence: "statuses / exc_type, File names, docinfo.attachments shape before / after",
+    async run(ctx) {
+      const w = ctx.as("writer");
+      const P = (await newParent(ctx, "writer", { title: "sb-attach" }))?.name, L = (await newParent(ctx, "writer", { title: "sb-attach-lib" }))?.name;
+      if (!P || !L) return;
+      const file = (who, dn, i) => ctx.as(who).upload({ doctype: "SFUI Test Parent", docname: dn, is_private: "1", filename: `sfui-p36b-${i}.txt`, content: `SFUI P36b synthetic ${i}` });
+      const src = await file("writer", L, "lib");
+      const a = await file("writer", P, 1);
+      ctx.check("multipart upload → 200", a.status === 200 && !!a.message?.name, 200, a.status);
+      const b = await w.call("upload_file", { doctype: "SFUI Test Parent", docname: P, library_file_name: src.message?.name });
+      ctx.check("Library (library_file_name) → 200", b.status === 200 && !!b.message?.name, 200, { status: b.status, exc_type: b.exc_type });
+      const c = await w.call("upload_file", { doctype: "SFUI Test Parent", docname: P, file_url: "https://example.com/sfui-p36b.txt", is_private: 0 });
+      ctx.check("Link (file_url, no file part) → 200", c.status === 200 && !!c.message?.name, 200, { status: c.status, exc_type: c.exc_type });
+      const d = await file("writer", P, 4);
+      ctx.check("4th attachment → 417 AttachmentLimitReached", d.status === 417, 417, { status: d.status, exc_type: d.exc_type });
+      const atts = async () => (await getdoc(ctx.as("manager"), "SFUI Test Parent", P)).body?.docinfo?.attachments ?? [];
+      const before = await atts();
+      ctx.check("docinfo.attachments: 3 rows", before.length === 3, 3, before.length);
+      const ru = await file("reader", P, 5);
+      ctx.check("reader upload → 403", ru.status === 403, 403, { status: ru.status, exc_type: ru.exc_type });
+      const rr = await ctx.as("reader").call("frappe.desk.form.utils.remove_attach", { fid: a.message?.name, dt: "SFUI Test Parent", dn: P });
+      ctx.check("reader remove → 403", is(rr, 403, "PermissionError"), 403, { status: rr.status, exc_type: rr.exc_type });
+      const wr = await w.call("frappe.desk.form.utils.remove_attach", { fid: a.message?.name, dt: "SFUI Test Parent", dn: P });
+      ctx.check("writer (owner) remove → 200, 2 left", is(wr, 200) && (await atts()).length === 2, "200, 2 left", wr.status);
+    } },
+  { id: "F-SB-ATTACH-2", area: "Form", feature: "P36b — protect_attached_files: remove on draft / submitted / cancelled", kind: "write", automated: "api", users: ["manager", "writer"],
+    rows: [],
+    pre: "**needs `protect_attached_files = 1` on SFUI Test Parent** (Customize Form / Property Setter — the staging seed does not set it; without it the test is BLOCKED); fresh documents by manager", steps: ["manager: getdoctype SFUI Test Parent → protect_attached_files (BLOCK if 0)", "manager: draft D with one attachment → writer remove_attach (write on D)", "manager: submitted S with one attachment → manager remove_attach", "manager: cancelled C (submit, attach, cancel) → writer remove_attach (no delete right), manager remove_attach (delete right)"],
+    expect: "draft: removed (200); submitted: 417 'This file is attached to a protected document and cannot be deleted.' (title 'Protected File'); cancelled: writer 417, manager 200 (delete permission on the document). Desk hides × in the same cases (attachments.js:161-174)",
+    cite: ["core/doctype/file/file.py:510-538 validate_protected_file", "core/doctype/file/file.py:183-190 on_trash", "public/js/frappe/form/sidebar/attachments.js:161-174 can_delete_attachment (Desk UI)"],
+    evidence: "the meta flag, statuses / exc_type per case",
+    async run(ctx) {
+      const m = ctx.as("manager");
+      const meta = await m.call("frappe.desk.form.load.getdoctype", { doctype: "SFUI Test Parent" }, "GET");
+      const flag = (meta.body?.docs ?? []).find((x) => x.name === "SFUI Test Parent")?.protect_attached_files;
+      ctx.record("protect_attached_files", { value: flag ?? 0 });
+      if (!flag) return ctx.block("SFUI Test Parent has protect_attached_files = 0 (owner: set it on the staging site, then re-run)");
+      const attach = (dn, i) => m.upload({ doctype: "SFUI Test Parent", docname: dn, is_private: "1", filename: `sfui-p36b-protect-${i}.txt`, content: `SFUI P36b protect ${i}` });
+      const remove = (who, f, dn) => ctx.as(who).call("frappe.desk.form.utils.remove_attach", { fid: f, dt: "SFUI Test Parent", dn });
+      const D = await newParent(ctx, "manager", { title: "protect-draft" });
+      const fd = (await attach(D?.name, 1)).message?.name;
+      const rd = await remove("writer", fd, D?.name);
+      ctx.check("draft: writer removes → 200", is(rd, 200), 200, { status: rd.status, exc_type: rd.exc_type });
+      const S = docOf(await savedocs(m, (await newParent(ctx, "manager", { title: "protect-sub" })) ?? {}, "Submit"));
+      const fs = (await attach(S?.name, 2)).message?.name;
+      const rs = await remove("manager", fs, S?.name);
+      ctx.check("submitted: refused (417 Protected File)", is(rs, 417), 417, { status: rs.status, exc_type: rs.exc_type });
+      const C0 = docOf(await savedocs(m, (await newParent(ctx, "manager", { title: "protect-cancel" })) ?? {}, "Submit"));
+      const fc = (await attach(C0?.name, 3)).message?.name;
+      await m.call("frappe.desk.form.save.cancel", { doctype: "SFUI Test Parent", name: C0?.name });
+      const rw = await remove("writer", fc, C0?.name);
+      ctx.check("cancelled: writer (no delete) refused (417)", is(rw, 417), 417, { status: rw.status, exc_type: rw.exc_type });
+      const rm = await remove("manager", fc, C0?.name);
+      ctx.check("cancelled: manager (delete) removes → 200", is(rm, 200), 200, { status: rm.status, exc_type: rm.exc_type });
+    } },
+  { id: "F-SB-TAGS-1", area: "Form", feature: "P36b — Form Sidebar Tags: add_tag / remove_tag / get_tags; write refusal rolls back", kind: "reject", automated: "api", users: ["writer", "reader", "manager"],
+    rows: [],
+    pre: "a fresh draft by writer", steps: ["writer: frappe.desk.doctype.tag.tag.add_tag {tag: 'sfui-p36b', dt, dn}", "writer: get_tags {doctype, txt: 'sfui-p3'}", "manager: getdoc → _user_tags, modified, docinfo.tags", "reader: add_tag {tag: 'sfui-p36b-reader', dt, dn}", "reader: remove_tag {tag: 'sfui-p36b', dt, dn}", "writer: remove_tag {tag: 'sfui-p36b', dt, dn}"],
+    expect: "writer add → 200 (returns the tag); get_tags lists 'sfui-p36b' (Tag list, txt matched case-insensitively); _user_tags contains it, `modified` unchanged (set_value update_modified=False), docinfo.tags contains it; reader add → 403 PermissionError (update_tags checks write AFTER _user_tags was set — the request rolls back, so _user_tags is unchanged); reader remove → 403, tag kept; writer remove → 200, tag gone",
+    cite: ["desk/doctype/tag/tag.py:34-39 add_tag, :52-55 remove_tag, :65-70 get_tags", "desk/doctype/tag/tag.py:87-99 DocTags.add / remove, :105-126 update (set_value :114, update_tags :116, re-raise :125-126)", "desk/doctype/tag/tag.py:147-152 update_tags (check_permission write)", "desk/form/load.py:136, 387-395 docinfo.tags", "public/js/frappe/ui/tag_editor.js:35-63, 84-101 (Desk UI, no client gate)"],
+    evidence: "statuses / exc_type, _user_tags and modified before / after each step",
+    async run(ctx) {
+      const d = await newParent(ctx, "writer", { title: "sb-tags" });
+      if (!d) return;
+      const ref = { dt: "SFUI Test Parent", dn: d.name };
+      const read = async () => { const g = await getdoc(ctx.as("manager"), "SFUI Test Parent", d.name); return { tags: docOf(g)?._user_tags ?? "", modified: docOf(g)?.modified, info: g.body?.docinfo?.tags ?? "" }; };
+      const before = await read();
+      const a = await ctx.as("writer").call("frappe.desk.doctype.tag.tag.add_tag", { tag: "sfui-p36b", ...ref });
+      const after = await read();
+      ctx.check("writer add_tag → 200, tag stored, modified unchanged", is(a, 200) && after.tags.includes("sfui-p36b") && after.modified === before.modified, "200, stored, same modified", { status: a.status, stored: after.tags.includes("sfui-p36b"), sameModified: after.modified === before.modified });
+      ctx.check("docinfo.tags carries it", String(after.info).includes("sfui-p36b"), "sfui-p36b", after.info);
+      const s = await ctx.as("writer").call("frappe.desk.doctype.tag.tag.get_tags", { doctype: "SFUI Test Parent", txt: "sfui-p3" });
+      ctx.check("get_tags suggests it", (s.message ?? []).includes("sfui-p36b"), "includes sfui-p36b", s.message);
+      const r = await ctx.as("reader").call("frappe.desk.doctype.tag.tag.add_tag", { tag: "sfui-p36b-reader", ...ref });
+      const afterR = await read();
+      ctx.check("reader add_tag → 403 and _user_tags unchanged (rollback)", is(r, 403, "PermissionError") && afterR.tags === after.tags, "403, unchanged", { status: r.status, exc_type: r.exc_type, unchanged: afterR.tags === after.tags });
+      const rr = await ctx.as("reader").call("frappe.desk.doctype.tag.tag.remove_tag", { tag: "sfui-p36b", ...ref });
+      ctx.check("reader remove_tag → 403, tag kept", is(rr, 403, "PermissionError") && (await read()).tags.includes("sfui-p36b"), "403, kept", { status: rr.status, exc_type: rr.exc_type });
+      const wr = await ctx.as("writer").call("frappe.desk.doctype.tag.tag.remove_tag", { tag: "sfui-p36b", ...ref });
+      ctx.check("writer remove_tag → 200, tag gone", is(wr, 200) && !(await read()).tags.includes("sfui-p36b"), "200, gone", wr.status);
+    } },
+  { id: "S-SHARE-1", area: "Security", feature: "P36b — Share: get_users, add, set_permission per level, cascade, refusal without the share right", kind: "reject", automated: "api", users: ["manager", "writer", "reader", "restricted"],
+    rows: [],
+    pre: "a fresh draft by manager linked to contact #12 (restricted cannot read it); only SFUI Manager holds `share` on SFUI Test Parent and SFUI Test Contact; document sharing not disabled on the site", steps: ["manager: frappe.share.get_users {doctype, name}", "writer: frappe.share.add {…, user: reader} (no share right)", "manager: set_permission {…, user: reader, permission_to: 'share', value: 1} (reader gets share only)", "reader: add {…, user: restricted, write: 1} (reader holds no write)", "reader: add {…, user: restricted, read: 1}", "restricted: getdoc of the document", "manager: set_permission {…, user: reader, permission_to: 'submit', value: 1}", "reader: savedocs Save of the document (write through the share)", "manager: set_permission {…, user: reader, permission_to: 'read', value: 0}; the same for restricted", "manager: set_permission on SFUI Test Contact #12 {user: reader, permission_to: 'submit', value: 1}"],
+    expect: "get_users → 200, a list (fields name, user, read, write, submit, share, everyone, owner, creation); writer add → 403 'No permission to share'; reader's share row = share 1 + read 1 (cascade); reader granting write → 403 'You cannot share `write` …'; reader granting read → 200 (read forced 1); restricted getdoc → 200 (DocShare grants read despite its User Permissions); submit → the row has submit 1, write 1, read 1 (cascade); reader's Save → 200; un-ticking read deletes the row (response WITHOUT `message`) and writes 'Unshared'; submit on the non-submittable Contact → refused (403: the sharer holds no submit there; Administrator would get 417 'not submittable')",
+    cite: ["share.py:20-33 add → add_docshare :36-72 (read forced :43-49, check_share_permission :51-52)", "share.py:82-122 set_permission (un-set read clears all :113-114; row deleted → None :118-120)", "share.py:125-152 get_users ([] without read)", "share.py:216-244 check_share_permission (share right :223-226; grant only held rights :233-244)", "core/doctype/docshare/docshare.py:33-69 validate (cascade :40-44, submittable :63-69), :71-91 Shared / Unshared comments", "public/js/frappe/form/sidebar/share.js:12-202 (Desk UI)"],
+    evidence: "statuses / exc_type, DocShare rows (rights only) after each step, presence of `message`",
+    async run(ctx) {
+      const m = ctx.as("manager");
+      const d = await newParent(ctx, "manager", { title: "share" });
+      if (!d) return;
+      const acc = ctx.X.accounts, ref = { doctype: "SFUI Test Parent", name: d.name };
+      const rows = async () => (await m.call("frappe.share.get_users", ref)).message ?? [];
+      const rowOf = async (u) => (await rows()).find((s) => s.user === u);
+      const g = await m.call("frappe.share.get_users", ref);
+      ctx.check("get_users → 200 list", is(g, 200) && Array.isArray(g.message), "array", typeof g.message);
+      const wa = await ctx.as("writer").call("frappe.share.add", { ...ref, user: acc.reader });
+      ctx.check("writer (no share right) → 403", is(wa, 403, "PermissionError"), 403, { status: wa.status, exc_type: wa.exc_type });
+      const ms = await m.call("frappe.share.set_permission", { ...ref, user: acc.reader, permission_to: "share", value: 1 });
+      const r1 = await rowOf(acc.reader);
+      ctx.check("share only → share 1 + read 1 (cascade)", is(ms, 200) && r1?.share === 1 && r1?.read === 1 && !r1?.write, "share 1, read 1, write 0", r1 && { read: r1.read, write: r1.write, share: r1.share });
+      const rw = await ctx.as("reader").call("frappe.share.add", { ...ref, user: acc.restricted, write: 1 });
+      ctx.check("reader cannot grant write it does not hold → 403", is(rw, 403, "PermissionError"), 403, { status: rw.status, exc_type: rw.exc_type });
+      const rr = await ctx.as("reader").call("frappe.share.add", { ...ref, user: acc.restricted, read: 1 });
+      ctx.check("reader grants read → 200", is(rr, 200), 200, { status: rr.status, exc_type: rr.exc_type });
+      const rg = await getdoc(ctx.as("restricted"), "SFUI Test Parent", d.name);
+      ctx.check("restricted can now open it (DocShare read)", is(rg, 200) && !!docOf(rg), 200, rg.status);
+      await m.call("frappe.share.set_permission", { ...ref, user: acc.reader, permission_to: "submit", value: 1 });
+      const r2 = await rowOf(acc.reader);
+      ctx.check("submit → submit, write, read (cascade)", r2?.submit === 1 && r2?.write === 1 && r2?.read === 1, "1/1/1", r2 && { read: r2.read, write: r2.write, submit: r2.submit });
+      const cur = docOf(await getdoc(ctx.as("reader"), "SFUI Test Parent", d.name));
+      const sv = await savedocs(ctx.as("reader"), { ...cur, notes: `${ctx.tag} shared write` });
+      ctx.check("reader saves through the shared write → 200", is(sv, 200), 200, { status: sv.status, exc_type: sv.exc_type });
+      const un = await m.call("frappe.share.set_permission", { ...ref, user: acc.reader, permission_to: "read", value: 0 });
+      ctx.check("un-tick read → 200, no message, row deleted", is(un, 200) && un.message == null && !(await rowOf(acc.reader)), "200, no message, gone", { status: un.status, message: un.message === undefined ? "absent" : un.message });
+      await m.call("frappe.share.set_permission", { ...ref, user: acc.restricted, permission_to: "read", value: 0 });
+      const cs = await m.call("frappe.share.set_permission", { doctype: "SFUI Test Contact", name: RUN_CONTACT(ctx.X), user: acc.reader, permission_to: "submit", value: 1 });
+      ctx.check("submit share on a non-submittable DocType → refused", cs.status === 403 || cs.status === 417, "403 (or 417 for Administrator)", { status: cs.status, exc_type: cs.exc_type });
+    } },
+  { id: "F-SB-LIKE-1", area: "Form", feature: "P36b — Form Sidebar Like: toggle_like, _liked_by, Like comment, modified untouched", kind: "write", automated: "api", users: ["writer", "reader", "restricted", "manager"],
+    rows: ["LV.E5"],
+    pre: "a fresh draft by writer linked to contact #12 (restricted cannot read it)", steps: ["reader: frappe.desk.like.toggle_like {doctype, name, add: 'Yes'}", "manager: getdoc → _liked_by, modified, docinfo.like_logs", "reader: toggle_like {…, add: 'No'}", "restricted: toggle_like {…, add: 'Yes'} then 'No' (cannot read the document)"],
+    expect: "reader like → 200, _liked_by = [reader] (JSON list), `modified` unchanged (update_modified=False), a 'Like' comment ('Liked') in docinfo.like_logs; unlike → _liked_by without reader and the Like comment deleted; restricted → RECORDED: toggle_like has no permission check, so 200 is Frappe's behaviour (a user can like a document it cannot read)",
+    cite: ["desk/like.py:15-27 toggle_like (no permission check)", "desk/like.py:30-65 _toggle_like (set_value update_modified=False :55-58)", "desk/like.py:68-91 remove_like / add_comment", "desk/form/load.py:146-180 add_comments (like_logs)", "public/js/frappe/form/sidebar/form_sidebar.js:51-61, 237-251; public/js/frappe/ui/like.js:12-57 (Desk UI)"],
+    evidence: "statuses, _liked_by membership (redacted to booleans), modified before / after, like_logs count",
+    async run(ctx) {
+      const d = await newParent(ctx, "writer", { title: "sb-like" });
+      if (!d) return;
+      const acc = ctx.X.accounts, ref = { doctype: "SFUI Test Parent", name: d.name };
+      const read = async () => { const g = await getdoc(ctx.as("manager"), "SFUI Test Parent", d.name); const doc = docOf(g); return { liked: JSON.parse(doc?._liked_by || "[]"), modified: doc?.modified, likes: (g.body?.docinfo?.like_logs ?? []).length }; };
+      const before = await read();
+      const a = await ctx.as("reader").call("frappe.desk.like.toggle_like", { ...ref, add: "Yes" });
+      const after = await read();
+      ctx.check("like → 200, reader in _liked_by, modified unchanged, a Like comment", is(a, 200) && after.liked.includes(acc.reader) && after.modified === before.modified && after.likes === before.likes + 1, "liked, same modified, +1 like_log", { status: a.status, liked: after.liked.includes(acc.reader), sameModified: after.modified === before.modified, likeLogs: after.likes - before.likes });
+      const b = await ctx.as("reader").call("frappe.desk.like.toggle_like", { ...ref, add: "No" });
+      const un = await read();
+      ctx.check("unlike → 200, removed, Like comment deleted", is(b, 200) && !un.liked.includes(acc.reader) && un.likes === before.likes, "removed", { status: b.status, liked: un.liked.includes(acc.reader), likeLogs: un.likes - before.likes });
+      const x = await ctx.as("restricted").call("frappe.desk.like.toggle_like", { ...ref, add: "Yes" });
+      const y = await ctx.as("restricted").call("frappe.desk.like.toggle_like", { ...ref, add: "No" });
+      ctx.record("restricted likes a document it cannot read (no permission check in toggle_like)", { like: x.status, unlike: y.status });
+    } },
+  { id: "F-SB-COMMENT-1", area: "Form", feature: "P36b — Comments: add, edit, publish, delete, @mention notification", kind: "reject", automated: "api", users: ["writer", "reader", "restricted", "manager", "sysmgr"],
+    rows: [],
+    pre: "a fresh draft by writer linked to contact #12 (restricted cannot read it); the Mention notification needs the site's background worker (enqueue_create_notification) — recorded, not asserted; the Delete positive needs the optional sysmgr account", steps: ["writer: frappe.desk.form.utils.add_comment {reference_doctype, reference_name, content: '<p>… <span class=\"mention\" data-id=\"<reader>\" …>@SFUI Reader</span></p>', comment_email: writer, comment_by: 'SFUI Writer'}", "restricted: add_comment on the same document", "reader: update_comment {name, content}", "writer: update_comment {name, content}", "reader: update_comment_publicity {name, publish: 1}", "writer: update_comment_publicity {name, publish: 1}; manager: getdoc → docinfo.comments", "writer, then manager: frappe.client.delete {doctype: 'Comment', name}", "sysmgr (optional): frappe.client.delete", "reader: Notification Log list (type Mention, document_name = the document) after a few seconds"],
+    expect: "writer add → 200 (a Comment doc, comment_type 'Comment'); restricted → 403 (read on the reference document); reader edit → 403 'Comment can only be edited by the owner'; writer edit → 200; reader publicity → 417 (frappe.throw without an exception class = ValidationError); writer publicity → 200 and docinfo.comments has published 1; writer and manager delete → 403 (Comment DocPerm: System Manager / Website Manager only — authorship does not grant delete); sysmgr delete → 200; Mention: a Notification Log for reader (enabled System User, allowed_in_mentions) — RECORDED (depends on the worker)",
+    cite: ["desk/form/utils.py:26-50 add_comment (check_permission :31-32)", "desk/form/utils.py:53-69 update_comment (owner or Administrator :58-59)", "desk/form/utils.py:72-79 update_comment_publicity (owner or System Manager :75-76)", "core/doctype/comment/comment.json (permissions: System Manager, Website Manager)", "core/doctype/comment/comment.py:58-59 after_insert → notify_mentions", "desk/notifications.py:390-440 notify_mentions / extract_mentions", "desk/doctype/notification_log/notification_log.py:73-100 enqueue_create_notification", "desk/form/load.py:146-160 add_comments (published :158)", "public/js/frappe/form/footer/form_timeline.js:607-676, 723-760 (Desk UI)"],
+    evidence: "statuses / exc_type, the comment's published flag in docinfo, Notification Log count (recorded)",
+    async run(ctx) {
+      const d = await newParent(ctx, "writer", { title: "sb-comment" });
+      if (!d) return;
+      const acc = ctx.X.accounts;
+      const body = (txt) => ({ reference_doctype: "SFUI Test Parent", reference_name: d.name, content: `<p>${ctx.tag} ${txt} <span class="mention" data-id="${acc.reader}" data-value="SFUI Reader" data-denotation-char="@">@SFUI Reader</span></p>`, comment_email: acc.writer, comment_by: "SFUI Writer" });
+      const a = await ctx.as("writer").call("frappe.desk.form.utils.add_comment", body("comment"));
+      const c = a.message?.name;
+      ctx.check("writer add_comment → 200", is(a, 200) && !!c && a.message?.comment_type === "Comment", 200, { status: a.status, exc_type: a.exc_type });
+      const rs = await ctx.as("restricted").call("frappe.desk.form.utils.add_comment", body("restricted"));
+      ctx.check("restricted (no read) → 403", is(rs, 403, "PermissionError"), 403, { status: rs.status, exc_type: rs.exc_type });
+      const re = await ctx.as("reader").call("frappe.desk.form.utils.update_comment", { name: c, content: `${ctx.tag} reader edit` });
+      ctx.check("reader edits another's comment → 403", is(re, 403, "PermissionError"), 403, { status: re.status, exc_type: re.exc_type });
+      const we = await ctx.as("writer").call("frappe.desk.form.utils.update_comment", { name: c, content: `${ctx.tag} edited` });
+      ctx.check("author edits → 200", is(we, 200), 200, we.status);
+      const rp = await ctx.as("reader").call("frappe.desk.form.utils.update_comment_publicity", { name: c, publish: 1 });
+      ctx.check("reader publishes another's comment → 417", is(rp, 417), 417, { status: rp.status, exc_type: rp.exc_type });
+      const wp = await ctx.as("writer").call("frappe.desk.form.utils.update_comment_publicity", { name: c, publish: 1 });
+      const info = (await getdoc(ctx.as("manager"), "SFUI Test Parent", d.name)).body?.docinfo?.comments ?? [];
+      ctx.check("author publishes → 200, docinfo.comments published 1", is(wp, 200) && info.find((x) => x.name === c)?.published === 1, "published 1", info.find((x) => x.name === c)?.published);
+      const wd = await ctx.as("writer").call("frappe.client.delete", { doctype: "Comment", name: c });
+      ctx.check("author delete → 403 (role, not authorship)", is(wd, 403, "PermissionError"), 403, { status: wd.status, exc_type: wd.exc_type });
+      const md = await ctx.as("manager").call("frappe.client.delete", { doctype: "Comment", name: c });
+      ctx.check("SFUI Manager delete → 403", is(md, 403, "PermissionError"), 403, { status: md.status, exc_type: md.exc_type });
+      await new Promise((r) => setTimeout(r, 5000));
+      const n = await ctx.as("reader").call("frappe.client.get_list", { doctype: "Notification Log", filters: J([["type", "=", "Mention"], ["document_name", "=", d.name]]), fields: J(["name"]) });
+      ctx.record("Mention Notification Log for reader (needs the worker)", { status: n.status, count: (n.message ?? []).length });
+      if (!ctx.has("sysmgr")) return ctx.block("no sysmgr account: the Comment delete positive is not run (seed without --with-system-manager)");
+      const sd = await ctx.as("sysmgr").call("frappe.client.delete", { doctype: "Comment", name: c });
+      ctx.check("System Manager delete → 200", is(sd, 200), 200, { status: sd.status, exc_type: sd.exc_type });
+    } },
+  { id: "S-GSEARCH-1", area: "Security", feature: "P36b — Global Search: DocType-level permission filtering, response shape, paging arguments", kind: "read", automated: "api", users: ["manager", "writer", "reader", "restricted", "sysmgr"],
+    rows: [],
+    pre: "seeded site; Global Search Settings as installed (SFUI DocTypes are not in it; ToDo is in Frappe's defaults and the seed's assignments create ToDos); the `__global_search` index syncs every 15 minutes, so result contents are recorded, not asserted", steps: ["each account: frappe.utils.global_search.search {text: 'sfui', start: 0, limit: 100, doctype: ''} (the dialog's first call)", "each account: the same with doctype 'SFUI Test Parent'", "reader, manager: the same with doctype 'Workflow' (System Manager-only DocType)", "reader: search {text: 'sfui', start: 0, limit: 1, doctype: ''} and {start: 1, limit: 1} (the 'More' arguments)", "reader: search {text: <writer's e-mail local part>, …} — ToDos allocated to writer", "sysmgr (optional; recorded only): frappe.client.get Global Search Settings → allowed_in_global_search order"],
+    expect: "200 for every account; every row has exactly doctype, name, content, rank (+ image only for DocTypes with an image_field); doctype 'SFUI Test Parent' → [] (not in Global Search Settings); doctype 'Workflow' → [] for reader and manager (not in get_can_read); limit 1 → at most 1 row; RECORDED: the DocTypes each account gets, and whether reader receives ToDo rows allocated to writer — Frappe filters only by DocType (Settings ∩ get_can_read), never per row, so it is expected once the index is synced",
+    cite: ["utils/global_search.py:465-526 search (allowed = Settings ∩ get_can_read :482-484; per-word MATCH :486-511; DocType loop :513-524)", "utils/user.py:130-185 build_permissions (can_read incl. DocShare doctypes :175-178)", "desk/doctype/global_search_settings/global_search_settings.py:46-51 get_doctypes_for_global_search", "hooks.py:376-393 global_search_doctypes", "desk/doctype/todo/todo.json (in_global_search: status, description, allocated_to)", "public/js/frappe/ui/toolbar/search_utils.js:447-489 get_global_results; search.js:54, 164-186 (Desk UI)"],
+    evidence: "statuses, row key sets, DocType sets per account (no content), counts",
+    async run(ctx) {
+      const q = (who, args) => ctx.as(who).call("frappe.utils.global_search.search", { text: "sfui", start: 0, limit: 100, doctype: "", ...args });
+      const KEYS = ["content", "doctype", "name", "rank"];
+      for (const who of ["manager", "writer", "reader", "restricted"]) {
+        const r = await q(who, {});
+        const rows = r.message ?? [];
+        ctx.check(`${who}: 200 and Desk's row shape`, is(r, 200) && rows.every((x) => J(Object.keys(x).filter((k) => k !== "image").sort()) === J(KEYS)), "doctype, name, content, rank", { status: r.status, rows: rows.length });
+        ctx.record(`${who}: DocTypes returned`, [...new Set(rows.map((x) => x.doctype))].sort());
+        const p = await q(who, { doctype: "SFUI Test Parent" });
+        ctx.check(`${who}: SFUI Test Parent (not in Settings) → []`, is(p, 200) && (p.message ?? []).length === 0, [], (p.message ?? []).length);
+      }
+      for (const who of ["reader", "manager"]) {
+        const w = await q(who, { doctype: "Workflow" });
+        ctx.check(`${who}: Workflow (System Manager only) → []`, is(w, 200) && (w.message ?? []).length === 0, [], (w.message ?? []).length);
+      }
+      const p1 = await q("reader", { limit: 1 }), p2 = await q("reader", { start: 1, limit: 1 });
+      ctx.check("limit 1 → at most one row per page", (p1.message ?? []).length <= 1 && (p2.message ?? []).length <= 1, "≤ 1", [(p1.message ?? []).length, (p2.message ?? []).length]);
+      const t = await q("reader", { text: String(ctx.X.accounts.writer).split("@")[0] });
+      ctx.record("reader: ToDo rows allocated to writer (DocType-level filtering only)", { todo_rows: (t.message ?? []).filter((x) => x.doctype === "ToDo").length });
+      if (!ctx.has("sysmgr")) return ctx.record("Global Search Settings order", "not read: no sysmgr account (seed without --with-system-manager)");
+      const s = await ctx.as("sysmgr").call("frappe.client.get", { doctype: "Global Search Settings", name: "Global Search Settings" }, "GET");
+      ctx.record("Global Search Settings order (idx)", (s.message?.allowed_in_global_search ?? []).map((x) => x.document_type));
+    } },
+  { id: "S-GSEARCH-2", area: "Security", feature: "P36b — Global Search Settings, indexing lag and the dialog's 'More' on real rows", kind: "infra", automated: "manual", infra: "a System Manager on the staging site, the scheduler running (sync_global_search every 15 min) and a Customize Form change that marks an SFUI field In Global Search — the seed creates none of these", users: ["sysmgr", "manager", "reader", "restricted"],
+    rows: [],
+    pre: "sysmgr: Customize Form SFUI Test Contact → contact_name In Global Search (rebuild_for_doctype is enqueued); Global Search Settings → add SFUI Test Contact (module SFUI Test, not Core); wait for sync", steps: ["sysmgr: try to add a Core-module DocType (e.g. User) and a duplicate row to Global Search Settings", "reader / restricted: search {text: 'SFUI Contact', start 0, limit 100}", "reader: 'More' — search {text, start: 20, limit: 20, doctype: 'SFUI Test Contact'}", "manager: create a contact; search for it at once, then after the next sync", "browser (optional, harness has no search bar): the package dialog over the same server — All Results (4 + More), group list (20 + More, '<N> results found')"],
+    expect: "Core module → 'Core Modules … cannot be searched in Global Search.'; duplicate → 'Document Type … has been repeated.'; reader and restricted both get SFUI Test Contact rows — restricted also for contacts outside its User Permissions (no row-level filter; opening them is still 403); More returns the next page; a new contact appears only after the sync (≤ 15 min)",
+    cite: ["desk/doctype/global_search_settings/global_search_settings.py:22-40 validate, :46-51 order by idx", "utils/global_search.py:233-279 update_global_search (queue), :362-413 sync_global_search, :465-526 search", "hooks.py:201-206 (sync every 15 min)", "core/doctype/doctype/doctype.py:588-602 rebuild_for_doctype", "model/meta.py:217-223 get_global_search_fields"],
+    evidence: "validation messages, row counts per account (names only), timestamps of the sync" },
 ];
 
 // ------------------------------------------------------------------------------------------------------------------

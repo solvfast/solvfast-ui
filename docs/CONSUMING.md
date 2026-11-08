@@ -418,6 +418,21 @@ Unreleased; the full list is in CHANGELOG.md (0.7.0-dev.2). What an app may have
   `isCellEditable(df, row, { fields, levels, … })`.
 - **DataGrid**: unchanged from 0.7.0-dev.1 — it keeps its `32rem` minimum width and scrolls horizontally on phones.
 
+## 10. Changes in 0.7.0-dev.3 (P36 batch 2)
+
+Unreleased; additive except the points below (full list: CHANGELOG.md 0.7.0-dev.3).
+
+- **Bulk Submit / Cancel** (`FrappeListView`, and now `FrappeReportView bulk`): a failure line also says Desk's
+  "Cannot submit {names}." / "Cannot cancel {names}.". Tests that match the whole line need updating.
+- **Report view with `bulk`** sends a document shown on several rows once (Desk sends it once per checked row).
+- **Simulator** (`@solvfast/ui/frappe/testing`), if your tests use it: bulk Submit of an already submitted document is
+  now a failure, an unknown name fails the whole request (404), 20+ names answer with the "enqueued" alert and no
+  `message`; `tag.add_tags` needs write when permissions are simulated; docinfo comments carry `published`. For the
+  Form Sidebar, wrap the transport in `withSimulatedSidebar` (docinfo attachments / tags, uploads).
+- **New, opt-in:** `LinkInput` picker mode (`openOnClickWhenFilled`, `selectedIndicator`, …), the Core
+  `GlobalSearchBar` (with `useFrappeGlobalSearch` in a Frappe app; put it in the header with `Navbar search={{ slot }}`),
+  `FrappeFormSidebar` (the host places it next to `FrappeForm`). All their server paths are simulator-only.
+
 ## Known limitations
 The full list is in docs/LIMITATIONS.md. The ones most likely to matter:
 - The Frappe layer has been tested against recorded real Frappe 15.110 responses (read paths) and the in-package

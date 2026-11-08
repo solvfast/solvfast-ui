@@ -1,4 +1,4 @@
-# Known limitations — @solvfast/ui 0.7.0-dev.2 (unreleased)
+# Known limitations — @solvfast/ui 0.7.0-dev.3 (unreleased)
 
 What this version does **not** do, has **not** been verified, or does differently on purpose. The row-by-row status of the
 Form View and List View requirements is in `docs/audit/p35/COVERAGE.md` (repository only).
@@ -13,7 +13,8 @@ and no restricted user has been tested on one. "COMPLETE" in the coverage matrix
 repository — the requirement matrix `docs/audit/p36/VALIDATION-MATRIX.md`, the runner `e2e/frappe-site/run-matrix.mjs`,
 staging seed / teardown scripts — but nothing has run: it **requires an owner-approved, isolated staging site** (own
 database, credentials, Redis and workers; never a production site — the scripts refuse production names and loopback).
-Until it runs, every real-site result is BLOCKED.
+Until it runs, every real-site result is BLOCKED. P36 batch 2 (0.7.0-dev.3) added 11 catalogue tests for its server paths
+(86 in all); none has run.
 
 | Area | Evidence |
 |---|---|
@@ -34,6 +35,19 @@ SQL or every permission rule. These behaviours have **only** simulator (or stub)
   Clear Assignment, Assignment Rule, Add Tags), Print, e-mail sending, reminders, List View Settings, saved filters
   (`List Filter`), `user_settings`, Data Import, Report view inline edit (`frappe.client.set_value`), Kanban moves
   (`update_order_for_single_card`), `upload_file`.
+- **Every batch-2 server path (0.7.0-dev.3):** bulk Submit / Cancel from the Report view
+  (`submit_cancel_or_update_docs`); the Form Sidebar — `assign_to.add` / `close` / `remove`, `upload_file` incl. the JSON
+  `library_file_name` / `file_url` forms (never run: the source says `upload_file` reads them from a JSON body),
+  `frappe.desk.form.utils.remove_attach`, `tag.add_tag` / `remove_tag` / `get_tags`,
+  `frappe.core.api.file.get_files_by_search_text`; sharing (`frappe.share.get_users` / `add` / `set_permission`); likes
+  from the sidebar (`toggle_like`); comments (`add_comment`, `update_comment`, `update_comment_publicity`,
+  `frappe.client.delete` on Comment, Mention notifications); Global Search (`frappe.utils.global_search.search` — the
+  simulator has no MyISAM ranking, stopwords, minimum word length or 15-minute index lag, and with no Global Search
+  Settings single in the store every DocType with a global-search field is searchable).
+- **Simulator wrappers still needed for batch 2:** the built-in docinfo answers `attachments: []` / `tags: ""` and
+  `files.upload` refuses everything but Data Import unless the transport is wrapped in `withSimulatedSidebar` (exported
+  from `@solvfast/ui/frappe/testing`); the built-in bulk handler does not refuse Cancel for submitted back links — the
+  opt-in `bulkUpdateHandler` does (it also goes through the form path and its permission checks).
 - **Server reads and aggregates no recorded response covers:** sidebar counts (`get_group_by_count`,
   `get_sidebar_stats`), connection counts (`get_open_count`), Kanban boards (`get_kanban_boards`, the board document),
   `calendar.get_events`, print preview HTML (`get_html_and_style` — the simulator returns a labelled placeholder), Email
@@ -118,6 +132,23 @@ ungrouped lists (they page).
   eligible goes to `create.onOpenFullForm`, and without it the Quick Entry dialog shows the whole form (Desk would route).
 - **User defaults:** `FrappeProvider` applies `boot.userDefaults` to new documents (`userDefaults={false}` opts out);
   `remember_last_selected_value` is not reproduced.
+- **Report view bulk actions** (`FrappeReportView bulk`, since 0.7.0-dev.3) are opt-in, as in `FrappeListView`; Desk
+  always shows the checkboxes. A document shown on several Report rows (one per child-table row) is sent once — Desk sends
+  one name per checked row and the server reports the repeat as failed. No `task_id` progress bar. The Image view has no
+  Actions surface (Desk's Image view inherits the List view's), a follow-up.
+- **Form Sidebar** (`FrappeFormSidebar`, since 0.7.0-dev.3): the host places it (`FrappeFormView` does not mount it);
+  not hidden on phones; no sidebar image, Follow / Followed by, Reviews (energy points), auto-repeat, page views or
+  sidebar extension; no "Assign To User Group"; uploads show waiting / uploading / uploaded / failed but no percentage
+  (`fetch` has no upload progress); no Camera, Google Drive, crop or optimize; the Library tab is a text search
+  (`get_files_by_search_text`), not Desk's folder tree. Attach "+" and tag editing are offered to every reader, as Desk;
+  the server refuses without write. `disable_document_sharing` is not read from the site: pass `sharingDisabled`.
+- **Global Search** (`GlobalSearchBar` + `useFrappeGlobalSearch`, since 0.7.0-dev.3): not reproduced — calculator,
+  random password, `#tag` search, Help table, executables (Background Jobs), Marketplace rows; `desk_settings.search_bar`
+  gating is the app's choice to render the bar. The awesome bar's rows come from the boot lists the app passes
+  (`deskSearchBootFrom(frappe.boot)`); a boot without `can_read` / `can_create` lists (e.g. a custom page boot) yields
+  pages and recents only. Recents are in memory per tab, as Desk's `route_history`.
+- **LinkInput picker mode** (opt-in, since 0.7.0-dev.3): Space types (it does not open), arrows wrap at the ends, no
+  Ctrl+N/J/P/K bindings; `FrappeLinkField` does not expose the picker props.
 - **Simulator coverage gaps:** Communication Links are not simulated; `get_kanban_boards` skips the permission engine when
   the Kanban Board meta is not loaded; Kanban's `private` permission query is a local rule.
 - **`@solvfast/ui/frappe/testing`** (the simulator) ships as its own entry; `@solvfast/ui/frappe` never imports it.
@@ -146,6 +177,27 @@ site yet**.
   realtime msgprint [L-BULK-2, L-BULK-3]; User Permissions filter list rows silently while `getdoc` of a hidden record is
   403 [L-PERM-1]; whether User Permissions apply to the sidebar's `assigned_to` counts (`frappe.qb.get_query`) is recorded,
   not known [L-GROUP-1].
+- **Global search filters by DocType only** (0.7.0-dev.3 feature). `frappe.utils.global_search.search` returns rows of
+  every DocType in Global Search Settings that the user can read (`get_can_read`, which also counts DocTypes in which a
+  single document is shared), with **no per-row check**: the name and the matching field snippets of every indexed
+  document of such a DocType are returned, even ones User Permissions or `if_owner` hide (opening one is still refused).
+  The index syncs every 15 minutes. [S-GSEARCH-1, S-GSEARCH-2]
+- **Assignment needs read, not write.** `assign_to.add`, `remove` and `close` check only read on the document (`close`
+  also requires the session user to be the assignee, else 417); Desk's sidebar offers remove only to the assignee or a
+  writer, but the server lets any reader remove an assignment. Assigning a user who cannot read the document shares it
+  with them (unless sharing is disabled → "Missing Permission"). [F-SB-ASSIGN-1]
+- **Tags need write, checked after the write.** `add_tag` / `remove_tag` set `_user_tags` and then `update_tags` checks
+  write; the refusal rolls the request back. `modified` is never touched. [F-SB-TAGS-1, L-TAG-2]
+- **Sharing grants only what the sharer holds.** `share` itself is never restricted, but granting read / write / submit
+  needs that right; un-ticking read deletes the share (the answer has no `message`); DocShare cascades share / write /
+  submit ⇒ read and submit ⇒ write. [S-SHARE-1]
+- **Comments:** edit = author or Administrator (403); publish = author or System Manager (417, a plain `frappe.throw`);
+  delete = the Comment DocPerm (System Manager / Website Manager), not authorship. Mention notifications are enqueued
+  (they need a worker). [F-SB-COMMENT-1]
+- **Attachments:** removal needs the file's owner or write on the attached document; with `protect_attached_files` a
+  submitted document's files cannot be removed and a cancelled one's need delete. [F-SB-ATTACH-1, F-SB-ATTACH-2]
+- **Bulk Submit / Cancel:** an unknown name fails the whole request (404) after earlier documents were committed; a name
+  sent twice is reported failed the second time. [L-BULK-5, V-REPORT-2]
 
 ## Known bugs
 

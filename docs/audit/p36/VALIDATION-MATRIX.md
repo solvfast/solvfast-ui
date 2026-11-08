@@ -49,7 +49,7 @@ Frappe behaviour is cited from Frappe 15.110.0, apps/frappe commit ab7e5ae (sour
 | MISSING | 6 | 4 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 5 | 0 |
 
-Catalogue: **75 tests** — 63 API (run by `run-matrix.mjs`; 18 read, 45 write / server-rejection needing `--write`), 7 browser (`--browser`, harness), 5 manual (infrastructure).
+Catalogue: **86 tests** — 73 API (run by `run-matrix.mjs`; 19 read, 54 write / server-rejection needing `--write`), 7 browser (`--browser`, harness), 6 manual (infrastructure).
 
 ## 3. P36 areas → tests
 
@@ -477,7 +477,7 @@ Catalogue: **75 tests** — 63 API (run by `run-matrix.mjs`; 18 read, 45 write /
 | LV.E2 | Docstatus pills | COMPLETE | unit | (a) | — | — (not in real-site scope) |  |
 | LV.E3 | Workflow state in the indicator | COMPLETE | simulator | (b) | — | — (not in real-site scope) |  |
 | LV.E4 | Comment counts | COMPLETE | unit, recorded-real | (a) | — | — (not in real-site scope) |  |
-| LV.E5 | Like heart | COMPLETE | unit, simulator | (c) W | L-LIKE-1 | BLOCKED (not run) |  |
+| LV.E5 | Like heart | COMPLETE | unit, simulator | (c) W | L-LIKE-1, F-SB-LIKE-1 | BLOCKED (not run) |  |
 | LV.E6 | Assignment avatars | COMPLETE | unit | (a) | L-ASSIGN-1 | BLOCKED (not run) |  |
 | LV.E7 | Tags shown on rows | COMPLETE | simulator | (b) | L-TAGS-1 | BLOCKED (not run) |  |
 | LV.E8 | Realtime refresh | COMPLETE | simulator (fake port) | (c) R | L-REALTIME-1 | BLOCKED (not run) | needs socket.io reachable + a socket client (manual) |
@@ -497,17 +497,17 @@ Catalogue: **75 tests** — 63 API (run by `run-matrix.mjs`; 18 read, 45 write /
 | LV.F5 | Apply Assignment Rule | COMPLETE | simulator | (c) W | L-ASSIGN-1 | BLOCKED (not run) |  |
 | LV.F6 | Add Tags | COMPLETE | simulator | (c) W | L-TAG-2 | BLOCKED (not run) |  |
 | LV.F7 | Print | COMPLETE | simulator | (c) W | F-PDF-1 | BLOCKED (not run) | needs the staging PDF engine (manual) |
-| LV.F8 | Submit | COMPLETE | simulator | (c) W | L-BULK-2 | BLOCKED (not run) |  |
-| LV.F9 | Cancel | COMPLETE | simulator | (c) W | L-BULK-2 | BLOCKED (not run) |  |
+| LV.F8 | Submit | COMPLETE | simulator | (c) W | L-BULK-2, L-BULK-5, V-REPORT-2 | BLOCKED (not run) |  |
+| LV.F9 | Cancel | COMPLETE | simulator | (c) W | L-BULK-2, L-BULK-5, V-REPORT-2 | BLOCKED (not run) |  |
 | LV.F10 | Delete | COMPLETE | simulator | (c) W | F-MENU-2, L-BULK-3 | BLOCKED (not run) |  |
 | LV.F11 | Workflow bulk actions | COMPLETE | simulator | (c) W | L-BULK-4 | BLOCKED (not run) |  |
 | LV.F12 | Permission-aware menu | COMPLETE | unit, simulator | (c) P | L-BULK-2, S-API-1, S-API-3, S-UI-1 | BLOCKED (not run) |  |
 | LV.F13 | Destructive confirmation | COMPLETE | simulator | (c) W | L-BULK-2, L-BULK-3 | BLOCKED (not run) |  |
-| LV.F14 | UI keys → document names | COMPLETE | simulator | (b) | L-BULK-1 | BLOCKED (not run) |  |
+| LV.F14 | UI keys → document names | COMPLETE | simulator | (b) | L-BULK-1, V-REPORT-2 | BLOCKED (not run) |  |
 | LV.F15 | Selection across filters / pages | COMPLETE | unit, simulator | (b) | L-HDR-1 | BLOCKED (not run) |  |
 | LV.F16 | Header selection mode | COMPLETE | unit, simulator | (b) | L-HDR-1 | BLOCKED (not run) |  |
 | LV.F17 | Empty selection | COMPLETE | unit | (a) | L-HDR-1 | BLOCKED (not run) |  |
-| LV.F18 | Outcome reporting | COMPLETE | simulator | (c) W | L-BULK-1, L-BULK-2 | BLOCKED (not run) |  |
+| LV.F18 | Outcome reporting | COMPLETE | simulator | (c) W | L-BULK-1, L-BULK-2, L-BULK-5 | BLOCKED (not run) |  |
 | LV.F19 | Every bulk write on a real site | BLOCKED | — | (d) | L-BULK-2 | BLOCKED (not run) |  |
 
 ### LV.G. Create & Quick Entry
@@ -529,7 +529,7 @@ Catalogue: **75 tests** — 63 API (run by `run-matrix.mjs`; 18 read, 45 write /
 | id | Requirement | P35 | P35 evidence | Category | Real-site tests | Real-site | Note |
 |---|---|---|---|---|---|---|---|
 | LV.H0 | View switcher | COMPLETE | unit, simulator | (b) | V-SWITCH-1 | BLOCKED (not run) |  |
-| LV.H1 | Report view | PARTIAL | simulator | (c) A | V-REPORT-1 | BLOCKED (not run) | PARTIAL: child columns + inline set_value |
+| LV.H1 | Report view | PARTIAL | simulator | (c) A | V-REPORT-1, V-REPORT-2 | BLOCKED (not run) | PARTIAL: child columns + inline set_value |
 | LV.H2 | Kanban | COMPLETE | simulator | (c) W | V-KANBAN-1 | BLOCKED (not run) |  |
 | LV.H3 | Calendar | PARTIAL | unit, simulator | (e) | V-CAL-1 | BLOCKED (not run) | PARTIAL; get_events read |
 | LV.H4 | Gantt | MISSING | — | (a) | — | — (not in real-site scope) | MISSING |
@@ -920,6 +920,72 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Frappe source:** desk/form/load.py:366 run_onload; website/website_generator.py
 - **Evidence to capture:** URL, statuses
 
+#### F-SB-ASSIGN-1 — P36b — Form Sidebar Assign: add (read right), share when the assignee cannot read, Done (assignee only), remove (read right)
+
+- **Kind / automation:** reject · api
+- **Rows:** 
+- **User / role:** writer, reader, restricted, manager
+- **Preconditions:** a fresh draft by writer linked to contact #12 (restricted cannot read it: its User Permissions allow contacts 1–2 only); sharing not disabled on the site
+- **Steps:** (1) restricted: frappe.desk.form.assign_to.add {doctype, name, assign_to: [reader]} (cannot read the document) (2) reader: assign_to.add {…, assign_to: [writer], description, date, priority: 'Medium'} (read only) (3) writer: assign_to.add {…, assign_to: [reader]}; writer: the same again (duplicate) (4) writer: assign_to.add {…, assign_to: [restricted]} (assignee without read) (5) manager: getdoc → docinfo.assignments; frappe.share.get_users (6) writer: assign_to.close {…, assign_to: reader} (not the assignee) (7) reader: assign_to.close {…, assign_to: reader} (8) reader: assign_to.remove {…, assign_to: writer} (someone else's assignment, read only)
+- **Expected Frappe behaviour:** restricted → 403 (check_permission = read); reader → 200 (the server needs read, not write — Desk shows '+' to readers); writer → 200, then the duplicate → 200 + msgprint 'Already in the following Users ToDo list'; assigning restricted → 200 and a DocShare (read) for restricted + msgprint 'Shared with the following Users with Read access'; docinfo.assignments lists the open ToDos (owner = allocated_to); close by a non-assignee → 417 'Only the assignee can complete this to-do.'; close by reader → 200 (ToDo Closed, gone from docinfo.assignments); reader's remove of writer's assignment → 200 (server: read only; Desk's client offers remove only to the assignee or a writer — RECORDED as a Desk-vs-server difference)
+- **Frappe source:** desk/form/assign_to.py:42-139 add (check_permission :67-68; duplicate :70-71, 135-137; share when the assignee lacks read :101-113); desk/form/assign_to.py:195-200 close (:197-198 assignee only); desk/form/assign_to.py:176-178 remove → set_status :203-232 (read check :206-207); desk/form/load.py:100-143 get_docinfo (assignments :128); public/js/frappe/form/sidebar/assign_to.js:94-131, 344-370 (Desk UI)
+- **Evidence to capture:** statuses / exc_type, _server_messages (redacted), docinfo.assignments owners, DocShare rows of the document
+
+#### F-SB-ATTACH-1 — P36b — Form Sidebar Attachments: upload, Library, Link, max_attachments, remove
+
+- **Kind / automation:** reject · api
+- **Rows:** 
+- **User / role:** writer, reader, manager
+- **Preconditions:** SFUI Test Parent has max_attachments 3; two fresh drafts by writer (P receives the attachments, L is the library source)
+- **Steps:** (1) writer: upload_file (multipart) to L — the library source file (2) writer: upload_file (multipart, is_private 1) to P (3) writer: upload_file JSON {doctype, docname: P, library_file_name: <L's File>} (Library tab) (4) writer: upload_file JSON {doctype, docname: P, file_url: 'https://example.com/sfui-p36b.txt', is_private: 0} (Link tab; no file part) (5) writer: a 4th upload to P (6) manager: getdoc P → docinfo.attachments (7) reader: upload_file to P (8) reader: frappe.desk.form.utils.remove_attach {fid, dt, dn} (POST) on the multipart file (9) writer: remove_attach on it
+- **Expected Frappe behaviour:** 3 × 200 (File docs attached to P; the Library copy takes the source's is_private / file_url / file_name; the Link one is a remote file_url); the 4th → 417 AttachmentLimitReached 'Maximum Attachment Limit of 3 has been reached…'; docinfo.attachments has 3 rows (name, file_name, file_url, is_private); reader upload → 403 (write on P); reader remove → 403 (File.has_permission delete → owner or write on the attached document); writer remove → 200, 2 attachments left and an 'Attachment Removed' comment
+- **Frappe source:** handler.py:174-263 upload_file (library_file_name :208-218, check_write_permission :220-221, 266-282); core/doctype/file/file.py:93-124 before_insert (validate_attachment_limit :100, 333-357); core/doctype/file/file.py:872-911 has_permission (owner :883-884; write on the attached document :906-907); core/doctype/file/file.py:183-190 on_trash ('Attachment Removed'); desk/form/utils.py:19-23 remove_attach (DELETE / POST); desk/form/load.py:124 docinfo.attachments; public/js/frappe/form/sidebar/attachments.js:30-55, 137-146, 161-174, 211-236 (Desk UI)
+- **Evidence to capture:** statuses / exc_type, File names, docinfo.attachments shape before / after
+
+#### F-SB-ATTACH-2 — P36b — protect_attached_files: remove on draft / submitted / cancelled
+
+- **Kind / automation:** write · api
+- **Rows:** 
+- **User / role:** manager, writer
+- **Preconditions:** **needs `protect_attached_files = 1` on SFUI Test Parent** (Customize Form / Property Setter — the staging seed does not set it; without it the test is BLOCKED); fresh documents by manager
+- **Steps:** (1) manager: getdoctype SFUI Test Parent → protect_attached_files (BLOCK if 0) (2) manager: draft D with one attachment → writer remove_attach (write on D) (3) manager: submitted S with one attachment → manager remove_attach (4) manager: cancelled C (submit, attach, cancel) → writer remove_attach (no delete right), manager remove_attach (delete right)
+- **Expected Frappe behaviour:** draft: removed (200); submitted: 417 'This file is attached to a protected document and cannot be deleted.' (title 'Protected File'); cancelled: writer 417, manager 200 (delete permission on the document). Desk hides × in the same cases (attachments.js:161-174)
+- **Frappe source:** core/doctype/file/file.py:510-538 validate_protected_file; core/doctype/file/file.py:183-190 on_trash; public/js/frappe/form/sidebar/attachments.js:161-174 can_delete_attachment (Desk UI)
+- **Evidence to capture:** the meta flag, statuses / exc_type per case
+
+#### F-SB-TAGS-1 — P36b — Form Sidebar Tags: add_tag / remove_tag / get_tags; write refusal rolls back
+
+- **Kind / automation:** reject · api
+- **Rows:** 
+- **User / role:** writer, reader, manager
+- **Preconditions:** a fresh draft by writer
+- **Steps:** (1) writer: frappe.desk.doctype.tag.tag.add_tag {tag: 'sfui-p36b', dt, dn} (2) writer: get_tags {doctype, txt: 'sfui-p3'} (3) manager: getdoc → _user_tags, modified, docinfo.tags (4) reader: add_tag {tag: 'sfui-p36b-reader', dt, dn} (5) reader: remove_tag {tag: 'sfui-p36b', dt, dn} (6) writer: remove_tag {tag: 'sfui-p36b', dt, dn}
+- **Expected Frappe behaviour:** writer add → 200 (returns the tag); get_tags lists 'sfui-p36b' (Tag list, txt matched case-insensitively); _user_tags contains it, `modified` unchanged (set_value update_modified=False), docinfo.tags contains it; reader add → 403 PermissionError (update_tags checks write AFTER _user_tags was set — the request rolls back, so _user_tags is unchanged); reader remove → 403, tag kept; writer remove → 200, tag gone
+- **Frappe source:** desk/doctype/tag/tag.py:34-39 add_tag, :52-55 remove_tag, :65-70 get_tags; desk/doctype/tag/tag.py:87-99 DocTags.add / remove, :105-126 update (set_value :114, update_tags :116, re-raise :125-126); desk/doctype/tag/tag.py:147-152 update_tags (check_permission write); desk/form/load.py:136, 387-395 docinfo.tags; public/js/frappe/ui/tag_editor.js:35-63, 84-101 (Desk UI, no client gate)
+- **Evidence to capture:** statuses / exc_type, _user_tags and modified before / after each step
+
+#### F-SB-LIKE-1 — P36b — Form Sidebar Like: toggle_like, _liked_by, Like comment, modified untouched
+
+- **Kind / automation:** write · api
+- **Rows:** LV.E5
+- **User / role:** writer, reader, restricted, manager
+- **Preconditions:** a fresh draft by writer linked to contact #12 (restricted cannot read it)
+- **Steps:** (1) reader: frappe.desk.like.toggle_like {doctype, name, add: 'Yes'} (2) manager: getdoc → _liked_by, modified, docinfo.like_logs (3) reader: toggle_like {…, add: 'No'} (4) restricted: toggle_like {…, add: 'Yes'} then 'No' (cannot read the document)
+- **Expected Frappe behaviour:** reader like → 200, _liked_by = [reader] (JSON list), `modified` unchanged (update_modified=False), a 'Like' comment ('Liked') in docinfo.like_logs; unlike → _liked_by without reader and the Like comment deleted; restricted → RECORDED: toggle_like has no permission check, so 200 is Frappe's behaviour (a user can like a document it cannot read)
+- **Frappe source:** desk/like.py:15-27 toggle_like (no permission check); desk/like.py:30-65 _toggle_like (set_value update_modified=False :55-58); desk/like.py:68-91 remove_like / add_comment; desk/form/load.py:146-180 add_comments (like_logs); public/js/frappe/form/sidebar/form_sidebar.js:51-61, 237-251; public/js/frappe/ui/like.js:12-57 (Desk UI)
+- **Evidence to capture:** statuses, _liked_by membership (redacted to booleans), modified before / after, like_logs count
+
+#### F-SB-COMMENT-1 — P36b — Comments: add, edit, publish, delete, @mention notification
+
+- **Kind / automation:** reject · api
+- **Rows:** 
+- **User / role:** writer, reader, restricted, manager, sysmgr
+- **Preconditions:** a fresh draft by writer linked to contact #12 (restricted cannot read it); the Mention notification needs the site's background worker (enqueue_create_notification) — recorded, not asserted; the Delete positive needs the optional sysmgr account
+- **Steps:** (1) writer: frappe.desk.form.utils.add_comment {reference_doctype, reference_name, content: '<p>… <span class="mention" data-id="<reader>" …>@SFUI Reader</span></p>', comment_email: writer, comment_by: 'SFUI Writer'} (2) restricted: add_comment on the same document (3) reader: update_comment {name, content} (4) writer: update_comment {name, content} (5) reader: update_comment_publicity {name, publish: 1} (6) writer: update_comment_publicity {name, publish: 1}; manager: getdoc → docinfo.comments (7) writer, then manager: frappe.client.delete {doctype: 'Comment', name} (8) sysmgr (optional): frappe.client.delete (9) reader: Notification Log list (type Mention, document_name = the document) after a few seconds
+- **Expected Frappe behaviour:** writer add → 200 (a Comment doc, comment_type 'Comment'); restricted → 403 (read on the reference document); reader edit → 403 'Comment can only be edited by the owner'; writer edit → 200; reader publicity → 417 (frappe.throw without an exception class = ValidationError); writer publicity → 200 and docinfo.comments has published 1; writer and manager delete → 403 (Comment DocPerm: System Manager / Website Manager only — authorship does not grant delete); sysmgr delete → 200; Mention: a Notification Log for reader (enabled System User, allowed_in_mentions) — RECORDED (depends on the worker)
+- **Frappe source:** desk/form/utils.py:26-50 add_comment (check_permission :31-32); desk/form/utils.py:53-69 update_comment (owner or Administrator :58-59); desk/form/utils.py:72-79 update_comment_publicity (owner or System Manager :75-76); core/doctype/comment/comment.json (permissions: System Manager, Website Manager); core/doctype/comment/comment.py:58-59 after_insert → notify_mentions; desk/notifications.py:390-440 notify_mentions / extract_mentions; desk/doctype/notification_log/notification_log.py:73-100 enqueue_create_notification; desk/form/load.py:146-160 add_comments (published :158); public/js/frappe/form/footer/form_timeline.js:607-676, 723-760 (Desk UI)
+- **Evidence to capture:** statuses / exc_type, the comment's published flag in docinfo, Notification Log count (recorded)
+
 ### 5.2 List
 
 #### L-FETCH-1 — fetch, pagination, sort, filters, counts
@@ -1098,6 +1164,17 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Frappe source:** client.py:28-80
 - **Evidence to capture:** request args, screenshots
 
+#### L-BULK-5 — P36b — bulk Submit / Cancel: docstatus eligibility, unknown name, 20 / 500 thresholds
+
+- **Kind / automation:** write · api
+- **Rows:** LV.F8, LV.F9, LV.F18
+- **User / role:** manager
+- **Preconditions:** fresh drafts created by manager (SFUI Test Parent is submittable; SFUI Manager has submit + cancel); the 20-name step needs the site's background worker only for its recorded outcome
+- **Steps:** (1) manager: create drafts A, B, C, D (2) submit_cancel_or_update_docs(action='submit', [A]) (3) action='submit' on [A, B] (A is already submitted) (4) action='cancel' on [A, C] (C is a draft) (5) action='submit' on [C, 'SFUI-P36B-NOPE'] (6) action='submit' with 501 names (non-existent) (7) action='submit' with D repeated 20 times
+- **Expected Frappe behaviour:** [A] → failed []; [A, B] → failed [A] (submit only takes drafts), B submitted; cancel [A, C] → failed [C] (cancel only takes submitted), A cancelled; [C, unknown] → 404 DoesNotExistError (get_doc is outside the try) and C STAYS submitted (commit per document); 501 names → 417 ValidationError 'Bulk operations only support up to 500 documents.' (title 'Too Many Documents'); 20 names → 200 with NO `message` and the alert 'Bulk operation is enqueued in background.' (D's docstatus afterwards depends on the worker: recorded)
+- **Frappe source:** desk/doctype/bulk_update/bulk_update.py:51-71 submit_cancel_or_update_docs (< 20 sync, 20–500 enqueue, > 500 throw); desk/doctype/bulk_update/bulk_update.py:74-114 _bulk_action (get_doc :82 outside the try; draft-only submit :85; submitted-only cancel :92; else failed :99-100; commit :101)
+- **Evidence to capture:** failed lists, statuses / exc_type, docstatus after each step, `_server_messages` of the 20-name call (redacted)
+
 ### 5.3 Views
 
 #### V-REPORT-1 — Report view: child columns + inline edit
@@ -1154,6 +1231,17 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Expected Frappe behaviour:** only available views offered (Image: image_field; Kanban: a board; Calendar: date field); the filter carries to every view
 - **Frappe source:** (package) src/frappe/views/FrappeViews.tsx
 - **Evidence to capture:** screenshots per view, request filters
+
+#### V-REPORT-2 — P36b — Report view Submit / Cancel: one name per checked row (Desk) vs once per document (package)
+
+- **Kind / automation:** write · api
+- **Rows:** LV.H1, LV.F8, LV.F9, LV.F14
+- **User / role:** manager
+- **Preconditions:** a fresh draft P with 2 child rows and a fresh draft Q without rows, both by manager
+- **Steps:** (1) manager: reportview.get with fields [parent.name, `tabSFUI Test Child`.`item_code`] filtered on P (what the Report view draws) (2) manager: submit_cancel_or_update_docs(action='submit', [P, P, Q]) — what Desk sends when both of P's rows and Q are checked (get_checked_items: one name per datatable row) (3) manager: action='cancel' with [P, Q] — what the package sends (`uniqueNames`) (4) browser (optional, not in the harness): FrappeReportView bulk — check P's two rows + Q → Actions → Submit → the confirmation counts 2 documents
+- **Expected Frappe behaviour:** 2 report rows named P; submit [P, P, Q] → failed [P] (the second copy is no longer a draft) although P and Q are both submitted — the false failure the package's de-duplication avoids; cancel [P, Q] → failed [], both docstatus 2
+- **Frappe source:** public/js/frappe/views/reports/report_view.js:9 (extends ListView), :360 (checkboxColumn), :371-374 (onCheckRow → Actions), :1339-1352 get_checked_items; desk/reportview.py:27-50 get (one row per child row); desk/doctype/bulk_update/bulk_update.py:85, 99-100
+- **Evidence to capture:** row count, failed lists, docstatus after
 
 ### 5.4 Security
 
@@ -1409,6 +1497,39 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Expected Frappe behaviour:** UI and server agree
 - **Frappe source:** (server side) S-API-1, F-SUBMIT-2, F-CANCEL-2, F-MENU-2
 - **Evidence to capture:** screenshots per account
+
+#### S-SHARE-1 — P36b — Share: get_users, add, set_permission per level, cascade, refusal without the share right
+
+- **Kind / automation:** reject · api
+- **Rows:** 
+- **User / role:** manager, writer, reader, restricted
+- **Preconditions:** a fresh draft by manager linked to contact #12 (restricted cannot read it); only SFUI Manager holds `share` on SFUI Test Parent and SFUI Test Contact; document sharing not disabled on the site
+- **Steps:** (1) manager: frappe.share.get_users {doctype, name} (2) writer: frappe.share.add {…, user: reader} (no share right) (3) manager: set_permission {…, user: reader, permission_to: 'share', value: 1} (reader gets share only) (4) reader: add {…, user: restricted, write: 1} (reader holds no write) (5) reader: add {…, user: restricted, read: 1} (6) restricted: getdoc of the document (7) manager: set_permission {…, user: reader, permission_to: 'submit', value: 1} (8) reader: savedocs Save of the document (write through the share) (9) manager: set_permission {…, user: reader, permission_to: 'read', value: 0}; the same for restricted (10) manager: set_permission on SFUI Test Contact #12 {user: reader, permission_to: 'submit', value: 1}
+- **Expected Frappe behaviour:** get_users → 200, a list (fields name, user, read, write, submit, share, everyone, owner, creation); writer add → 403 'No permission to share'; reader's share row = share 1 + read 1 (cascade); reader granting write → 403 'You cannot share `write` …'; reader granting read → 200 (read forced 1); restricted getdoc → 200 (DocShare grants read despite its User Permissions); submit → the row has submit 1, write 1, read 1 (cascade); reader's Save → 200; un-ticking read deletes the row (response WITHOUT `message`) and writes 'Unshared'; submit on the non-submittable Contact → refused (403: the sharer holds no submit there; Administrator would get 417 'not submittable')
+- **Frappe source:** share.py:20-33 add → add_docshare :36-72 (read forced :43-49, check_share_permission :51-52); share.py:82-122 set_permission (un-set read clears all :113-114; row deleted → None :118-120); share.py:125-152 get_users ([] without read); share.py:216-244 check_share_permission (share right :223-226; grant only held rights :233-244); core/doctype/docshare/docshare.py:33-69 validate (cascade :40-44, submittable :63-69), :71-91 Shared / Unshared comments; public/js/frappe/form/sidebar/share.js:12-202 (Desk UI)
+- **Evidence to capture:** statuses / exc_type, DocShare rows (rights only) after each step, presence of `message`
+
+#### S-GSEARCH-1 — P36b — Global Search: DocType-level permission filtering, response shape, paging arguments
+
+- **Kind / automation:** read · api
+- **Rows:** 
+- **User / role:** manager, writer, reader, restricted, sysmgr
+- **Preconditions:** seeded site; Global Search Settings as installed (SFUI DocTypes are not in it; ToDo is in Frappe's defaults and the seed's assignments create ToDos); the `__global_search` index syncs every 15 minutes, so result contents are recorded, not asserted
+- **Steps:** (1) each account: frappe.utils.global_search.search {text: 'sfui', start: 0, limit: 100, doctype: ''} (the dialog's first call) (2) each account: the same with doctype 'SFUI Test Parent' (3) reader, manager: the same with doctype 'Workflow' (System Manager-only DocType) (4) reader: search {text: 'sfui', start: 0, limit: 1, doctype: ''} and {start: 1, limit: 1} (the 'More' arguments) (5) reader: search {text: <writer's e-mail local part>, …} — ToDos allocated to writer (6) sysmgr (optional; recorded only): frappe.client.get Global Search Settings → allowed_in_global_search order
+- **Expected Frappe behaviour:** 200 for every account; every row has exactly doctype, name, content, rank (+ image only for DocTypes with an image_field); doctype 'SFUI Test Parent' → [] (not in Global Search Settings); doctype 'Workflow' → [] for reader and manager (not in get_can_read); limit 1 → at most 1 row; RECORDED: the DocTypes each account gets, and whether reader receives ToDo rows allocated to writer — Frappe filters only by DocType (Settings ∩ get_can_read), never per row, so it is expected once the index is synced
+- **Frappe source:** utils/global_search.py:465-526 search (allowed = Settings ∩ get_can_read :482-484; per-word MATCH :486-511; DocType loop :513-524); utils/user.py:130-185 build_permissions (can_read incl. DocShare doctypes :175-178); desk/doctype/global_search_settings/global_search_settings.py:46-51 get_doctypes_for_global_search; hooks.py:376-393 global_search_doctypes; desk/doctype/todo/todo.json (in_global_search: status, description, allocated_to); public/js/frappe/ui/toolbar/search_utils.js:447-489 get_global_results; search.js:54, 164-186 (Desk UI)
+- **Evidence to capture:** statuses, row key sets, DocType sets per account (no content), counts
+
+#### S-GSEARCH-2 — P36b — Global Search Settings, indexing lag and the dialog's 'More' on real rows
+
+- **Kind / automation:** infra · manual — needs a System Manager on the staging site, the scheduler running (sync_global_search every 15 min) and a Customize Form change that marks an SFUI field In Global Search — the seed creates none of these
+- **Rows:** 
+- **User / role:** sysmgr, manager, reader, restricted
+- **Preconditions:** sysmgr: Customize Form SFUI Test Contact → contact_name In Global Search (rebuild_for_doctype is enqueued); Global Search Settings → add SFUI Test Contact (module SFUI Test, not Core); wait for sync
+- **Steps:** (1) sysmgr: try to add a Core-module DocType (e.g. User) and a duplicate row to Global Search Settings (2) reader / restricted: search {text: 'SFUI Contact', start 0, limit 100} (3) reader: 'More' — search {text, start: 20, limit: 20, doctype: 'SFUI Test Contact'} (4) manager: create a contact; search for it at once, then after the next sync (5) browser (optional, harness has no search bar): the package dialog over the same server — All Results (4 + More), group list (20 + More, '<N> results found')
+- **Expected Frappe behaviour:** Core module → 'Core Modules … cannot be searched in Global Search.'; duplicate → 'Document Type … has been repeated.'; reader and restricted both get SFUI Test Contact rows — restricted also for contacts outside its User Permissions (no row-level filter; opening them is still 403); More returns the next page; a new contact appears only after the sync (≤ 15 min)
+- **Frappe source:** desk/doctype/global_search_settings/global_search_settings.py:22-40 validate, :46-51 order by idx; utils/global_search.py:233-279 update_global_search (queue), :362-413 sync_global_search, :465-526 search; hooks.py:201-206 (sync every 15 min); core/doctype/doctype/doctype.py:588-602 rebuild_for_doctype; model/meta.py:217-223 get_global_search_fields
+- **Evidence to capture:** validation messages, row counts per account (names only), timestamps of the sync
 
 ## 6. Result schema (results.json, one entry per test; rows aggregated)
 

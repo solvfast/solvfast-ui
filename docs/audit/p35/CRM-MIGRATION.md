@@ -13,6 +13,10 @@ is bumped. Nothing in this file was run against a Frappe site; the CRM runs in m
 > are annotated "(P36)". The package side is 0.7.0-dev.2 (unreleased, `feat/0.7.x/p36-int`); the CRM side is the P36 CRM
 > workstream on `crm/p36-ds`. Index: `docs/audit/p36/README.md`.
 
+> **P36b update (batch 2, package 0.7.0-dev.3).** Three CRM branches (local, not merged, not pushed): `crm/p36b-pickers`
+> (P1–P5 on the DS `LinkInput` picker mode), `crm/p36b-search` (header Global Search restored) and `crm/p36b-070` (both).
+> Commission & Referral (M10) are still not migrated. Details: §8; index: `docs/audit/p36b/README.md`.
+
 ## 1. Rules every migration followed
 
 - **Scope gate.** Every DS branch is inside `useDsScope() === true` (the CRM's `DsScopeContext`) or the existing `inDs`
@@ -141,7 +145,7 @@ meaning is a link to a record, not as a blanket swap of the shared component. Se
 
 | Usages | Decision | Branch |
 |---|---|---|
-| Lifecycle, SLA and Assignment Profile on the Lead/Deal type form; "Reuse an existing form" on the proposal type form; the CRM Configuration defaults (P1–P5) | Pick an existing document → `LinkInput` | **Not on the 0.6.0 branch.** Kept on `crm/p36-linkinput-review` (`6310fc0`) pending owner review: `LinkInput` is a text box, so clicking a filled field does not open the list (type, ArrowDown or clear first), and there is no check mark. Owner decision 2 ("only when the DS component fully supports the existing behaviour") is not met. A DS "open on focus/click when filled" option would close the gap. |
+| Lifecycle, SLA and Assignment Profile on the Lead/Deal type form; "Reuse an existing form" on the proposal type form; the CRM Configuration defaults (P1–P5) | Pick an existing document → `LinkInput` | **Not on the 0.6.0 branch.** P36: held back on `crm/p36-linkinput-review` (`6310fc0`) — a filled `LinkInput` did not open on click and had no check mark. **(P36b)** the package added an opt-in picker mode (0.7.0-dev.3: open on click / tap / Enter when filled, check mark on the current value, Escape restores); P1–P5 now use it on `crm/p36b-pickers` (`0d1e1c6` = `6310fc0` cherry-picked + `31c4999`). Remaining keyboard differences are listed for owner judgement in §8.1. |
 | Field designer "Links to" (P6) | Static option list → `SearchCombobox` `options` (0.7.0-dev.1) | `crm/p36-needs-070` (`bf46479`) |
 | Country, City, Organization-by-name (7) | Kept: the explicit "Use «typed»" row has no DS equivalent | — |
 | `ClientPicker` (3) | Kept: CRM-specific trigger avatar and "Create New Client" | — |
@@ -254,3 +258,71 @@ menu, Connections, e-mail composer, sidebar counts) that the CRM can use only in
 - `DataGrid` fixed minimum width on phones (§5.3) — still open. **(P36)** Accepted by the owner for now: the table keeps
   its `32rem` minimum and horizontal scroll (a card layout was built and reverted in batch 2). CRM M10 stays not migrated;
   the editing-model change (one row at a time vs every row editable) needs owner approval first (§5.3).
+
+## 8. P36b (batch 2) — CRM branches
+
+All three branches are in the CRM repository, based on `crm/p36-needs-070` (`bf46479`, which targets 0.7), local only (not
+merged, pushed or deployed). The CRM pin is still `@solvfast/ui` 0.6.0; every check below ran on a local static build in
+**mock data mode** against a local pack of the package workstream branch — no site, bench, database or cache.
+
+### 8.1 `crm/p36b-pickers` — P1–P5 on the `LinkInput` picker mode
+Commits `0d1e1c6` (P36's held-back `6310fc0`, cherry-picked unchanged) and `31c4999` (picker-mode props: `CrmOptionLinkInput`
+passes `openOnClickWhenFilled`, `selectedIndicator`, `selectedValue` for the "None" / "No default" / "A new form for this
+type" row, `keepValueWhenEmptied`, `debounceMs={0}`, and the SearchableSelect's search placeholder and empty text). Files:
+`components/CrmOptionLinkInput.tsx`, `pages/CRM/types/CrmTypeFormPage.tsx`, `pages/Configuration/AppConfigurationPage.tsx`,
+`pages/Proposals/ProposalTypeFormPage.tsx`; every change is inside the existing `inDs` gate (the `else` branch is the
+SearchableSelect verbatim), so Service Desk / Service Management configuration keep `SearchableSelect`.
+
+| Picker (route) | Migrated | Workstream picker checks (8 combinations) |
+|---|---|---|
+| P1 Linked Lifecycle (`/crm-app/leads/types/new`, 34 rows incl. "None") | yes | 160 / 0 |
+| P2 SLA Policy (same page, 5 rows, no none row — no ×) | yes | 144 / 0 |
+| P3 Assignment Profile (same page, 5 rows incl. "None") | yes | 176 / 0 |
+| P4 Reuse an existing form (`/crm-app/proposals/types/new`, 13 rows) | yes | 176 / 0 |
+| P5 Configuration defaults (`/crm-app/configuration`: Lifecycle / SLA / Decision Tree) | yes | 168 / 0 each |
+
+New check `scratchpad/p36b/crm-qa/linkinput.mjs` (en + ar, light + dark, 1440 + 390-touch): before = 448 notes; after
+**1168 PASS / 0 FAIL**, 0 console / page errors. Standard suite vs the integrator's `v072` run: identical (typecheck 30,
+route sweep 82 loads / 2 pre-existing issues, mock 16 / 0, records-assign 111 / 0, 28 lists 112 / 112, legacy 56 / 0,
+`p35.mjs` 376 / 0, tags/assign 43 / 43 ×2, actions-p33 22 / 22 ×2, `p36-legacy.mjs` 10 / 0); `p36.mjs` (`LINKS_TO=1`)
+336 / 0 (the 216 of `v072` + the 120 original P1–P5 checks); SD / SM diff within the base-vs-base noise.
+
+**Remaining differences from the SearchableSelect — for owner judgement** (none loses a function):
+- **Space** types a space instead of opening the list (click / tap / Enter / ArrowDown open it) — a text box needs Space.
+- **Arrows wrap** at the ends (cmdk stopped at the first / last row).
+- **No Ctrl+N / Ctrl+P** (cmdk's Ctrl+N/J/P/K bindings are not reproduced).
+- The control is a **text box 4 px shorter** (DS field `h-9`) than the button it replaces (`h-10`).
+Also different, judged improvements by the workstream: Tab moves to the next field and closes the list (before, focus
+jumped into the portal and the popover stayed open); the field label is the accessible name (before: the value text);
+× is an extra way to set "None" on P1 / P3 / P4 / P5. Parity note: Enter then Enter picks the highlighted **first** row
+("None" / "No default" / "A new form…") — the SearchableSelect did the same (cmdk highlights the first row), so this is
+not a regression; starting the highlight on the current value would be a refinement for both.
+
+### 8.2 `crm/p36b-search` — header Global Search restored
+Commits `93ae78a` + `7a6ca1b` (rows and Ctrl/⌘-click new tabs carry the router basename `/serve-fast`). The CRM header
+search had been hidden by `edcc736` ("SH-03: no dead navbar search", `AppShell search={false}`) because it did nothing.
+`CrmAppLayout.tsx` now passes `search={{ slot: <CrmGlobalSearch …/> }}` (new `components/Layout/CrmGlobalSearch.tsx`);
+`CrmAppLayout` is the CRM-only DS shell, so Service Desk / Service Management frames and the shared `TopBar.tsx` are
+untouched (QA: `/service-desk-app/tickets` has no global search, 8 / 8).
+- **Mock mode (every build checked):** reads the CRM's own stores, the same ones the lists read — contacts, leads (the
+  Contacts list's lead scope), organizations, deals — matched on each list's search fields at query time; awesome-bar rows
+  "Open {page}" for every sidebar leaf; recents = this tab's visited record / page routes. No per-user visibility rule
+  exists in those lists, and none was invented.
+- **Frappe / simulated branch: UNVERIFIED.** It uses the package adapter (`createFrappeSearchSource` →
+  `frappe.utils.global_search.search`) with `resolveUrl` mapping the Serve Fast DocTypes to `/crm-app/…`. The CRM page boot
+  carries no Desk `can_read` / `can_create` lists, so there the awesome bar shows CRM pages + recents only; group titles
+  would be raw DocType names. Never run against a backend.
+- QA: new `scratchpad/p36b/crm-qa/search-p36b.mjs` **188 / 0**, 0 console errors (8 combinations); standard suite = `v072`.
+- **Owner judgement:** at 390 px the search icon is one more 32 px button in the CRM header (title, search, bell, globe,
+  theme, home, support), so long titles truncate earlier (e.g. ar "جهات الات…" on Contacts); no overflow.
+
+### 8.3 `crm/p36b-070` — both combined
+`f7bd1da` = `crm/p36b-pickers` + `crm/p36b-search` on `bf46479` (the 0.7 branch for the next CRM pin bump).
+Regression of crm/p36b-070: see docs/audit/p36b/README.md
+
+### 8.4 Still not migrated
+- **Commission & Referral (M10):** unchanged — the tables keep the DS `Table`. A `DataGrid` migration changes the editing
+  model (every row editable → one row at a time, "Add year" → "Add Row", extra No. / checkbox / ⋯ columns) and needs
+  **owner approval** first; no card layout (owner rule, §5.3).
+- Country / City / Organization-by-name, `ClientPicker`, `MultiSearchableSelect`, `TypeFilterPicker`, `AppliesToPicker`:
+  unchanged (§5.1).

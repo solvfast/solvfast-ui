@@ -6,6 +6,118 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.3 (unreleased) — P36 batch 2
+
+P36 batch 2 (P36b) — owner-requested features: LinkInput picker mode, Submit / Cancel in the Report view, Frappe Global
+Search, the Form Sidebar (Assign, Attach, Tags) and its Share / Like / Comments parts. `package.json` `version` is
+`0.7.0-dev.3` (not tagged, not published). Coverage of the fixed P35 list is unchanged (**258 / 301**); the batch-2 features
+without a requirement row are recorded outside the denominator (`docs/audit/p35/COVERAGE.md` §9–§10). **No real-site
+validation:** every new server path is simulator-only. Index: `docs/audit/p36b/README.md` (repository only).
+
+### Added
+- **LinkInput picker mode (Core, opt-in)** — for Link pickers over a known list: `openOnClickWhenFilled` (click / tap /
+  Enter / ArrowDown opens the FULL list on a filled box, the shown text selected; Escape closes and restores the shown
+  value; Home / End move in the open list; decorative chevron), `selectedIndicator` + `selectedValue` (check mark and
+  `aria-selected` on the current value, the highlight via `aria-activedescendant`; `selectedValue` marks a "None" row),
+  `keepValueWhenEmptied`, `emptyText`, `searchPlaceholder`. Defaults unchanged, so `FrappeLinkField` is unchanged.
+- **Report view Submit / Cancel (`@solvfast/ui/frappe`)** — `FrappeReportView` `bulk?: FrappeBulkOptions` gives the
+  checked rows Desk's whole Actions menu, as the Report view inherits it from the List view (report_view.js:9, 360,
+  371-374): Edit, Export, Assign, Tags, Print, **Submit** (submittable + submit right + no active Workflow), **Cancel**
+  (cancel right + no active Workflow), Delete, workflow actions. `FrappeViews` `bulk` forwards it to the List and Report
+  views (`list.bulk` / `report.bulk` override per view). New `useFrappeSelectionActions` (the selection → Actions wiring
+  shared by `FrappeListView` and `FrappeReportView`) and `uniqueNames`.
+- **Global Search** — Core `GlobalSearchBar` / `GlobalSearchDialog` (Desk's awesome bar and Global Search dialog:
+  Ctrl/⌘+G, 100 ms / 300 ms debounce, index-ranked rows, "Search for …", grouped results with All Results (4 + More) and
+  per-group paging (20 + More), loading / empty / error + Retry, keyboard, RTL; phones get an icon + full-screen dialog),
+  types `GlobalSearchSource`, `SearchItem`, `SearchResultGroup`; `Navbar` `search={{ slot }}` (`NavbarSearchSlot`, rendered
+  at every width). Frappe adapter `useFrappeGlobalSearch` / `createFrappeSearchSource` over
+  `frappe.utils.global_search.search` (`{text, start, limit, doctype}`) and Desk's boot lists (`DeskSearchBoot`,
+  `deskSearchBootFrom`, Desk's fuzzy ranking `fuzzySearch`), routing through `onNavigate(url, info)`.
+- **Form Sidebar** — Core `FormSidebar`, `SidebarSection`, `AttachmentList`, `AttachDialog`, `TagList`
+  (`FORM_SIDEBAR_SECTIONS`); Frappe `FrappeFormSidebar` (Desk's order: Assigned To, Attachments, Tags, Share,
+  likes · comments, last edited / created; Share / Likes / comment count / Comments render by default, a host node or
+  `null` replaces each), `FrappeAttachments` (upload, Library, Link, remove, `max_attachments`, `protect_attached_files`),
+  `FrappeDocTags`, `FrappeAssignTo layout="sidebar"` (+ `allowComplete`, `bundle`), `useFormSidebarActions`, and the
+  `attachments.ts` / `tags.ts` helpers. All sections read the one shared docinfo query (`useRecordDocInfo`).
+- **Share / Likes / Comments** — Core `ShareDialog`, `SharedAvatars`, `LikedBy` (`SHARE_RIGHTS`); Frappe
+  `FrappeSidebarShare` (`frappe.share.get_users / add / set_permission`), `FrappeSidebarLikes`
+  (`frappe.desk.like.toggle_like`, reads `doc._liked_by`), `FrappeComments` (`variant="list" | "count"`; add, edit, delete,
+  publish, @mentions; `focusCommentBox`) and the `share.ts` / `like.ts` / `comments.ts` helpers; Core `Timeline`
+  `onTogglePublish` / `canPublish` / `isPublished` (+ labels); `FrappeTimeline` `allowPublish` (default off). Never
+  optimistic: the UI changes only after the server answered.
+- Additive props: `TagInput` `exclude`, `autoFocus`; `AssigneeGroup` `hideHeading`, `onComplete`, `canComplete`;
+  `AssignDialog` `defaultDetails`.
+- **Messages** (en + ar): `listBulkCannotSubmit` "Cannot submit {names}.", `listBulkCannotCancel` "Cannot cancel {names}.",
+  and the search / sidebar / social chrome strings (`src/theme/messages-ws/{search,sidebar,social}.ts`).
+- **Simulator (`@solvfast/ui/frappe/testing`, SIMULATED)** — built-in handlers for `frappe.utils.global_search.search`
+  (DocType-level read filter, Global Search Settings order), `upload_file` (JSON `library_file_name` / `file_url`),
+  `frappe.desk.form.utils.remove_attach`, `tag.add_tag` / `remove_tag` / `get_tags`,
+  `frappe.core.api.file.get_files_by_search_text`, `frappe.share.get_users` / `add` / `set_permission`,
+  `update_comment_publicity`, and an `add_comment` that records Mention notifications. New exports: `withSimulatedSidebar`
+  (docinfo attachments / tags + attachment uploads), `bulkUpdateHandler` (opt-in: the form path + submitted back links),
+  `bulkDemoBackend`.
+
+### Changed (behaviour visible to 0.7.0-dev.2 consumers)
+1. **Bulk Submit / Cancel failure wording** (`FrappeBulkActions`, List and Report views): the outcome line now adds Desk's
+   sentence "Cannot submit {names}." / "Cannot cancel {names}." (bulk_operations.js:286-298). Desk shows it in an error
+   dialog and does not refresh; the package keeps its status line, keeps the selection and reloads (P36 rule).
+2. **Report view de-duplicates names (documented deviation from Desk).** With `bulk`, a document shown on several Report
+   rows (one per child-table row) is sent once and counted once in the confirmation. Desk sends one name per checked row
+   (report_view.js:1339-1352) and the server then reports the second copy as failed.
+3. `FrappeListView` builds its selection actions through `useFrappeSelectionActions` (extracted unchanged; no behaviour
+   change).
+4. `FrappeTimeline` wraps its comment composer in `<div data-sf-comment-box>` (the sidebar comment counter focuses it) —
+   a DOM change only.
+5. **Simulator fidelity changes that can affect consumers' own tests** (`createFixtureTransport`):
+   - `submit_cancel_or_update_docs` follows bulk_update.py:51-114: Submit takes drafts only (submitting an already
+     submitted document is now reported as **failed**, before it "succeeded" as an update), Cancel takes submitted
+     documents only, Update skips cancelled ones; an **unknown name fails the whole request** (404; documents before it
+     stay changed); 20–500 names answer with no `message` and the alert "Bulk operation is enqueued in background." (the
+     job runs at once in the simulator); more than 500 → 417 "Too Many Documents".
+   - `tag.add_tags` checks **write** on each document when the transport has permissions (tag.py:147-152 `update_tags`);
+     the P27 test that read "no permission check" was corrected.
+   - `get_docinfo` / getdoc docinfo `comments` carry `published` (load.py:158).
+   - `add_comment` (social handler) truncates the parent's `_comments` entries at 100 characters (comment.py:130-131) and
+     writes Mention Notification Log rows.
+
+### Fixed
+- Simulator: bulk Submit of a submitted document succeeded; bulk calls had no 20 / 500 thresholds and an unknown name was
+  reported as a per-document failure instead of failing the request (Changed 5).
+- Simulator: `tag.add_tags` accepted a user without write.
+- Simulator: docinfo comments lacked `published`, so the "Published" marker never showed.
+
+### Deviations from Desk (each deliberate; details in `docs/audit/p36b/README.md` §4)
+- **LinkInput picker mode** opens on click / Enter on a filled box (Desk's Link never does, link.js:35-41) and marks the
+  current value (Awesomplete marks the highlight) — owner requirement (select parity); opt-in. Space types instead of
+  opening, arrows wrap, no Ctrl+N/P bindings.
+- **Report view** sends each document once (Changed 2).
+- **Bulk outcome** is a status line + reload, not Desk's error dialog without refresh (Changed 1); no `task_id` progress bar.
+- **Global Search:** no calculator (Desk `eval`s), random password, `#tag` search, Help table, executables or Marketplace
+  rows; phones get an icon + full-screen dialog (Desk keeps a 300 px bar); the dialog adds an error state with Retry and
+  ↑/↓/Enter navigation; "New X" goes to `/app/<slug>/new` (Desk may open Quick Entry); result links are the canonical
+  `/app/<slug>/<name>`.
+- **Form Sidebar:** assignees listed one per row with Done / × (Desk: avatar stack + "Assignments" dialog); no "Assign To
+  User Group"; no upload percentage, Camera, Google Drive, crop / optimize; Library is a text search (no folder tree);
+  empty-section texts; a refused tag pill is removed with the server message (Desk keeps it); not hidden on phones (Desk
+  `hidden-xs hidden-sm`); not reproduced: sidebar image, Follow, Reviews, auto-repeat, page views; the comment list is in
+  the sidebar slot (Desk: form footer). Attach "+" and Tags add / remove are offered to every reader as in Desk (the
+  server refuses: handler.py:220-221, tag.py:152); removing an attachment still needs write (attachments.js:161).
+- **Share / Like / Comments:** full name + id in share rows; an "Everyone" pill; a read-only hint naming the reason;
+  `disable_document_sharing` is a prop (`sharingDisabled`); a saving share row is disabled until the answer; the liked-by
+  list opens from the count button (Desk: hover only); comment edit is not optimistic (Desk shows the new text first);
+  Delete / Publish are icon buttons with Desk's confirmations; the count focuses the comment box.
+
+### Validation status
+- **No real-site validation.** No Frappe site was contacted, seeded, read or written in batch 2. Evidence is jsdom + the
+  in-package simulator: `tests/bulk-p36b.test.tsx` (21), `tests/form-sidebar-p36b.test.tsx` (22),
+  `tests/social-p36b.test.tsx` (22), `tests/global-search-p36b.test.tsx` (15), `tests/linkinput-p36b.test.tsx` (13).
+- Real-site validation stays **prepared, not run**: the catalogue gained 11 batch-2 tests (now **86**: 73 API, 7 browser,
+  6 manual) — `docs/audit/p36/VALIDATION-MATRIX.md` §5 (L-BULK-5, V-REPORT-2, F-SB-ASSIGN-1, F-SB-ATTACH-1, F-SB-ATTACH-2,
+  F-SB-TAGS-1, S-SHARE-1, F-SB-LIKE-1, F-SB-COMMENT-1, S-GSEARCH-1, S-GSEARCH-2). Every real-site result is BLOCKED.
+- Integration gates at this docs commit: `npx vitest run` — 79 files, 1585 passed, 10 todo, 0 failed (0.7.0-dev.2 batch 2 before the merges: 74 files, 1492); `node e2e/frappe-site/matrix/render.mjs
+  --check` current; `tests/frappe-site-guards.test.ts` 23 passed. Integrator gates (typecheck, boundaries, build, CRM
+  regression): `docs/audit/p36b/README.md` "Integrator gate results".
+
 ## 0.7.0-dev.2 (unreleased) — P36
 
 P36 — owner decisions on the P35 open items, and real-site validation **prepared, not run**. `package.json` `version` is

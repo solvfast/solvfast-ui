@@ -1,4 +1,4 @@
-# The Frappe layer — `@solvfast/ui/frappe` (0.7.0-dev.2)
+# The Frappe layer — `@solvfast/ui/frappe` (0.7.0-dev.3)
 
 An optional entry point that renders Frappe DocTypes — list, form, record panels, other list views — on **stock Frappe 15
 whitelisted methods only** (no app-specific backend). The core package (`@solvfast/ui`) never imports it;
@@ -41,11 +41,13 @@ cross-origin) plugs in as a custom `transport` (`createFrappeClient({ transport 
 |---|---|---|
 | Client, provider, errors | `createFrappeClient`, `FrappeProvider`, `useFrappeClient`, `FrappeError`, `FrappeErrorState`, `readFrappeBoot`, `userDefaultsFromBoot` | `docs/components/foundation.md` |
 | Data hooks and services | `useMetaBundle`, `useDoc`, `useDocInfo`, `useSaveDoc`, `useDocAction`, `usePermissions`, `formatValue`, `resolveIndicator`, realtime (`useListRealtime`; `createSocketRealtime` is a skeleton) | `foundation.md` |
-| List View | `FrappeListView`, `useFrappeList`, bulk actions, print, Import / Export, saved filters and user settings (`createFrappeSavedFilters`, `createFrappeUserSettings`), the group-by sidebar (`FrappeGroupBySidebar`), `FrappeListSettingsDialog` | `docs/components/list.md` |
-| Other list views | `FrappeViews` (switcher host), `FrappeReportView`, `FrappeImageView`, `FrappeKanbanView`, `FrappeCalendarView`, `availableViews` | `docs/components/views.md` (repository only — not in the npm tarball) |
+| List View | `FrappeListView`, `useFrappeList`, bulk actions (`useFrappeSelectionActions`, shared with the Report view), print, Import / Export, saved filters and user settings (`createFrappeSavedFilters`, `createFrappeUserSettings`), the group-by sidebar (`FrappeGroupBySidebar`), `FrappeListSettingsDialog` | `docs/components/list.md` |
+| Other list views | `FrappeViews` (switcher host; `bulk`), `FrappeReportView` (`bulk`: Desk's Actions incl. Submit / Cancel), `FrappeImageView`, `FrappeKanbanView`, `FrappeCalendarView`, `availableViews` | `docs/components/views.md` (repository only — not in the npm tarball) |
 | Form View | `FrappeForm`, `FrappeFormView`, `FrappeField`, `FrappeLinkField`, `FrappeChildTable`, `FrappeQuickEntry`, `useUnsavedChangesBlocker`, the behaviour engine (`depends_on`, defaults, mandatory, `fetch_from`, undo / redo), `formEvents` (Desk's form events instead of Client Scripts) | `docs/components/forms.md` |
 | Record panels | `FrappeWorkflowActions`, `FrappeTimeline`, `FrappeAssignTo`, `FrappeStatusIndicator`, the ⋯ menu (`FrappeRecordMenu`, `formMenuItems`), `FrappeFormPrint`, `FrappeConnections`, `FrappeEmailComposer`, `FrappeReminder` | `docs/components/record.md` |
-| Simulator — separate entry `@solvfast/ui/frappe/testing` | `createFixtureTransport`, `simScenario` | — (`@solvfast/ui/frappe` never imports it) |
+| Form Sidebar (0.7.0-dev.3) | `FrappeFormSidebar`, `FrappeAttachments`, `FrappeDocTags`, `FrappeAssignTo layout="sidebar"`, `FrappeSidebarShare`, `FrappeSidebarLikes`, `FrappeComments`, `useFormSidebarActions`, the `attachments` / `tags` / `share` / `like` / `comments` helpers | `docs/components/record.md` |
+| Global Search (0.7.0-dev.3) | `useFrappeGlobalSearch`, `createFrappeSearchSource`, `deskSearchBootFrom`, `fuzzySearch` (the bar / dialog are Core: `GlobalSearchBar`, `GlobalSearchDialog`) | `docs/components/search.md` |
+| Simulator — separate entry `@solvfast/ui/frappe/testing` | `createFixtureTransport`, `simScenario`, `withSimulatedSidebar`, `bulkUpdateHandler`, `bulkDemoBackend` | — (`@solvfast/ui/frappe` never imports it) |
 
 ## Methods called
 
@@ -62,7 +64,10 @@ security: a refused call is shown as the server's error.
 | Sidebar (only with `sidebar`) | `frappe.desk.listview.get_group_by_count`, `frappe.desk.reportview.get_sidebar_stats` |
 | Document writes | `frappe.desk.form.save.savedocs` (Save / Submit / Update), `frappe.desk.form.save.cancel`, `frappe.desk.form.linked_with.get_submitted_linked_docs` / `cancel_all_linked_docs`, `frappe.client.is_document_amended`, `frappe.client.delete`, `frappe.rename_doc`, `frappe.client.set_value` (Report view inline edit, Kanban group mode), `run_doc_method`, `upload_file` |
 | Workflow | `frappe.model.workflow.get_transitions`, `apply_workflow`, `get_common_transition_actions`, `bulk_workflow_approval` |
-| Assignment, comments, tags, likes | `frappe.desk.form.assign_to.add` / `remove` / `add_multiple` / `remove_multiple`; `frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply`; `frappe.desk.form.utils.add_comment` / `update_comment` (delete = `frappe.client.delete` on the Comment); `frappe.desk.doctype.tag.tag.add_tags`; `frappe.desk.like.toggle_like` |
+| Assignment, comments, tags, likes | `frappe.desk.form.assign_to.add` / `remove` / `close` / `add_multiple` / `remove_multiple`; `frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply`; `frappe.desk.form.utils.add_comment` / `update_comment` / `update_comment_publicity` (delete = `frappe.client.delete` on the Comment); `frappe.desk.doctype.tag.tag.add_tags` / `add_tag` / `remove_tag` / `get_tags`; `frappe.desk.like.toggle_like` |
+| Attachments (Form Sidebar) | `upload_file` (multipart, or JSON with `library_file_name` / `file_url`); `frappe.desk.form.utils.remove_attach`; `frappe.core.api.file.get_files_by_search_text` |
+| Sharing | `frappe.share.get_users`, `frappe.share.add`, `frappe.share.set_permission` |
+| Global Search | `frappe.utils.global_search.search` (`{text, start, limit, doctype}`); the awesome bar itself makes no request (boot lists) |
 | Bulk | `frappe.desk.reportview.delete_items`; `frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs` |
 | Print | `frappe.utils.print_format.download_multi_pdf` / `download_multi_pdf_async` (list), `download_pdf` (form), `frappe.www.printview.get_html_and_style` (form preview) |
 | Connections, e-mail, reminders | `frappe.desk.notifications.get_open_count`; `frappe.core.doctype.communication.email.make`; `frappe.email.doctype.email_template.email_template.get_email_template`; `frappe.automation.doctype.reminder.reminder.create_new_reminder` |
@@ -110,6 +115,12 @@ Frappe drops arguments a whitelisted function doesn't declare, so "Match any" to
   rename, workflow, assignment, comments, tags, likes, bulk actions, print, e-mail, reminders, List Settings and saved
   filters call the methods above. The UI never reports a success the server did not confirm; refusals show the server's
   message. **None of these writes has been run on a real site.**
+- **Batch 2 (0.7.0-dev.3).** `FrappeReportView bulk` gives the checked rows Desk's Actions (Submit / Cancel included)
+  with the List view's gates; a document repeated on several Report rows is sent once (deviation). `FrappeFormSidebar`
+  renders Desk's form sidebar — Assign, Attachments, Tags, Share, likes · comment count, Comments — over the one shared
+  docinfo query; Attach "+" and tag editing are offered to every reader and the server refuses without write, as in Desk.
+  `useFrappeGlobalSearch` feeds the Core `GlobalSearchBar` (Desk's awesome bar from boot lists, `global_search.search`
+  for documents). All of it is simulator-only.
 - **Per-user list settings** go to Frappe's `user_settings` (Desk's `sort_by` / `sort_order` / `filters`, plus the
   package's own keys under `List.sf_ui`) when `serverStorage` is on; saved filters are `List Filter` rows.
 - **Errors.** Frappe's message (from `_server_messages` or the exception) is shown by kind, with Retry only where retrying
@@ -133,8 +144,9 @@ See `docs/LIMITATIONS.md` for the complete list and the reasons.
 
 Nothing in this layer has run against a real Frappe site. P36 prepared a guarded validation (repository only):
 `docs/audit/p36/VALIDATION-MATRIX.md` classifies every requirement row of the coverage matrix by the evidence it needs and
-names the test that would validate it (75 tests: API reads and writes, browser checks through a harness of
-`FrappeForm` / `FrappeListView` / `FrappeViews`, and 5 manual checks); `e2e/frappe-site/run-matrix.mjs` runs them,
+names the test that would validate it (86 tests since 0.7.0-dev.3: 73 API reads and writes, 7 browser checks through a
+harness of `FrappeForm` / `FrappeListView` / `FrappeViews`, and 6 manual checks; the 11 batch-2 tests cover Report view
+Submit / Cancel, the Form Sidebar, Share, Like, Comments and Global Search); `e2e/frappe-site/run-matrix.mjs` runs them,
 `staging-seed.py` / `staging-teardown.py` create and remove synthetic `@example.com` accounts and records. **It requires an
 owner-approved, isolated staging site** (Frappe 15, its own database, credentials, Redis and workers, not on a production
 server) and the owner's written approval file; the scripts refuse production site names, loopback URLs and a missing
@@ -152,6 +164,13 @@ Frappe's own behaviour, which the package cannot change; the validation run asse
 - **`toggle_like` has no permission check.** [L-LIKE-1]
 - **`export_query` writes an Access Log** before it refuses a user without `export`. [L-EXPORT-1]
 - **`user_settings.save` merges shallowly** — a Desk save of `List` drops the package's `sf_ui` key. [L-USERSET-1]
+- **`global_search.search` filters by DocType only** — every indexed row of a readable DocType in Global Search Settings is
+  returned (name + matching snippets), regardless of User Permissions or `if_owner`. [S-GSEARCH-1]
+- **Assignment needs read, not write** — any reader may add or remove an assignment; only the assignee may close it.
+  [F-SB-ASSIGN-1]
+- **Comment delete follows the Comment DocPerm** (System / Website Manager), not authorship; publish = author or System
+  Manager. [F-SB-COMMENT-1]
+- **Sharing grants only rights the sharer holds**; un-ticking read deletes the share. [S-SHARE-1]
 
 More (bulk responses, User Permissions in lists and sidebar counts): `docs/LIMITATIONS.md` and
 `docs/audit/p36/VALIDATION-MATRIX.md` §7 (repository only).
