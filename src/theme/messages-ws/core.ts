@@ -25,8 +25,6 @@ export const coreEn = {
   corePickMonth: "Pick a month",
   corePrevYear: "Previous year",
   coreNextYear: "Next year",
-  // DataGrid cards (P36): the per-card Edit toggle (aria-pressed while the row is edited inline)
-  coreGridEditRow: "Edit row {n}",
 };
 export const coreAr: { [K in keyof typeof coreEn]: string } = {
   coreStepSkipped: "تم تخطّيها",
@@ -48,5 +46,4 @@ export const coreAr: { [K in keyof typeof coreEn]: string } = {
   corePickMonth: "اختر شهراً",
   corePrevYear: "السنة السابقة",
   coreNextYear: "السنة التالية",
-  coreGridEditRow: "تعديل الصف {n}",
 };
