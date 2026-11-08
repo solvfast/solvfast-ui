@@ -175,6 +175,12 @@ export interface UploadFileOptions {
   isPrivate?: boolean; folder?: string;
   /** A whitelisted method the server hands the file to instead of creating a File (handler.py:162-165). */
   method?: string;
+  /** Desk's "Optimize" (FileUploader.vue:693-695): the server shrinks an image with `optimize_image` (handler.py:225-233,
+   *  utils/image.py:45-72). */
+  optimize?: boolean;
+  /** Bounds for the optimized image (FileUploader.vue:697-700, `attach_doc_image`; handler.py:228-231). */
+  maxWidth?: number;
+  maxHeight?: number;
 }
 export interface FrappeFilesTransport {
   /** POST `method` with form fields; resolves to the file the server streamed back. Errors are JSON and become FrappeError. */
@@ -301,6 +307,9 @@ function fetchFilesTransport(opts: FrappeClientOptions): FrappeFilesTransport {
       if (o.docname) form.append("docname", o.docname);
       if (o.fieldname) form.append("fieldname", o.fieldname);
       if (o.method) form.append("method", o.method);
+      if (o.optimize) form.append("optimize", "true");
+      if (o.maxWidth != null) form.append("max_width", String(o.maxWidth));
+      if (o.maxHeight != null) form.append("max_height", String(o.maxHeight));
       const headers: Record<string, string> = { Accept: "application/json" };
       const t = token(); if (t) headers["X-Frappe-CSRF-Token"] = t;
       let res: Response;

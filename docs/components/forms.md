@@ -292,7 +292,7 @@ Data fields with options Email, Phone or URL are checked softly: the field is fl
 | Table, Table MultiSelect | supported | §6, §7. |
 | HTML, Heading, Button, Image | supported | HTML is sanitized `options`. A Button fires the event named after its fieldname. |
 | Code, JSON, HTML Editor, Markdown Editor | partial | Monospace textarea; no syntax editor, no preview. |
-| Attach, Attach Image | supported | Uploads through `upload_file` (`FrappeAttachField`, `tests/attach.test.tsx`); Clear does not delete the File; no library / link / camera source; `max_attachments` not enforced client-side. |
+| Attach, Attach Image | supported | **P36b**: Desk's control — the uploader dialog (My Device / Library / Link), save after upload, Clear with `remove_attach`, Reload File, image preview, the image_field "Change" menu. See §3.1 (incl. Optimize, Crop, Camera). |
 | Phone (fieldtype) | partial | Telephone text box; no country picker. |
 | Autocomplete (P35) | supported | Suggestions from `df.options` (lines, or a JSON list of strings / `{label, value}`, autocomplete.js:147-166); a typed value outside the list is cleared unless `ignore_validation`; an empty list accepts anything. Server-side `_get_options` / `frm.set_query` on Autocomplete are not used. |
 | Fold, Page Break | partial | Treated as a Section Break (no "Show more" folding). |
@@ -300,6 +300,42 @@ Data fields with options Email, Phone or URL are checked softly: the field is fl
 
 `SUPPORTED_FIELDTYPES` (exported) is the list of fieldtypes with a control; `analyzeFieldtypes(bundle)` returns the
 others for the parent and child DocTypes.
+
+### 3.1 Attach Image / Attach (P36b attachimage)
+
+Reproduces Frappe 15.110 `form/controls/attach.js`, `attach_image.js`, `file_uploader/FileUploader.vue` and the form
+image menu (`form/sidebar/user_image.js`, `form_sidebar.html:2-20`). Evidence: jsdom tests on the in-package simulator
+(`tests/attach-image-p36b.test.tsx`, `tests/attach.test.tsx`) — **SIMULATED, not run on a real site**.
+
+| Desk behaviour (file:line) | DS |
+| --- | --- |
+| Empty: an "Attach" button (attach.js:4-14) opens `FileUploader` (:61-64) | `AttachInput` (Core) + `AttachDialog` (the Form Sidebar's uploader): My Device / Library / Link / Camera |
+| Per file: thumbnail (FilePreview.vue:4-7), "Optimize" for a non-SVG image, on above 200 KB (FileUploader.vue:428-434; FilePreview.vue:23-29, 120-129) → `optimize` (FileUploader.vue:693-695; handler.py:225-233 `optimize_image`), "Private" + the public-file warning (FilePreview.vue:30-36, 70-80) | `AttachDialog` rows (`allowOptimize` on for the Attach controls; `UploadFileOptions.optimize`) |
+| "Crop" for JPEG / PNG → cropper 1:1 / 4:3 / 16:9 / Free, Back, Crop (FilePreview.vue:51-56, 133-140; ImageCropper.vue) | Core `ImageCropper` (no cropperjs: box drag / corner resize / keyboard; canvas `toBlob` in the original type) |
+| "Camera" where `navigator.mediaDevices` exists → `frappe.ui.Capture`: Take Photo, Switch Camera, Preview, Capture, Submit → `capture_<date>.png`; refused → "Unable to load camera." (FileUploader.vue:130-151, 337-339, 732-746; ui/capture.js) | Core `CameraCapture` (`getUserMedia` behind `cameraSupported()`; refused → the message + Desk's phone fallback, a `capture` file input) |
+| One file (`allow_multiple: false`, :72); Attach Image accepts `image/*` (attach_image.js:171-174) | `maxFiles={1}`, `accept="image/*"`; other types are skipped with a message |
+| Private unless `make_attachment_public` (field) or `make_attachments_public` (DocType) (attach.js:84-86; FileUploader.vue:443) | `attachUploadOptions().defaultPrivate` |
+| `max_file_size` from `frappe.core.api.file.get_max_file_size` each time the uploader opens; a file must be smaller (FileUploader.vue:352-356, 491) | same request on open; a file of the limit or bigger is skipped |
+| `upload_file` with `doctype` + `docname` + `fieldname`, folder "Home"; a new document sends its `new-…` name (attach.js:80-87; FileUploader.vue:660-698); Library → `library_file_name`, Link → `file_url` (:535-559) | same fields (multipart for a local file, JSON for Library / Link) |
+| Success: value = `file_url`, docinfo updated, form saved (`Update` when submitted) (attach.js:137-144) | value set, docinfo re-read; **inside a `FrappeAttachHost`** the form is saved through its own pipeline |
+| With a value: link (text = the value; `FILENAME,DATA_URL` → file name + data URL), "Reload File", "Clear" (attach.js:15-26, 95-131) | `AttachInput`'s attached-file row; `parseAttachValue` |
+| Attach Image: image popover (150px, contain) on hover of the link (attach_image.js:156-169) | `HoverCard` on hover **and keyboard focus** |
+| Clear: confirm → value null → `remove_attach { fid, dt, dn }` for the File of that URL in docinfo (none → no request) → save (attach.js:36-46; attachments.js:199-236). Without `frm`: value null only (:47-53) | same; a refusal is shown and nothing is saved |
+| Reload File: re-uploads the uploader's files (attach.js:56-60, 146-150) | re-sends this session's last local file |
+| Read-only: a link to the URL (formatters.js:406-413) | unchanged (`ReadOnlyValue` link) |
+| `image_field`: image or title initials; "Change" → Upload / Remove when `can_write` and the field is not `read_only`; hidden for a new doc (user_image.js; form_sidebar.js:17-22, 70-73) | `FrappeFormImage` in the form header (the DS has no sidebar image). Upload = the field's uploader restricted to `image/*`; Remove = `remove_attach` → `""` → save, no confirmation |
+
+**The form host.** Desk's control saves the form because it has `frm`. `FrappeFormView` is that form for its fields
+(`FrappeAttachHost`: its own `frm.save()` with the same checks as the toolbar, the document, its docinfo) — prop
+`attachHost` (default true). `FrappeQuickEntry` passes `attachHost={false}`: Desk's Quick Entry is a `frappe.ui.Dialog`
+(quick_entry.js:127-131) whose controls are made without `frm` (ui/field_group.js:5-7 → form/layout.js:248-252), so an
+Attach there only sets its value. A control outside any form (a standalone `FrappeField`) behaves the same way; an app
+with its own form can provide `<FrappeAttachHost value={{ save(action), getDoc(), getDocInfo? }}>`.
+
+Not reproduced: Google Drive and app-registered upload handlers; upload progress percentages (a `fetch` upload has no
+progress events). The Form Sidebar's uploader shows thumbnails, the public warning, Crop and Camera too; its "Optimize"
+switch stays off until the sidebar's upload mutation sends `optimize`. The simulator's `savedocs` relinks Files uploaded
+against a `new-…` name (save.py:20-22 → file/utils.py:377-419). The showcase page is "Attach Image (SIMULATED)".
 
 ---
 

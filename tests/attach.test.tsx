@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { act, cleanup, configure, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { createFrappeClient, type FrappeFilesTransport, type UploadFileOptions } from "../src/frappe/client";
@@ -31,11 +31,15 @@ function mount(ui: React.ReactNode, upload: (u: Upload) => Promise<Record<string
 const IMG = { fieldname: "image", fieldtype: "Attach Image", label: "Image" };
 const FILE = { fieldname: "doc_file", fieldtype: "Attach", label: "File" };
 const DOC = { doctype: "Customer", name: "CUST-0001" };
-const pick = (name = "logo.png", type = "image/png") => {
-  const input = document.querySelector<HTMLInputElement>('[data-attach-field] input[type="file"]')!;
+/** Desk's flow (attach.js:61-64 → FileUploader): "Attach" opens the uploader; pick the file under "My Device"; "Upload". */
+const pick = async (name = "logo.png", type = "image/png") => {
+  fireEvent.click(screen.getByRole("button", { name: /Attach|إرفاق/ }));
+  const dialog = await screen.findByRole("dialog");
+  const input = dialog.querySelector<HTMLInputElement>('input[type="file"]')!;
   const file = new File(["x"], name, { type });
   fireEvent.change(input, { target: { files: [file] } });
-  return file;
+  fireEvent.click(within(dialog).getByRole("button", { name: "Upload" }));
+  return { file, dialog, input };
 };
 
 describe("Attach / Attach Image upload (SIMULATED)", () => {
@@ -43,49 +47,48 @@ describe("Attach / Attach Image upload (SIMULATED)", () => {
     const seen: Upload[] = []; const onChange = vi.fn();
     mount(<FrappeField df={IMG} value={null} doc={DOC as never} onChange={onChange} />, async (u) => { seen.push(u); return { file_url: "/private/files/logo.png" }; });
     expect(screen.getByRole("button", { name: /Attach/ })).toBeTruthy();
-    const input = document.querySelector<HTMLInputElement>('[data-attach-field] input[type="file"]')!;
+    const { file, input } = await pick();
     expect(input.getAttribute("accept")).toBe("image/*");
-    const file = pick();
     await waitFor(() => expect(onChange).toHaveBeenCalledWith("/private/files/logo.png"));
     expect(seen[0].file).toBe(file);
     expect(seen[0].filename).toBe("logo.png");
     expect(seen[0].opts).toEqual({ doctype: "Customer", docname: "CUST-0001", fieldname: "image", isPrivate: true });
   });
 
-  it("pending: the button is disabled and says Uploading…; a refusal is shown and the value is unchanged", async () => {
+  it("pending: the uploader row says Uploading… and Upload is busy; a refusal is shown on the file and the value is unchanged", async () => {
     let reject!: (e: unknown) => void; const onChange = vi.fn();
     mount(<FrappeField df={FILE} value={null} doc={DOC as never} onChange={onChange} />, () => new Promise((_, rej) => { reject = rej; }));
-    const input = document.querySelector<HTMLInputElement>('[data-attach-field] input[type="file"]')!;
+    const { dialog, input } = await pick("contract.pdf", "application/pdf");
     expect(input.hasAttribute("accept")).toBe(false);
-    pick("contract.pdf", "application/pdf");
-    const button = await screen.findByRole("button", { name: /Uploading/ });
-    expect(button.hasAttribute("disabled")).toBe(true);
-    expect(button.getAttribute("aria-busy")).toBe("true");
+    await waitFor(() => expect(dialog.querySelector('[data-upload-row="contract.pdf"]')?.getAttribute("data-status")).toBe("uploading"));
+    expect(within(dialog).getByRole("button", { name: "Upload" }).getAttribute("aria-busy")).toBe("true");
     await act(async () => { reject(new Error("Not permitted")); });
-    const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain("could not be uploaded");
-    expect(alert.textContent).toContain("Not permitted");
+    await waitFor(() => expect(dialog.querySelector('[data-upload-row="contract.pdf"]')?.getAttribute("data-status")).toBe("failed"));
+    expect(within(dialog).getByRole("alert").textContent).toContain("Not permitted");
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /Attach/ }).hasAttribute("disabled")).toBe(false);
   });
 
-  it("an unsaved document uploads an unattached file; a public field / DocType uploads public", async () => {
+  it("an unsaved document uploads attached to its new-… name (attach.js:80-87; savedocs relinks it); a public field / DocType uploads public", async () => {
     const seen: Upload[] = [];
     mount(<FrappeField df={{ ...IMG, make_attachment_public: 1 }} value={null} doc={{ doctype: "Customer", name: "new-customer-1" } as never} onChange={() => {}} />,
       async (u) => { seen.push(u); return { file_url: "/files/logo.png" }; });
-    pick();
+    await pick();
     await waitFor(() => expect(seen).toHaveLength(1));
-    expect(seen[0].opts).toEqual({ isPrivate: false });
+    expect(seen[0].opts).toEqual({ doctype: "Customer", docname: "new-customer-1", fieldname: "image", isPrivate: false });
   });
 
-  it("with a value: a link to the file, the image preview (Attach Image) and Clear", () => {
+  it("with a value: a link to the file (text = the value, attach.js:112), the image preview on focus (Attach Image) and Clear after confirmation", async () => {
     const onChange = vi.fn();
     mount(<FrappeField df={IMG} value="/private/files/logo%20v2.png" doc={DOC as never} onChange={onChange} />, async () => ({}));
-    const link = screen.getByRole("link", { name: "logo v2.png" });
+    const link = screen.getByRole("link", { name: "/private/files/logo%20v2.png" });
     expect(link.getAttribute("href")).toBe("/private/files/logo%20v2.png");
-    expect(document.querySelector('[data-attach-field] img')?.getAttribute("src")).toBe("/private/files/logo%20v2.png");
+    act(() => link.focus());
+    const img = await screen.findByRole("img", { name: "Preview of logo v2.png" });
+    expect(img.getAttribute("src")).toBe("/private/files/logo%20v2.png");
     fireEvent.click(screen.getByRole("button", { name: /Clear/ }));
-    expect(onChange).toHaveBeenCalledWith(null);
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(null));
   });
 
   it("Arabic labels", () => {

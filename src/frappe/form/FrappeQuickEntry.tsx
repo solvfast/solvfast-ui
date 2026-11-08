@@ -101,6 +101,9 @@ export function FrappeQuickEntry({ doctype, open, onOpenChange, defaults, onCrea
                   permissions={permissions}
                   hideToolbar
                   guardUnload={false}
+                  // Desk's Quick Entry is a frappe.ui.Dialog (quick_entry.js:127-131): its controls are made without `frm`
+                  // (ui/field_group.js → form/layout.js:248-252), so an Attach there only sets its value — no save
+                  attachHost={false}
                   controllerRef={ctrl}
                   defaults={{ user: session?.user, userDefaults, ...defaults }}
                   fieldFilter={filtered ? (df) => names.has(df.fieldname) : undefined}
