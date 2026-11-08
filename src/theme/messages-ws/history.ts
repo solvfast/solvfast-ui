@@ -34,8 +34,6 @@ export const historyEn = {
   hisImpersonatedBy: "Impersonated by {0}",
   hisActionTakenBy: "[Action taken by {0}]",
   hisCreatedThisRef: "{0} created this document {1}",
-  // error state
-  hisLoadFailed: "The history could not be loaded.",
 };
 
 export const historyAr: { [K in keyof typeof historyEn]: string } = {
@@ -64,5 +62,4 @@ export const historyAr: { [K in keyof typeof historyEn]: string } = {
   hisImpersonatedBy: "بانتحال هوية من {0}",
   hisActionTakenBy: "[الإجراء نفّذه {0}]",
   hisCreatedThisRef: "{0} أنشأ هذا المستند {1}",
-  hisLoadFailed: "تعذّر تحميل السجل.",
 };
