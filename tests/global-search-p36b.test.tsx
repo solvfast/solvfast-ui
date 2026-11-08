@@ -223,12 +223,12 @@ describe("P36B.search — FrappeGlobalSearch in the header (awesome bar + Global
     expect(searchCalls(t)).toEqual([{ text: "acme", start: 0, limit: 100, doctype: "" }]);
     const nav = within(dialog).getByRole("navigation");
     expect(within(nav).getAllByRole("button").map((b) => b.textContent)).toEqual(["All Results", "Contact", "Note", "ToDo"]);
-    expect(within(nav).getByText("All Results").closest("button").getAttribute("aria-current")).toBe("true");
+    expect(within(nav).getByText("All Results").closest("button")!.getAttribute("aria-current")).toBe("true");
     const contact = dialog.querySelector('section[data-group="Contact"]')!;
     expect(within(contact as HTMLElement).getAllByRole("option")).toHaveLength(4);
-    expect(within(contact as HTMLElement).getByText("Acme Person 01").closest("a").getAttribute("href")).toBe("/app/contact/Acme%20Person%2001");
+    expect(within(contact as HTMLElement).getByText("Acme Person 01").closest("a")!.getAttribute("href")).toBe("/app/contact/Acme%20Person%2001");
     expect(within(contact as HTMLElement).getAllByTestId("search-item-details")[0].textContent).toBe("Company Name: Acme Ltd");
-    expect((contact as HTMLElement).querySelector("img").getAttribute("src")).toBe("/files/p1.png");
+    expect((contact as HTMLElement).querySelector("img")!.getAttribute("src")).toBe("/files/p1.png");
     fireEvent.click(within(contact as HTMLElement).getByText("More"));
     // the full list: 20 of the 30 loaded rows, then "More" = the server's next 20 from start 20 for this DocType
     const full = () => dialog.querySelector('section[data-group="Contact"]') as HTMLElement;
