@@ -27,7 +27,8 @@
     "docs/components/list.md",
     "docs/components/record.md",
     "docs/components/views.md",
-    "docs/components/p35-core.md"
+    "docs/components/p35-core.md",
+    "docs/components/search.md"
   ],
   "exports": {
     ".": {

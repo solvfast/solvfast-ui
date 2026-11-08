@@ -233,3 +233,7 @@ export type {
   FormSidebarProps, FormSidebarSectionId, FormSidebarUserAction, FormSidebarStamp, SidebarSectionProps, SidebarSectionAction, AttachmentListProps, AttachmentItem,
   AttachmentListLabels, AttachDialogProps, LibraryFile, TagListProps,
 } from "./record";
+
+// P36b search — the header's global search (Desk awesome bar + Global Search dialog), Core (docs/components/search.md)
+export * from "./shell/search";
+export type { NavbarSearchSlot } from "./shell/Navbar";

@@ -22,6 +22,14 @@ export interface NavbarSearch {
   placeholder?: string;
 }
 
+/**
+ * P36b (additive): a search node that manages its own responsive layout — rendered at every width (a plain node is
+ * wrapped in `hidden md:block`). E.g. `search={{ slot: <GlobalSearchBar … /> }}`: the bar on desktop, its icon on phones.
+ */
+export interface NavbarSearchSlot {
+  slot: React.ReactNode;
+}
+
 export interface NavbarProps {
   title: React.ReactNode;
   /** Shown next to the title (Sear: the page's "ⓘ Need help" affordance). */
@@ -32,7 +40,7 @@ export interface NavbarProps {
    * Search box. Default: Sear's search input with no behaviour. Pass an object to make it controlled, a node to
    * replace it, or `false` to hide it.
    */
-  search?: NavbarSearch | React.ReactNode | false;
+  search?: NavbarSearch | NavbarSearchSlot | React.ReactNode | false;
   /** Bell + panel props, a custom node, or `false` (default: hidden). */
   notifications?: NotificationPanelProps | React.ReactNode | false;
   showLanguageToggle?: boolean;
@@ -51,7 +59,9 @@ export function Navbar({
   const { isDark, toggleTheme } = useTheme();
 
   let searchEl: React.ReactNode = null;
-  if (search === undefined || isPlainObject(search)) {
+  if (isPlainObject(search) && "slot" in search) {
+    searchEl = (search as unknown as NavbarSearchSlot).slot; // P36b search
+  } else if (search === undefined || isPlainObject(search)) {
     const s = (search ?? {}) as NavbarSearch;
     searchEl = (
       <div className="relative hidden md:block">

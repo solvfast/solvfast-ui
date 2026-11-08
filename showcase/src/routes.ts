@@ -208,3 +208,12 @@ const p36bSocial = () => import("./pages/p36b-social");
   // a Components page: PAGES keeps the navigation order (rebuilt from GROUPS, as the P35 core block does)
   PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
 }
+
+// P36b search
+{
+  const p36bSearch = () => import("./pages/p36b-search");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = { id: "p36b-search", title: l("Global search (SIMULATED)", "البحث الشامل (محاكاة)"), description: l("Desk's awesome bar and Global Search dialog in the Navbar, on the in-page simulator: grouped results, More paging, keyboard, permissions.", "شريط البحث ونافذة البحث الشامل في الشريط العلوي على المحاكي: نتائج مجمّعة، المزيد، لوحة المفاتيح، الصلاحيات."), Component: from(p36bSearch, "P36bSearchPage") };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}

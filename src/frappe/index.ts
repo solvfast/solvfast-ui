@@ -146,3 +146,6 @@ export type { FrappeSelectionActionsInput, FrappeSelectionActions } from "./list
 
 // P36b social — FrappeSidebarShare, FrappeSidebarLikes, FrappeComments and the share / like / comments helpers are
 // exported through `export * from "./record"` above (src/frappe/record/index.ts, `// P36b social` block).
+
+// P36b search — Desk's awesome bar + Global Search dialog over frappe.utils.global_search.search (docs/components/search.md)
+export * from "./search";
