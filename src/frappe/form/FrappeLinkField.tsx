@@ -20,6 +20,12 @@
  *    the target's DocPerm rows × session roles, read from its meta once the field is focused; Administrator always; an
  *    app `canCreate` override decides alone) AND something can create it: the app's `onCreateNew`, else FrappeForm's
  *    Quick Entry when the target is quick-entry eligible (`quickEntryFields`). The new name is written back.
+ *  - P36d: a value whose title is not cached yet is titled like Desk's set_link_title (link.js:117-132): when the target
+ *    DocType shows titles in links (`show_title_field_in_link`, Desk's boot `link_title_doctypes`, boot.py:437-444) the
+ *    title is fetched with `frappe.desk.search.get_link_title` (search.py:327-334) and remembered; otherwise the name.
+ *    Without Desk's boot list the request is skipped only when the target's meta is already loaded and says no titles;
+ *    otherwise the server decides (it answers the name itself for such DocTypes).
+ *    The input has Desk's `maxlength` (`df.length || 140`, data.js:229-238) and its "Data Clipped" paste warning.
  *  - The open-record link (P35 F4): the default URL only when the session may read the target (same source; the
  *    target's meta is read when the field has a value and the user is neither the Administrator nor role-less); an app
  *    `linkHref` override decides alone.
@@ -110,6 +116,10 @@ export interface FrappeLinkFieldProps {
   status?: FieldDisplayStatus;
   invalid?: boolean;
   placeholder?: string;
+  /** P36d: the input's maxlength (FrappeField passes `df.length || 140`). */
+  maxLength?: number;
+  /** P36d: paste handler (FrappeField's "Data Clipped" warning). */
+  onPaste?: React.ClipboardEventHandler<HTMLInputElement>;
   id?: string;
   "aria-label"?: string;
   "aria-labelledby"?: string;
@@ -120,7 +130,7 @@ export interface FrappeLinkFieldProps {
 
 export function FrappeLinkField({
   df, options, value, onChange, doc, parent, referenceDoctype, query, filters, fetchFields, onValidated, formFields, status = "Write",
-  invalid, placeholder, id, className, onIssue, ...aria
+  invalid, placeholder, maxLength, onPaste, id, className, onIssue, ...aria
 }: FrappeLinkFieldProps) {
   const { t } = useLocale();
   const s = useFormServices();
@@ -181,7 +191,11 @@ export function FrappeLinkField({
     }
   }, [target, df, fetchFields, onChange, onValidated, s, messages]);
 
-  const title = value ? titles.get(target, value) ?? s.formatContext.linkTitles?.[`${target}::${value}`] : undefined;
+  const knownTitle = value ? titles.get(target, value) ?? s.formatContext.linkTitles?.[`${target}::${value}`] : undefined;
+  const [fetchedTitle, setFetchedTitle] = React.useState<{ key: string; title: string } | null>(null);
+  const titleKey = `${target}::${value ?? ""}`;
+  const title = knownTitle ?? (fetchedTitle?.key === titleKey ? fetchedTitle.title : undefined);
+  const wantsTitle = !!value && !!target && !title && status !== "None" && !!s.getLinkTitle;
   // ---- the target's rights (F4) and Quick Entry eligibility, from its meta when needed ----
   const [focused, setFocused] = React.useState(false);
   const admin = isAdministrator(session);
@@ -196,6 +210,21 @@ export function FrappeLinkField({
   const mayRead = admin || !!level0?.read;
   const mayCreate = s.builtin.canCreate ? admin || !!level0?.create : s.canCreate(target);
   const quickEntryOk = !!targetMeta && quickEntryFields(targetMeta).eligible;
+  // Desk gates the request with boot.link_title_doctypes; the package has no boot list — a target meta that is already
+  // loaded (permission checks above) decides, else the server does (it answers the name for other DocTypes, search.py:334)
+  const notTitleLink = !!targetMeta && !targetMeta.show_title_field_in_link;
+  React.useEffect(() => {
+    if (!wantsTitle || notTitleLink || !value) return;
+    let live = true;
+    const key = titleKey;
+    // Desk's fetch_link_title swallows a failure (utils.js:1599-1603): the name stays shown
+    s.getLinkTitle!(target, value).then((t) => {
+      if (!live || !t || t === value) return;
+      titles.remember(target, value, t);
+      setFetchedTitle({ key, title: t });
+    }, () => {});
+    return () => { live = false; };
+  }, [wantsTitle, notTitleLink, target, value, titleKey, s, titles]);
   const href = value && target ? (s.builtin.linkHref ? (mayRead ? s.linkHref(target, value) : undefined) : s.linkHref(target, value)) : undefined;
 
   if (status === "None") return null;
@@ -231,6 +260,8 @@ export function FrappeLinkField({
       busy={busy}
       invalid={invalid}
       placeholder={placeholder}
+      maxLength={maxLength}
+      onPaste={onPaste}
     />
     </div>
   );
