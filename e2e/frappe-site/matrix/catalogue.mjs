@@ -13,9 +13,13 @@
 
 export const FRAPPE_REF = "Frappe 15.110.0, apps/frappe commit ab7e5ae (source read, no site)";
 
+// Records created by a run link contact #12 (no seeded parent uses it; restricted may not see it) and are titled
+// "SFUI P36 RUN …", so the aggregate read checks below count only the SEEDED parents (title like "SFUI Parent %").
+const RUN_CONTACT = (X) => X.names.contacts[11];
+const SEEDED = ["title", "like", "SFUI Parent %"];
 const parentDoc = (X, extra = {}) => ({
   doctype: "SFUI Test Parent", name: `new-sfui-test-parent-${Math.random().toString(36).slice(2, 8)}`, __islocal: 1, __unsaved: 1,
-  status: "Draft", contact: X.names.contacts[0], ...extra,
+  status: "Draft", contact: RUN_CONTACT(X), ...extra,
 });
 const childRow = (i, extra = {}) => ({
   doctype: "SFUI Test Child", name: `new-sfui-test-child-${Math.random().toString(36).slice(2, 8)}`, __islocal: 1,
@@ -143,13 +147,13 @@ export const TESTS = [
     } },
   { id: "F-FETCH-1", area: "Form", feature: "fetch_from / fetch_if_empty on the server", kind: "write", automated: "api", users: ["writer"],
     rows: ["FV.E3", "FV.E7"],
-    pre: "seeded contacts have email_id", steps: ["writer: save a Parent with contact = contact #2, contact_email empty, contact_name_if_empty = 'SFUI typed'"],
-    expect: "saved contact_email = contact #2's email_id (re-fetched by the server); contact_name_if_empty keeps 'SFUI typed' (fetch_if_empty)",
+    pre: "seeded contacts have email_id", steps: ["writer: save a Parent with contact = contact #12, contact_email empty, contact_name_if_empty = 'SFUI typed'"],
+    expect: "saved contact_email = contact #12's email_id (re-fetched by the server); contact_name_if_empty keeps 'SFUI typed' (fetch_if_empty)",
     cite: ["model/base_document.py:787-880 get_invalid_links (fetch_from values set during link validation)", "model/base_document.py:824-825 fetch_if_empty"], evidence: "saved values",
     async run(ctx) {
-      const r = await savedocs(ctx.as("writer"), parentDoc(ctx.X, { title: `${ctx.tag} fetch`, contact: ctx.X.names.contacts[1], contact_email: "", contact_name_if_empty: "SFUI typed" }));
+      const r = await savedocs(ctx.as("writer"), parentDoc(ctx.X, { title: `${ctx.tag} fetch`, contact: RUN_CONTACT(ctx.X), contact_email: "", contact_name_if_empty: "SFUI typed" }));
       const d = docOf(r);
-      ctx.check("contact_email fetched by the server", /@example\.com$/.test(d?.contact_email ?? ""), "sfui-contact-002@example.com", d?.contact_email);
+      ctx.check("contact_email fetched by the server", d?.contact_email === "sfui-contact-012@example.com", "sfui-contact-012@example.com", d?.contact_email);
       ctx.check("fetch_if_empty keeps the typed value", d?.contact_name_if_empty === "SFUI typed", "SFUI typed", d?.contact_name_if_empty);
     } },
   { id: "F-SAVE-1", area: "Form", feature: "save / update / concurrent edit", kind: "write", automated: "api", users: ["writer"],
@@ -265,7 +269,7 @@ export const TESTS = [
   { id: "F-AMEND-1", area: "Form", feature: "amend (naming -1, -2)", kind: "write", automated: "api", users: ["manager"],
     rows: ["FV.H6", "FV.N5"],
     pre: "a fresh cancelled parent", steps: ["manager: savedocs Save of a copy with amended_from = <name>", "manager: frappe.client.is_document_amended", "cancel + amend the amendment"],
-    expect: "the amendment is named <name>-1, then <name>-2; is_document_amended → true; amending a doc that is not cancelled → 417 'cannot be amended because it is not cancelled'",
+    expect: "the amendment is named <name>-1, then <name>-2; is_document_amended → the amendment's name (frappe.db.exists, client.py:425-430); amending a doc that is not cancelled → 417 'cannot be amended because it is not cancelled'",
     cite: ["model/naming.py:526-541 _set_amended_name", "model/document.py:439-444 validate_amended_from", "client.py:425 is_document_amended"], evidence: "names",
     async run(ctx) {
       const m = ctx.as("manager");
@@ -279,7 +283,7 @@ export const TESTS = [
       const a = await savedocs(m, parentDoc(ctx.X, { title: `${ctx.tag} amend`, amended_from: s.name }));
       ctx.check("amendment named <name>-1", docOf(a)?.name === `${s.name}-1`, `${s.name}-1`, docOf(a)?.name);
       const q = await m.call("frappe.client.is_document_amended", { doctype: "SFUI Test Parent", docname: s.name });
-      ctx.check("is_document_amended → true", q.message === true || q.message === 1, true, q.message);
+      ctx.check("is_document_amended → the amendment's name", q.message === `${s.name}-1`, `${s.name}-1`, q.message);
     } },
   { id: "F-AMEND-2", area: "Security", feature: "amend without the amend right", kind: "reject", automated: "api", users: ["writer"],
     rows: ["FV.D7"],
@@ -408,11 +412,14 @@ export const TESTS = [
     } },
   { id: "F-ATT-1", area: "Form", feature: "attachments: upload, max_attachments, rejection", kind: "write", automated: "api", users: ["writer", "reader"],
     rows: ["FV.A20", "FV.A21", "FV.G10"],
-    pre: "seeded 'SFUI Attach Probe' (SFUI Test Attachments, max_attachments 3)", steps: ["writer: upload_file ×3 (tiny synthetic text files, is_private 1) attached to the probe", "writer: a 4th upload", "reader: one upload"],
+    pre: "SFUI Test Attachments (max_attachments 3); the test creates its own probe document as writer", steps: ["writer: create an SFUI Test Attachments doc", "writer: upload_file ×3 (tiny synthetic text files, is_private 1) attached to the probe", "writer: a 4th upload", "reader: one upload"],
     expect: "3 × 200 with File docs; the 4th → 417 'Maximum Attachment Limit of 3 has been reached'; reader → 403 (write on the target required)",
     cite: ["handler.py:175-271 upload_file (write check :271)", "core/doctype/file/file.py:333-350 validate_attachment_limit"], evidence: "statuses, File names",
     async run(ctx) {
-      const name = ctx.X.names.attachments;
+      const c = await savedocs(ctx.as("writer"), { doctype: "SFUI Test Attachments", name: "new-sfui-test-attachments-1", __islocal: 1, title: `${ctx.tag} attach` });
+      const name = docOf(c)?.name;
+      ctx.check("writer creates the probe", is(c, 200) && !!name, 200, c.status);
+      if (!name) return;
       const up = (who, i) => ctx.as(who).upload({ doctype: "SFUI Test Attachments", docname: name, is_private: "1", filename: `sfui-p36-${i}.txt`, content: `SFUI P36 synthetic ${i}` });
       const ok = [];
       for (let i = 1; i <= 3; i++) ok.push(await up("writer", i));
@@ -462,19 +469,19 @@ export const TESTS = [
       const q = await ctx.as("restricted").call("frappe.desk.notifications.get_open_count", { doctype: "SFUI Test Contact", name: hidden });
       ctx.check("restricted on a disallowed contact → 403 (or empty)", q.status === 403, 403, { status: q.status, exc_type: q.exc_type });
     } },
-  { id: "F-MENU-1", area: "Form", feature: "rename", kind: "write", automated: "api", users: ["manager", "writer"],
+  { id: "F-MENU-1", area: "Form", feature: "rename", kind: "write", automated: "api", users: ["reader", "writer"],
     rows: ["FV.K8"],
-    pre: "a fresh draft parent (allow_rename = 1)", steps: ["writer: frappe.model.rename_doc.update_document_title with a new name", "manager: the same"],
-    expect: "writer → 403 (write + rename rights are checked); manager → 200 with the new name; links follow",
-    cite: ["model/rename_doc.py:22-91 update_document_title (write check :59)", "model/rename_doc.py:349-382 validate_rename (permission :382)"], evidence: "statuses, new name",
+    pre: "a fresh draft parent (allow_rename = 1)", steps: ["reader: frappe.model.rename_doc.update_document_title(name = <new>)", "writer: the same"],
+    expect: "Frappe has no separate rename right: the server checks `write` on the document and the DocType's allow_rename — reader → 403 PermissionError; writer → 200 returning the new name (links follow)",
+    cite: ["model/rename_doc.py:22-91 update_document_title (check_permission write :59)", "model/rename_doc.py:349-382 validate_rename (allow_rename, write :382)"], evidence: "statuses, new name",
     async run(ctx) {
-      const d = await newParent(ctx, "manager", { title: "rename" });
+      const d = await newParent(ctx, "writer", { title: "rename" });
       if (!d) return;
       const target = `${d.name}-SFUI-RN`;
+      const r = await ctx.as("reader").call("frappe.model.rename_doc.update_document_title", { doctype: "SFUI Test Parent", docname: d.name, name: target });
+      ctx.check("reader rename → 403", is(r, 403, "PermissionError"), 403, { status: r.status, exc_type: r.exc_type });
       const w = await ctx.as("writer").call("frappe.model.rename_doc.update_document_title", { doctype: "SFUI Test Parent", docname: d.name, name: target });
-      ctx.check("writer rename refused", w.status >= 400, "4xx", { status: w.status, exc_type: w.exc_type });
-      const m = await ctx.as("manager").call("frappe.model.rename_doc.update_document_title", { doctype: "SFUI Test Parent", docname: d.name, name: target });
-      ctx.check("manager rename → new name", is(m, 200) && m.message === target, target, { status: m.status, message: m.message });
+      ctx.check("writer rename → new name", is(w, 200) && w.message === target, target, { status: w.status, message: w.message });
     } },
   { id: "F-MENU-2", area: "Security", feature: "delete: rights, submitted, linked", kind: "reject", automated: "api", users: ["writer", "manager"],
     rows: ["FV.K9", "LV.F10"],
@@ -548,12 +555,12 @@ export const TESTS = [
     cite: ["desk/reportview.py:55-75 get_count", "client.py:28-80 get_list", "model/db_query.py:99 execute"], evidence: "counts, row names per page",
     async run(ctx) {
       const m = ctx.as("manager"), P = ctx.X.parents;
-      const cnt = async (filters, or) => (await m.call("frappe.desk.reportview.get_count", { doctype: "SFUI Test Parent", filters: J(filters), or_filters: J(or ?? []) })).message;
+      const cnt = async (filters, or) => (await m.call("frappe.desk.reportview.get_count", { doctype: "SFUI Test Parent", filters: J([SEEDED, ...filters]), or_filters: J(or ?? []) })).message;
       ctx.check("total", (await cnt([])) === P.total, P.total, await cnt([]));
       ctx.check("status = Open", (await cnt([["status", "=", "Open"]])) === P.by_status.Open, P.by_status.Open, await cnt([["status", "=", "Open"]]));
       const any = await cnt([], [["status", "=", "Open"], ["status", "=", "Closed"]]);
       ctx.check("Open OR Closed", any === P.by_status.Open + P.by_status.Closed, P.by_status.Open + P.by_status.Closed, any);
-      const page = async (start) => (await m.call("frappe.client.get_list", { doctype: "SFUI Test Parent", fields: J(["name"]), order_by: "modified desc, name desc", limit_start: start, limit_page_length: 20 })).message?.map((r) => r.name) ?? [];
+      const page = async (start) => (await m.call("frappe.client.get_list", { doctype: "SFUI Test Parent", fields: J(["name"]), filters: J([SEEDED]), order_by: "modified desc, name desc", limit_start: start, limit_page_length: 20 })).message?.map((r) => r.name) ?? [];
       const [a, b] = [await page(0), await page(20)];
       ctx.check("pages 20 + rest, no overlap", a.length === Math.min(20, P.total) && b.length === Math.max(0, P.total - 20) && !a.some((n) => b.includes(n)), `${Math.min(20, P.total)} + ${Math.max(0, P.total - 20)}`, `${a.length} + ${b.length}`);
     } },
@@ -564,9 +571,9 @@ export const TESTS = [
     cite: ["model/db_query.py:993-1125 build_match_conditions / add_user_permissions", "desk/form/load.py:40-45", "permissions.py:320 has_user_permission"], evidence: "count, names (synthetic), statuses",
     async run(ctx) {
       const r = ctx.as("restricted"), P = ctx.X.parents;
-      const c = (await r.call("frappe.desk.reportview.get_count", { doctype: "SFUI Test Parent", filters: "[]" })).message;
+      const c = (await r.call("frappe.desk.reportview.get_count", { doctype: "SFUI Test Parent", filters: J([SEEDED]) })).message;
       ctx.check("restricted count", c === P.restricted_visible, P.restricted_visible, c);
-      const names = ((await r.call("frappe.client.get_list", { doctype: "SFUI Test Parent", fields: J(["name"]), limit_page_length: 0 })).message ?? []).map((x) => x.name);
+      const names = ((await r.call("frappe.client.get_list", { doctype: "SFUI Test Parent", fields: J(["name"]), filters: J([SEEDED]), limit_page_length: 0 })).message ?? []).map((x) => x.name);
       ctx.check("only allowed rows listed", names.every((n) => P.restricted_allowed.includes(n)), "subset of restricted_allowed", names.filter((n) => !P.restricted_allowed.includes(n)));
       const hidden = P.restricted_hidden[0];
       const g = await getdoc(r, "SFUI Test Parent", hidden);
@@ -593,9 +600,9 @@ export const TESTS = [
     async run(ctx) {
       const m = ctx.as("manager");
       const expected = ctx.X.parents.with_child_rows;
-      const c = (await m.call("frappe.desk.reportview.get_count", { doctype: "SFUI Test Parent", filters: J([["SFUI Test Child", "qty", ">=", 1]]), distinct: "true" })).message;
+      const c = (await m.call("frappe.desk.reportview.get_count", { doctype: "SFUI Test Parent", filters: J([SEEDED, ["SFUI Test Child", "qty", ">=", 1]]), distinct: "true" })).message;
       ctx.check("distinct parent count", c === expected, expected, c);
-      const n = ((await m.call("frappe.desk.reportview.get", { doctype: "SFUI Test Parent", fields: J(["`tabSFUI Test Parent`.`name`"]), filters: J([["SFUI Test Child", "qty", ">=", 1]]), group_by: "`tabSFUI Test Parent`.`name`", page_length: 500 })).message?.values ?? []).map((v) => v[0]);
+      const n = ((await m.call("frappe.desk.reportview.get", { doctype: "SFUI Test Parent", fields: J(["`tabSFUI Test Parent`.`name`"]), filters: J([SEEDED, ["SFUI Test Child", "qty", ">=", 1]]), group_by: "`tabSFUI Test Parent`.`name`", page_length: 500 })).message?.values ?? []).map((v) => v[0]);
       ctx.check("no duplicates", new Set(n).size === n.length, "unique", n.length);
     } },
   { id: "L-GROUP-1", area: "List", feature: "sidebar group-by counts (server aggregate)", kind: "read", automated: "api", users: ["manager", "restricted"],
@@ -604,7 +611,7 @@ export const TESTS = [
     expect: "manager: status / owner counts = expected.json; restricted: status counts sum to restricted_visible (frappe.get_list applies User Permissions). RECORD the restricted assigned_to counts: that branch builds its sub-query with frappe.qb.get_query (listview.py:36-58), which in 15.110 does not add User Permission conditions — any count above the restricted rows is a Frappe disclosure the package must not amplify",
     cite: ["desk/listview.py:33-92 get_group_by_count"], evidence: "count maps per account",
     async run(ctx) {
-      const g = async (who, field) => (await ctx.as(who).call("frappe.desk.listview.get_group_by_count", { doctype: "SFUI Test Parent", current_filters: "[]", field })).message ?? [];
+      const g = async (who, field) => (await ctx.as(who).call("frappe.desk.listview.get_group_by_count", { doctype: "SFUI Test Parent", current_filters: J([SEEDED]), field })).message ?? [];
       const st = Object.fromEntries((await g("manager", "status")).map((x) => [x.name, x.count]));
       ctx.check("manager status counts", J(Object.fromEntries(Object.entries(st).sort())) === J(Object.fromEntries(Object.entries(ctx.X.parents.by_status).filter(([, v]) => v).sort())), ctx.X.parents.by_status, st);
       const rs = (await g("restricted", "status")).reduce((a, x) => a + x.count, 0);
@@ -618,10 +625,10 @@ export const TESTS = [
     expect: "tag counts = expected.json; the like filter count = the sfui-red count", cite: ["desk/reportview.py:625-660 get_sidebar_stats / get_stats"], evidence: "count maps",
     async run(ctx) {
       const m = ctx.as("manager");
-      const s = (await m.call("frappe.desk.reportview.get_sidebar_stats", { stats: J(["_user_tags"]), doctype: "SFUI Test Parent", filters: "[]" })).message?.stats?._user_tags ?? [];
+      const s = (await m.call("frappe.desk.reportview.get_sidebar_stats", { stats: J(["_user_tags"]), doctype: "SFUI Test Parent", filters: J([SEEDED]) })).message?.stats?._user_tags ?? [];
       const map = Object.fromEntries(s.map(([k, v]) => [k, v]));
       ctx.check("tag stats", map["sfui-red"] === ctx.X.parents.tags["sfui-red"] && map["sfui-blue"] === ctx.X.parents.tags["sfui-blue"], ctx.X.parents.tags, map);
-      const c = (await m.call("frappe.desk.reportview.get_count", { doctype: "SFUI Test Parent", filters: J([["_user_tags", "like", "%sfui-red%"]]) })).message;
+      const c = (await m.call("frappe.desk.reportview.get_count", { doctype: "SFUI Test Parent", filters: J([SEEDED, ["_user_tags", "like", "%sfui-red%"]]) })).message;
       ctx.check("tag filter", c === ctx.X.parents.tags["sfui-red"], ctx.X.parents.tags["sfui-red"], c);
     } },
   { id: "L-SAVED-1", area: "List", feature: "saved filters: per-user, duplicates", kind: "write", automated: "api", users: ["writer"],
@@ -752,7 +759,7 @@ export const TESTS = [
   { id: "L-TAG-2", area: "Security", feature: "add tags needs write", kind: "reject", automated: "api", users: ["writer", "reader"],
     rows: ["LV.F6"],
     pre: "a seeded parent", steps: ["writer: frappe.desk.doctype.tag.tag.add_tags(['sfui-green'], dt, [name])", "reader: the same"],
-    expect: "writer 200 (_user_tags contains sfui-green); reader 403 (update_tags checks write)", cite: ["desk/doctype/tag/tag.py:43-52 add_tags", "desk/doctype/tag/tag.py:148-152 update_tags (check_permission write)"], evidence: "statuses",
+    expect: "writer 200 (_user_tags contains sfui-green); reader 403 (update_tags checks write)", cite: ["desk/doctype/tag/tag.py:43-52 add_tags → DocTags.add :87-94", "desk/doctype/tag/tag.py:105-126 DocTags.update (set_value, then update_tags; errors re-raised → the request rolls back)", "desk/doctype/tag/tag.py:147-152 update_tags (check_permission write)"], evidence: "statuses",
     async run(ctx) {
       const d = await newParent(ctx, "writer", { title: "tags" });
       const w = await ctx.as("writer").call("frappe.desk.doctype.tag.tag.add_tags", { tags: J(["sfui-green"]), dt: "SFUI Test Parent", docs: J([d?.name]) });
@@ -850,7 +857,7 @@ export const TESTS = [
     pre: "parents with due_date across December 2026", steps: ["manager: frappe.desk.calendar.get_events(SFUI Test Parent, 2026-12-01, 2026-12-31, field_map {start: due_date, end: due_date, id: name, title: title})", "restricted: the same"],
     expect: "manager: due_in_dec_2026 events; restricted: only allowed parents (get_list applies User Permissions)", cite: ["desk/calendar.py:25-57 get_events"], evidence: "event counts",
     async run(ctx) {
-      const args = { doctype: "SFUI Test Parent", start: "2026-12-01", end: "2026-12-31", field_map: J({ start: "due_date", end: "due_date", id: "name", title: "title", allDay: "allDay" }) };
+      const args = { doctype: "SFUI Test Parent", start: "2026-12-01", end: "2026-12-31", field_map: J({ start: "due_date", end: "due_date", id: "name", title: "title", allDay: "allDay" }), filters: J([SEEDED]) };
       const m = (await ctx.as("manager").call("frappe.desk.calendar.get_events", args)).message ?? [];
       ctx.check("manager: December events", m.length === ctx.X.parents.due_in_dec_2026, ctx.X.parents.due_in_dec_2026, m.length);
       const r = (await ctx.as("restricted").call("frappe.desk.calendar.get_events", args)).message ?? [];

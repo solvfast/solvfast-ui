@@ -67,6 +67,11 @@ SFUI_HARNESS_URL=http://127.0.0.1:4821 node e2e/frappe-site/run-matrix.mjs --bro
 # then delete the private directory (it holds the passwords)
 ```
 
+Run order inside `run-matrix.mjs`: read checks first, then writes. Write tests create their own `SFUI P36 RUN …` records
+(linked to contact #12, which no seeded parent uses) and the aggregate checks count only the seeded parents
+(`title like "SFUI Parent %"`). The tested path is **one `--write` run per seed**; tear down and reseed between write runs
+(L-SAVED-2 may delete a seeded saved filter, F-PERMLEVEL-2 re-saves a seeded draft).
+
 Results: `<out>/results.json` and `results.md` — per test: requirement ids, feature, expected Frappe behaviour (+ source
 cite), actual checks, environment (site, URL, Frappe version), users, PASS / FAIL / BLOCKED, evidence (request / response
 **shapes** and statuses, redacted; screenshots), issue; plus every COVERAGE row aggregated with its category. Write tests

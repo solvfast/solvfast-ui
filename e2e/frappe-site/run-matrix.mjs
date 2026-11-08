@@ -25,7 +25,8 @@ const unknown = argv.filter((a) => !known.has(a));
 if (unknown.length) { console.error(`unknown argument(s): ${unknown.join(" ")}`); process.exit(64); }
 
 const rows = parseCoverage(fs.readFileSync(path.join(REPO_ROOT, "docs/audit/p35/COVERAGE.md"), "utf8"));
-const selected = TESTS.filter((t) => !ONLY || ONLY.includes(t.id));
+// read checks first, so the aggregates see the seed before this run's writes (they also filter to seeded titles)
+const selected = TESTS.filter((t) => !ONLY || ONLY.includes(t.id)).sort((a, b) => (a.kind === "read" ? 0 : 1) - (b.kind === "read" ? 0 : 1));
 if (ONLY && selected.length !== ONLY.length) { console.error(`unknown test id(s): ${ONLY.filter((i) => !TESTS.some((t) => t.id === i)).join(", ")}`); process.exit(64); }
 
 /** Why a test would not run with these flags (null = it runs). */
@@ -151,6 +152,7 @@ async function as(key) { if (!sessions[key]) { sessions[key] = new Session(key);
 
 let versions = null;
 try { versions = (await (await as("manager")).call("frappe.utils.change_log.get_versions", {}, "GET")).message; } catch (e) { console.error(`cannot log in as manager: ${e.message}`); process.exit(1); }
+sessions.manager?.log.splice(0); // the version probe is not evidence of any test
 const environment = { url: BASE, site: g.site, frappe: versions?.frappe?.version ?? "unknown", apps: Object.keys(versions ?? {}), runner: `node ${process.version}`, when: new Date().toISOString(), approval: g.approval, flags: { write: WRITE, browser: BROWSER } };
 
 const results = [];

@@ -695,8 +695,8 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Rows:** FV.E3, FV.E7
 - **User / role:** writer
 - **Preconditions:** seeded contacts have email_id
-- **Steps:** (1) writer: save a Parent with contact = contact #2, contact_email empty, contact_name_if_empty = 'SFUI typed'
-- **Expected Frappe behaviour:** saved contact_email = contact #2's email_id (re-fetched by the server); contact_name_if_empty keeps 'SFUI typed' (fetch_if_empty)
+- **Steps:** (1) writer: save a Parent with contact = contact #12, contact_email empty, contact_name_if_empty = 'SFUI typed'
+- **Expected Frappe behaviour:** saved contact_email = contact #12's email_id (re-fetched by the server); contact_name_if_empty keeps 'SFUI typed' (fetch_if_empty)
 - **Frappe source:** model/base_document.py:787-880 get_invalid_links (fetch_from values set during link validation); model/base_document.py:824-825 fetch_if_empty
 - **Evidence to capture:** saved values
 
@@ -751,7 +751,7 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **User / role:** manager
 - **Preconditions:** a fresh cancelled parent
 - **Steps:** (1) manager: savedocs Save of a copy with amended_from = <name> (2) manager: frappe.client.is_document_amended (3) cancel + amend the amendment
-- **Expected Frappe behaviour:** the amendment is named <name>-1, then <name>-2; is_document_amended → true; amending a doc that is not cancelled → 417 'cannot be amended because it is not cancelled'
+- **Expected Frappe behaviour:** the amendment is named <name>-1, then <name>-2; is_document_amended → the amendment's name (frappe.db.exists, client.py:425-430); amending a doc that is not cancelled → 417 'cannot be amended because it is not cancelled'
 - **Frappe source:** model/naming.py:526-541 _set_amended_name; model/document.py:439-444 validate_amended_from; client.py:425 is_document_amended
 - **Evidence to capture:** names
 
@@ -804,8 +804,8 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Kind / automation:** write · api
 - **Rows:** FV.A20, FV.A21, FV.G10
 - **User / role:** writer, reader
-- **Preconditions:** seeded 'SFUI Attach Probe' (SFUI Test Attachments, max_attachments 3)
-- **Steps:** (1) writer: upload_file ×3 (tiny synthetic text files, is_private 1) attached to the probe (2) writer: a 4th upload (3) reader: one upload
+- **Preconditions:** SFUI Test Attachments (max_attachments 3); the test creates its own probe document as writer
+- **Steps:** (1) writer: create an SFUI Test Attachments doc (2) writer: upload_file ×3 (tiny synthetic text files, is_private 1) attached to the probe (3) writer: a 4th upload (4) reader: one upload
 - **Expected Frappe behaviour:** 3 × 200 with File docs; the 4th → 417 'Maximum Attachment Limit of 3 has been reached'; reader → 403 (write on the target required)
 - **Frappe source:** handler.py:175-271 upload_file (write check :271); core/doctype/file/file.py:333-350 validate_attachment_limit
 - **Evidence to capture:** statuses, File names
@@ -858,11 +858,11 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 
 - **Kind / automation:** write · api
 - **Rows:** FV.K8
-- **User / role:** manager, writer
+- **User / role:** reader, writer
 - **Preconditions:** a fresh draft parent (allow_rename = 1)
-- **Steps:** (1) writer: frappe.model.rename_doc.update_document_title with a new name (2) manager: the same
-- **Expected Frappe behaviour:** writer → 403 (write + rename rights are checked); manager → 200 with the new name; links follow
-- **Frappe source:** model/rename_doc.py:22-91 update_document_title (write check :59); model/rename_doc.py:349-382 validate_rename (permission :382)
+- **Steps:** (1) reader: frappe.model.rename_doc.update_document_title(name = <new>) (2) writer: the same
+- **Expected Frappe behaviour:** Frappe has no separate rename right: the server checks `write` on the document and the DocType's allow_rename — reader → 403 PermissionError; writer → 200 returning the new name (links follow)
+- **Frappe source:** model/rename_doc.py:22-91 update_document_title (check_permission write :59); model/rename_doc.py:349-382 validate_rename (allow_rename, write :382)
 - **Evidence to capture:** statuses, new name
 
 #### F-MENU-3 — duplicate (copy insert)
@@ -1352,7 +1352,7 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Preconditions:** a seeded parent
 - **Steps:** (1) writer: frappe.desk.doctype.tag.tag.add_tags(['sfui-green'], dt, [name]) (2) reader: the same
 - **Expected Frappe behaviour:** writer 200 (_user_tags contains sfui-green); reader 403 (update_tags checks write)
-- **Frappe source:** desk/doctype/tag/tag.py:43-52 add_tags; desk/doctype/tag/tag.py:148-152 update_tags (check_permission write)
+- **Frappe source:** desk/doctype/tag/tag.py:43-52 add_tags → DocTags.add :87-94; desk/doctype/tag/tag.py:105-126 DocTags.update (set_value, then update_tags; errors re-raised → the request rolls back); desk/doctype/tag/tag.py:147-152 update_tags (check_permission write)
 - **Evidence to capture:** statuses
 
 #### S-CSRF-1 — CSRF on state-changing requests
