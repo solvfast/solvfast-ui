@@ -133,8 +133,12 @@ describe("fixture transport (SIMULATED)", () => {
     await client.deleteDoc("ToDo", "TD-100");
     expect(await client.getDoc("ToDo", "TD-100").catch((e) => e.kind)).toBe("not_found");
     await client.call("frappe.desk.reportview.delete_items", { doctype: "ToDo", items: JSON.stringify(["TD-2"]) });
-    const res = await client.call("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs", { doctype: "ToDo", docnames: JSON.stringify(["TD-3", "missing"]), action: "update", data: JSON.stringify({ status: "Closed" }) });
-    expect(res.message).toEqual(["missing"]);
+    // bulk_update.py:82 — `frappe.get_doc` is outside the try: an unknown name fails the WHOLE request (P36b fidelity);
+    // the documents before it stay changed (commit per document)
+    const err = await client.call("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs", { doctype: "ToDo", docnames: JSON.stringify(["TD-3", "missing"]), action: "update", data: JSON.stringify({ status: "Closed" }) }).catch((e) => e);
+    expect(err.excType).toBe("DoesNotExistError");
+    const res = await client.call("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs", { doctype: "ToDo", docnames: JSON.stringify(["TD-3"]), action: "update", data: JSON.stringify({ status: "Closed" }) });
+    expect(res.message).toEqual([]);
     await client.call("frappe.desk.form.assign_to.add_multiple", { doctype: "ToDo", name: JSON.stringify(["TD-3"]), assign_to: JSON.stringify(["c@x"]), bulk_assign: true, re_assign: true });
     expect((await client.getDocInfo("ToDo", "TD-3")).assignments.map((a) => a.owner)).toEqual(["c@x"]);
     expect((await client.call("frappe.desk.listview.get_list_settings", { doctype: "ToDo" })).message).toBeNull();

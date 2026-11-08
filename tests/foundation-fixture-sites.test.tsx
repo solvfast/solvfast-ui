@@ -130,7 +130,9 @@ describe("list call sites (A2)", () => {
     expect(await client.getDoc("ToDo", "TD-5").catch((e) => e.kind)).toBe("not_found");
     expect(await bulkSubmitCancelOrUpdate(client, "CRM Deal", ["D-1", "D-2"], "submit")).toEqual({ failed: [], queued: false });
     expect((await client.getDoc("CRM Deal", "D-1")).doc.docstatus).toBe(1);
-    expect(await bulkSubmitCancelOrUpdate(client, "ToDo", ["TD-1", "nope"], "update", { priority: "High" })).toEqual({ failed: ["nope"], queued: false });
+    // bulk_update.py:82: an unknown name fails the whole request (P36b simulator fidelity); a cancelled-only failure is per name
+    await expect(bulkSubmitCancelOrUpdate(client, "ToDo", ["TD-1", "nope"], "update", { priority: "High" })).rejects.toMatchObject({ excType: "DoesNotExistError" });
+    expect(await bulkSubmitCancelOrUpdate(client, "ToDo", ["TD-1"], "update", { priority: "High" })).toEqual({ failed: [], queued: false });
     await bulkAssign(client, "ToDo", ["TD-1", "TD-3"], ["ann@x.com"]);
     const rows = await reportviewGet(client, "ToDo", { fields: ["name", "_assign"], filters: [["_assign", "like", "%ann@x.com%"]], order_by: "name asc" });
     expect(rows.rows.map((r) => r.name)).toEqual(["TD-1", "TD-3"]);

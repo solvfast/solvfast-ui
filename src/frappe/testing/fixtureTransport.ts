@@ -1316,18 +1316,32 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       c.content = a.content;
       return {};
     },
+    // bulk_update.py:51-114 (P36b): < 20 names run now and answer the failed names; 20–500 are enqueued (SIMULATED as run at
+    // once; only an alert, no `message`); > 500 refused. Per name: `frappe.get_doc` OUTSIDE the try (:82 — an unknown name
+    // fails the whole request), submit only a draft (:85), cancel only a submitted one (:92), update anything not
+    // cancelled (:95); any other docstatus or an exception → failed (:99-112).
     "frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs": (a) => {
-      const failed: string[] = [];
+      const doctype = String(a.doctype);
+      const names = ((parse(a.docnames) as unknown[] | undefined) ?? []).map(String);
       const data = (parse(a.data) as Row | undefined) ?? {};
-      for (const n of (parse(a.docnames) as string[]) ?? []) {
-        try {
-          const cur = get(String(a.doctype), n);
-          if (a.action === "submit") save({ ...cur }, "Submit");
-          else if (a.action === "cancel") handlers["frappe.desk.form.save.cancel"]({ doctype: a.doctype, name: n }, store, ctx);
-          else save({ ...cur, ...data }, Number(cur.docstatus) === 1 ? "Update" : "Save");
-        } catch { failed.push(n); }
-      }
-      return { message: failed };
+      if (names.length > 500) fail(417, "ValidationError", "Bulk operations only support up to 500 documents.", { title: "Too Many Documents" });
+      const run = () => {
+        const failed: string[] = [];
+        for (const n of names) {
+          const cur = get(doctype, n);
+          try {
+            const ds = Number(cur.docstatus ?? 0);
+            if (a.action === "submit" && ds === 0) save({ ...cur }, "Submit");
+            else if (a.action === "cancel" && ds === 1) handlers["frappe.desk.form.save.cancel"]({ doctype, name: n }, store, ctx);
+            else if (a.action === "update" && ds !== 2) save({ ...cur, ...data }, ds === 1 ? "Update" : "Save");
+            else failed.push(n);
+          } catch { failed.push(n); }
+        }
+        return failed;
+      };
+      if (names.length < 20) return { message: run() };
+      try { run(); } catch { /* the background job only logs (frappe.log_error) */ }
+      return { _server_messages: JSON.stringify([JSON.stringify({ message: "Bulk operation is enqueued in background.", alert: 1 })]) } as FrappeResponse;
     },
     // ---- Phase 27 list actions (bulk) -------------------------------------------------------------------------------
     // assign_to.py:181-192 → remove → set_status (:195-213): Desk sends ignore_permissions, so NO check then (mirrored)
