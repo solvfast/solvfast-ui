@@ -416,22 +416,7 @@ Unreleased; the full list is in CHANGELOG.md (0.7.0-dev.2). What an app may have
   in 0.7.0-dev.1 (fields with `read_only_depends_on` that evaluates false, permlevel fields, child-table cells). Pass
   `editable="strict"` for the stricter client checks. **BREAKING vs 0.7.0-dev.1:** `isCellEditable(df, row, levels)` is now
   `isCellEditable(df, row, { fields, levels, … })`.
-- **DataGrid on phones** (new, opt-in): `layout="auto"` shows a card per row when the grid's container is narrower than
-  `cardsBelow` (640 px), with no sideways scroll; `DataGridColumn.mobile` picks the card title or hides a column. The
-  default table is unchanged.
-
-```tsx
-import { DataGrid, Input } from "@solvfast/ui";
-
-<DataGrid label="Commission" rows={rows} getRowKey={(r) => r.id} layout="auto" cardsBelow={480}
-  onAddRow={addRow} onDeleteRows={deleteRows}
-  columns={[
-    { key: "name", label: "Name", mobile: "primary", renderCell: (r) => r.name,
-      renderEditor: (r, i) => <Input aria-label={`Name ${i + 1}`} value={r.name} onChange={(e) => setName(i, e.target.value)} /> },
-    { key: "share", label: "Share %", renderCell: (r) => `${r.share} %`,
-      renderEditor: (r, i) => <Input aria-label={`Share % ${i + 1}`} value={r.share} onChange={(e) => setShare(i, e.target.value)} /> },
-  ]} />
-```
+- **DataGrid**: unchanged from 0.7.0-dev.1 — it keeps its `32rem` minimum width and scrolls horizontally on phones.
 
 ## Known limitations
 The full list is in docs/LIMITATIONS.md. The ones most likely to matter:

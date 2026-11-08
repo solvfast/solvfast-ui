@@ -16,16 +16,9 @@ write path is still simulator-only. Index: `docs/audit/p36/README.md` (repositor
 Owner decisions (final): (1) Desk's header-actions selection is the List View standard; (2) CRM pickers migrate per usage,
 by semantics only; (3) CRM confirmations use `AlertDialog`; (4) no CRM Commission `DataGrid` migration until its responsive
 behaviour is verified; (5) Report view editing matches Frappe 15.110 by default, with an explicit opt-in. (2)–(4) are CRM
-work; the package delivers (1), (5) and the DataGrid layout (4).
+work; the package delivers (1) and (5). `DataGrid` is unchanged from 0.7.0-dev.1 (see Reverted).
 
 ### Added
-- **DataGrid (Core)** — `layout="table" | "cards" | "auto"` for phones: one card per row (the primary column as the title,
-  the others as label / value lines; `DataGridColumn.mobile: "primary" | false`, as ListView's `ColumnDef.mobile`).
-  `"auto"` switches on the grid's **container** width (ResizeObserver; `cardsBelow`, default 640 px), not the window; an
-  unmeasured width (SSR, hidden tab) gives the table. Cards keep the grid's editing (one row inline at a time; tap a value
-  or the "Edit row {n}" toggle; Escape / tap outside stops), the row menu, selection, Add Row, paging and Desk's shortcuts;
-  no sideways scroll. `minTableWidth` (table layout only; default `"32rem"`, `false` = none). `FrappeChildTable` does not
-  forward these props yet (Frappe Table fields keep the table).
 - **List (Core)** — Ctrl/⌘-click on a row toggles its selection instead of opening it (Desk `list_view.js:1296-1306`; not
   on links).
 - **Report view (`@solvfast/ui/frappe`)** — `FrappeReportView` `editable`: `"desk"` (default) | `"strict"` (adds the
@@ -35,7 +28,7 @@ work; the package delivers (1), (5) and the DataGrid layout (4).
 - **Exports from `@solvfast/ui/frappe`** — `deskCanWrite`, `evaluateReportReadOnlyDependsOn`, `isNonStdField`,
   `rowFromSavedDoc`, `updateCachedRows`; types `ReportEditable`, `ReportEditInfo`, `ReportEditMode`, `ReportEditOptions`;
   `selectionAfterBulk(kind, outcome, count)` (Desk's selection outcome per bulk action, `src/frappe/list/bulk.ts`).
-- **Messages** — `listNoActions` ("No actions available for the selection"), `coreGridEditRow` ("Edit row {n}"), en + ar.
+- **Messages** — `listNoActions` ("No actions available for the selection"), en + ar.
 - **Simulator (not public)** — `reportSetValueHandler` in `src/frappe/testing/handlers/views.ts`: SIMULATED
   `frappe.client.set_value` with the child-table branch, the submit right and update-after-submit validation. It is **not**
   exported from `@solvfast/ui/frappe/testing` (the showcase imports it directly) and not part of the builtin handlers.
@@ -80,8 +73,16 @@ work; the package delivers (1), (5) and the DataGrid layout (4).
 6. Repository only: `e2e/frappe-site/seed-crm-site.py` and `teardown-crm-site.py` now refuse to run (they targeted a
    production site); the legacy `seed.py` / `validate.mjs` and the harness proxy refuse anything but an approved staging site.
 
-Unchanged: `DataGrid`'s default `layout="table"` renders exactly as before (same classes), so `FrappeChildTable` and other
-existing grids are unaffected. `package.json` `exports` unchanged.
+Unchanged: `DataGrid` (byte-identical to 0.7.0-dev.1: the `32rem` minimum and horizontal scrolling on phones), so
+`FrappeChildTable` and other existing grids are unaffected. `package.json` `exports` unchanged.
+
+### Reverted (owner decision, P36 batch 2)
+- **DataGrid mobile card layout** — implemented in the 0.7.0-dev.2 work (W3, merge `7bd1595`: `DataGrid layout="table" |
+  "cards" | "auto"`, `cardsBelow`, `minTableWidth`, `DataGridColumn.mobile`, the `coreGridEditRow` message, the showcase
+  page, `e2e/datagrid-mobile.mjs`, `tests/datagrid-p36.test.tsx`) and reverted before release (`ccb232d`). Owner: no
+  card-based mobile layout, no change to the table's responsive behaviour; horizontal scrolling on phones is acceptable
+  for now; Frappe Table fields are not migrated to cards. `DataGrid` is unchanged from 0.7.0-dev.1. (`ListView`'s phone
+  cards, `layout="cards" | "auto"` + `ColumnDef.mobile` from 0.7.0-dev.1, are a different feature and stay.)
 
 ### BREAKING (vs 0.7.0-dev.1)
 - `isCellEditable(df, row, levels)` → `isCellEditable(df, row, { fields, levels, issingle?, child?: { name }, mode?: "desk" |
@@ -97,10 +98,10 @@ existing grids are unaffected. `package.json` `exports` unchanged.
 
 ### Docs
 - `docs/LIMITATIONS.md`, `docs/FRAPPE.md`, `docs/CONSUMING.md`, `docs/release/LISTVIEW-FRAPPE-PARITY.md`: header selection is
-  the default; DataGrid on phones; Report view editability; real-site status "prepared, not run"; Frappe 15.110 server
+  the default; Report view editability; real-site status "prepared, not run"; Frappe 15.110 server
   rules the validation run must confirm (read from source, not yet observed on a site).
 - `docs/components/list.md` (selection default, "The selection after an action"), `views.md` §3 (truth table, save path,
-  opt-in), `forms.md` (DataGrid on phones), `docs/FEATURES.md` (F20, F21, C3, C4) — updated by the workstreams.
+  opt-in), `docs/FEATURES.md` (F20, F21, C3, C4) — updated by the workstreams.
 - `docs/audit/p35/COVERAGE.md` (§8 P36 changes; no status change), `docs/audit/p35/CRM-MIGRATION.md` (§5 decisions),
   new `docs/audit/p36/README.md` and `VALIDATION-MATRIX.md` (repository only).
 
@@ -109,12 +110,10 @@ existing grids are unaffected. `package.json` `exports` unchanged.
   `VALIDATION-MATRIX.md` is BLOCKED (not run). Running it needs an owner-approved, isolated staging site
   (`docs/audit/p36/README.md` §"What the owner must provide").
 - Evidence for the P36 changes is jsdom / simulator only (`tests/list-selection-desk.test.tsx`,
-  `tests/list-selection-header.test.tsx`, `tests/frappe-views-report.test.tsx` 26 `LV.H1`, `tests/datagrid-p36.test.tsx`
-  14 `CORE.DG*`, `tests/frappe-site-guards.test.ts` 23) plus one real-browser check of the showcase DataGrid section
-  (`e2e/datagrid-mobile.mjs`, Chromium, 360 / 390 / 1280 px × en / ar × light / dark — run in the W3 worktree).
-- Integration gates (at this commit): `npx vitest run` — 75 files, 1505 passed, 10 todo, 0 failed (0.7.0-dev.1: 72 files,
-  1415 passed); `npm run typecheck` exit 0; `check-boundaries` source rules OK. Not run at integration: `npm run build` (so `dist/styles/full.css` for consumers without Tailwind has not been rebuilt with the new DataGrid
-  utilities), `check:package`, `showcase:build`, `e2e/showcase-smoke.mjs` (its list checks were rewritten for the header
+  `tests/list-selection-header.test.tsx`, `tests/frappe-views-report.test.tsx` 26 `LV.H1`, `tests/frappe-site-guards.test.ts`
+  23).
+- Integration gates (batch 2, after the DataGrid revert): `npx vitest run` — 74 files, 1492 passed, 10 todo, 0 failed
+  (batch 1 before the revert: 75 files, 1505; 0.7.0-dev.1: 72 files, 1415 passed); `npm run typecheck` exit 0; `check-boundaries` source rules OK. Not run at integration: `npm run build` (so `dist/styles/full.css` for consumers without Tailwind has not been rebuilt), `check:package`, `showcase:build`, `e2e/showcase-smoke.mjs` (its list checks were rewritten for the header
   default by W1 and have not run), `e2e/consumers/run.sh`.
 
 ## 0.7.0-dev.1 (unreleased)

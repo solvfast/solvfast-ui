@@ -18,7 +18,7 @@ Until it runs, every real-site result is BLOCKED.
 | Area | Evidence |
 |---|---|
 | Core 0.1–0.3 (theme, primitives, shell, List View) | Unit tests, pixel parity with Sear's real components, clean installs (Tailwind and no-Tailwind) |
-| Core additions 0.4–0.7 (fields, record components, Export / Import dialogs, views, sidebar, record menu, e-mail composer, file dropzone, …) | Unit tests in jsdom and a Showcase smoke render (jsdom). No pixel parity, no manual screen-reader pass; 0.7.0-dev additions have not been checked in a real browser (except DataGrid's phone cards: a Chromium check of the showcase section, P36) |
+| Core additions 0.4–0.7 (fields, record components, Export / Import dialogs, views, sidebar, record menu, e-mail composer, file dropzone, …) | Unit tests in jsdom and a Showcase smoke render (jsdom). No pixel parity, no manual screen-reader pass; 0.7.0-dev additions have not been checked in a real browser |
 | Frappe layer — read paths | Replayed from **recorded real Frappe 15.110 responses** and anonymous HTTP (`tests/real/sada-real.test.tsx`): meta, list rows, counts, link search / validation, document load, the 403 / 417 envelopes |
 | Frappe layer — everything else | **Simulator only** (`@solvfast/ui/frappe/testing`) or stub transports — see the next section |
 | Frappe layer — an authenticated real site | **Not done.** Prepared, not run (P36): matrix, guarded staging seed / teardown and runner in `docs/audit/p36/` and `e2e/frappe-site/` (repository only); needs an owner-approved isolated staging site |
@@ -149,9 +149,9 @@ site yet**.
 
 ## Known bugs
 
-- `DataGrid` in the default table layout has a minimum width (`32rem`, `minTableWidth`) and scrolls sideways on a 390 px
-  phone; `layout="auto"` / `"cards"` show a card per row instead. `FrappeChildTable` (Frappe Table fields) does not
-  forward `layout` yet, so Table fields still scroll sideways on phones.
+- `DataGrid` has a fixed minimum width (`32rem`): on a 390 px phone it scrolls horizontally, and so do Frappe Table fields
+  (`FrappeChildTable`). Accepted by the owner for now (P36 batch 2: no card layout for DataGrid or Table fields; a card
+  layout built during P36 was reverted before release).
 
 ## Environment
 
@@ -186,8 +186,7 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
 - Server mode: the selection keeps keys across pages, but `bulkActions` receive row objects only for rows on the
   current page (keys for all).
 - Grouped: collapsing a group can re-balance column widths (all groups still share the header's columns).
-- `layout="auto"` switches to cards only where a phone media query matches; `layout="cards"` forces them. (DataGrid's
-  `layout="auto"` is different: it follows the grid's own container width, `cardsBelow`.)
+- `layout="auto"` switches to cards only where a phone media query matches; `layout="cards"` forces them.
 - Select all matching ends when a row is unchecked or the query changes.
 
 ## Merged components (0.3.0)

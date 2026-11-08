@@ -95,7 +95,7 @@ not in the repository).
 | Item | Reason |
 |---|---|
 | M9 record-menu confirm bars → `AlertDialog` / `Alert` | owner decision (modal vs inline) — §5.2. **(P36)** decided: `AlertDialog`; P36 CRM workstream |
-| M10 Commission & Referral → `DataGrid` | phone regression + editing-model change — §5.3. **(P36)** still not migrated: DataGrid now has phone cards, migration waits for CRM evidence (§5.3 readiness criteria) |
+| M10 Commission & Referral → `DataGrid` | phone regression + editing-model change — §5.3. **(P36)** still not migrated: the owner's batch-2 rule (keep the table with horizontal scrolling, no card layout) and the editing-model change, which needs owner approval first (§5.3) |
 | M11 `SearchableSelect` → `LinkInput`, M12 `ClientPicker` → `LinkInput` | owner decision (behavioural: free text, empty value, avatars) — §5.1. **(P36)** decided: per usage, by semantics; P36 CRM workstream |
 | M15 typed dynamic import of `@solvfast/ui/frappe` in `frappeRecordKit.ts` | not in WS6 scope (D-crm §5 items 1–4) |
 | N1–N13 | need a DS capability beyond 0.6.0 — §4 |
@@ -177,7 +177,7 @@ Regression of `431cf9e` (0.6.0, local build):
 | tags/assign | 43 / 43 en + ar |
 | SD / SM + legacy (`outside.mjs`, 172 loads, 0 console errors) | 158 identical vs baseline; the SD / SM differences are 2–3 px (base-vs-base noise is 17 shots, up to 16 px); the CRM's own lifecycle / workflow designer canvases differ by edge-rendering noise (inspected visually; they also differ between two baseline runs) |
 
-`crm/p36-needs-070` = `12a1c10` (P35 + M7) + C1–C3 + P6. Integrator re-run against a local **0.7.0-dev.2** pack (header-selection default, Desk per-action selection, Report view, DataGrid layouts): typecheck 30 (identical); build ✓; route sweep 82 loads, 0 console errors; mock 16 / 0; records-assign 111 / 0; 28 lists 112 / 112; legacy 56 / 0; `p35.mjs` 376 / 0; `p36.mjs` (confirmations + "Links to") 216 / 0; `p36-legacy.mjs` 10 / 0; tags/assign 43 / 43 en + ar; SD / SM 2–3 px noise; the only real differences are the 8 legacy CRM detail shots (the assignee role line, P35 AssigneeGroup). No CRM package pin was changed. The workstream ran its suites against the local 0.7.0-dev.1 pack: `p35.mjs` 376 / 0, `p36.mjs` 336 / 0 (with "Links to"), tags/assign 43 / 43 ×2, SD / SM noise only.
+`crm/p36-needs-070` = `12a1c10` (P35 + M7) + C1–C3 + P6. Integrator re-run against a local **0.7.0-dev.2** pack (header-selection default, Desk per-action selection, Report view, DataGrid layouts — the last reverted afterwards in batch 2): typecheck 30 (identical); build ✓; route sweep 82 loads, 0 console errors; mock 16 / 0; records-assign 111 / 0; 28 lists 112 / 112; legacy 56 / 0; `p35.mjs` 376 / 0; `p36.mjs` (confirmations + "Links to") 216 / 0; `p36-legacy.mjs` 10 / 0; tags/assign 43 / 43 en + ar; SD / SM 2–3 px noise; the only real differences are the 8 legacy CRM detail shots (the assignee role line, P35 AssigneeGroup). No CRM package pin was changed. The workstream ran its suites against the local 0.7.0-dev.1 pack: `p35.mjs` 376 / 0, `p36.mjs` 336 / 0 (with "Links to"), tags/assign 43 / 43 ×2, SD / SM noise only.
 
 ### 5.3 M10 `DataGrid` phone layout — **still NOT migrated (owner decision P36-4)**
 P35 finding: `DataGrid` had a fixed `min-w-[32rem]`; at 390 px the Commission grid scrolled horizontally (scrollWidth 512
@@ -185,30 +185,21 @@ vs 316) and the Share % column was off-screen, while today's DS `Table` shows Na
 model also changes (every row editable → one row at a time, Desk-style; "Add year" → "Add Row"; new No. / checkbox /
 row-menu columns).
 
-**P36 (package, W3):** `DataGrid` now has `layout="table" | "cards" | "auto"` (`"auto"` switches on the grid's own container
-width, `cardsBelow` default 640 px), `DataGridColumn.mobile: "primary" | false` and `minTableWidth`. Cards keep the grid's
-editing (one row at a time; tap a value or "Edit row {n}"), row menu, selection, Add Row and paging, with no sideways
-scroll — `tests/datagrid-p36.test.tsx` (`CORE.DG1`–`DG14`, jsdom) and `e2e/datagrid-mobile.mjs` (showcase, Chromium, 360 /
-390 px × en / ar × light / dark: page overflow 0, every Name and Share % fully readable, edit / add / delete). The default
-`layout="table"` is unchanged.
+**P36:** a DataGrid phone card layout was built in the P36 package work (W3) and **reverted in batch 2** (`ccb232d`) on the
+owner's correction: no card-based mobile layout, no change to the table's responsive behaviour, horizontal scrolling on
+phones is acceptable for now, and Frappe Table fields are not migrated to cards. `DataGrid` is unchanged from 0.7.0-dev.1
+(the `32rem` minimum and horizontal scroll remain).
 
-**Decision (P36-4):** no Commission `DataGrid` migration until the responsive behaviour is verified **in the CRM**. Readiness
-criteria for a future M10 workstream (against a package release containing W3):
-1. `layout="auto"` on all four child tables (Leadership weights, Stage split, Recurring years, Referral rates); Name / Year
-   `mobile: "primary"`, Share % a detail line; consider `cardsBelow` ≈ 420–480 so a desktop form column keeps the table;
-   hide no column (`mobile: false`) — both are essential.
-2. CRM e2e evidence at 360 and 390 px, en + ar, light + dark (modelled on `e2e/datagrid-mobile.mjs`): no page overflow;
-   every Name and Share % fully visible in every row; the editor reachable and on-screen; Add Row and the row menu
-   visible; `RunningTotal` updating. Compare with `comm390-base.png`; the P35 `comm390-new.png` state (Share % off-screen)
-   must not reproduce.
-3. Owner acceptance of the editing-model change W3 does not remove: one row editable at a time (tap or pencil) instead of
-   all rows; the new No. / checkbox / ⋯ chrome; "Add year" → "Add Row". All-rows-always-editable would be a separate
-   DataGrid feature request.
-4. Closed-won lock: `canDelete={false}` hides every delete path in cards (checkbox, selection Delete, menu Delete) —
-   tested in `CORE.DG11`; re-check on a locked plan in the CRM.
-5. `RecurringTable`: "Year n" is the card title (no editor); editing shows only the Share % editor.
-6. Keep the editors' existing aria-labels ("Name n", "Share % n").
-7. The full CRM regression (P35's 28-check suite) plus the package gates on the 0.7.x build that ships W3.
+**Decision (P36-4, owner rule from batch 2):** the Commission & Referral tables stay **NOT migrated**. A future M10
+migration keeps the table with horizontal scrolling and may proceed only if:
+1. the existing editing behaviour is preserved;
+2. at 360 and 390 px the tables work with a usable horizontal scroll;
+3. nothing becomes inaccessible (every column, editor and action reachable);
+4. the CRM workflows stay intact.
+
+**Known blocker:** `DataGrid` edits one row at a time (Desk-style), while the CRM tables let every row be edited at once;
+`DataGrid` also adds No. / checkbox / ⋯ row-menu chrome and "Add Row" instead of "Add year". This interaction change
+requires **owner approval before any migration**.
 
 ### 5.4 `selectionMode` default — **resolved (owner decision P36-1)**
 `ListView` / `FrappeListView` now default to `selectionMode="header"` (Desk's header actions: "{n} items selected" + Clear
@@ -260,6 +251,6 @@ menu, Connections, e-mail composer, sidebar counts) that the CRM can use only in
   popup it covers the Apply button until Esc / Tab / a click elsewhere (8 / 8 combinations). Candidate fix: close the list
   after a create. **Fixed in 0.7.0-dev.1** (integration: Enter / comma that creates a tag closes the list;
   `CORE.M7 …`, `tests/core-integration.test.tsx`).
-- `DataGrid` fixed minimum width on phones (§5.3) — still open. **(P36)** Addressed in the package: `layout="auto"` /
-  `"cards"` (no sideways scroll) and `minTableWidth`; the default `layout="table"` keeps the 32rem minimum. CRM M10 is
-  still not migrated (§5.3).
+- `DataGrid` fixed minimum width on phones (§5.3) — still open. **(P36)** Accepted by the owner for now: the table keeps
+  its `32rem` minimum and horizontal scroll (a card layout was built and reverted in batch 2). CRM M10 stays not migrated;
+  the editing-model change (one row at a time vs every row editable) needs owner approval first (§5.3).

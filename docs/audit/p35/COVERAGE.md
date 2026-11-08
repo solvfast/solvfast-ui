@@ -130,8 +130,7 @@ List (baseline, from B-list.md): `L` list · `LQ` list-query · `LA` list-action
 `SR` real/sada-real · `FI` frappe-indicator (all `tests/<name>.test.ts(x)`).
 List (P35): `flp` tests/frappe-list-p35.test.tsx · `lp` tests/list-p35.test.tsx · `vsw` tests/views-switcher.test.tsx · `fvh` / `fvr` /
 `fvk` / `fvc` / `fvi` tests/frappe-views-{host,report,kanban,calendar,image}.test.tsx. Form-row tests (`ffp`, `fqe`) are also cited for List G.
-P36: `lsd` tests/list-selection-desk.test.tsx (FrappeListView with no `selectionMode` prop); Core DataGrid layout tests are
-`CORE.DG1`–`DG14` in tests/datagrid-p36.test.tsx; the 26 `LV.H1` tests are in `fvr`.
+P36: `lsd` tests/list-selection-desk.test.tsx (FrappeListView with no `selectionMode` prop); the 26 `LV.H1` tests are in `fvr`.
 
 Source abbreviations: `FF` src/frappe/form/FrappeField.tsx · `FFV` src/frappe/form/FrappeFormView.tsx · `FForm` src/frappe/form/FrappeForm.tsx ·
 `FLF` src/frappe/form/FrappeLinkField.tsx · `FCT` src/frappe/form/FrappeChildTable.tsx · `m/` src/frappe/form/model/. List paths are relative to
@@ -266,12 +265,12 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
-| FV.G1 | Render | COMPLETE | COMPLETE | Frappe (+Core DataGrid) | `FCT` | ff Contact tests; sr Sada Lifecycle rows | `#frappe-forms` contact | simulator; recorded-real (render) | fallback with no in_list_view unverified; (P36) `FrappeChildTable` does not forward DataGrid's new `layout` / `minTableWidth`, so Frappe Table fields keep the table layout and scroll sideways on a 390 px phone |
+| FV.G1 | Render | COMPLETE | COMPLETE | Frappe (+Core DataGrid) | `FCT` | ff Contact tests; sr Sada Lifecycle rows | `#frappe-forms` contact | simulator; recorded-real (render) | fallback with no in_list_view unverified; Table fields keep DataGrid's `32rem` minimum and scroll horizontally on a 390 px phone (accepted by the owner for now, P36) |
 | FV.G2 | Add row | COMPLETE | COMPLETE | both | `FCT`, `m/docStore.ts` | ff "Contact: Add Row…"; fld insert above / below | `#frappe-forms` contact | simulator | — |
 | FV.G3 | Delete rows | COMPLETE | COMPLETE | both | `FFV`, `m/docStore.ts` | ff "table events: … before_<table>_remove…"; prr1 idx | — | simulator, unit | — |
 | FV.G4 | Reorder | PARTIAL | **COMPLETE** | both | DataGrid Move Up/Down; `FFV` | ffp "FV.G4 Move Down / Move Up reorder rows (idx 1..n) and fire items_move…" | — | simulator | no drag |
 | FV.G5 | Row edit form (dialog) | PARTIAL | **COMPLETE** | Frappe | `FCT` row form | ffp "FV.G5 row form: Edit Row opens 'Editing Row #1 · Items'…" | — | simulator | flat sections (no tabs / collapsible in the row form) |
-| FV.G6 | Inline edit | COMPLETE | COMPLETE | both | `FCT`, DataGrid | ff Contact; fld "edits one row inline…" | `#frappe-forms` contact | simulator | (P36) Core DataGrid edits one row at a time in both layouts (`layout="cards"` adds tap / "Edit row {n}" editing, `tests/datagrid-p36.test.tsx` CORE.DG6–DG8); Table fields use the table layout only (FV.G1) |
+| FV.G6 | Inline edit | COMPLETE | COMPLETE | both | `FCT`, DataGrid | ff Contact; fld "edits one row inline…" | `#frappe-forms` contact | simulator | Core DataGrid edits one row at a time (Desk) |
 | FV.G7 | Child validation & reqd | COMPLETE | COMPLETE | Frappe | `m/mandatory.ts` | ff Contact "…Email ID is required in every row."; pmd child block | — | simulator, unit | — |
 | FV.G8 | Child permissions | COMPLETE | COMPLETE | Frappe | `FCT`, `FFV` | rff R1-F8; ff R1-F15; p27 "child table is read-only…" | `#frappe-permissions` | simulator | — |
 | FV.G9 | Upload / download (grid CSV) | MISSING | MISSING | — | — | none | — | — | Desk grid Download / Upload absent |
@@ -741,9 +740,8 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
 - `FrappeListView create` without `create.onOpenFullForm`: a DocType that is not Quick Entry eligible shows the whole form
   in the Quick Entry dialog (Desk routes to the full form).
 - **DataGrid** has a fixed `min-w-[32rem]`: on a 390 px phone it scrolls horizontally (blocked the CRM M10 migration).
-  **(P36)** Still the default (`layout="table"`, now adjustable with `minTableWidth`); `layout="auto"` / `"cards"` show a
-  card per row instead (`CORE.DG1`–`DG14`, `e2e/datagrid-mobile.mjs`). `FrappeChildTable` does not forward `layout` yet;
-  CRM M10 stays not migrated (`CRM-MIGRATION.md` §5.3).
+  **(P36)** Unchanged and accepted by the owner for now: no card layout, horizontal scrolling on phones (a card layout
+  built in P36 W3 was reverted in batch 2). CRM M10 stays not migrated (`CRM-MIGRATION.md` §5.3).
 - **Kanban** with a filtered list: `update_order_for_single_card` pops `old_index` blindly (kanban_board.py:147-151) and
   can move a different name — Desk behaves the same; documented in `views.md` §5.
 - **Report view** inline edit deliberately does not reproduce report_view.js:772-777 (see `views.md` §3), so the package
@@ -784,7 +782,7 @@ simulator evidence; none ran against a site. Owner decisions P36-1 … P36-5 and
 | LV.F2, F3, F5, F6, F7, F10, F12 | tests only | per-action selection outcome now asserted under the header default (unchanged behaviour) | `lsd` LV.F2/F7, F3, F5, F6, F10 ×2, F12 ×3 |
 | LV.F15 | limitation reworded | the current-page-rows limit now applies only to the opt-in bar | — |
 | LV.H1 | tests, location, limitation | Report view editing = Frappe 15.110 by default (owner decision P36-5), child-cell edit added; status stays **PARTIAL** (`save_report`, aggregates, charts, multi-sort) | fvr: 26 LV.H1 tests (was 9) |
-| FV.G1, FV.G6 | limitation | Core DataGrid got `layout="table" \| "cards" \| "auto"` (P36 W3), but `FrappeChildTable` does not forward it — Table fields are unchanged | `CORE.DG1`–`DG14` (Core DataGrid, not a FV row test) |
+| FV.G1, FV.G6 | limitation | FV.G1: Table fields keep DataGrid's `32rem` minimum and horizontal scroll on phones, accepted by the owner for now; FV.G6: one row edited at a time stated. (A DataGrid card layout from P36 W3 was reverted in batch 2; no card-layout claim remains.) | — |
 
 Also annotated in place, marked "(P36)": §7.2 H1, §7.4 `set_value` child branch, §7.5 DataGrid, Report view, `selectionMode`.
 
