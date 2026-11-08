@@ -5,7 +5,7 @@
  * `form/sidebar/form_sidebar.js:51-55, 253-256`. Rules in ./comments.ts.
  *
  * - Reads `docinfo.comments` through the package's shared docinfo query (`useRecordDocInfo` → `frappeKeys.docinfo`).
- *   Every comment is listed — docinfo is not paged for comments (load.py:152-156); there is no "load more" here.
+ *   Every comment is listed — docinfo is not paged for comments (load.py:156-160); there is no "load more" here.
  * - Add / edit / delete go through `useDocAction` (add_comment, update_comment, frappe.client.delete Comment), which
  *   invalidates docinfo; Publish / Unpublish calls `update_comment_publicity` and invalidates docinfo too.
  *   Nothing changes on screen before the server answered (Desk's edit shows the new text first, form_timeline.js:637-650

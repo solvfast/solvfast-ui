@@ -3,7 +3,7 @@
  * and Desk's share dialog, persisted through `frappe.share.*` (share.ts). Frappe 15.110 `form/sidebar/share.js`,
  * `form/templates/form_sidebar.html:105-118`, `form/templates/set_sharing.html`.
  *
- * - The avatars read `docinfo.shared` (load.py:129 `get_docshares` — the DocShare rows; `[]` without read) through the
+ * - The avatars read `docinfo.shared` (load.py:130 `get_docshares` — the DocShare rows; `[]` without read) through the
  *   package's shared docinfo query (`useRecordDocInfo` → `useDocInfo`, key `frappeKeys.docinfo`), so the form, its
  *   timeline and this section stay in step. Hidden when the document is not shared (share.js:29-32).
  * - "+" opens the dialog (share.js:42-70): the rows are (re)read with `get_users`; every change is a server call and the

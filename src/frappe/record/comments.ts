@@ -10,7 +10,7 @@
  *   so an author without one of those roles cannot delete their own comment. Request: `frappe.client.delete
  *   {doctype: "Comment", name}` after "Delete comment?" (form_timeline.js:723-733).
  * - Publish / Unpublish: author or System Manager (form_timeline.js:614, 620-625; utils.py:72-79).
- * - Comments are NOT paginated: docinfo carries every Comment of the document (load.py:152-156, `frappe.get_all`
+ * - Comments are NOT paginated: docinfo carries every Comment of the document (load.py:156-160, `frappe.get_all`
  *   without a limit). Only communications page ("Load more", load.py:108 limit 21 / form_timeline.js:193-223 —
  *   `useCommunications`).
  * - @mentions: `span.mention[data-id]` (and `data-is-group="true"` for a User Group) in the content; the server notifies

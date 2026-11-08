@@ -468,7 +468,7 @@ is disabled and unchanged until the server answered; then the cached document's 
 **`<FrappeComments doctype name readOnly? docinfo? variant? onCountClick? order? searchMentions? canDeleteComment? isSystemManager?>`**
 - `variant="list"` (default): the comment box (Ctrl/⌘+Enter, @mentions from `get_names_for_mentions`, stored as
   `<span class="mention" data-id …>`) and the document's comments (`docinfo.comments` — all of them; comments are not
-  paged, load.py:152-156). Add → `frappe.desk.form.utils.add_comment {reference_doctype, reference_name, content,
+  paged, load.py:156-160). Add → `frappe.desk.form.utils.add_comment {reference_doctype, reference_name, content,
   comment_email, comment_by}`; edit → `update_comment {name, content}`; delete → confirm, `frappe.client.delete {doctype:
   "Comment", name}`; publish → confirm, `update_comment_publicity {name, publish}`. Nothing changes before the server answered.
 - Rights (comments.ts, form_timeline.js:607-663): Edit = author or Administrator; Delete = (author or System Manager) and
