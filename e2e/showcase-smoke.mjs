@@ -584,7 +584,9 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     if (!items.some((x) => x.trim() === T("Export", "تصدير"))) throw new Error(`Export missing for Sales User: ${items.join(", ")}`);
     await page.keyboard.press("Escape");
     await list.locator("tbody tr").first().getByRole("checkbox").click();
-    await list.getByRole("button", { name: T("Export", "تصدير"), exact: true }).first().click();
+    // P36: header mode is the default — the selection's Export is an item of the Actions menu (Desk), not a bar button
+    await sec.getByRole("button", { name: T("Actions", "الإجراءات"), exact: true }).first().click();
+    await page.getByRole("menuitem", { name: T("Export", "تصدير"), exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: EXPORT_BUTTON }).click();
     await page.getByRole("dialog").getByText(/Not permitted|غير مسموح/).first().waitFor({ timeout: 5000 });
     await page.keyboard.press("Escape");

@@ -332,6 +332,25 @@ describe("Menu gating in FrappeListView (model.js:434-450; list_view.js:1703-171
     } finally { vi.unstubAllGlobals(); }
   });
 
+  it("LV.F2 P36 header default: Actions → Export exports the CHECKED names (Desk bulk_operations.export: by_filter, name in …)", async () => {
+    const { seen, files } = dl();
+    const { mock } = mountList(["Exporter"], META(), { onImport: vi.fn(), selectable: true, selectionMode: "header", bulk: {} }, undefined, files);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    fireEvent.click(screen.getAllByRole("checkbox")[2]);
+    openMenu(/^Actions/);
+    fireEvent.click(await screen.findByRole("menuitem", { name: /^\s*Export\s*$/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Select All" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Export" }));
+    await waitFor(() => expect(seen).toHaveLength(1));
+    const names = mock.rows.slice().sort((a, b) => String(b.modified).localeCompare(String(a.modified))).slice(0, 2).map((r) => r.name);
+    expect(seen[0].args.export_records).toBe("by_filter");
+    const filters = JSON.parse(String(seen[0].args.export_filters)) as unknown[][];
+    expect(filters[0].slice(0, 3)).toEqual(["ToDo", "name", "in"]);
+    expect((filters[0][3] as string[]).slice().sort()).toEqual(names.slice().sort());
+  });
+
   it("Exporter role: Export in the menu; with `selectable` also in the selection bar; the bar's Export posts by_filter on the checked names", async () => {
     const { seen, files } = dl();
     const { mock } = mountList(["Exporter"], META(), { onImport: vi.fn(), selectable: true }, undefined, files);
