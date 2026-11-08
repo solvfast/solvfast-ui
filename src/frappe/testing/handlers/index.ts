@@ -5,5 +5,8 @@ import { recordHandlers } from "./record";
 import { listHandlers } from "./list";
 import { viewsHandlers } from "./views";
 import { coreHandlers } from "./core";
+import { searchHandlers } from "./search";
+import { sidebarHandlers } from "./sidebar";
+import { socialHandlers } from "./social";
 
-export const workstreamHandlers: Record<string, FixtureContextHandler> = { ...formHandlers, ...recordHandlers, ...listHandlers, ...viewsHandlers, ...coreHandlers };
+export const workstreamHandlers: Record<string, FixtureContextHandler> = { ...formHandlers, ...recordHandlers, ...listHandlers, ...viewsHandlers, ...coreHandlers, ...searchHandlers, ...sidebarHandlers, ...socialHandlers };
