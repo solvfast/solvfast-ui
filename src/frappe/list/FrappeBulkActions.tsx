@@ -42,6 +42,7 @@ import {
 import { checkPrintable, MAX_PRINT_LIMIT, type PrintSettingsInput, type PrintTaskSubscriber } from "./print";
 import { FrappePrintDialog } from "./FrappePrintDialog";
 import { bulkWorkflowApproval, commonTransitionActions, workflowDocs } from "./workflowBulk";
+import { commaAnd } from "../record/timeline";
 
 export interface FrappeBulkOptions {
   /** The user's rights on the DocType (`usePermissions().levels[0]` or `can`). Without it no action is offered. */
@@ -123,7 +124,9 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
       // methods that answer nothing per document (delete_items: reportview.py:608-616; remove_multiple; bulk_apply;
       // add_tags; bulk_workflow_approval: workflow.py:309-328 sends the result by realtime): never claim "0 failed"
       const requested = t("listBulkRequested").replace("{action}", action ?? t(LABEL[kind])).replace("{n}", n);
-      setMessage(out.queued ? t("listBulkQueued") : out.silent || kind === "delete" ? requested : out.failed.length ? `${result}: ${out.failed.join(", ")}` : result);
+      // Submit / Cancel with failures: Desk's own sentence too — "Cannot submit {comma_and(names)}." (bulk_operations.js:286-298)
+      const cannot = kind === "submit" || kind === "cancel" ? ` ${t(kind === "submit" ? "listBulkCannotSubmit" : "listBulkCannotCancel").replace("{names}", commaAnd(out.failed, t("recAnd")))}` : "";
+      setMessage(out.queued ? t("listBulkQueued") : out.silent || kind === "delete" ? requested : out.failed.length ? (cannot ? `${result}.${cannot}` : `${result}: ${out.failed.join(", ")}`) : result);
       // Desk's selection outcome per action (`selectionAfterBulk`): Edit / Workflow keep the selection; Submit / Cancel clear
       // it only when every document went through; the others clear once the server answered
       const after = selectionAfterBulk(kind, out, keys.length);

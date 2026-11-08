@@ -35,6 +35,9 @@ export const listEn = {
   listSettingsAllowEdit: "Allow Bulk Editing",
   listSettingsSave: "Save",
   listSettingsSaved: "List Settings saved",
+  // P36b bulk — Desk's failure sentences of bulk Submit / Cancel (bulk_operations.js:291, :294)
+  listBulkCannotSubmit: "Cannot submit {names}.",
+  listBulkCannotCancel: "Cannot cancel {names}.",
 };
 export const listAr: { [K in keyof typeof listEn]: string } = {
   listAddDoctype: "إضافة {doctype}",
@@ -72,4 +75,6 @@ export const listAr: { [K in keyof typeof listEn]: string } = {
   listSettingsAllowEdit: "السماح بالتعديل الجماعي",
   listSettingsSave: "حفظ",
   listSettingsSaved: "تم حفظ إعدادات القائمة",
+  listBulkCannotSubmit: "تعذّر إرسال {names}.",
+  listBulkCannotCancel: "تعذّر إلغاء {names}.",
 };

@@ -11,9 +11,15 @@
  * charts, multi-column sort, column widths / reordering by drag, "Pick Columns" per child table, editors for the
  * fieldtypes outside `INLINE_EDIT_TYPES`, `add_totals_row` saved in user settings, print / export entries (use
  * `FrappeReportExportDialog`).
+ *
+ * P36b bulk — Desk's Actions on the checked rows (`bulk`): Desk's ReportView extends ListView (report_view.js:9) and keeps
+ * its Actions menu (list_view.js:1855-2128) — the datatable's checkbox column (`checkboxColumn: true`, :360) toggles it
+ * (`onCheckRow`, :371-374) — so Edit, Export, Assign To, Clear Assignment, Apply Assignment Rule, Add Tags, Print,
+ * Submit, Cancel, Delete and the workflow's actions are offered exactly as in `FrappeListView` (shared
+ * `useFrappeSelectionActions`), with the same gates and selection outcomes.
  */
 import * as React from "react";
-import { QueryClientContext } from "@tanstack/react-query";
+import { QueryClientContext, useQuery } from "@tanstack/react-query";
 import { Check, Pencil, Sigma, X } from "lucide-react";
 import { ListView, type ListViewProps } from "../../list/ListView";
 import { DefaultCell } from "../../list/parts/ListTable";
@@ -28,6 +34,11 @@ import { loc } from "../../lib/localized";
 import { useLocale } from "../../theme/ThemeProvider";
 import { FrappeProvider } from "../FrappeProvider";
 import { usePermissions } from "../hooks/usePermissions";
+import { withFrappeApi } from "../client";
+import type { FrappeBulkOptions } from "../list/FrappeBulkActions";
+import { FrappeExportDialog } from "../list/FrappeExportDialog";
+import { fetchListSettings } from "../list/settings";
+import { useFrappeSelectionActions } from "../list/useFrappeSelectionActions";
 import { describeError } from "../feedback/FrappeErrorState";
 import type { FrappeClient } from "../client";
 import type { DocPermissions, FrappeDocField } from "../contract";
@@ -77,6 +88,15 @@ export interface FrappeReportViewProps extends Omit<ListViewProps<Row>, Managed>
   /** A cell was saved: the row as it was, the column key (`field`, or `Child:field` for a child cell) and the
    *  server's (parent) document. */
   onCellSaved?: (row: Row, fieldname: string, doc: Row) => void;
+  /**
+   * P36b — Desk's Actions on the checked rows, as Desk's report view inherits them from the list view
+   * (report_view.js:9; list_view.js:1855-2128): Edit, Export, Assign To, Clear Assignment, Apply Assignment Rule, Add
+   * Tags, Print, Submit, Cancel, Delete, then the workflow's actions — each only when the DocType rights allow it
+   * (Submit: submittable + level-0 `submit`; Cancel: `cancel`; both hidden under an active Workflow, :2108-2120).
+   * Turns `selectable` on; header mode (the default) or `selectionMode="bar"`, as `FrappeListView`'s `bulk`.
+   * Omitted: no Frappe actions (unchanged).
+   */
+  bulk?: FrappeBulkOptions;
 }
 
 export function FrappeReportView(props: FrappeReportViewProps) {
@@ -137,10 +157,21 @@ function EditableCell({ row, valueKey, df, label, onSave }: { row: Row; valueKey
   );
 }
 
-function Inner({ doctype, client, baseFilters, pageSize, groupByFields, inlineEdit = true, editable = "desk", totals: totalsInitial = false, onQueryStateChange, onCellSaved, ...rest }: FrappeReportViewProps) {
+function Inner({ doctype, client, baseFilters, pageSize, groupByFields, inlineEdit = true, editable = "desk", totals: totalsInitial = false, onQueryStateChange, onCellSaved, bulk, ...rest }: FrappeReportViewProps) {
   const { t, language } = useLocale();
   const v = useFrappeViewList({ doctype, client, baseFilters, pageSize, groupByFields, childColumns: true, scope: "report" });
   const perms = usePermissions(v.bundle);
+  // P36b bulk — Desk's report view loads List View Settings too (report_view.js:53 → base_list.js:72-78): `allow_edit`
+  // keeps Edit / Delete under a workflow. Same cache entry as FrappeListView's; only asked when the actions are on.
+  const listSettings = useQuery({ queryKey: ["sf-frappe", "list-settings", doctype], queryFn: () => fetchListSettings(v.client, doctype), enabled: !!bulk, staleTime: 5 * 60_000 });
+  const api = React.useMemo(() => withFrappeApi(v.client), [v.client]);
+  const [exporting, setExporting] = React.useState<{ names?: string[]; allMatching?: boolean } | null>(null);
+  const sa = useFrappeSelectionActions<Row>({
+    client: v.client, doctype, meta: v.meta, bundle: v.bundle, perms, allowEdit: !!listSettings.data?.allow_edit, rows: v.rows, rowKey: v.listProps.rowKey, bulk,
+    // Desk's Actions → Export (list_view.js:2075-2092 → bulk_operations.js:463-474): the data exporter on the checked names
+    exportAction: bulk && v.bundle ? { label: t("listBulkExport"), open: setExporting } : undefined,
+    host: { selectionMode: rest.selectionMode, renderBulkActions: rest.renderBulkActions, bulkActions: rest.bulkActions, renderActionsMenu: rest.renderActionsMenu, onActionsOpenChange: rest.onActionsOpenChange, onSelectionChange: rest.onSelectionChange },
+  });
   const [showTotals, setShowTotals] = React.useState(totalsInitial);
   const [saved, setSaved] = React.useState("");
   const dfs = React.useMemo(() => new Map((v.doc?.fields ?? []).map((f) => [f.fieldname, f as unknown as FrappeDocField])), [v.doc]);
@@ -204,6 +235,8 @@ function Inner({ doctype, client, baseFilters, pageSize, groupByFields, inlineEd
         controls={{ sortMenu: true, ...rest.controls }}
         {...rest}
         {...v.listProps}
+        selectable={rest.selectable ?? (bulk ? true : undefined)}
+        {...(bulk ? sa.listProps : {})}
         columns={columns}
         quickFilterFields={rest.quickFilterFields ?? v.listProps.quickFilterFields}
         loadOptions={rest.loadOptions ?? v.listProps.loadOptions}
@@ -226,6 +259,12 @@ function Inner({ doctype, client, baseFilters, pageSize, groupByFields, inlineEd
         </Card>
       )}
       <p className="sr-only" role="status" aria-live="polite">{saved}</p>
+      {bulk && sa.dialogs}
+      {bulk && sa.message && <p className="mt-2 text-sm text-muted-foreground" role="status" data-testid="sf-report-bulk-message">{sa.message}</p>}
+      {bulk && v.bundle && exporting && (
+        <FrappeExportDialog api={api} bundle={v.bundle} open onOpenChange={(o) => !o && setExporting(null)} selectedNames={exporting.names} defaultRecords={exporting.allMatching ? "by_filter" : undefined}
+          filters={v.request?.filters} levels={perms.known ? perms.levels : undefined} />
+      )}
     </div>
   );
 }
