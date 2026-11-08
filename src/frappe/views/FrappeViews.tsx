@@ -6,6 +6,10 @@
  *
  * Carried from every view: Report, Image, Kanban, Calendar and (P35 integration) the List view, through
  * `FrappeListView`'s `onQueryStateChange`.
+ *
+ * P36b bulk — `bulk`: Desk's Actions on the checked rows in the two TABLE views that have them in Desk, List and Report
+ * (ReportView extends ListView, report_view.js:9). Kanban has no row checkboxes in Desk (kanban_board.js); Image and
+ * Calendar get nothing here (see docs/components/views.md).
  */
 import * as React from "react";
 import { QueryClientContext, useQuery } from "@tanstack/react-query";
@@ -14,6 +18,7 @@ import type { ListViewType, ViewOption } from "../../list/views/types";
 import type { ListQueryState } from "../../list/useListState";
 import { FrappeListView, type FrappeListViewProps } from "../FrappeListView";
 import { FrappeProvider, useFrappeClient } from "../FrappeProvider";
+import type { FrappeBulkOptions } from "../list/FrappeBulkActions";
 import type { FrappeClient } from "../client";
 import type { DocTypeMeta } from "../contract";
 import { useFrappeMeta } from "../useFrappeList";
@@ -48,6 +53,9 @@ export interface FrappeViewsProps {
   showUnavailable?: boolean;
   /** Calendar field map (Desk's `<doctype>_calendar.js`); default: guessed from the meta; `false`: no calendar. */
   calendar?: CalendarFieldMap | false;
+  /** P36b — Desk's Actions (incl. Submit / Cancel) on the checked rows of the List AND Report views; `list.bulk` /
+   *  `report.bulk` override per view. */
+  bulk?: FrappeBulkOptions;
   /** Extra props per view. */
   list?: Partial<FrappeListViewProps<Row>>;
   report?: Partial<FrappeReportViewProps>;
@@ -61,7 +69,7 @@ export function FrappeViews(props: FrappeViewsProps) {
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner({ doctype, client, view: controlled, defaultView = "list", onViewChange, showUnavailable, calendar, list, report, image, kanban, calendarView }: FrappeViewsProps) {
+function Inner({ doctype, client, view: controlled, defaultView = "list", onViewChange, showUnavailable, calendar, bulk, list, report, image, kanban, calendarView }: FrappeViewsProps) {
   const { views } = useFrappeAvailableViews(doctype, { client, calendar });
   const [own, setOwn] = React.useState<ListViewType>(defaultView);
   const wanted = controlled ?? own;
@@ -75,7 +83,7 @@ function Inner({ doctype, client, view: controlled, defaultView = "list", onView
   const sort = carried.current?.sort;
   switch (current) {
     case "report":
-      return <FrappeReportView key="report" doctype={doctype} client={client} defaultSort={sort} {...shared} {...report} toolbarActions={<>{switcher}{report?.toolbarActions}</>} />;
+      return <FrappeReportView key="report" doctype={doctype} client={client} defaultSort={sort} bulk={bulk} {...shared} {...report} toolbarActions={<>{switcher}{report?.toolbarActions}</>} />;
     case "image":
       return <FrappeImageView key="image" doctype={doctype} client={client} defaultSort={sort} {...shared} {...image} toolbarLeading={<>{switcher}{image?.toolbarLeading}</>} />;
     case "kanban":
@@ -83,6 +91,6 @@ function Inner({ doctype, client, view: controlled, defaultView = "list", onView
     case "calendar":
       return <FrappeCalendarView key="calendar" doctype={doctype} client={client} fieldMap={calendar || undefined} {...shared} {...calendarView} toolbarLeading={<>{switcher}{calendarView?.toolbarLeading}</>} />;
     default:
-      return <FrappeListView<Row> key="list" doctype={doctype} client={client} initialQuery={carried.current?.query} defaultSort={sort} {...list} onQueryStateChange={(st) => { remember(st); list?.onQueryStateChange?.(st); }} toolbarActions={<>{switcher}{list?.toolbarActions}</>} />;
+      return <FrappeListView<Row> key="list" doctype={doctype} client={client} initialQuery={carried.current?.query} defaultSort={sort} bulk={bulk} {...list} onQueryStateChange={(st) => { remember(st); list?.onQueryStateChange?.(st); }} toolbarActions={<>{switcher}{list?.toolbarActions}</>} />;
   }
 }

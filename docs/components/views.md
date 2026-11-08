@@ -212,6 +212,16 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
   The request shape, the child-row save and the server checks were checked in the simulator only. Since P36 that
   includes `reportSetValueHandler` in `src/frappe/testing/handlers/views.ts`, which implements client.py:195-203, the
   submit right and `_validate_update_after_submit`. **The editor behaviour has not been run against a real site.**
+- **Actions on the checked rows (P36b, `bulk`).** Desk's `ReportView` extends `ListView` (report_view.js:9): its datatable
+  has a checkbox column (`checkboxColumn: true`, :360) and checking a row shows the list's Actions menu
+  (`onCheckRow` → `toggle_actions_menu_button`, :371-374; `get_actions_menu_items`, list_view.js:1855-2128). Before
+  P36b `FrappeReportView` had no Frappe actions at all — no Submit / Cancel either. `bulk={{}}` (same `FrappeBulkOptions`
+  as `FrappeListView`; `FrappeViews bulk` forwards it to the List and Report views) turns the checkboxes on and offers
+  exactly the List view's items, gates and outcomes (`useFrappeSelectionActions`, shared): Submit = submittable + level-0
+  `submit`, Cancel = `cancel` (`frappe.model.can_cancel`), both hidden under an active Workflow (list_view.js:2108-2120);
+  List View Settings `allow_edit` is read as Desk's report view does (report_view.js:53). A document shown on several
+  rows (one per child-table row) is sent **once** — Desk would send its name once per checked row, and the server would
+  then report the second copy as failed (documented difference). Without `bulk` nothing changes.
 - **Totals:** "Show totals" sums the visible numeric columns over the **loaded rows (this page)**, as Desk's
   `get_columns_totals` does (:1523-1549). The totals appear in a card under the table, not in a table row.
 - **Group by:** the list's Group by (`groupByFields`) groups the loaded rows (rule C1, chunk of 200).
@@ -243,6 +253,10 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
 - **Data:** `FrappeImageView` requests `image_field` and `title_field` with the list fields (image_view.js:21-29). No
   recorded real `reportview.get` response includes an Attach Image column, so reading that field is simulator-only evidence.
 - **Not reproduced:** the PhotoSwipe gallery and zoom, `get_attached_images`, the Like heart on cards.
+- **Actions (P36b finding, not reproduced):** Desk's Image view is a `ListView` too (image_view.js:6) and its cards carry
+  the `list-row-checkbox` (:113), so Desk shows the same Actions menu there. `ImageView` has card selection only — no
+  Actions menu, so no Frappe action (Submit / Cancel included) on an image view. A Core Actions surface for the non-table
+  views is a follow-up.
 
 ## 5. Kanban — `KanbanBoard` (Core) and `FrappeKanbanView`
 
@@ -289,6 +303,8 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
   - "Save filters";
   - card assignment and like;
   - `last_kanban_board`.
+- **No selection, no bulk actions** — as Desk: the Kanban board renders cards without row checkboxes
+  (kanban_board.bundle.js), so Desk's Actions menu never shows there (P36b check).
 
 ## 6. Calendar — `CalendarMonth` (Core) and `FrappeCalendarView`
 

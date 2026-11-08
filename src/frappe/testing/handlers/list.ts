@@ -6,8 +6,9 @@
  * (4-tuple) conditions and — with `createFixtureTransport(…, { permissions })` — only the rows the session may read
  * (`frappe.get_list` applies permissions in both server methods; 403 without read).
  */
-import type { FixtureContextHandler } from "../fixtureTransport";
-import { toFrappeError } from "../../client";
+import type { FixtureContextHandler, FixtureHandler, FixtureStore } from "../fixtureTransport";
+import { toFrappeError, type FrappeResponse } from "../../client";
+import type { FixtureBackend, FrappeDoc } from "../../contract";
 
 type Row = Record<string, unknown>;
 const parse = (v: unknown): unknown => { if (typeof v !== "string") return v; try { return JSON.parse(v); } catch { return v; } };
@@ -118,3 +119,158 @@ export const listHandlers: Record<string, FixtureContextHandler> = {
     return { message: { meta: meta ?? null, listview_settings: doc } };
   },
 };
+
+// ---- P36b bulk ------------------------------------------------------------------------------------------------------
+
+/** The method Desk's bulk Submit / Cancel / Edit call (bulk_operations.js:280, :343-356). */
+export const BULK_UPDATE_METHOD = "frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs";
+
+const msgs = (...m: Row[]) => JSON.stringify(m.map((x) => JSON.stringify(x)));
+const fail = (status: number, exc_type: string, message: string, extra: Row = {}): never => {
+  throw toFrappeError(status, { exc_type, _server_messages: msgs({ message, indicator: "red", raise_exception: 1, ...extra }) });
+};
+
+/**
+ * The first SUBMITTED document that links to `doctype` / `name` through a Link field — what blocks a Cancel
+ * (`Document.check_no_back_links_exist`, document.py:1184-1186, 1300-1306 → delete_doc.py `get_linked_docs` :265-331,
+ * method "Cancel"): every Link field whose `options` is the DocType (`get_link_fields`), except `amended_from` (:283); a
+ * child-table row counts with its parent's docstatus (:303-310, the row carries it in Frappe); the document itself is
+ * skipped (:318-320). SIMULATED subset: Dynamic Links (`check_if_doc_is_dynamically_linked`, :344-430), Single DocTypes
+ * and the document's `ignore_linked_doctypes` are not simulated.
+ */
+export function submittedBackLink(store: FixtureStore, doctype: string, name: string): { doctype: string; name: string } | null {
+  const metas = Object.values(store.meta).flat();
+  for (const m of metas) {
+    const fields = (m.fields ?? []).filter((f) => f.fieldtype === "Link" && f.options === doctype && f.fieldname !== "amended_from");
+    if (!fields.length) continue;
+    if (m.istable) {
+      for (const parentMeta of metas) {
+        const tables = (parentMeta.fields ?? []).filter((f) => (f.fieldtype === "Table" || f.fieldtype === "Table MultiSelect") && f.options === m.name);
+        if (!tables.length) continue;
+        for (const d of store.docs.get(parentMeta.name)?.values() ?? []) {
+          if (Number(d.docstatus ?? 0) !== 1) continue;
+          if (parentMeta.name === doctype && String(d.name) === name) continue;
+          for (const tf of tables) for (const row of (d[tf.fieldname] as Row[] | undefined) ?? []) {
+            if (fields.some((f) => String(row[f.fieldname] ?? "") === name)) return { doctype: parentMeta.name, name: String(d.name) };
+          }
+        }
+      }
+      continue;
+    }
+    for (const d of store.docs.get(m.name)?.values() ?? []) {
+      if (Number(d.docstatus ?? 0) !== 1) continue;
+      if (m.name === doctype && String(d.name) === name) continue;
+      if (fields.some((f) => String(d[f.fieldname] ?? "") === name)) return { doctype: m.name, name: String(d.name) };
+    }
+  }
+  return null;
+}
+
+/**
+ * SIMULATED `submit_cancel_or_update_docs(doctype, docnames, action="submit", data=None, task_id=None)` exactly as
+ * frappe/desk/doctype/bulk_update/bulk_update.py:51-114 dispatches it, delegating each document's own Submit / Cancel /
+ * Save to the transport's form path (so the same permission, mandatory and docstatus checks apply as in the form):
+ *
+ * - fewer than 20 names (:56-57): `_bulk_action` runs now and the answer is the list of FAILED names (`[]` = all done);
+ * - 20 to 500 (:58-69): an alert "Bulk operation is enqueued in background." (`msgprint(alert=True)`) and NO `message`;
+ *   the job (`queue="short"`) is SIMULATED as having run at once — its failures are only logged (`log_error`, :109-112),
+ *   never answered;
+ * - more than 500 (:70-71): ValidationError "Bulk operations only support up to 500 documents." ("Too Many Documents").
+ *
+ * `_bulk_action` (:74-114), per name in order:
+ * - `frappe.get_doc` sits OUTSIDE the try (:82): an unknown name fails the WHOLE request (DoesNotExistError, 404) — the
+ *   documents handled before it stay changed (`frappe.db.commit()` per document, :101);
+ * - submit only a DRAFT (`docstatus.is_draft()`, :85) → `doc.submit()` (:90) = the form's Submit (`savedocs`, action
+ *   "Submit": write + submit rights, mandatory fields, document.py:404, 880-915); `queue_in_background` DocTypes queue a
+ *   Submission Queue only while the scheduler runs (:86-88) — the simulator has no scheduler, so they submit directly
+ *   (`is_scheduler_inactive()`, the server's own fallback);
+ * - cancel only a SUBMITTED one (:92-93) → `doc.cancel()` = the form's Cancel (write + cancel rights) — refused while a
+ *   submitted document links to it (`check_no_back_links_exist`, see `submittedBackLink`);
+ * - update anything not cancelled (:95-98) → `doc.update(data); doc.save()` (Update after Submit for a submitted one);
+ * - any other docstatus → failed WITHOUT an exception (:99-100); any exception → failed and rolled back (:109-112).
+ * `frappe.publish_progress` (:102-107) is not simulated (the package does not subscribe to `task_id`).
+ *
+ * Opt-in like `reportSetValueHandler`: `createFixtureTransport(backend, { handlers: { [BULK_UPDATE_METHOD]:
+ * bulkUpdateHandler(() => transport) } })`. The nested form calls are recorded in `store.calls` too.
+ */
+export function bulkUpdateHandler(transport: () => (method: string, args: Record<string, unknown>) => Promise<FrappeResponse>): FixtureHandler {
+  return async (a, store) => {
+    const doctype = String(a.doctype);
+    const names = ((parse(a.docnames) as unknown[] | undefined) ?? []).map(String);
+    const action = String(a.action ?? "submit");
+    const data = (parse(a.data) as Row | undefined) ?? undefined;
+    const call = (m: string, args: Record<string, unknown>) => transport()(m, args);
+    const run = async (): Promise<string[]> => {
+      const failed: string[] = [];
+      for (const name of names) {
+        const doc: FrappeDoc = store.docs.get(doctype)?.get(name) ?? fail(404, "DoesNotExistError", `${doctype} ${name} not found`);
+        try {
+          const ds = Number(doc.docstatus ?? 0);
+          if (action === "submit" && ds === 0) await call("frappe.desk.form.save.savedocs", { doc: JSON.stringify(doc), action: "Submit" });
+          else if (action === "cancel" && ds === 1) {
+            const link = submittedBackLink(store, doctype, name);
+            if (link) fail(417, "LinkExistsError", `Cannot delete or cancel because ${doctype} ${name} is linked with ${link.doctype} ${link.name}`);
+            await call("frappe.desk.form.save.cancel", { doctype, name });
+          } else if (action === "update" && ds !== 2) await call("frappe.desk.form.save.savedocs", { doc: JSON.stringify({ ...doc, ...(data ?? {}) }), action: ds === 1 ? "Update" : "Save" });
+          else failed.push(name);
+        } catch { failed.push(name); }
+      }
+      return failed;
+    };
+    if (names.length < 20) return { message: await run() };
+    if (names.length <= 500) {
+      // the background job, SIMULATED as having run at once; an exception there (unknown name) only ends the job
+      try { await run(); } catch { /* frappe.log_error in the worker */ }
+      return { _server_messages: msgs({ message: "Bulk operation is enqueued in background.", alert: 1 }) } as FrappeResponse;
+    }
+    return fail(417, "ValidationError", "Bulk operations only support up to 500 documents.", { title: "Too Many Documents" });
+  };
+}
+
+/**
+ * P36b — demo site for bulk Submit / Cancel (Showcase): a submittable "Demo Invoice" with an item table, 24 invoices in
+ * every docstatus (two drafts miss the mandatory customer; INV-0005 is linked from the submitted PAY-0001, so its Cancel
+ * is refused), and roles: "Accounts Manager" (submit + cancel), "Submitter" (submit only), "Accounts User" (neither).
+ * `workflow: true` adds an active Workflow (Desk then hides Submit / Cancel). SIMULATED demo data.
+ */
+export function bulkDemoBackend(opts: { workflow?: boolean } = {}): FixtureBackend {
+  const perms = [
+    { role: "Accounts Manager", permlevel: 0, read: 1, write: 1, create: 1, delete: 1, submit: 1, cancel: 1, print: 1, export: 1 },
+    { role: "Submitter", permlevel: 0, read: 1, write: 1, create: 1, submit: 1, print: 1 },
+    { role: "Accounts User", permlevel: 0, read: 1, write: 1, create: 1, print: 1 },
+  ];
+  const invoice = {
+    name: "Demo Invoice", autoname: "hash", is_submittable: 1, title_field: "customer", sort_field: "name", sort_order: "asc", permissions: perms,
+    fields: [
+      { fieldname: "customer", fieldtype: "Data", label: "Customer", reqd: 1, in_list_view: 1 },
+      { fieldname: "amount", fieldtype: "Currency", label: "Amount", in_list_view: 1 },
+      { fieldname: "workflow_state", fieldtype: "Link", label: "Workflow State", options: "Workflow State", hidden: 1 },
+      { fieldname: "items", fieldtype: "Table", label: "Items", options: "Demo Invoice Item" },
+    ],
+  };
+  const item = { name: "Demo Invoice Item", istable: 1, fields: [{ fieldname: "item", fieldtype: "Data", label: "Item", in_list_view: 1 }] };
+  const payment = { name: "Demo Payment", autoname: "hash", is_submittable: 1, permissions: perms, fields: [{ fieldname: "invoice", fieldtype: "Link", label: "Invoice", options: "Demo Invoice", in_list_view: 1 }] };
+  const CUSTOMERS = ["Acme", "Globex", "Initech", "Umbrella", "Hooli", "Stark"];
+  const invoices = Array.from({ length: 24 }, (_, i) => {
+    const n = i + 1;
+    const docstatus = n % 4 === 0 ? 2 : n % 3 === 0 || n === 5 ? 1 : 0;
+    return {
+      doctype: "Demo Invoice", name: `INV-${String(n).padStart(4, "0")}`, customer: n === 7 || n === 14 ? null : `${CUSTOMERS[i % CUSTOMERS.length]} ${n}`,
+      amount: 100 * n, docstatus, workflow_state: docstatus === 0 ? "Draft" : "Approved", items: [{ item: `Item ${n}` }],
+      modified: `2026-11-0${(n % 9) + 1} 10:00:00.000000`,
+    };
+  });
+  const workflow = {
+    name: "Invoice Flow", document_type: "Demo Invoice", workflow_state_field: "workflow_state",
+    states: [{ state: "Draft", doc_status: "0", allow_edit: "Accounts Manager" }, { state: "Approved", doc_status: "1", allow_edit: "Accounts Manager" }],
+    transitions: [{ state: "Draft", action: "Approve", next_state: "Approved", allowed: "Accounts Manager", allow_self_approval: 1 }],
+  };
+  return {
+    meta: { "Demo Invoice": [invoice, item], "Demo Invoice Item": [item], "Demo Payment": [payment] },
+    docs: {
+      "Demo Invoice": invoices,
+      "Demo Payment": [{ doctype: "Demo Payment", name: "PAY-0001", invoice: "INV-0005", docstatus: 1, modified: "2026-11-01 10:00:00.000000" }],
+    },
+    ...(opts.workflow ? { workflows: { "Demo Invoice": workflow } } : {}),
+  } as unknown as FixtureBackend;
+}

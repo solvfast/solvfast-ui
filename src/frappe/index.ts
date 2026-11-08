@@ -139,3 +139,7 @@ export type { ReportEditable, ReportEditInfo, ReportEditMode, ReportEditOptions 
 
 // P36 selection — what a bulk action leaves selected (Desk list_view.js / bulk_operations.js)
 export { selectionAfterBulk } from "./list/bulk";
+
+// P36b bulk — Desk's Actions (Submit / Cancel incl.) shared by the List and Report views
+export { useFrappeSelectionActions, uniqueNames } from "./list/useFrappeSelectionActions";
+export type { FrappeSelectionActionsInput, FrappeSelectionActions } from "./list/useFrappeSelectionActions";

@@ -228,6 +228,12 @@ field is requested with the rows. A `workflow` prop overrides it; `workflow={fal
 
 ## 6. Bulk actions
 
+**Where (P36b).** The same Actions — Submit and Cancel included — are offered by `FrappeListView` and by
+`FrappeReportView` (`bulk` prop; Desk's Report view inherits the List view's menu, report_view.js:9); `FrappeViews bulk`
+forwards to both. The wiring is one hook, `useFrappeSelectionActions` (selection keys → document names, header menu or
+bar, dialogs, outcome line). Image / Kanban views offer no actions (see views.md §4–5). SIMULATED server: `bulkUpdateHandler`
+in `src/frappe/testing/handlers/list.ts` reproduces `bulk_update.py:51-114` (opt-in, like `reportSetValueHandler`).
+
 ```tsx
 <FrappeListView doctype="ToDo" bulk={{}} />                                   // gates from usePermissions
 <FrappeListView doctype="ToDo" bulk={{ permissions: { read: true, delete: true }, only: ["delete"] }} />   // explicit override
@@ -248,7 +254,7 @@ above the table (sticky, so it never scrolls away) — **in Desk's order** (`:20
 | Apply Assignment Rule | `read` (Desk: everyone, `:2099`); no confirmation | `frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply` (more than 5 → one background job per document; no rule → nothing happens) |
 | Add Tags | `read` (Desk: everyone, `:2101`) — dialog with `TagInput` over `search_link` on `Tag`; a new tag is accepted (the server creates the Tag) | `frappe.desk.doctype.tag.tag.add_tags` (`tags`, `dt`, `docs`) |
 | Print | level-0 `print` (`frappe.model.can_print`, `model.js:452-455`) | see below |
-| Submit / Cancel | submittable, `submit` / `cancel`, no workflow | `submit_cancel_or_update_docs`, `action: "submit"` / `"cancel"` |
+| Submit / Cancel | submittable and level-0 `submit` (`has_perm(doctype, 0, "submit")`) / `cancel` (`can_cancel`), and **no active Workflow** (`list_view.js:2108-2120`). Offered whatever the checked documents' docstatus — Desk does not filter the menu by the selection | `submit_cancel_or_update_docs` with `doctype`, `docnames` (every checked name, once), `action: "submit"` / `"cancel"` (`bulk_operations.js:275-285`). The server takes drafts only for Submit and submitted documents only for Cancel and answers the names it could not process (`bulk_update.py:85-100`): wrong docstatus, no right on the document, a validation error, a submitted document linking to it (Cancel). Fewer than 20 names are processed in the request; 20–500 are enqueued (no answer: "queued"); more than 500 are refused |
 | Delete | `delete`, and no workflow (or `allow_edit`) | `frappe.desk.reportview.delete_items` (more than 10 are enqueued by the server) |
 | Workflow ▾ | the DocType has an active Workflow (`__workflow_docs`; `bulk.hasWorkflow` overrides) and `read` | each opening asks `frappe.model.workflow.get_common_transition_actions` (the checked rows, owner included) and lists the server's answer (none → nothing to run); an action → `frappe.model.workflow.bulk_workflow_approval` (< 20 in the request, 20–500 enqueued, > 500 refused by the server) |
 
@@ -265,7 +271,8 @@ no_letterhead, letterhead, options})` — the server's PDF handed to the browser
 `bulk.print.subscribeTask(taskId, onComplete)` (e.g. over your Socket.IO client) and the dialog offers "Download PDF" with the server's `file_url`; without it
 the dialog says the job is queued (the server saves the PDF as a private File) — **NOT REPRODUCED** beyond that.
 
-**Outcome line** (under the list): what the server answered, never more. `submit_cancel_or_update_docs` answers the failed names: "N succeeded, M failed: B, D".
+**Outcome line** (under the list): what the server answered, never more. `submit_cancel_or_update_docs` answers the failed names: "N succeeded, M failed: B, D"
+(Edit); for Submit / Cancel Desk's own sentence follows: "N succeeded, M failed. Cannot submit B and D." (`bulk_operations.js:286-298`, P36b).
 Methods that answer nothing per document — delete, clear assignment, assignment rule, tags, workflow approval — say "Action: N requested — the server reports
 failures in its messages" (`listBulkRequested`); an enqueued job says "queued, will run in the background". A refusal (403 …) shows the server's message and
 changes nothing (selection kept, no reload — Desk's `frappe.throw`). `onDone(kind, outcome, names, action?)` / `onError(error, kind)` report each action.
