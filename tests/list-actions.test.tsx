@@ -458,7 +458,7 @@ describe("workflow bulk approval in the list (list_view.js:1802-1853)", () => {
     const labels = within(bar()).getAllByRole("button").map((b) => b.textContent?.trim());
     expect(labels).not.toContain("Edit");
     expect(labels).not.toContain("Delete");
-    expect(labels[labels.length - 2]).toBe("Workflow"); // last action, before "Clear selection"
+    expect(labels[labels.length - 2]).toBe("Lifecycle"); // last action, before "Clear selection"
     expect(common).toHaveLength(0); // asked only when the menu opens (show.bs.dropdown, list_view.js:1426-1428)
     openMenu(trigger);
     await waitFor(() => expect(common).toHaveLength(1));

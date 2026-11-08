@@ -27,6 +27,14 @@ Every visible string has a default in the message catalogue and can be replaced 
 The CRM uses (1): "Assignee", "Status", "Actions", never "State" or "Workflow". Server-sent labels (state names, action names, field
 labels) are passed through the optional `translate` prop (`translateLabel(bundle, text)` in apps with a bundle).
 
+**Terminology (0.7.0, P36b).** The design system's own chrome calls Frappe's Workflow feature **Lifecycle** (Arabic
+**دورة الحياة**): e.g. the list's bulk menu `listBulkWorkflow` = "Lifecycle" and `listBulkWorkflowNone` = "No lifecycle action
+applies to all the selected documents". Only the visible defaults changed: message keys, component / hook / type names
+(`FrappeWorkflowActions`, `useWorkflow`, `workflow` props), `data-*` / test ids, the Frappe methods (`frappe.model.workflow.*`),
+fields (`workflow_state`, `workflow_state_field`), the DocTypes ("Workflow", "Workflow State", "Workflow Action") and every
+server-sent text (state and action names, "Workflow Status", "Not a valid Workflow Action") are unchanged. A guard test
+(`P36B.lifecycle.1`) fails if an en / ar message value says Workflow again.
+
 ```tsx
 <FrappeWorkflowActions
   doc={doc} user={session.user} roles={session.roles} variant="steps" translate={(s) => translateLabel(bundle, s)}

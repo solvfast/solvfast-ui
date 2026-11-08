@@ -80,7 +80,7 @@ export function StatusStrip({ verified, parts, note }: {
         </ul>
       )}
       <p className="text-xs text-muted-foreground">
-        {tr(note ?? l("Writes (save, submit, workflow, assign, comment, delete, saved filters) have never run against a real site; the simulator answers them in memory. The server is always the authority.", "عمليات الكتابة (الحفظ والاعتماد وسير العمل والإسناد والتعليق والحذف والتصفيات المحفوظة) لم تُشغَّل أبداً على موقع حقيقي؛ المحاكي يجيب عنها في الذاكرة. الخادم هو المرجع دائماً."))}
+        {tr(note ?? l("Writes (save, submit, lifecycle actions, assign, comment, delete, saved filters) have never run against a real site; the simulator answers them in memory. The server is always the authority.", "عمليات الكتابة (الحفظ والاعتماد وإجراءات دورة الحياة والإسناد والتعليق والحذف والتصفيات المحفوظة) لم تُشغَّل أبداً على موقع حقيقي؛ المحاكي يجيب عنها في الذاكرة. الخادم هو المرجع دائماً."))}
       </p>
     </div>
   );
