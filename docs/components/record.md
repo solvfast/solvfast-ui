@@ -115,6 +115,15 @@ store), `note`, `labels`. `FrappeListView`'s header mode uses it with every deta
 Search is debounced (250 ms) and keyboard driven (combobox/listbox, arrows + Enter). `labels`: `assignedTo, none, add, search, toMe,
 confirm, description, due, priority, low, medium, high, remove ("Remove {0}"), noMatches, cancel, dueHint, priorityHint, priorityDefault, clearDate`.
 
+**P36c — `AssignDialog` `groups` (Desk's "Assign To User Group", `assign_to.js:142-160, 191-197`).** Optional, Frappe-free:
+`groups?: AssignGroupSource` = `{ search(text) → Suggestion[]; members(group) → UserOption[]; label?; placeholder?; debounceMs? }`.
+A `LinkInput` after the users list (Desk's field order); hidden with `single`. Picking a group **replaces** the users to assign with
+its members, as Desk's `set_value("assign_to", members)` does — the earlier choice (and "Assign to me", unless you are a member) is
+dropped, not merged; a repeated member row is listed once (`uniqueMembers` — a DS choice: Desk's pills keep an inner repeat and the
+server answers it with "Already in …"; the Table MultiSelect refuses repeats when a group is edited in Desk, table_multiselect.js:108-111); an empty group empties the list (Add stays disabled, a
+note says so); re-picking the same group or clearing it changes nothing; a refused search or members read is shown under the field
+(`role="alert"`) and the list is kept. Strings: `sbAssignGroup`, `sbAssignGroupSearch`, `sbAssignGroupEmpty`, `sbAssignGroupMembers`.
+
 ### 2.5 `LifecycleBar`, `ActionBar`, `StatusBadge`
 
 `StatusBadge { label, tone, variant: "pill" | "dot", title }`: the label is always shown; colour is never the only carrier.
@@ -223,8 +232,17 @@ await w.apply("Approve");                 // doc cache now holds the new state
   Rule can (re)assign after any save (docs 14 A2). The list refreshes on the next docinfo read.
 - `single`: the picker allows one user (the CRM's single Assignee). The server does not enforce this; the UI does not remove the previous
   assignee for you.
-- APIs: `frappe.desk.form.assign_to.add`, `.remove`; `get_docinfo`. **Not implemented:** `assign_to.close` (assignee completes), bulk assignment,
-  User Group expansion, the "Assign to User Group" field.
+- APIs: `frappe.desk.form.assign_to.add`, `.remove`; `get_docinfo`. (`assign_to.close` and the sidebar layout: P36b.)
+- **P36c — "Assign To User Group"** (`userGroups?: boolean`, default on; shown in the sidebar layout's "Add to ToDo" dialog — the group
+  layout's popover has none, Desk has no popover). The list's Actions → Assign To dialog has it too (`FrappeListView bulk={{ userGroups }}`,
+  default on, as `bulk_operations.js:225-238` reuses Desk's AssignToDialog; the opt-in bar's popover has none). Frappe wiring
+  (`src/frappe/record/userGroups.ts`): groups through `search_link("User Group", txt)`; members exactly as Desk reads them —
+  `frappe.desk.reportview.get_list { doctype: "User Group Member", parent_doctype: "User Group", filters: {"parent": group},
+  fields: ["user"], limit: 20 }` (`frappe.db.get_list`, `db.js:5-26`): **at most the first 20 members**, as in Desk. The server checks
+  read on User Group (child table → parent, `permissions.py:763-845`; DocPerms System Manager + Desk User, so every System User reads
+  groups) and answers 403 "No permission for User Group Member" otherwise. Members are not filtered: disabled users are assigned, and
+  users already assigned are answered by the server's "Already in the following Users ToDo list" message. Exports: `userGroupSource`,
+  `getUserGroupMembers`, `searchUserGroups`, `userGroupMembersArgs`, `USER_GROUP_*` constants.
 
 ### 3.3 `FrappeTimeline`
 
@@ -289,7 +307,7 @@ adapter (returns tone, label, list filter, source); built-in words go through th
 | Wrapper | Frappe APIs | Permission/role |
 |---|---|---|
 | FrappeWorkflowActions | `getdoctype`, `get_transitions`, `apply_workflow` | read on the doc; role per transition; `submit`/`cancel` as the target docstatus requires |
-| FrappeAssignTo | `assign_to.add/remove`, `get_docinfo`, `search_link` | read on the doc (server); write for the client's remove gate |
+| FrappeAssignTo | `assign_to.add/remove/close`, `get_docinfo`, `search_link`; P36c `search_link` User Group + `reportview.get_list` User Group Member | read on the doc (server); write for the client's remove gate; read on User Group for the group field |
 | FrappeTimeline | `get_docinfo`, `get_communications`, `add_comment`, `update_comment`, `client.delete`, `get_names_for_mentions` | read on the doc; Comment delete right; `track_changes` for versions |
 | FrappeStatusIndicator | `getdoctype` | none beyond the doc |
 
@@ -313,7 +331,8 @@ adapter (returns tone, label, list filter, source); built-in words go through th
   and " · [Action taken by]" suffixes and `updater_reference` links on version lines; links from a version line to the Version form; `listview_settings.get_indicator`.
 - **Realtime:** docinfo refresh on `docinfo_update` events is the foundation's job (`useRealtimeInvalidation`); these components just re-render.
 - **Comments:** edit/delete are gated by props; mention markup and the sanitiser are tested in jsdom only. Comment publish/unpublish (portal visibility) is not implemented.
-- **Assignment:** `single` is a UI choice, not a server rule; close, bulk and group assignment are missing (see 3.2).
+- **Assignment:** `single` is a UI choice, not a server rule. Close (P36b), bulk (0.4.1) and "Assign To User Group" (P36c) exist (see 3.2);
+  the group expansion is checked on the in-package simulator only.
 - **Workflow:** `condition` is evaluated by the server only; the client cannot predict a hidden action. `update_field` values are set by the
   server on apply. Queued submissions (`queue_in_background`) return no document; A1's client flags this and the cache invalidates.
 - **Stepper actor/time** relies on `workflow_logs` language handling noted in 3.6 (UNVERIFIED on a translated site).

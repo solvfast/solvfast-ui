@@ -6,6 +6,9 @@
  *
  * Truthful by construction: the detail fields are shown only when the host can store them (`details`); `existing` lists the
  * current assignees of the selection (read-only) so the user sees what the action changes.
+ *
+ * P36c: `groups` adds Desk's "Assign To User Group" (assign_to.js:142-160, 191-197): a Link-style search of groups; picking
+ * one REPLACES the users to assign with the group's members, exactly as Desk's `set_value("assign_to", members)` does.
  */
 import * as React from "react";
 import { Check, X } from "lucide-react";
@@ -21,7 +24,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Skeleton } from "../primitives/skeleton";
 import { Textarea } from "../primitives/textarea";
 import { useLocale } from "../theme/ThemeProvider";
-import { initials } from "./format";
+import { LinkInput } from "../fields/LinkInput";
+import type { SearchFn, Suggestion } from "../fields/autocomplete";
+import { fmt, initials } from "./format";
 import type { AssignDetails, Assignee, UserOption } from "./types";
 import { useAsyncOptions } from "./useAsyncOptions";
 
@@ -53,6 +58,40 @@ export interface AssignDialogProps {
   /** P36b: the detail fields' values when the dialog opens (Desk fills "Comment" with the document's title field,
    *  assign_to.js:161-167). */
   defaultDetails?: AssignDetails;
+  /** P36c: offer Desk's "Assign To User Group" (hidden with `single`). Frappe-free: the host searches its groups and expands
+   *  one into its members. */
+  groups?: AssignGroupSource;
+}
+
+/**
+ * P36c: where the "Assign To User Group" field finds groups and their members. Desk (assign_to.js:142-160): picking a group
+ * unticks "Assign to me" and sets the users to assign to the group's members — the earlier choice is REPLACED, not merged;
+ * clearing the group leaves the list as it is; a failed read leaves it as it is too (the error is shown).
+ */
+export interface AssignGroupSource {
+  /** Search the groups (Desk: a Link field, `search_link`). */
+  search: SearchFn;
+  /** The group's members, in order. A rejection is shown under the field and the users to assign are kept. */
+  members: (group: string) => Promise<UserOption[]>;
+  /** Field label. Default: the `sbAssignGroup` chrome string ("Assign To User Group"). */
+  label?: string;
+  placeholder?: string;
+  /** Search debounce (ms). Default 500, as Desk's Link control. */
+  debounceMs?: number;
+}
+
+/** Members with duplicates dropped (first wins — a DS choice: Desk's pills keep a repeated row that is not the last one,
+ *  multiselect_pills.js:54-75); a member whose label is only its id borrows a known label. */
+export function uniqueMembers(members: UserOption[], known: UserOption[] = []): UserOption[] {
+  const seen = new Set<string>();
+  const out: UserOption[] = [];
+  for (const m of members) {
+    if (!m?.id || seen.has(m.id)) continue;
+    seen.add(m.id);
+    const k = m.label && m.label !== m.id ? undefined : known.find((x) => x.id === m.id && x.label && x.label !== x.id);
+    out.push(k ? { ...m, label: k.label, image: m.image ?? k.image } : m);
+  }
+  return out;
 }
 
 const DEFAULT_PRIORITY = "__default";
@@ -66,7 +105,7 @@ function UserAvatar({ name, image, className }: { name: string; image?: string |
   );
 }
 
-export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, single, count, existing, details, labels, note, defaultDetails }: AssignDialogProps) {
+export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, single, count, existing, details, labels, note, defaultDetails, groups }: AssignDialogProps) {
   const { t } = useLocale();
   const L = {
     title: labels?.title ?? t("recAssignTitle"), forCount: labels?.forCount ?? t("recAssignForCount"), toMe: labels?.toMe ?? t("recAssignToMe"),
@@ -85,8 +124,44 @@ export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, si
   const [error, setError] = React.useState("");
   const { options, loading, error: searchError } = useAsyncOptions(searchUsers, q, open);
   const id = React.useId();
+  // P36c: "Assign To User Group"
+  const [group, setGroup] = React.useState<{ value: string; label?: string } | null>(null);
+  const [groupBusy, setGroupBusy] = React.useState(false);
+  const [groupMsg, setGroupMsg] = React.useState<{ error: boolean; text: string } | null>(null);
+  const groupReq = React.useRef(0);
 
-  React.useEffect(() => { if (!open) { setQ(""); setPicked([]); setD({}); setError(""); setBusy(false); } else if (defaultDetails) setD(defaultDetails); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
+    if (!open) { setQ(""); setPicked([]); setD({}); setError(""); setBusy(false); setGroup(null); setGroupBusy(false); setGroupMsg(null); groupReq.current += 1; }
+    else if (defaultDetails) setD(defaultDetails);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // a refused group search (Desk: the 403's "Not permitted" message, request.js:149-177) is shown under the field too
+  const searchGroups = React.useCallback<SearchFn>(async (txt) => {
+    if (!groups) return [];
+    try { const r = await groups.search(txt); setGroupMsg((m) => (m?.error ? null : m)); return r; }
+    catch (e) { setGroupMsg({ error: true, text: e instanceof Error ? e.message : String(e) }); throw e; }
+  }, [groups]);
+
+  // Desk's `user_group_list` (assign_to.js:142-160): runs on a CHANGED group only (a Link's onchange); an emptied group
+  // changes nothing; otherwise the members (User Group Member rows) replace the users to assign.
+  const pickGroup = (value: string | null, s?: Suggestion) => {
+    if ((value ?? null) === (group?.value ?? null)) return;
+    if (!value) { setGroup(null); setGroupMsg(null); groupReq.current += 1; setGroupBusy(false); return; }
+    const label = s?.label || value;
+    setGroup({ value, label });
+    if (!groups) return;
+    const req = ++groupReq.current;
+    setGroupBusy(true); setGroupMsg(null);
+    groups.members(value).then(
+      (ms) => {
+        if (req !== groupReq.current) return;
+        const list = uniqueMembers(ms ?? [], [...picked, ...options, ...(me ? [me] : [])]);
+        setPicked(list);
+        setGroupMsg({ error: false, text: list.length ? fmt(t("sbAssignGroupMembers"), label, list.length) : fmt(t("sbAssignGroupEmpty"), label) });
+      },
+      (e) => { if (req === groupReq.current) setGroupMsg({ error: true, text: e instanceof Error ? e.message : String(e) }); },
+    ).finally(() => { if (req === groupReq.current) setGroupBusy(false); });
+  };
 
   const isPicked = (u: UserOption) => picked.some((x) => x.id === u.id);
   const toggle = (u: UserOption) => setPicked((p) => (p.some((x) => x.id === u.id) ? p.filter((x) => x.id !== u.id) : single ? [u] : [...p, u]));
@@ -148,6 +223,21 @@ export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, si
               })}
             </div>
           </div>
+
+          {groups && !single ? (
+            // Desk's "Assign To User Group" Link field (assign_to.js:191-197), after "Assign To"
+            <div className="space-y-1" data-testid="sf-assign-group">
+              <Label htmlFor={`${id}-group`}>{groups.label ?? t("sbAssignGroup")}</Label>
+              <LinkInput id={`${id}-group`} value={group?.value ?? null} displayValue={group?.label ?? null} search={searchGroups}
+                onChange={pickGroup} onCommitText={() => { /* not a listed group: discarded (Desk's link validation clears it) */ }}
+                debounceMs={groups.debounceMs} busy={groupBusy} placeholder={groups.placeholder ?? t("sbAssignGroupSearch")}
+                aria-describedby={groupMsg ? `${id}-group-msg` : undefined} />
+              {groupMsg ? (
+                <p id={`${id}-group-msg`} role={groupMsg.error ? "alert" : "status"}
+                  className={cn("text-xs", groupMsg.error ? "text-destructive" : "text-muted-foreground")}>{groupMsg.text}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           {show.date || show.priority ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

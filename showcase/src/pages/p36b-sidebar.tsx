@@ -10,7 +10,8 @@ import { Badge, FormSidebar, AttachmentList, TagList } from "@ui";
 import { FrappeFormSidebar, FrappeProvider, createFrappeClient, type FrappeDoc } from "@ui/frappe";
 import { REAL_META, TRAVEL, TRAVEL_COMPANION, TRAVELS, userDocs, T } from "../../../playground/src/demo/sim-site";
 import { createFixtureTransport } from "../../../src/frappe/testing";
-import { withSimulatedSidebar } from "../../../src/frappe/testing/handlers/sidebar";
+import { userGroupFixture, withSimulatedSidebar } from "../../../src/frappe/testing/handlers/sidebar";
+import { DEMO_USER_GROUPS } from "./frappe/user-groups-demo";
 import { Example, Section } from "../doc/Doc";
 import { l, useTr } from "../i18n";
 import { Picker, Readout, SessionBadge, SimulatedPermissionStrip, StatusStrip, sessionPermissions, SESSIONS, type SessionKey } from "./frappe/shared";
@@ -21,10 +22,12 @@ const SIDEBAR_METHODS = ["upload_file", "frappe.desk.form.utils.remove_attach", 
 
 function useSidebarSite(session: SessionKey) {
   return React.useMemo(() => {
+    // P36c usergroup: the User Groups the Add to ToDo dialog's "Assign To User Group" field lists (SIMULATED)
+    const ug = userGroupFixture(DEMO_USER_GROUPS, { stamp: T });
     const base = createFixtureTransport({
-      meta: { ...REAL_META, "Travel Request": [{ ...TRAVEL, max_attachments: 6 }, TRAVEL_COMPANION] },
+      meta: { ...REAL_META, "Travel Request": [{ ...TRAVEL, max_attachments: 6 }, TRAVEL_COMPANION], ...ug.meta },
       docs: {
-        User: userDocs,
+        User: userDocs, ...ug.docs,
         // an open assignment seeded in the store (not through assign_to.add, which the read-only session may not call)
         ToDo: [{ doctype: "ToDo", name: "TD-SB-1", allocated_to: "khaled@example.com", reference_type: "Travel Request", reference_name: "TR-0001", status: "Open", description: "Book the hotel", assigned_by: "Administrator", owner: "Administrator", modified: T, creation: T }] as FrappeDoc[],
         "Travel Request": TRAVELS.map((d) => (d.name === "TR-0001" ? { ...d, _user_tags: ",offsite,finance" } : d)),

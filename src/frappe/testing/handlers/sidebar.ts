@@ -14,6 +14,7 @@
 import { toFrappeError, type FrappeFilesTransport, type FrappeResponse } from "../../client";
 import type { DocTypeMeta, FrappeDoc } from "../../contract";
 import type { FixtureContext, FixtureContextHandler, FixtureStore, FixtureTransport } from "../fixtureTransport";
+import { permissionError, type PermissionEngine } from "../permissions";
 
 type Row = Record<string, unknown>;
 const sm = (...messages: Row[]) => JSON.stringify(messages.map((m) => JSON.stringify(m)));
@@ -238,9 +239,17 @@ function decorateDocinfo(store: FixtureStore, info: Row | undefined): void {
  * `attachments` and `tags` from the store, and the returned `files` transport stores attachments (any DocType but
  * Data Import, which keeps the base simulator's own path) through `upload_file` above. Every other call is unchanged
  * and still recorded in `store.calls`.
+ *
+ * P36c usergroup: a `frappe.desk.reportview.get_list` on a CHILD DocType with `parent_doctype` (Desk's "Assign To User
+ * Group" members read) is answered by `childTableList` below — the base simulator keeps child rows inside their parents
+ * and resolves a child's parent from `reference_doctype`, so it cannot serve that read. Recorded in `store.calls` too.
  */
 export function withSimulatedSidebar(base: FixtureTransport): FixtureTransport {
   const t = (async (method: string, args: Record<string, unknown>) => {
+    if (method === "frappe.desk.reportview.get_list" && args.parent_doctype && metaOf(base.store, String(args.doctype))?.istable) {
+      base.store.calls.push({ method, args: JSON.parse(JSON.stringify(args)) as Record<string, unknown> });
+      return JSON.parse(JSON.stringify(childTableList(base.store, base.permissions ?? null, args))) as FrappeResponse;
+    }
     const res = await base(method, args);
     if (method === "frappe.desk.form.load.getdoc" || method === "frappe.desk.form.load.get_docinfo") decorateDocinfo(base.store, res.docinfo as Row | undefined);
     return res;
@@ -261,4 +270,114 @@ export function withSimulatedSidebar(base: FixtureTransport): FixtureTransport {
   t.files = files;
   t.permissions = base.permissions;
   return t;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// P36c usergroup — User Group / User Group Member and the child-table list read (SIMULATED)
+// ---------------------------------------------------------------------------------------------------------------------
+
+const parseArg = (v: unknown): unknown => { if (typeof v !== "string") return v; try { return JSON.parse(v); } catch { return v; } };
+const CHILD_STANDARD = ["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx", "parent", "parentfield", "parenttype"];
+
+/**
+ * `frappe.desk.reportview.get_list` (desk/reportview.py:38-50) for a child DocType with `parent_doctype` — what
+ * `frappe.db.get_list(child, { parent_doctype, … })` sends (public/js/frappe/db.js:5-26):
+ *  - permission (P on): `DatabaseQuery.execute` → `check_read_permission(child, parent_doctype)` (model/db_query.py:134-135,
+ *    566-584) → `frappe.has_permission(..., throw=True)` → `has_child_permission` (permissions.py:120-121, 763-845): the
+ *    parent must be a non-table DocType with a Table field of the child (:792-803), then READ on the parent DocType
+ *    (:839-846; no document — row-level User Permissions on the parent are not applied by this check). A refusal is a 403
+ *    "No permission for {child}" (__init__.py:1066-1072). Administrator passes (permissions.py:107-109);
+ *  - rows: every child row of the parent DocType (the query has no `parenttype` condition; the parent comes from the
+ *    `parent` filter), `filters` as a dict or `[field, op, value]` / `[doctype, field, op, value]` lists ("=", "!=", "in",
+ *    "not in", "like"), the child's `sort_field` order (`modified desc`, user_group_member.json — equal stamps keep the
+ *    stored order), `limit` / `page_length` / `limit_page_length` (db_query.py:149-157; default 20), `start`;
+ *  - fields: the requested ones (unknown → 417 "Field not permitted in query", as the base simulator).
+ * Not simulated: User Permissions on the child's Link fields (`add_user_permissions`), permlevel of the table field.
+ */
+export function childTableList(store: FixtureStore, P: PermissionEngine | null, a: Record<string, unknown>): FrappeResponse {
+  const doctype = String(a.doctype ?? "");
+  const parentDt = String(a.parent_doctype ?? "");
+  const meta = metaOf(store, doctype);
+  if (!meta) fail(404, "DoesNotExistError", `DocType ${doctype} not found`);
+  const parentMeta = metaOf(store, parentDt);
+  const tableFields = (parentMeta?.fields ?? []).filter((f) => ["Table", "Table MultiSelect"].includes(f.fieldtype) && f.options === doctype).map((f) => f.fieldname);
+  if (P && P.user !== "Administrator") {
+    // has_child_permission: an invalid parent answers False → has_permission(throw=True) raises
+    if (!parentMeta || parentMeta.istable || !tableFields.length) throw permissionError(`No permission for ${doctype}`, [`${parentDt} is not a valid parent DocType for ${doctype}`]);
+    P.assertDoctype(doctype, "read", { parentDoctype: parentDt });
+  }
+  const known = new Set([...meta.fields.map((f) => f.fieldname), ...CHILD_STANDARD]);
+  const fields = (parseArg(a.fields) as string[] | undefined) ?? ["name"];
+  for (const f of fields) if (!known.has(String(f).replace(/^`?tab[^`]*`?\./, "").replace(/`/g, ""))) fail(417, "DataError", `Field not permitted in query: ${f}`);
+  const raw = parseArg(a.filters);
+  const filters: [string, string, unknown][] = Array.isArray(raw)
+    ? (raw as unknown[][]).map((f) => (f.length === 4 ? [String(f[1]), String(f[2]), f[3]] : [String(f[0]), String(f[1]), f[2]]))
+    : Object.entries((raw as Row | undefined) ?? {}).map(([k, v]) => (Array.isArray(v) ? [k, String(v[0]), v[1]] : [k, "=", v]));
+  const test = (row: Row, [f, op, v]: [string, string, unknown]) => {
+    if (!known.has(f)) fail(417, "DataError", `Field not permitted in query: ${f}`);
+    const x = row[f] == null ? "" : String(row[f]);
+    const list = (Array.isArray(v) ? v : String(v ?? "").split(",")).map((y) => String(y).trim());
+    switch (op.toLowerCase()) {
+      case "=": return x === String(v ?? "");
+      case "!=": return x !== String(v ?? "");
+      case "in": return list.includes(x);
+      case "not in": return !list.includes(x);
+      case "like": return new RegExp(`^${String(v ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*").replace(/_/g, ".")}$`, "i").test(x);
+      default: return fail(417, "ValidationError", `SIMULATED: operator "${op}" is not simulated on a child-table list`);
+    }
+  };
+  let rows: Row[] = [];
+  for (const p of store.docs.get(parentDt)?.values() ?? []) {
+    for (const tf of tableFields) {
+      ((p[tf] as Row[] | undefined) ?? []).forEach((r, i) => rows.push({
+        ...r, doctype, parent: p.name, parenttype: parentDt, parentfield: tf, idx: r.idx ?? i + 1, modified: r.modified ?? p.modified, creation: r.creation ?? p.creation,
+      }));
+    }
+  }
+  rows = rows.filter((r) => filters.every((f) => test(r, f)));
+  const sortField = meta.sort_field || "modified";
+  const desc = String(meta.sort_order || "desc").toLowerCase() === "desc";
+  rows = rows.map((r, i) => ({ r, i })).sort((x, y) => {
+    const c = String(x.r[sortField] ?? "").localeCompare(String(y.r[sortField] ?? ""));
+    return (desc ? -c : c) || x.i - y.i;
+  }).map((x) => x.r);
+  const start = Number(a.start ?? a.limit_start ?? 0) || 0;
+  const limit = Number(a.limit ?? a.page_length ?? a.limit_page_length ?? 20) || 0;
+  const page = limit ? rows.slice(start, start + limit) : rows.slice(start);
+  return { message: page.map((r) => Object.fromEntries(fields.map((f) => { const k = String(f).replace(/^`?tab[^`]*`?\./, "").replace(/`/g, ""); return [k, r[k] ?? null]; }))) };
+}
+
+/**
+ * core/doctype/user_group/user_group.json (Frappe 15.110): autoname Prompt, one Table MultiSelect `user_group_members`
+ * (reqd) of "User Group Member"; DocPerms System Manager (all) and Desk User (read) — every System User reads groups.
+ * `permissions` overrides the rows (e.g. a site that removed Desk User's read with the Role Permission Manager).
+ */
+export function userGroupMeta(permissions?: DocTypeMeta["permissions"]): DocTypeMeta {
+  return {
+    name: "User Group", autoname: "Prompt", sort_field: "modified", sort_order: "DESC", track_changes: 1,
+    permissions: permissions ?? [
+      { role: "System Manager", permlevel: 0, read: 1, write: 1, create: 1, delete: 1, email: 1, export: 1, print: 1, report: 1, share: 1 },
+      { role: "Desk User", permlevel: 0, read: 1 },
+    ],
+    fields: [{ fieldname: "user_group_members", fieldtype: "Table MultiSelect", label: "User Group Members", options: "User Group Member", reqd: 1 }],
+  } as DocTypeMeta;
+}
+/** core/doctype/user_group_member/user_group_member.json: istable, `user` Link User (reqd), editable grid, modified desc. */
+export const USER_GROUP_MEMBER_META: DocTypeMeta = {
+  name: "User Group Member", istable: 1, sort_field: "modified", sort_order: "DESC", editable_grid: 1, permissions: [],
+  fields: [{ fieldname: "user", fieldtype: "Link", label: "User", options: "User", reqd: 1, in_list_view: 1 }],
+} as DocTypeMeta;
+
+/** Metas + documents of a simulated site's User Groups: `{ "Sales Team": ["a@x.com", "b@x.com"] }`. SIMULATED. */
+export function userGroupFixture(groups: Record<string, string[]>, o: { stamp?: string; permissions?: DocTypeMeta["permissions"] } = {}) {
+  const ts = o.stamp ?? "2026-11-01 09:00:00.000000";
+  return {
+    meta: { "User Group": [userGroupMeta(o.permissions)], "User Group Member": [USER_GROUP_MEMBER_META] } as Record<string, DocTypeMeta[]>,
+    docs: {
+      "User Group": Object.entries(groups).map(([name, users]) => ({
+        doctype: "User Group", name, owner: "Administrator", creation: ts, modified: ts, modified_by: "Administrator", docstatus: 0, idx: 0,
+        user_group_members: users.map((user, i) => ({ doctype: "User Group Member", name: `${name}-${i + 1}`, user, parent: name, parenttype: "User Group", parentfield: "user_group_members", idx: i + 1, docstatus: 0, creation: ts, modified: ts })),
+      })) as FrappeDoc[],
+    },
+  };
 }

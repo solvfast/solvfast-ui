@@ -72,3 +72,9 @@ export {
   attachmentLimitReached, attachmentsToRemove,
 } from "./attachments";
 export { ADD_TAG_METHOD, REMOVE_TAG_METHOD, GET_TAGS_METHOD, docTags, sanitizeTag } from "./tags";
+
+// P36c usergroup — Desk's "Assign To User Group" (assign_to.js:142-160)
+export {
+  USER_GROUP_DOCTYPE, USER_GROUP_MEMBER_DOCTYPE, USER_GROUP_MEMBERS_FIELD, USER_GROUP_MEMBERS_METHOD, USER_GROUP_MEMBERS_LIMIT,
+  userGroupMembersArgs, getUserGroupMembers, searchUserGroups, userGroupSource,
+} from "./userGroups";

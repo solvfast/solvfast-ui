@@ -149,3 +149,6 @@ export type { FrappeSelectionActionsInput, FrappeSelectionActions } from "./list
 
 // P36b search — Desk's awesome bar + Global Search dialog over frappe.utils.global_search.search (docs/components/search.md)
 export * from "./search";
+
+// P36c usergroup — userGroupSource / getUserGroupMembers / searchUserGroups and the User Group constants are exported through
+// `export * from "./record"` above (src/frappe/record/index.ts, `// P36c usergroup` block).
