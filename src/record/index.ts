@@ -34,3 +34,14 @@ export type { ReminderDialogProps, RemindIn } from "./ReminderDialog";
 
 // P35 core
 export type { LifecycleStep } from "./types";
+// P36b sidebar
+export { FormSidebar, FORM_SIDEBAR_SECTIONS } from "./FormSidebar";
+export type { FormSidebarProps, FormSidebarSectionId, FormSidebarUserAction, FormSidebarStamp } from "./FormSidebar";
+export { SidebarSection } from "./SidebarSection";
+export type { SidebarSectionProps, SidebarSectionAction } from "./SidebarSection";
+export { AttachmentList } from "./AttachmentList";
+export type { AttachmentListProps, AttachmentItem, AttachmentListLabels } from "./AttachmentList";
+export { AttachDialog } from "./AttachDialog";
+export type { AttachDialogProps, LibraryFile } from "./AttachDialog";
+export { TagList } from "./TagList";
+export type { TagListProps } from "./TagList";

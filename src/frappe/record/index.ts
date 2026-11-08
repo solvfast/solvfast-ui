@@ -43,3 +43,17 @@ export { FrappeEmailComposer } from "./FrappeEmailComposer";
 export type { FrappeEmailComposerProps } from "./FrappeEmailComposer";
 export { FrappeReminder, CREATE_REMINDER_METHOD } from "./FrappeReminder";
 export type { FrappeReminderProps } from "./FrappeReminder";
+// P36b sidebar
+export { FrappeFormSidebar } from "./FrappeFormSidebar";
+export type { FrappeFormSidebarProps } from "./FrappeFormSidebar";
+export { FrappeAttachments } from "./FrappeAttachments";
+export type { FrappeAttachmentsProps } from "./FrappeAttachments";
+export { FrappeDocTags } from "./FrappeDocTags";
+export type { FrappeDocTagsProps } from "./FrappeDocTags";
+export { useFormSidebarActions, searchTags, searchFiles } from "./useFormSidebarActions";
+export type { FormSidebarActions, UploadAttachmentVars, AttachExistingVars, AttachLinkVars, RemoveAttachmentVars, TagVars, CloseAssignmentVars } from "./useFormSidebarActions";
+export {
+  UPLOAD_FILE_METHOD, REMOVE_ATTACH_METHOD, FILE_SEARCH_METHOD, ATTACHMENTS_FOLDER, ATTACHMENTS_PAGE_LENGTH, attachmentsToShow, attachmentUrl, canDeleteAttachment,
+  attachmentLimitReached, attachmentsToRemove,
+} from "./attachments";
+export { ADD_TAG_METHOD, REMOVE_TAG_METHOD, GET_TAGS_METHOD, docTags, sanitizeTag } from "./tags";

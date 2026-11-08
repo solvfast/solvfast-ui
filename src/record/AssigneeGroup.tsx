@@ -199,12 +199,17 @@ export interface AssigneeGroupProps extends Omit<AssignPickerProps, "exclude" | 
   loading?: boolean;
   /** Replaces the heading ("Assigned to" → "Assignee"). */
   heading?: string;
+  /** P36b: no visible heading (the host draws one, e.g. a sidebar section row); the heading stays the accessible name. */
+  hideHeading?: boolean;
+  /** P36b: "Done" for an assignee (Desk's tick, shown to the assignee only — assign_to.js:344-356 → assign_to.close). */
+  onComplete?: (assignee: Assignee) => void | Promise<unknown>;
+  canComplete?: (assignee: Assignee) => boolean;
   className?: string;
 }
 
 /** The people a record is assigned to, with add / remove. All permission decisions come from props. */
 export function AssigneeGroup({
-  assignees, onAssign, onRemove, canRemove, variant = "avatars", maxVisible = 4, loading, heading, className, searchUsers, labels, ...picker
+  assignees, onAssign, onRemove, canRemove, variant = "avatars", maxVisible = 4, loading, heading, hideHeading, onComplete, canComplete, className, searchUsers, labels, ...picker
 }: AssigneeGroupProps) {
   const L = useAssignLabels(labels);
   const [removing, setRemoving] = React.useState<string>("");
@@ -214,6 +219,11 @@ export function AssigneeGroup({
     setRemoving(a.id); setError("");
     try { await onRemove(a); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setRemoving(""); }
   };
+  const complete = async (a: Assignee) => {
+    if (!onComplete) return;
+    setRemoving(a.id); setError("");
+    try { await onComplete(a); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setRemoving(""); }
+  };
   const { t } = useLocale();
   const picker_ = onAssign ? (
     <AssignPicker {...picker} labels={labels} searchUsers={searchUsers} onAssign={onAssign} exclude={assignees.map((a) => a.id)} />
@@ -221,7 +231,7 @@ export function AssigneeGroup({
 
   return (
     <section className={cn("space-y-2", className)} aria-label={heading ?? L.assignedTo} aria-busy={loading || undefined}>
-      <h3 className="text-xs font-medium text-muted-foreground">{heading ?? L.assignedTo}</h3>
+      {hideHeading ? null : <h3 className="text-xs font-medium text-muted-foreground">{heading ?? L.assignedTo}</h3>}
       {loading ? <Skeleton className="h-7 w-24" /> : assignees.length === 0 ? (
         <div className="flex items-center gap-2"><span className="text-xs text-muted-foreground">{L.none}</span>{picker_}</div>
       ) : variant === "list" ? (
@@ -239,6 +249,12 @@ export function AssigneeGroup({
               ) : (
                 <span className="flex-1 truncate font-medium text-foreground">{a.name}</span>
               )}
+              {onComplete && canComplete?.(a) ? (
+                <button type="button" disabled={removing === a.id} onClick={() => void complete(a)} aria-label={fmt(t("sbAssignDone"), a.name)} title={fmt(t("sbAssignDone"), a.name)}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                  <Check className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              ) : null}
               {canRemove?.(a) ? (
                 <button type="button" disabled={removing === a.id} onClick={() => void remove(a)} aria-label={fmt(L.remove, a.name)}
                   className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
