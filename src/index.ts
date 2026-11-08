@@ -241,3 +241,7 @@ export type { NavbarSearchSlot } from "./shell/Navbar";
 // P36c usergroup — AssignDialog's "Assign To User Group" source (docs/components/record.md, Assign)
 export { uniqueMembers } from "./record";
 export type { AssignGroupSource } from "./record";
+
+// P36d history — Timeline: entry extras (avatars, communication cards), Desk relative times, absolute time (docs/components/record.md)
+export { deskRelativeTime, absoluteTime } from "./record";
+export type { TimelineEntry, TimelineItemExtras, TimelineTimeFormat } from "./record";

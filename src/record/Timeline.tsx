@@ -1,29 +1,51 @@
 import * as React from "react";
-import { ChevronDown, FilePlus2, GitBranch, Globe2, Heart, Info, MessageSquare, Paperclip, Pencil, PencilLine, Trash2, UserCheck, Activity } from "lucide-react";
+import { ChevronDown, ExternalLink, FilePlus2, GitBranch, Globe2, Heart, Info, Link2, Lock, MessageSquare, Paperclip, Pencil, PencilLine, Trash2, UserCheck, Activity } from "lucide-react";
 import { cn } from "../lib/cn";
 import { relativeTime } from "../lib/relative-time";
 import { Button } from "../primitives/button";
 import { Skeleton } from "../primitives/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "../primitives/avatar";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../primitives/alert-dialog";
 import { useLocale } from "../theme/ThemeProvider";
 import { CommentComposer, type CommentComposerLabels } from "./CommentComposer";
-import { errorText, stripIsolates } from "./format";
+import { errorText, fmt, stripIsolates } from "./format";
 import { sanitizeCommentHtml } from "./sanitize";
 import type { MentionOption, TimelineItem, TimelineKind, Tone } from "./types";
 
 export type TimelineFilter = "all" | "comments" | "changes";
+
+/**
+ * P36d history: optional extras an entry may carry (all additive; `TimelineItem` alone renders exactly as before).
+ * - `actorImage`: the actor's avatar URL (Desk `frappe.avatar(owner)`, timeline_message_box.html) — shown with `showAvatars`.
+ * - `card`: render a non-comment entry as a card with its `body` (Desk `is_card`: communications, automated messages,
+ *   `additional_timeline_content` with `is_card`, base_timeline.js:135-141).
+ * - `subject`, `status` (Desk's delivery-status pill, form_timeline.js:298-311), `attachments` (template :89-109): card details.
+ */
+export interface TimelineItemExtras {
+  actorImage?: string | null;
+  card?: boolean;
+  subject?: string;
+  status?: { label: string; tone?: Tone };
+  attachments?: Array<{ name: string; url: string; isPrivate?: boolean }>;
+}
+export type TimelineEntry = TimelineItem & TimelineItemExtras;
+/** "compact" = "12m ago" (default); "desk" = Frappe's `comment_when` / prettyDate long form ("yesterday", "3 weeks ago"). */
+export type TimelineTimeFormat = "compact" | "desk";
 
 export interface TimelineLabels {
   all?: string; comments?: string; changes?: string; loadMore?: string; loading?: string; empty?: string; edit?: string; delete?: string;
   deleteTitle?: string; deleteBody?: string; cancel?: string; heading?: string; save?: string;
   /** P36b social: comment publicity (form_timeline.js:620-625, 734-760). */
   publish?: string; unpublish?: string; published?: string; publishedTitle?: string; publishBody?: string; unpublishBody?: string;
+  /** P36d history: card actions. */
+  copyLink?: string; copied?: string; openItem?: string; privateFile?: string; attachments?: string;
 }
 
 export interface TimelineProps {
-  items: TimelineItem[];
+  /** Entries; `TimelineItemExtras` fields are optional (P36d history). */
+  items: TimelineEntry[];
   /** Default "newest-first". Sorting is by `at`; ties keep the given order. */
   order?: "newest-first" | "oldest-first";
   loading?: boolean;
@@ -58,6 +80,16 @@ export interface TimelineProps {
   showActor?: boolean;
   /** Fixed "now" for relative times (tests). */
   now?: number;
+  /**
+   * P36d history: relative-time wording. Default "compact" (unchanged). "desk" reproduces Frappe's `comment_when`
+   * (pretty_date.js:46-76: "just now", "1 minute ago", "yesterday", "3 weeks ago", "1 year ago"). The absolute date and time
+   * is always the `<time>` element's title (comment_when's `title`, pretty_date.js:81-93) in the active language.
+   */
+  timeFormat?: TimelineTimeFormat;
+  /** P36d history: show the author's avatar (image, else initials) on comment and card entries (Desk `frappe.avatar`). Default false. */
+  showAvatars?: boolean;
+  /** P36d history: a shareable link for an entry → a "Copy Link" action on comment / card entries (form_timeline.js:767-773). */
+  itemLink?: (item: TimelineEntry) => string | undefined;
   className?: string;
 }
 
@@ -78,6 +110,66 @@ function EntryIcon({ item, fallback, className }: { item: TimelineItem; fallback
 const ICON: Record<TimelineKind, React.ComponentType<{ className?: string }>> = {
   comment: MessageSquare, change: PencilLine, assignment: UserCheck, attachment: Paperclip, state: GitBranch, created: FilePlus2, modified: Pencil,
   info: Info, like: Heart, communication: MessageSquare, custom: Activity,
+};
+
+const DAY_MS = 86_400_000;
+/** Frappe's prettyDate long form (pretty_date.js:14-76): calendar-day difference, then seconds within the same day. */
+export function deskRelativeTime(at: number, t: (key: "hisJustNow" | "hisMinuteAgo" | "hisMinutesAgo" | "hisHourAgo" | "hisHoursAgo" | "hisYesterday" | "hisDaysAgo" | "hisWeekAgo" | "hisWeeksAgo" | "hisMonthAgo" | "hisMonthsAgo" | "hisYearAgo" | "hisYearsAgo") => string, now: number = Date.now()): string {
+  const diff = (now - at) / 1000;
+  const n = new Date(now); const d = new Date(at);
+  const dayDiff = Math.floor((new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / DAY_MS);
+  if (Number.isNaN(dayDiff) || dayDiff < 0) return "";
+  if (dayDiff === 0) {
+    if (diff < 60) return t("hisJustNow");
+    if (diff < 120) return t("hisMinuteAgo");
+    if (diff < 3600) return fmt(t("hisMinutesAgo"), Math.floor(diff / 60));
+    if (diff < 7200) return t("hisHourAgo");
+    return fmt(t("hisHoursAgo"), Math.floor(diff / 3600));
+  }
+  if (dayDiff === 1) return t("hisYesterday");
+  if (dayDiff < 7) return fmt(t("hisDaysAgo"), dayDiff);
+  if (dayDiff < 14) return t("hisWeekAgo");
+  if (dayDiff < 31) return fmt(t("hisWeeksAgo"), Math.floor(dayDiff / 7));
+  if (dayDiff < 62) return t("hisMonthAgo");
+  if (dayDiff < 365) return fmt(t("hisMonthsAgo"), Math.floor(dayDiff / 30));
+  if (dayDiff < 730) return t("hisYearAgo");
+  return fmt(t("hisYearsAgo"), Math.floor(dayDiff / 365));
+}
+
+/** The absolute date and time in the active language (Latin digits, like the CRM's other dates). */
+export function absoluteTime(at: number, language?: string): string {
+  try {
+    return new Intl.DateTimeFormat(language === "ar" ? "ar-u-nu-latn" : "en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(at));
+  } catch { return new Date(at).toLocaleString(); }
+}
+
+const initialsOf = (name?: string) => (name ?? "").replace(/[\u2068\u2069]/g, "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
+function ActorAvatar({ item }: { item: TimelineEntry }) {
+  return (
+    <Avatar className="h-6 w-6 text-[10px] font-medium" data-avatar="" aria-hidden>
+      {item.actorImage ? <AvatarImage src={item.actorImage} alt="" /> : null}
+      <AvatarFallback className="bg-primary/10 text-primary">{initialsOf(item.actor)}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+/** "Copy Link": copies `link`, then says so for 2 s (Desk: frappe.utils.copy_to_clipboard → "Copied to clipboard"). */
+function CopyLinkButton({ link, label, copiedLabel }: { link: string; label: string; copiedLabel: string }) {
+  const [copied, setCopied] = React.useState(false);
+  React.useEffect(() => { if (!copied) return; const h = setTimeout(() => setCopied(false), 2000); return () => clearTimeout(h); }, [copied]);
+  return (
+    <>
+      <button type="button" aria-label={label} title={label} data-copy-link=""
+        onClick={async () => { try { await navigator.clipboard?.writeText(link); setCopied(true); } catch { /* clipboard blocked */ } }}
+        className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Link2 className="h-3 w-3" aria-hidden /></button>
+      {copied ? <span role="status" className="text-[11px] text-muted-foreground">{copiedLabel}</span> : null}
+    </>
+  );
+}
+
+const STATUS_PILL: Record<Tone, string> = {
+  neutral: "bg-muted text-muted-foreground", success: "bg-success/10 text-success", warning: "bg-warning/10 text-warning", danger: "bg-destructive/10 text-destructive",
+  info: "bg-info/10 text-info", brand: "bg-primary/10 text-primary",
 };
 
 /**
@@ -101,16 +193,16 @@ export function renderIsolated(text: string): React.ReactNode {
   return <>{parse()}</>;
 }
 
-export function filterItems(items: TimelineItem[], filter: TimelineFilter, hidden: TimelineKind[] = []): TimelineItem[] {
+export function filterItems<T extends TimelineItem>(items: T[], filter: TimelineFilter, hidden: TimelineKind[] = []): T[] {
   return items.filter((i) => !hidden.includes(i.kind) && (filter === "all" || (filter === "comments" ? i.kind === "comment" : i.kind !== "comment")));
 }
-export function sortItems(items: TimelineItem[], order: "newest-first" | "oldest-first"): TimelineItem[] {
+export function sortItems<T extends TimelineItem>(items: T[], order: "newest-first" | "oldest-first"): T[] {
   const s = items.map((it, n) => ({ it, n })).sort((a, b) => (a.it.at - b.it.at) || (a.n - b.n)).map((x) => x.it);
   return order === "newest-first" ? s.reverse() : s;
 }
 
-function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composerLabels, onSelect, showActor, onPublish, canPublish, published }: {
-  item: TimelineItem; now?: number; isRTL: boolean; L: Required<TimelineLabels>;
+function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composerLabels, onSelect, showActor, onPublish, canPublish, published, timeFormat, showAvatars, link }: {
+  item: TimelineEntry; now?: number; isRTL: boolean; L: Required<TimelineLabels>; timeFormat: TimelineTimeFormat; showAvatars?: boolean; link?: string;
   onEdit?: TimelineProps["onEditComment"]; onDelete?: TimelineProps["onDeleteComment"];
   onPublish?: TimelineProps["onTogglePublish"]; canPublish?: boolean; published?: boolean;
   searchMentions?: TimelineProps["searchMentions"]; composerLabels?: CommentComposerLabels;
@@ -121,8 +213,14 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
   const [confirmDel, setConfirmDel] = React.useState(false);
   const [confirmPub, setConfirmPub] = React.useState(false);
   const [err, setErr] = React.useState("");
-  const showChangesLabel = useLocale().t("coreShowChanges");
-  const when = <time dateTime={new Date(item.at).toISOString()} title={new Date(item.at).toLocaleString()} className="text-[11px] text-muted-foreground">{relativeTime(item.at, isRTL, now)}</time>;
+  const { t, language } = useLocale();
+  const showChangesLabel = t("coreShowChanges");
+  const when = (
+    <time dateTime={new Date(item.at).toISOString()} title={absoluteTime(item.at, language)} className="text-[11px] text-muted-foreground">
+      {timeFormat === "desk" ? deskRelativeTime(item.at, t, now) : relativeTime(item.at, isRTL, now)}
+    </time>
+  );
+  const copy = link ? <CopyLinkButton link={link} label={L.copyLink} copiedLabel={L.copied} /> : null;
 
   if (item.kind === "comment") {
     const body = item.bodyFormat === "text"
@@ -131,11 +229,12 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
     return (
       <li id={`comment-${item.id}`} className="rounded-lg border border-border bg-card p-3" data-kind="comment">
         <div className="mb-1 flex items-center gap-1.5">
-          <EntryIcon item={item} fallback="text-primary" className="" />
+          {showAvatars ? <ActorAvatar item={item} /> : <EntryIcon item={item} fallback="text-primary" className="" />}
           <bdi className="text-sm font-medium text-foreground">{item.actor}</bdi><span aria-hidden className="text-muted-foreground">·</span>{when}
           {published ? <><span aria-hidden className="text-muted-foreground">·</span><span className="text-[11px] text-muted-foreground" title={L.publishedTitle} data-published="">{L.published}</span></> : null}
-          {!editing && (item.canEdit || item.canDelete || (canPublish && onPublish)) ? (
+          {!editing && (item.canEdit || item.canDelete || (canPublish && onPublish) || copy) ? (
             <span className="ms-auto flex items-center gap-1">
+              {copy}
               {canPublish && onPublish ? <button type="button" onClick={() => setConfirmPub(true)} aria-label={published ? L.unpublish : L.publish} title={published ? L.unpublish : L.publish} className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Globe2 className="h-3 w-3" aria-hidden /></button> : null}
               {item.canEdit && onEdit ? <button type="button" onClick={() => setEditing(true)} aria-label={L.edit} title={L.edit} className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Pencil className="h-3 w-3" aria-hidden /></button> : null}
               {item.canDelete && onDelete ? <button type="button" onClick={() => setConfirmDel(true)} aria-label={L.delete} title={L.delete} className="rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-3 w-3" aria-hidden /></button> : null}
@@ -167,6 +266,40 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      </li>
+    );
+  }
+
+  if (item.card && item.body != null) {
+    const body = item.bodyFormat === "text"
+      ? <p className="whitespace-pre-wrap text-sm text-foreground">{item.body}</p>
+      : <div className="prose-sm break-words text-sm text-foreground [&_a]:text-primary [&_a]:underline [&_blockquote]:border-s-2 [&_blockquote]:ps-2" dangerouslySetInnerHTML={{ __html: sanitizeCommentHtml(item.body) }} />;
+    return (
+      <li id={item.id} className="rounded-lg border border-border bg-card p-3" data-kind={item.kind} data-card="">
+        <div className="mb-1 flex flex-wrap items-center gap-1.5">
+          {showAvatars && item.actor ? <ActorAvatar item={item} /> : <EntryIcon item={item} fallback="text-muted-foreground" className="" />}
+          {item.actor ? <><bdi className="text-sm font-medium text-foreground">{item.actor}</bdi><span aria-hidden className="text-muted-foreground">·</span></> : null}
+          {when}
+          <span className="ms-auto flex items-center gap-1">
+            {item.status ? <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", STATUS_PILL[item.status.tone ?? "neutral"])} data-status="">{item.status.label}</span> : null}
+            {item.href ? <a href={item.href} onClick={onSelect ? (e) => onSelect(item, e) : undefined} aria-label={L.openItem} title={L.openItem}
+              className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ExternalLink className="h-3 w-3" aria-hidden /></a> : null}
+            {copy}
+          </span>
+        </div>
+        {item.subject ? <p className="mb-1 text-sm text-muted-foreground" data-subject=""><bdi>{item.subject}</bdi></p> : null}
+        {body}
+        {item.attachments?.length ? (
+          <ul className="mt-2 space-y-0.5" aria-label={L.attachments}>
+            {item.attachments.map((a) => (
+              <li key={a.url} className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                <Paperclip className="h-3 w-3 shrink-0" aria-hidden />
+                <a href={a.url} target="_blank" rel="noopener noreferrer" className="truncate hover:underline"><bdi>{a.name}</bdi></a>
+                {a.isPrivate ? <Lock className="h-3 w-3 shrink-0 text-warning" aria-label={L.privateFile} /> : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </li>
     );
   }
@@ -209,6 +342,7 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
 export function Timeline({
   items, order = "newest-first", loading, error, hasMore, loadingMore, onLoadMore, showFilters, hiddenKinds, onEditComment, onDeleteComment,
   searchMentions, composerLabels, labels, now, className, onItemSelect, showActor, onTogglePublish, canPublish, isPublished,
+  timeFormat = "compact", showAvatars, itemLink,
 }: TimelineProps) {
   const { t, isRTL } = useLocale();
   const L: Required<TimelineLabels> = {
@@ -218,6 +352,8 @@ export function Timeline({
     deleteBody: labels?.deleteBody ?? t("recDeleteCommentBody"), cancel: labels?.cancel ?? t("recCancel"), heading: labels?.heading ?? t("recActivity"), save: labels?.save ?? t("recSave"),
     publish: labels?.publish ?? t("socPublish"), unpublish: labels?.unpublish ?? t("socUnpublish"), published: labels?.published ?? t("socPublished"),
     publishedTitle: labels?.publishedTitle ?? t("socPublishedTitle"), publishBody: labels?.publishBody ?? t("socPublishBody"), unpublishBody: labels?.unpublishBody ?? t("socUnpublishBody"),
+    copyLink: labels?.copyLink ?? t("hisCopyLink"), copied: labels?.copied ?? t("hisCopied"), openItem: labels?.openItem ?? t("hisOpenCommunication"),
+    privateFile: labels?.privateFile ?? t("hisPrivateFile"), attachments: labels?.attachments ?? t("hisAttachments"),
   };
   const [filter, setFilter] = React.useState<TimelineFilter>("all");
   const shown = React.useMemo(() => sortItems(filterItems(items, filter, hiddenKinds), order), [items, filter, hiddenKinds, order]);
@@ -243,7 +379,8 @@ export function Timeline({
           {shown.map((it) => (
             <Entry key={it.id} item={it} now={now} isRTL={isRTL} L={L} onEdit={onEditComment} onDelete={onDeleteComment} searchMentions={searchMentions} composerLabels={composerLabels}
               onSelect={onItemSelect} showActor={showActor}
-              onPublish={onTogglePublish} canPublish={it.kind === "comment" && !!canPublish?.(it)} published={it.kind === "comment" && !!isPublished?.(it)} />
+              onPublish={onTogglePublish} canPublish={it.kind === "comment" && !!canPublish?.(it)} published={it.kind === "comment" && !!isPublished?.(it)}
+              timeFormat={timeFormat} showAvatars={showAvatars} link={itemLink?.(it)} />
           ))}
         </ul>
       )}
