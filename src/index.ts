@@ -226,3 +226,10 @@ export type { ListActions } from "./list/ListActionsContext";
 // P36b social — Desk's Share dialog / shared-with avatars and the liked-by heart + list (Frappe-free)
 export { ShareDialog, SharedAvatars, SHARE_RIGHTS, LikedBy } from "./record";
 export type { ShareDialogProps, ShareDialogLabels, SharedAvatarsProps, ShareEntry, ShareRight, ShareRights, LikedByProps, LikedByUser } from "./record";
+
+// P36b sidebar — Form Sidebar layout and its Core parts (docs/components/record.md "Form Sidebar")
+export { FormSidebar, FORM_SIDEBAR_SECTIONS, SidebarSection, AttachmentList, AttachDialog, TagList } from "./record";
+export type {
+  FormSidebarProps, FormSidebarSectionId, FormSidebarUserAction, FormSidebarStamp, SidebarSectionProps, SidebarSectionAction, AttachmentListProps, AttachmentItem,
+  AttachmentListLabels, AttachDialogProps, LibraryFile, TagListProps,
+} from "./record";

@@ -50,6 +50,9 @@ export interface AssignDialogProps {
   labels?: AssignDialogLabels;
   /** Extra content under the fields (e.g. a note about what the host stores). */
   note?: React.ReactNode;
+  /** P36b: the detail fields' values when the dialog opens (Desk fills "Comment" with the document's title field,
+   *  assign_to.js:161-167). */
+  defaultDetails?: AssignDetails;
 }
 
 const DEFAULT_PRIORITY = "__default";
@@ -63,7 +66,7 @@ function UserAvatar({ name, image, className }: { name: string; image?: string |
   );
 }
 
-export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, single, count, existing, details, labels, note }: AssignDialogProps) {
+export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, single, count, existing, details, labels, note, defaultDetails }: AssignDialogProps) {
   const { t } = useLocale();
   const L = {
     title: labels?.title ?? t("recAssignTitle"), forCount: labels?.forCount ?? t("recAssignForCount"), toMe: labels?.toMe ?? t("recAssignToMe"),
@@ -83,7 +86,7 @@ export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, si
   const { options, loading, error: searchError } = useAsyncOptions(searchUsers, q, open);
   const id = React.useId();
 
-  React.useEffect(() => { if (!open) { setQ(""); setPicked([]); setD({}); setError(""); setBusy(false); } }, [open]);
+  React.useEffect(() => { if (!open) { setQ(""); setPicked([]); setD({}); setError(""); setBusy(false); } else if (defaultDetails) setD(defaultDetails); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isPicked = (u: UserOption) => picked.some((x) => x.id === u.id);
   const toggle = (u: UserOption) => setPicked((p) => (p.some((x) => x.id === u.id) ? p.filter((x) => x.id !== u.id) : single ? [u] : [...p, u]));

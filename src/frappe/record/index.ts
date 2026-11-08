@@ -57,3 +57,18 @@ export type { DocShareRow } from "./share";
 export { TOGGLE_LIKE_METHOD, likedByOf, toggleLikeArgs, nextLikedBy, applyLikeToCaches } from "./like";
 export { ADD_COMMENT_METHOD, UPDATE_COMMENT_METHOD, COMMENT_PUBLICITY_METHOD, COMMENT_DELETE_ROLES, commentRights, canPublishComment, mentionSearchWith } from "./comments";
 export type { CommentRights } from "./comments";
+
+// P36b sidebar
+export { FrappeFormSidebar } from "./FrappeFormSidebar";
+export type { FrappeFormSidebarProps } from "./FrappeFormSidebar";
+export { FrappeAttachments } from "./FrappeAttachments";
+export type { FrappeAttachmentsProps } from "./FrappeAttachments";
+export { FrappeDocTags } from "./FrappeDocTags";
+export type { FrappeDocTagsProps } from "./FrappeDocTags";
+export { useFormSidebarActions, searchTags, searchFiles } from "./useFormSidebarActions";
+export type { FormSidebarActions, UploadAttachmentVars, AttachExistingVars, AttachLinkVars, RemoveAttachmentVars, TagVars, CloseAssignmentVars } from "./useFormSidebarActions";
+export {
+  UPLOAD_FILE_METHOD, REMOVE_ATTACH_METHOD, FILE_SEARCH_METHOD, ATTACHMENTS_FOLDER, ATTACHMENTS_PAGE_LENGTH, attachmentsToShow, attachmentUrl, canDeleteAttachment,
+  attachmentLimitReached, attachmentsToRemove,
+} from "./attachments";
+export { ADD_TAG_METHOD, REMOVE_TAG_METHOD, GET_TAGS_METHOD, docTags, sanitizeTag } from "./tags";

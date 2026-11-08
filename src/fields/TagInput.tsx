@@ -35,11 +35,16 @@ export interface TagInputProps {
   "aria-label"?: string;
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
+  /** P36b: values that count as already chosen without being shown as pills (hidden from the results, dropped when
+   *  typed) — e.g. a record's tags shown elsewhere while this box only adds new ones. */
+  exclude?: string[];
+  /** P36b: focus the text box on mount. */
+  autoFocus?: boolean;
 }
 
 export function TagInput({
   value, onChange, search, debounceMs = 300, getLabel = (v) => v, allowCreate, validate, actions, itemHref, onItemClick,
-  disabled, readOnly, invalid, placeholder, id, className, ...aria
+  disabled, readOnly, invalid, placeholder, id, className, exclude, autoFocus, ...aria
 }: TagInputProps) {
   const { t } = useLocale();
   const reactId = React.useId();
@@ -54,21 +59,24 @@ export function TagInput({
   const editable = !disabled && !readOnly;
   const latest = React.useRef(value);
   latest.current = value;
+  const excluded = React.useRef(exclude);
+  excluded.current = exclude;
+  const taken = (v: string) => latest.current.includes(v) || !!excluded.current?.includes(v);
 
-  const options = React.useMemo(() => mergeDuplicates(sugg.options).filter((o) => !value.includes(o.value)), [sugg.options, value]);
+  const options = React.useMemo(() => mergeDuplicates(sugg.options).filter((o) => !value.includes(o.value) && !exclude?.includes(o.value)), [sugg.options, value, exclude]);
   const acts = typeof actions === "function" ? actions(text) : actions ?? [];
   const count = options.length + acts.length;
   React.useEffect(() => { setActive(options.length ? 0 : -1); }, [options]);
 
   const add = async (raw: string) => {
     const v = raw.trim();
-    if (!v || latest.current.includes(v)) return;
+    if (!v || taken(v)) return;
     let canonical: string | null = v;
     if (validate) {
       setBusy(true);
       try { canonical = await validate(v); } catch { canonical = null; } finally { setBusy(false); }
     }
-    if (!canonical || latest.current.includes(canonical)) return;
+    if (!canonical || taken(canonical)) return;
     onChange([...latest.current, canonical]);
   };
   const remove = (v: string) => onChange(value.filter((x) => x !== v));
@@ -118,6 +126,7 @@ export function TagInput({
             <input
               ref={inputRef}
               id={id}
+              autoFocus={autoFocus}
               type="text"
               role="combobox"
               autoComplete="off"

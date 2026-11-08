@@ -492,3 +492,79 @@ permission-less transport the shared-with avatars stay empty even after a share 
 The `add_comment` override keeps the parent's `_comments` entries truncated at 100 characters (comment.py:130-131), as Frappe does.
 The simulator's `docinfo.comments` does not carry `published` yet (fixtureTransport.ts) — the "Published" marker shows on a
 real site and once the simulator adds the field.
+
+## 6. P36b — Form Sidebar
+
+Desk's form sidebar (Frappe 15.110 `form/sidebar/form_sidebar.js`, `form/templates/form_sidebar.html`) for any DocType.
+Backend operations are verified on the in-package **simulator only** (`createFixtureTransport` + `withSimulatedSidebar`,
+`src/frappe/testing/handlers/sidebar.ts`) — never against a real site.
+
+### 6.1 Native structure and order
+
+| Desk (form_sidebar.html) | DS |
+|---|---|
+| user actions (`add_user_action`, :1) | `userActions` |
+| image section (`image_field`) | not in the sidebar — `FrappeFormView` shows the header image |
+| Assigned To (:43-56) | `FrappeAssignTo layout="sidebar"` |
+| Attachments (:57-81) | `FrappeAttachments` |
+| Reviews (energy points, :82-94) | not reproduced |
+| Tags (:95-104; hidden for Single DocTypes) | `FrappeDocTags` |
+| Share (:105-118) | `share` slot (social workstream: `FrappeSidebarShare`) |
+| Followed by / Follow, auto-repeat (:119-138) | not reproduced |
+| stats: likes · comment count, Follow (:139-162) | `likes` slot + the comment count (`docinfo.comments.length`) |
+| page views, "… last edited this", "… created this" (:163-168) | `created` / `modified` (page views not reproduced) |
+| — (Desk: the comment box is in the form **footer**, footer/footer.js:8-25) | `comments` slot, drawn last; the count scrolls to it |
+
+The whole sidebar is hidden for an unsaved document (form_sidebar.js:71-74). `sections` (ids of `FORM_SIDEBAR_SECTIONS`)
+hides or reorders sections; Desk's own rules (unsaved, Single) still apply.
+
+### 6.2 Components
+
+```ts
+// Core (@solvfast/ui) — Frappe-free
+<FormSidebar assign attachments tags share likes comments commentCount commentCountSlot onCommentsClick userActions created modified
+  sections hidden loading error onRetry now />
+<SidebarSection id label icon onLabelClick action={{ label, onClick, disabled? }} busy>{children}</SidebarSection>
+<AttachmentList items={AttachmentItem[]} hasMore onShowAll onRemove canRemove fileRecordHref empty labels />
+<AttachDialog open onOpenChange onUpload={(file, isPrivate) => Promise} defaultPrivate allowTogglePrivate maxFiles accept maxSize
+  searchLibrary onAttachExisting onAttachLink note />
+<TagList tags adding onAddingChange onAdd onRemove canRemove search sanitize empty />
+// additive: TagInput `exclude`, `autoFocus`; AssigneeGroup `hideHeading`, `onComplete`, `canComplete`; AssignDialog `defaultDetails`
+
+// Frappe (@solvfast/ui/frappe)
+<FrappeFormSidebar doctype name doc? bundle? docinfo? readOnly? share? likes? comments? commentCount? sections? userActions? onCommentsClick?
+  onOpenFileList? fileRecordHref? assignProps? />
+<FrappeAttachments doctype name readOnly? doc? bundle? docinfo? onOpenFileList? fileRecordHref? library? webLink? />
+<FrappeDocTags doctype name readOnly? doc? bundle? docinfo? />
+<FrappeAssignTo layout="sidebar" doc user bundle? canAssign? canWrite? allowComplete? />   // layout default "group" (unchanged)
+useFormSidebarActions() // upload, attachExisting, attachLink, removeAttachment, addTag, removeTag, closeAssignment
+```
+
+**One docinfo.** Every section reads `useRecordDocInfo` → `useDocInfo(doctype, name)` (`frappeKeys.docinfo`, seeded by getdoc through `useDoc`);
+every write ends in `applyDocInfoChange` (docinfo + list invalidated). A slot that needs docinfo must use the same hook.
+
+### 6.3 Server methods and rights
+
+| Action | Request (as Desk sends it) | Offered when | Server rule |
+|---|---|---|---|
+| assign | `frappe.desk.form.assign_to.add` { doctype, name, assign_to: JSON list, description, date, priority } | saved doc, not `readOnly` | read (assign_to.py:67-68) |
+| Done | `assign_to.close` { doctype, name, assign_to } | own assignment | assignee only (:196-199) |
+| remove assignment | `assign_to.remove` { doctype, name, assign_to } | own, or `write` (assign_to.js:358) | read (:204-208) |
+| upload | `upload_file` multipart: file, is_private, folder "Home/Attachments", doctype, docname | `write`, limit not reached | write on the doc (handler.py:220, 266-282); `max_attachments` (file.py:333-350) |
+| Library | `upload_file` { library_file_name, folder, doctype, docname } (JSON body, app.py:302-314) | as upload | read on that File (handler.py:208-218) + write |
+| Link | `upload_file` { file_url, is_private: 0, folder, doctype, docname } | as upload | write |
+| remove file | `frappe.desk.form.utils.remove_attach` { fid, dt, dn } — every file with that name | `can_delete_attachment` (attachments.js:161-174) | File delete (file.py:872-910) + protected files (:515-540) |
+| add / remove tag | `frappe.desk.doctype.tag.tag.add_tag` / `remove_tag` { tag, dt, dn } | `write` | write (update_tags, tag.py:147-152) |
+| tag search | `get_tags` { doctype, txt (lower-cased) } | while typing | Tag list |
+
+### 6.4 Differences from Desk (with the reason)
+
+- Assigned To lists each assignee on its own row with Done / remove; Desk shows an avatar stack and manages it in a second
+  "Assignments" dialog (assign_to.js:244-373). Same actions, one click less. No "Assign To User Group" field.
+- Attach and tag editing are offered only with `write`; Desk always shows "+" and the tag box and lets the server refuse.
+- A tag is drawn dimmed while its request runs and removed again if refused; Desk keeps the pill after a refusal.
+- No upload percentage: the package's upload is a `fetch` without progress events; each file shows waiting / uploading /
+  uploaded / failed. No camera, Google Drive or image cropping sources.
+- An empty section shows a quiet "No attachments" / "No tags" line; at the attachment limit a line says so (Desk hides "+").
+- The `comments` slot sits in the sidebar (owner request); Desk's comment box is in the form footer.
+- Not reproduced: Reviews / energy points, Follow / Followed by, auto-repeat, page views, the sidebar image.
