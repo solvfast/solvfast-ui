@@ -5,6 +5,10 @@
  * Changes from Sear (VENDORED.md): title / help / search / notifications are props instead of Sear routes, its
  * HEADER_HELP map and its notification store; works without a provider (BUG FIX — Sear's TopBar crashed outside its
  * AppProvider); aria-labels localized (Sear's were English-only).
+ *
+ * P36c (owner decision 2, phones only): below `md` the pane padding is 12px (was 16px) and the icon buttons sit 2px
+ * apart (was 4px) — 18px more for the page title at every phone width. Buttons keep the DS header size (icon-sm,
+ * 32×32, ≥ WCAG 2.5.8's 24px); desktop (`md:px-6`, `md:gap-1`) is unchanged.
  */
 import * as React from "react";
 import { Globe, Moon, Search, Sun } from "lucide-react";
@@ -90,7 +94,7 @@ export function Navbar({
   }
 
   return (
-    <div className="sf-glass-pane sf-glass-pane--airy  sticky top-0 z-50 h-14 flex items-center justify-between px-4 md:px-6">
+    <div className="sf-glass-pane sf-glass-pane--airy  sticky top-0 z-50 h-14 flex items-center justify-between px-3 md:px-6">
       <div className="flex items-center gap-2 min-w-0">
         {logo && (
           <button type="button" onClick={logo.onClick} aria-label={logo.alt} className="md:hidden shrink-0 hover:opacity-80 transition-opacity">
@@ -100,7 +104,7 @@ export function Navbar({
         <h1 className="text-lg font-medium text-foreground truncate">{title}</h1>
         {help}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 md:gap-1">
         {searchEl}
         {notificationsEl}
         {showLanguageToggle && (
