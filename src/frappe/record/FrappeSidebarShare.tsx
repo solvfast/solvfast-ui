@@ -138,7 +138,9 @@ export function FrappeSidebarShare({ doctype, name, readOnly, docinfo, sharingDi
         <ShareDialog
           open={open} onOpenChange={(o) => { setOpen(o); if (!o) seq.current++; }} docName={name} entries={entries} loading={loading}
           error={loadError || undefined} canShare={canShare} canGrant={canGrant} searchUsers={search}
-          onAdd={canShare ? onAdd : undefined} onSetRight={canShare ? onSetRight : undefined} labels={labels}
+          onAdd={canShare ? onAdd : undefined} onSetRight={canShare ? onSetRight : undefined}
+          // the hint names the actual reason: this page is read-only, the site disabled sharing, or the user lacks the right
+          labels={{ ...labels, noRight: labels?.noRight ?? (readOnly ? t("socShareReadOnly") : sharingDisabled && session?.user !== "Administrator" ? t("socShareDisabled") : undefined) }}
         />
       ) : null}
     </div>

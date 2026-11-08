@@ -18,7 +18,7 @@
  *   dialog (share.js:27-40).
  * Deliberate deviations: user rows show the display name with the user id under it (Desk shows the id only); an
  * "Everyone" pill in SharedAvatars (Desk passes a null user to its avatar group — "REDESIGN-TODO", share.js:39); a hint
- * explains why the boxes are disabled.
+ * explains why the boxes are disabled; the row being saved is disabled until the answer (Desk leaves it clickable).
  */
 import * as React from "react";
 import { Globe2, Plus } from "lucide-react";
@@ -93,6 +93,7 @@ function UserAvatar({ name, image, className }: { name: string; image?: string |
   );
 }
 
+const ADD = "\u0000add";
 const NONE: ShareRights = { read: false, write: false, submit: false, share: false };
 
 export function ShareDialog({ open, onOpenChange, docName, entries, loading, error, canShare, canGrant, searchUsers, onAdd, onSetRight, labels, className }: ShareDialogProps) {
@@ -105,25 +106,27 @@ export function ShareDialog({ open, onOpenChange, docName, entries, loading, err
     loading: labels?.loading ?? t("socShareLoading"), noRight: labels?.noRight ?? t("socShareNoRight"),
   };
   const head: Record<ShareRight, string> = { read: L.read, write: L.write, submit: L.submit, share: L.share };
-  const [busy, setBusy] = React.useState<string | null>(null);
+  // rows with a request in flight (Desk disables nothing; here only the row being saved, so its box cannot be clicked twice)
+  const [pending, setPending] = React.useState<ReadonlySet<string>>(new Set());
+  const mark = (key: string, on: boolean) => setPending((p) => { const n = new Set(p); if (on) n.add(key); else n.delete(key); return n; });
   const [err, setErr] = React.useState("");
   const [user, setUser] = React.useState("");
   const [rights, setRights] = React.useState<ShareRights>(NONE);
-  React.useEffect(() => { if (!open) { setBusy(null); setErr(""); setUser(""); setRights(NONE); } }, [open]);
+  React.useEffect(() => { if (!open) { setPending(new Set()); setErr(""); setUser(""); setRights(NONE); } }, [open]);
 
   const everyone: ShareEntry = entries.find((e) => e.everyone) ?? { id: "__everyone", user: null, everyone: true };
   const users = entries.filter((e) => !e.everyone);
   const enabled = (right: ShareRight) => canShare && (right === "write" || right === "submit" ? !!canGrant?.[right] : true);
 
   const set = async (entry: ShareEntry, right: ShareRight, value: boolean) => {
-    if (!onSetRight || busy) return;
-    setBusy(entry.id); setErr("");
-    try { await onSetRight(entry, right, value); } catch (e) { setErr(errorText(e) || "Error"); } finally { setBusy(null); }
+    if (!onSetRight || pending.has(entry.id)) return;
+    mark(entry.id, true); setErr("");
+    try { await onSetRight(entry, right, value); } catch (e) { setErr(errorText(e) || "Error"); } finally { mark(entry.id, false); }
   };
   const add = async () => {
-    if (!onAdd || !user || busy) return;
-    setBusy("__add"); setErr("");
-    try { await onAdd(user, rights); setUser(""); setRights(NONE); } catch (e) { setErr(errorText(e) || "Error"); } finally { setBusy(null); }
+    if (!onAdd || !user || pending.has(ADD)) return;
+    mark(ADD, true); setErr("");
+    try { await onAdd(user, rights); setUser(""); setRights(NONE); } catch (e) { setErr(errorText(e) || "Error"); } finally { mark(ADD, false); }
   };
   const search = React.useCallback(async (q: string): Promise<ComboOption[]> => (searchUsers ? (await searchUsers(q)).map((u) => ({ value: u.id, label: u.label, description: u.description ?? (u.label !== u.id ? u.id : undefined) })) : []), [searchUsers]);
 
@@ -134,12 +137,12 @@ export function ShareDialog({ open, onOpenChange, docName, entries, loading, err
     </div>
   );
   const row = (entry: ShareEntry, name: React.ReactNode, who: string) => (
-    <div key={entry.id} role="group" aria-label={who} data-share-row={entry.everyone ? "everyone" : entry.user ?? ""} aria-busy={busy === entry.id || undefined}
+    <div key={entry.id} role="group" aria-label={who} data-share-row={entry.everyone ? "everyone" : entry.user ?? ""} aria-busy={pending.has(entry.id) || undefined}
       className={cn(grid, "border-t border-border py-1.5")}>
       <div className="min-w-0">{name}</div>
       {SHARE_RIGHTS.map((r) => (
         <span key={r} className="flex justify-center">
-          <Checkbox checked={!!entry[r]} disabled={!enabled(r) || !onSetRight || busy !== null}
+          <Checkbox checked={!!entry[r]} disabled={!enabled(r) || !onSetRight || pending.has(entry.id)}
             aria-label={fmt(t("socShareRightFor"), who, head[r])} onCheckedChange={(v) => void set(entry, r, v === true)} />
         </span>
       ))}
@@ -175,15 +178,15 @@ export function ShareDialog({ open, onOpenChange, docName, entries, loading, err
                 {header(L.shareWith)}
                 <div className={cn(grid, "py-1.5")}>
                   <SearchCombobox value={user || undefined} onSelect={setUser} search={search} placeholder={L.pick} searchPlaceholder={L.search} emptyText={L.noMatches}
-                    aria-label={L.shareWith} variant="field" disabled={busy !== null} className="min-w-0" />
+                    aria-label={L.shareWith} variant="field" disabled={pending.has(ADD)} className="min-w-0" />
                   {SHARE_RIGHTS.map((r) => (
                     <span key={r} className="flex justify-center">
-                      <Checkbox checked={rights[r]} disabled={!enabled(r) || busy !== null} aria-label={fmt(t("socShareRightFor"), L.shareWith, head[r])}
+                      <Checkbox checked={rights[r]} disabled={!enabled(r) || pending.has(ADD)} aria-label={fmt(t("socShareRightFor"), L.shareWith, head[r])}
                         onCheckedChange={(v) => setRights((x) => ({ ...x, [r]: v === true }))} />
                     </span>
                   ))}
                 </div>
-                <Button type="button" size="sm" className="mt-2" disabled={!user || busy !== null} onClick={() => void add()}>
+                <Button type="button" size="sm" className="mt-2" disabled={!user || pending.has(ADD)} onClick={() => void add()}>
                   <Plus className="h-3.5 w-3.5" aria-hidden />{L.add}
                 </Button>
               </div>

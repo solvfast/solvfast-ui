@@ -223,11 +223,13 @@ describe("P36b social — Share (frappe/share.py, form/sidebar/share.js)", () =>
     let dialog = await openShare();
     await waitFor(() => expect(dialog.querySelector('[data-share-row="everyone"]')).toBeTruthy());
     expect(within(dialog).queryByRole("button", { name: "Add" })).toBeNull();
+    expect(within(dialog).getByText("Document sharing is disabled on this site.")).toBeTruthy();
     cleanup();
     mount(t, <FrappeSidebarShare doctype="Deal" name="D-1" readOnly />);
     dialog = await openShare();
     await waitFor(() => expect(dialog.querySelector('[data-share-row="everyone"]')).toBeTruthy());
     expect(within(dialog).queryByRole("button", { name: "Add" })).toBeNull();
+    expect(within(dialog).getByText("Sharing cannot be changed on this page.")).toBeTruthy();
     cleanup();
     const admin = site({ user: "Administrator", roles: [] });
     mount(admin, <FrappeSidebarShare doctype="Deal" name="D-1" sharingDisabled />);
@@ -275,6 +277,7 @@ describe("P36b social — Share (frappe/share.py, form/sidebar/share.js)", () =>
     expect(onSetRight).toHaveBeenCalledWith(expect.objectContaining({ user: "bob@x" }), "write", true);
     expect(checked("Bob: Can Write")).toBe(false);
     expect(box("Bob: Can Write").disabled).toBe(true);
+    expect(box("Everyone: Can Read").disabled).toBe(false); // only the row being saved is disabled
     await act(async () => { reject(new Error("Not permitted")); });
     expect(screen.getByRole("alert").textContent).toBe("Not permitted");
     expect(checked("Bob: Can Write")).toBe(false);
@@ -291,7 +294,7 @@ describe("P36b social — Like (desk/like.py, ui/like.js, form_sidebar.js)", () 
     mount(t, <FrappeSidebarLikes doctype="Deal" name="D-1" />);
     const heart = await screen.findByRole("button", { name: "Like" });
     expect(heart.getAttribute("aria-pressed")).toBe("false");
-    const count = screen.getByRole("button", { name: "2 likes — show who liked this" });
+    const count = screen.getByRole("button", { name: "Likes: 2 — show who liked this" });
     fireEvent.click(count);
     const list = await screen.findByRole("list", { name: "Liked by" });
     await waitFor(() => expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["BRBob Ray", "CYCy Young"]));
@@ -310,7 +313,7 @@ describe("P36b social — Like (desk/like.py, ui/like.js, form_sidebar.js)", () 
     expect(likedByOf(stored)).toEqual(["bob@x", "me@x"]);
     expect(stored.modified).toBe(T);
     expect([...t.store.comments.values()].filter((c) => c.comment_type === "Like" && c.owner === "me@x")).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "2 likes — show who liked this" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Likes: 2 — show who liked this" })).toBeTruthy();
     // the cached document was patched in place (no getdoc re-read), its modified unchanged
     expect(callsOf(t, "frappe.desk.form.load.getdoc")).toHaveLength(1);
     expect((qc.getQueryData(["sf-frappe", "doc", "Deal", "D-1"]) as FrappeDoc)?.modified).toBe(T);
@@ -330,7 +333,7 @@ describe("P36b social — Like (desk/like.py, ui/like.js, form_sidebar.js)", () 
     await waitFor(() => expect(onError).toHaveBeenCalled());
     expect(heart.getAttribute("aria-pressed")).toBe("false");
     expect(heart.disabled).toBe(false);
-    expect(screen.getByRole("button", { name: "1 likes — show who liked this" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Likes: 1 — show who liked this" })).toBeTruthy();
     cleanup();
     mount(site(as("me@x", ["Sales User"])), <FrappeSidebarLikes doctype="Deal" name="D-1" readOnly />);
     expect((await screen.findByRole("button", { name: "Like" }) as HTMLButtonElement).disabled).toBe(true);
@@ -345,7 +348,7 @@ describe("P36b social — Like (desk/like.py, ui/like.js, form_sidebar.js)", () 
     fireEvent.click(screen.getByRole("button", { name: "Like" }));
     expect(onToggle).toHaveBeenCalledWith(true);
     expect(screen.getByRole("button", { name: "Like" }).getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(screen.getByRole("button", { name: "0 likes — show who liked this" }));
+    fireEvent.click(screen.getByRole("button", { name: "Likes: 0 — show who liked this" }));
     expect(screen.getByText("No likes yet")).toBeTruthy();
   });
 });
@@ -456,7 +459,7 @@ describe("P36b social — Comments (desk/form/utils.py, form_timeline.js, footer
     seedComment(t, "C-BOB", "bob@x", "his");
     const onCountClick = vi.fn();
     mount(t, <><FrappeComments doctype="Deal" name="D-1" variant="count" onCountClick={onCountClick} /><FrappeComments doctype="Deal" name="D-1" readOnly /></>);
-    const counter = await screen.findByRole("button", { name: "2 comments — go to the comment box" });
+    const counter = await screen.findByRole("button", { name: "Comments: 2 — go to the comment box" });
     fireEvent.click(counter);
     expect(onCountClick).toHaveBeenCalled();
     await waitFor(() => expect(commentEl("C-ME")).toBeTruthy());

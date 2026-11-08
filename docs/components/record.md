@@ -487,5 +487,8 @@ is disabled and unchanged until the server answered; then the cached document's 
 | `frappe.desk.form.utils.add_comment` | read check, Comment + `_comments`, Mention Notification Log **recorded** (overrides the built-in) | HTML sanitising, image extraction, `allowed_in_mentions`, Document Follow, realtime |
 | `update_comment_publicity` | author or System Manager, `published` stored | website / portal visibility |
 
+The simulator computes `docinfo.shared` only when the transport has `permissions` (fixtureTransport.ts docinfo): on a
+permission-less transport the shared-with avatars stay empty even after a share (the dialog, which reads `get_users`, works).
+The `add_comment` override keeps the parent's `_comments` entries truncated at 100 characters (comment.py:130-131), as Frappe does.
 The simulator's `docinfo.comments` does not carry `published` yet (fixtureTransport.ts) — the "Published" marker shows on a
 real site and once the simulator adds the field.

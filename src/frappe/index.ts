@@ -139,3 +139,6 @@ export type { ReportEditable, ReportEditInfo, ReportEditMode, ReportEditOptions 
 
 // P36 selection — what a bulk action leaves selected (Desk list_view.js / bulk_operations.js)
 export { selectionAfterBulk } from "./list/bulk";
+
+// P36b social — FrappeSidebarShare, FrappeSidebarLikes, FrappeComments and the share / like / comments helpers are
+// exported through `export * from "./record"` above (src/frappe/record/index.ts, `// P36b social` block).
