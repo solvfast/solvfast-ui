@@ -28,7 +28,7 @@ import { ScenarioFormDemo, ScenarioPermissionsDemo } from "./scenarios";
 
 const GALLERY: { name: string; row: string; purpose: L; status: MatrixStatus; section: string }[] = [
   { name: "FrappeListView", row: "15–19", purpose: l("A DocType's list from its metadata: columns, filters, saved filters, sort, paging, selection.", "قائمة نوع مستند من بياناته الوصفية: الأعمدة والتصفية والتصفيات المحفوظة والفرز والتصفّح والتحديد."), status: "verified-read", section: "frappe-list-view" },
-  { name: "FrappeBulkActions · listActionsMenu", row: "21", purpose: l("Desk's Actions on the selection: Edit, Export, Assign To, Clear Assignment, Apply Assignment Rule, Add Tags, Print, Submit, Cancel, Delete and the workflow's actions — offered like Desk; the server decides.", "إجراءات ديسك على التحديد: تعديل وتصدير وإسناد ومسح الإسناد وتطبيق قاعدة الإسناد وإضافة وسوم وطباعة واعتماد وإلغاء وحذف وإجراءات سير العمل — تُعرض كما في ديسك والخادم يقرّر."), status: "partial", section: "frappe-list-view" },
+  { name: "FrappeBulkActions · listActionsMenu", row: "21", purpose: l("Desk's Actions on the selection: Edit, Export, Assign To, Clear Assignment, Apply Assignment Rule, Add Tags, Print, Submit, Cancel, Delete and the lifecycle actions — offered like Desk; the server decides.", "إجراءات ديسك على التحديد: تعديل وتصدير وإسناد ومسح الإسناد وتطبيق قاعدة الإسناد وإضافة وسوم وطباعة واعتماد وإلغاء وحذف وإجراءات دورة الحياة — تُعرض كما في ديسك والخادم يقرّر."), status: "partial", section: "frappe-list-view" },
   { name: "Saved filters · user settings (server)", row: "20", purpose: l("List Filter rows and __UserSettings instead of localStorage.", "صفوف List Filter و __UserSettings بدل localStorage."), status: "simulated", section: "frappe-list-view" },
   { name: "useListRealtime", row: "13", purpose: l("Reload the list on the server's list_update event (debounced).", "إعادة تحميل القائمة عند حدث list_update من الخادم (مع تأخير)."), status: "skeleton", section: "frappe-list-view" },
   { name: "FrappeErrorState", row: "10", purpose: l("One rendering per error kind; Retry only when retrying can succeed.", "عرض واحد لكل نوع خطأ؛ إعادة المحاولة فقط عندما يمكن أن تنجح."), status: "verified-read", section: "frappe-list-view" },
@@ -38,9 +38,9 @@ const GALLERY: { name: string; row: string; purpose: L; status: MatrixStatus; se
   { name: "FrappeChildTable", row: "27", purpose: l("Child-table grid with add / remove / reorder.", "شبكة الجداول الفرعية مع إضافة وحذف وإعادة ترتيب."), status: "verified-read", section: "frappe-forms" },
   { name: "FrappeTableMultiSelect", row: "28", purpose: l("Table MultiSelect as pills over the child's first Link field.", "اختيار متعدد من جدول على شكل حبّات فوق أول حقل رابط في الجدول الفرعي."), status: "simulated", section: "frappe-forms" },
   { name: "Behaviour engine (depends_on, mandatory, defaults)", row: "29", purpose: l("Desk's expressions evaluated in the browser.", "تعابير ديسك تُقيَّم في المتصفّح."), status: "simulated", section: "frappe-forms" },
-  { name: "FrappeTimeline · CommentComposer", row: "34, 39", purpose: l("The record's activity: comments with mentions, versions, assignments, workflow logs.", "نشاط السجل: التعليقات مع الإشارات والإصدارات والإسنادات وسجلات سير العمل."), status: "simulated", section: "frappe-record" },
+  { name: "FrappeTimeline · CommentComposer", row: "34, 39", purpose: l("The record's activity: comments with mentions, versions, assignments, lifecycle state changes.", "نشاط السجل: التعليقات مع الإشارات والإصدارات والإسنادات وتغييرات حالة دورة الحياة."), status: "simulated", section: "frappe-record" },
   { name: "FrappeStatusIndicator", row: "35", purpose: l("The status chip with frappe.get_indicator's precedence.", "شارة الحالة بترتيب أسبقية frappe.get_indicator."), status: "simulated", section: "frappe-record" },
-  { name: "FrappeWorkflowActions · useWorkflow", row: "32", purpose: l("Workflow state and the transitions the user may apply.", "حالة سير العمل والانتقالات التي يمكن للمستخدم تطبيقها."), status: "simulated", section: "frappe-workflow" },
+  { name: "FrappeWorkflowActions · useWorkflow", row: "32", purpose: l("Lifecycle state and the transitions the user may apply.", "حالة دورة الحياة والانتقالات التي يمكن للمستخدم تطبيقها."), status: "simulated", section: "frappe-workflow" },
   { name: "LifecycleBar · ActionBar · StatusBadge", row: "41", purpose: l("Generic stepper, actions menu and status chip (no Frappe).", "متتبّع خطوات وقائمة إجراءات وشارة حالة عامة (بلا فرابيه)."), status: "generic", section: "frappe-workflow" },
   { name: "FrappeAssignTo", row: "33", purpose: l("ToDo-based assignment: add / remove through assign_to.", "الإسناد عبر ToDo: إضافة وإزالة من خلال assign_to."), status: "partial", section: "frappe-assign" },
   { name: "AssigneeGroup · AssignPicker", row: "40", purpose: l("Generic assignees with a searchable picker (no Frappe).", "مُسنَد إليهم عامّون مع منتقٍ قابل للبحث (بلا فرابيه)."), status: "generic", section: "frappe-assign" },
@@ -53,7 +53,7 @@ export function FrappeGalleryPage() {
   const tr = useTr();
   return (
     <div className="space-y-12">
-      <StatusStrip verified="10, 15–19, 24–27" parts={[["FrappeListView", "verified-read"], ["FrappeForm + fields", "verified-read"], ["workflow / assign / timeline / status", "simulated"], ["Import / Export (22, 23 implemented — dev.32)", "simulated"]]}
+      <StatusStrip verified="10, 15–19, 24–27" parts={[["FrappeListView", "verified-read"], ["FrappeForm + fields", "verified-read"], ["lifecycle / assign / timeline / status", "simulated"], ["Import / Export (22, 23 implemented — dev.32)", "simulated"]]}
         note={l("Status words come from docs/release/COMPONENT-COMPLETION-MATRIX.md (rows 7/21/22/23 as updated for 0.4.0-dev.32; Import / Export: docs/components/list.md §6a). \"Verified\" means the read path replayed recorded real 15.110 responses in tests; no write has run on a real site; nothing is production ready.", "كلمات الحالة من docs/release/COMPONENT-COMPLETION-MATRIX.md ‏(الصفوف 7/21/22/23 كما حُدّثت لـ 0.4.0-dev.32؛ الاستيراد / التصدير: docs/components/list.md §6a). «مُتحقَّق» تعني أن مسار القراءة أُعيد تشغيله على استجابات 15.110 حقيقية مسجّلة في الاختبارات؛ لم تُشغَّل أي كتابة على موقع حقيقي؛ لا شيء جاهز للإنتاج.")} />
       <Section title={l("The 0.4 Frappe components", "مكوّنات فرابيه 0.4")} description={l("One card per component with its matrix row and status; each links to the section where it runs on the simulated site.", "بطاقة لكل مكوّن مع صفّه في المصفوفة وحالته؛ كل بطاقة تربط بالقسم الذي يعمل فيه على الموقع المحاكى.")}>
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label={tr(l("Frappe components", "مكوّنات فرابيه"))}>
@@ -324,7 +324,7 @@ function WorkflowDemo({ onApplied }: { onApplied: (s: string) => void }) {
         <Badge variant="outline" dir="ltr">docstatus {String(doc.docstatus)} · {String(doc.workflow_state)}</Badge>
       </div>
       <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">{tr(l("variant=\"steps\" — the stepper with actor and time per state (from the Workflow comments the simulator writes), plus the Actions menu; every action asks first (confirm).", "variant=\"steps\" — المتتبّع مع الفاعل والوقت لكل حالة (من تعليقات Workflow التي يكتبها المحاكي)، مع قائمة الإجراءات؛ كل إجراء يطلب تأكيداً (confirm)."))}</p>
+        <p className="text-xs font-medium text-muted-foreground">{tr(l("variant=\"steps\" — the stepper with actor and time per state (from the comment_type \"Workflow\" comments the simulator writes), plus the Actions menu; every action asks first (confirm).", "variant=\"steps\" — المتتبّع مع الفاعل والوقت لكل حالة (من تعليقات comment_type \"Workflow\" التي يكتبها المحاكي)، مع قائمة الإجراءات؛ كل إجراء يطلب تأكيداً (confirm)."))}</p>
         <FrappeWorkflowActions doc={doc} user="Administrator" roles={["System Manager"]} variant="steps" confirm showCurrentEntry onApplied={(d, a) => onApplied(`onApplied: ${a} → ${String(d.workflow_state)} (docstatus ${String(d.docstatus)})`)} />
       </div>
       <div className="space-y-2">
@@ -414,8 +414,8 @@ export function FrappeWorkflowPage() {
   const [log, setLog] = React.useState("");
   return (
     <div className="space-y-12">
-      <StatusStrip parts={[["FrappeWorkflowActions · useWorkflow · workflow helpers (32)", "simulated"], ["apply_workflow (write)", "simulated"], ["LifecycleBar · ActionBar · StatusBadge (41)", "generic"]]}
-        note={l("Sada has no Frappe Workflow, so nothing here touched a real response; the Approval Flow (Draft → Pending → Approved) is an authored demo workflow served by the simulator's getdoctype (__workflow_docs) and applied by its apply_workflow. The server's `condition` is never evaluated client-side.", "لا يوجد سير عمل فرابيه في سدى، لذا لم يمسّ شيء هنا استجابة حقيقية؛ Approval Flow ‏(مسودة → معلّقة → معتمدة) سير عمل تجريبي يقدّمه getdoctype في المحاكي (__workflow_docs) ويطبّقه apply_workflow فيه. شرط الخادم `condition` لا يُقيَّم في العميل أبداً.")} />
+      <StatusStrip parts={[["FrappeWorkflowActions · useWorkflow · workflow.ts helpers (32)", "simulated"], ["apply_workflow (write)", "simulated"], ["LifecycleBar · ActionBar · StatusBadge (41)", "generic"]]}
+        note={l("Sada has no Frappe Workflow, so nothing here touched a real response; the Approval Flow (Draft → Pending → Approved) is an authored demo lifecycle (a Workflow record) served by the simulator's getdoctype (__workflow_docs) and applied by its apply_workflow. The server's `condition` is never evaluated client-side.", "لا يوجد Workflow فرابيه في سدى، لذا لم يمسّ شيء هنا استجابة حقيقية؛ Approval Flow ‏(مسودة → معلّقة → معتمدة) دورة حياة تجريبية (سجل Workflow) يقدّمها getdoctype في المحاكي (__workflow_docs) ويطبّقها apply_workflow فيه. شرط الخادم `condition` لا يُقيَّم في العميل أبداً.")} />
       <Section title={l("Approval Memo AM-1 on the Approval Flow", "مذكرة الاعتماد AM-1 على Approval Flow")} description={l("AM-1 is Pending: Approve moves it to Approved (docstatus 1), Reject sends it back to Draft. The stepper marks past, current and future states with who moved it and when.", "AM-1 معلّقة: «اعتماد» ينقلها إلى «معتمدة» (docstatus 1)، و«رفض» يعيدها إلى «مسودة». يعلّم المتتبّع الحالات الماضية والحالية والمقبلة مع من نقلها ومتى.")}>
         <Example code={`<FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} variant="steps" confirm showCurrentEntry
   onApplied={(doc, action) => …} />`}>
@@ -423,7 +423,7 @@ export function FrappeWorkflowPage() {
         </Example>
         <Readout label="→">{log || "—"}</Readout>
       </Section>
-      <Section title={l("Bulk workflow approval from the list (dev.32)", "اعتماد سير العمل جماعياً من القائمة (dev.32)")} description={l("SIMULATED: FrappeListView's Actions on Approval Memo — get_common_transition_actions when the menu opens, bulk_workflow_approval on a choice; the per-document result is a realtime \"Workflow Status\" message on a site (shown here from the simulator's store).", "محاكاة: إجراءات FrappeListView على مذكرات الاعتماد — get_common_transition_actions عند فتح القائمة و bulk_workflow_approval عند الاختيار؛ نتيجة كل مستند رسالة «Workflow Status» عبر الزمن الحقيقي على موقع (معروضة هنا من مخزن المحاكي).")}>
+      <Section title={l("Bulk lifecycle approval from the list (dev.32)", "اعتماد دورة الحياة جماعياً من القائمة (dev.32)")} description={l("SIMULATED: FrappeListView's Actions on Approval Memo — get_common_transition_actions when the menu opens, bulk_workflow_approval on a choice; the per-document result is a realtime \"Workflow Status\" message on a site (shown here from the simulator's store).", "محاكاة: إجراءات FrappeListView على مذكرات الاعتماد — get_common_transition_actions عند فتح القائمة و bulk_workflow_approval عند الاختيار؛ نتيجة كل مستند رسالة «Workflow Status» عبر الزمن الحقيقي على موقع (معروضة هنا من مخزن المحاكي).")}>
         <Example className="p-0" code={`<FrappeListView doctype="Approval Memo" bulk={{ onDone: (kind, outcome, names, action) => … }} />`}>
           <WorkflowBulkDemo />
         </Example>
@@ -511,7 +511,7 @@ export function FrappeAssignPage() {
 
 const RIGHTS: PermType[] = ["read", "write", "create", "delete", "import", "export"];
 /** Desk's Actions menu labels (list_view.js:2088-2128). */
-const ACTION_LABEL: Record<ListActionKind, string> = { edit: "Edit", export: "Export", assign: "Assign To", clear_assignment: "Clear Assignment", assignment_rule: "Apply Assignment Rule", add_tags: "Add Tags", print: "Print", submit: "Submit", cancel: "Cancel", delete: "Delete", workflow: "(workflow actions)" };
+const ACTION_LABEL: Record<ListActionKind, string> = { edit: "Edit", export: "Export", assign: "Assign To", clear_assignment: "Clear Assignment", assignment_rule: "Apply Assignment Rule", add_tags: "Add Tags", print: "Print", submit: "Submit", cancel: "Cancel", delete: "Delete", workflow: "(lifecycle actions)" };
 
 function PermissionsLive({ session }: { session: SessionKey }) {
   const tr = useTr();
