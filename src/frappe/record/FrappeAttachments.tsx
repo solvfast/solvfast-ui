@@ -1,6 +1,6 @@
 /**
  * FrappeAttachments — the form sidebar's "Attachments" section (Frappe 15.110 `form/sidebar/attachments.js`,
- * `form_sidebar.html:57-81`) over the package client: the files of `docinfo.attachments` (the shared docinfo query,
+ * `form_sidebar.html:57-81`) over the package client: the files of `docinfo.attachments` (the shared docinfo query, `useRecordDocInfo` →
  * `useDocInfo`), the last 10 until "Show All", one per file name, newest drawn last as Desk does; "+" opens the uploader
  * (local files through `upload_file` — never kept locally —, the Library and a web link); "×" deletes after a
  * confirmation every attachment with that file name (`remove_attach`). After each server answer the docinfo is re-read.
@@ -17,9 +17,10 @@ import { SidebarSection } from "../../record/SidebarSection";
 import { fmt } from "../../record/format";
 import { Skeleton } from "../../primitives/skeleton";
 import { useLocale } from "../../theme/ThemeProvider";
-import type { FrappeDoc, MetaBundle } from "../contract";
+import type { DocInfo, FrappeDoc, MetaBundle } from "../contract";
 import { useFrappeApi } from "../FrappeProvider";
-import { useDoc, useDocInfo, useMetaBundle } from "../hooks";
+import { useDoc, useMetaBundle } from "../hooks";
+import { useRecordDocInfo } from "./data";
 import { usePermissions } from "../hooks/usePermissions";
 import { attachmentLimitReached, attachmentsToRemove, attachmentsToShow, attachmentUrl, canDeleteAttachment } from "./attachments";
 import { searchFiles, useFormSidebarActions } from "./useFormSidebarActions";
@@ -32,6 +33,8 @@ export interface FrappeAttachmentsProps {
   /** The document / meta when the page has them (else read through the shared queries). */
   doc?: FrappeDoc;
   bundle?: MetaBundle;
+  /** docinfo when the page keeps it fresh itself; else the shared docinfo query (`useRecordDocInfo` → `useDocInfo`). */
+  docinfo?: DocInfo;
   /** Desk's "Attachments" label opens the File list filtered on this document (attachments.js:18-25). */
   onOpenFileList?: (filters: { attached_to_doctype: string; attached_to_name: string }) => void;
   /** Link of each file's lock icon. Default: Desk's `/app/file/{name}`; return undefined for none. */
@@ -42,14 +45,14 @@ export interface FrappeAttachmentsProps {
   className?: string;
 }
 
-export function FrappeAttachments({ doctype, name, readOnly, doc: givenDoc, bundle: givenBundle, onOpenFileList, fileRecordHref = (n) => `/app/file/${encodeURIComponent(n)}`, library = true, webLink = true, className }: FrappeAttachmentsProps) {
+export function FrappeAttachments({ doctype, name, readOnly, doc: givenDoc, bundle: givenBundle, docinfo: givenInfo, onOpenFileList, fileRecordHref = (n) => `/app/file/${encodeURIComponent(n)}`, library = true, webLink = true, className }: FrappeAttachmentsProps) {
   const { t } = useLocale();
   const api = useFrappeApi();
   const docQ = useDoc(givenDoc ? undefined : doctype, givenDoc ? undefined : name);
   const metaQ = useMetaBundle(givenBundle ? undefined : doctype);
   const doc = givenDoc ?? docQ.data?.doc;
   const bundle = givenBundle ?? metaQ.data;
-  const infoQ = useDocInfo(doc && !doc.__islocal ? doctype : undefined, name);
+  const infoQ = useRecordDocInfo(doc && !doc.__islocal ? doctype : undefined, name, givenInfo);
   const info = infoQ.data;
   const perms = usePermissions(bundle, doc, info);
   const actions = useFormSidebarActions();
@@ -67,7 +70,7 @@ export function FrappeAttachments({ doctype, name, readOnly, doc: givenDoc, bund
   const ref = { doctype, name };
 
   return (
-    <SidebarSection id="attachments" label={t("sbAttachments")} icon={Paperclip} busy={infoQ.isFetching}
+    <SidebarSection id="attachments" label={t("sbAttachments")} icon={Paperclip} busy={infoQ.isLoading}
       onLabelClick={list.length && onOpenFileList ? () => onOpenFileList({ attached_to_doctype: doctype, attached_to_name: name }) : undefined}
       action={canAdd ? { label: t("sbAttachAdd"), onClick: () => setOpen(true) } : undefined} className={className}>
       {!info && infoQ.isLoading ? <Skeleton className="h-6 w-full" /> : infoQ.error && !info ? (

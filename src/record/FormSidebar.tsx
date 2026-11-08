@@ -42,6 +42,8 @@ export interface FormSidebarProps {
   comments?: React.ReactNode;
   /** Comment count of the stats row (Desk: `docinfo.comments.length`). Undefined → no count. */
   commentCount?: number;
+  /** Replaces the built-in comment count of the stats row (a host / Frappe count component). */
+  commentCountSlot?: React.ReactNode;
   /** Comment count click. Default: scroll to and focus the `comments` section when there is one. */
   onCommentsClick?: () => void;
   userActions?: FormSidebarUserAction[];
@@ -61,7 +63,7 @@ export interface FormSidebarProps {
 }
 
 export function FormSidebar({
-  assign, attachments, tags, share, likes, comments, commentCount, onCommentsClick, userActions, created, modified, sections = FORM_SIDEBAR_SECTIONS,
+  assign, attachments, tags, share, likes, comments, commentCount, commentCountSlot, onCommentsClick, userActions, created, modified, sections = FORM_SIDEBAR_SECTIONS,
   hidden, loading, error, onRetry, now, className,
 }: FormSidebarProps) {
   const { t, isRTL } = useLocale();
@@ -111,16 +113,16 @@ export function FormSidebar({
     ) : null,
     assign, attachments, tags,
     share: share ? <div data-sidebar-slot="share">{share}</div> : null,
-    stats: likes || commentCount !== undefined ? (
+    stats: likes || commentCount !== undefined || commentCountSlot ? (
       <div data-sidebar-section="stats" className="flex items-center gap-2 text-xs text-muted-foreground">
         {likes}
-        {likes && commentCount !== undefined ? <span aria-hidden>·</span> : null}
-        {commentCount !== undefined ? (
+        {likes && (commentCountSlot || commentCount !== undefined) ? <span aria-hidden>·</span> : null}
+        {commentCountSlot ?? (commentCount !== undefined ? (
           <button type="button" onClick={scrollToComments} aria-label={fmt(t("sbCommentCount"), commentCount)} title={t("sbComments")}
             className="inline-flex items-center gap-1 rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <MessageSquare className="h-3.5 w-3.5" aria-hidden /><span>{commentCount}</span>
           </button>
-        ) : null}
+        ) : null)}
       </div>
     ) : null,
     meta: created || modified ? (

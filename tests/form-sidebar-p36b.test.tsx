@@ -136,6 +136,10 @@ describe("P36B.sidebar — native structure", () => {
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Comment box");
     unmount();
     expect(FORM_SIDEBAR_SECTIONS).toEqual(["userActions", "assign", "attachments", "tags", "share", "stats", "meta", "comments"]);
+    const c = render(<ThemeProvider storageKeys={null}><FormSidebar commentCount={3} commentCountSlot={<span data-testid="count-slot">3</span>} likes={<span>♥</span>} /></ThemeProvider>);
+    expect(c.getByTestId("count-slot")).toBeTruthy(); // the host's count replaces the built-in one (D2 `FrappeComments variant="count"`)
+    expect(c.queryByRole("button", { name: "Comments: 3" })).toBeNull();
+    c.unmount();
     const h = render(<ThemeProvider storageKeys={null}><FormSidebar hidden assign={<p>x</p>} /></ThemeProvider>);
     expect(h.container.textContent).toBe("");
   });

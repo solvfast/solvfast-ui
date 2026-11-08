@@ -448,7 +448,7 @@ hides or reorders sections; Desk's own rules (unsaved, Single) still apply.
 
 ```ts
 // Core (@solvfast/ui) — Frappe-free
-<FormSidebar assign attachments tags share likes comments commentCount onCommentsClick userActions created modified
+<FormSidebar assign attachments tags share likes comments commentCount commentCountSlot onCommentsClick userActions created modified
   sections hidden loading error onRetry now />
 <SidebarSection id label icon onLabelClick action={{ label, onClick, disabled? }} busy>{children}</SidebarSection>
 <AttachmentList items={AttachmentItem[]} hasMore onShowAll onRemove canRemove fileRecordHref empty labels />
@@ -458,15 +458,15 @@ hides or reorders sections; Desk's own rules (unsaved, Single) still apply.
 // additive: TagInput `exclude`, `autoFocus`; AssigneeGroup `hideHeading`, `onComplete`, `canComplete`; AssignDialog `defaultDetails`
 
 // Frappe (@solvfast/ui/frappe)
-<FrappeFormSidebar doctype name doc? bundle? readOnly? share? likes? comments? sections? userActions? onCommentsClick?
+<FrappeFormSidebar doctype name doc? bundle? docinfo? readOnly? share? likes? comments? commentCount? sections? userActions? onCommentsClick?
   onOpenFileList? fileRecordHref? assignProps? />
-<FrappeAttachments doctype name readOnly? doc? bundle? onOpenFileList? fileRecordHref? library? webLink? />
-<FrappeDocTags doctype name readOnly? doc? bundle? />
+<FrappeAttachments doctype name readOnly? doc? bundle? docinfo? onOpenFileList? fileRecordHref? library? webLink? />
+<FrappeDocTags doctype name readOnly? doc? bundle? docinfo? />
 <FrappeAssignTo layout="sidebar" doc user bundle? canAssign? canWrite? allowComplete? />   // layout default "group" (unchanged)
 useFormSidebarActions() // upload, attachExisting, attachLink, removeAttachment, addTag, removeTag, closeAssignment
 ```
 
-**One docinfo.** Every section reads `useDocInfo(doctype, name)` (`frappeKeys.docinfo`, seeded by getdoc through `useDoc`);
+**One docinfo.** Every section reads `useRecordDocInfo` → `useDocInfo(doctype, name)` (`frappeKeys.docinfo`, seeded by getdoc through `useDoc`);
 every write ends in `applyDocInfoChange` (docinfo + list invalidated). A slot that needs docinfo must use the same hook.
 
 ### 6.3 Server methods and rights
