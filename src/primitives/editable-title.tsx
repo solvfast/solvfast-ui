@@ -45,7 +45,7 @@ export function EditableTitle({ value, canEdit, onSave, ariaLabel }: EditableTit
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } else if (e.key === "Escape") { closed.current = true; setEditing(false); } }}
-      className="sf-field-fill w-full min-w-0 rounded-md px-2 py-0.5 text-lg font-semibold outline-none"
+      className="sf-field-fill w-full min-w-0 rounded-md px-2 py-0.5 text-lg font-semibold outline-none focus-visible:outline-none"
     />
   );
 }
