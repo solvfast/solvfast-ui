@@ -88,7 +88,7 @@ create only records titled `SFUI P36 RUN <timestamp> …` on the SFUI DocTypes; 
 | `fixtures/*.json` | reused P34 fixtures (DocTypes, workflow, contacts) — not edited |
 | `fixtures/staging/*.json` | P36: roles, accounts, permissions per DocType, overlay (workflow mandatory field, image field, connections), records (print format, letter head, e-mail template, Kanban board, saved filters, tags, assignments, dates) |
 | `run-matrix.mjs` | the runner (`--dry-run`, read, `--write`, `--browser`, `--only`, `--out`) |
-| `matrix/catalogue.mjs` | the 86 tests (75 in P36 batch 1 + 11 in batch 2) (preconditions, user, steps, expected Frappe behaviour + `file:line`, evidence, and the API check itself) and the row → category map |
+| `matrix/catalogue.mjs` | the 91 tests (75 in P36 batch 1 + 16 in batch 2) (preconditions, user, steps, expected Frappe behaviour + `file:line`, evidence, and the API check itself) and the row → category map |
 | `matrix/render.mjs` | renders `docs/audit/p36/VALIDATION-MATRIX.md` (`--check` fails when stale) |
 | `harness/` + `vite.config.ts` | `FrappeForm` / `FrappeListView` (`selectionMode="header"`) / `FrappeViews` on the seeded DocTypes (`?view=form|list|views&doctype=…&name=…`); `vite preview` proxies only to the guarded staging URL |
 | `seed-crm-site.py`, `teardown-crm-site.py`, `sfui_footprint.py` | **DISABLED (P36).** They target the production site `internal.solvfaster.com`: both scripts now exit immediately with a P36 refusal as their first statement (before any other import), and `sfui_footprint.require_site` refuses unconditionally. Kept for the record, not deleted |

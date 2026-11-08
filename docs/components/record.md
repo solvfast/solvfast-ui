@@ -572,7 +572,8 @@ every write ends in `applyDocInfoChange` (docinfo + list invalidated). A slot th
 - Attach and tag editing are offered only with `write`; Desk always shows "+" and the tag box and lets the server refuse.
 - A tag is drawn dimmed while its request runs and removed again if refused; Desk keeps the pill after a refusal.
 - No upload percentage: the package's upload is a `fetch` without progress events; each file shows waiting / uploading /
-  uploaded / failed. No camera, Google Drive or image cropping sources.
+  uploaded / failed. Camera (`CameraCapture`, with a graceful fallback), Crop (`ImageCropper`, JPEG / PNG) and Optimize
+  are offered as in Desk's FileUploader (P36b Attach Image work); Google Drive is not.
 - An empty section shows a quiet "No attachments" / "No tags" line; at the attachment limit a line says so (Desk hides "+").
 - The `comments` slot sits in the sidebar (owner request); Desk's comment box is in the form footer.
 - Not reproduced: Reviews / energy points, Follow / Followed by, auto-repeat, page views, the sidebar image.
