@@ -65,7 +65,11 @@ const qualified = (doctype: string, f: string) => (f.includes("`") ? f : `\`tab$
 
 /** Rewrite cached rows of a DocType's lists (FrappeListView's paged cache and the views' cache) — e.g. after set_value. */
 export function patchCachedRows(queryClient: QueryClient, doctype: string, name: string, patch: Row): void {
-  const apply = (r: Row) => (String(r.name) === name ? { ...r, ...patch } : r);
+  updateCachedRows(queryClient, doctype, (r: Row) => (String(r.name) === name ? { ...r, ...patch } : r));
+}
+
+/** Map every cached row of `doctype` (FrappeListView's cache and the views' cache) through `apply`. */
+export function updateCachedRows(queryClient: QueryClient, doctype: string, apply: (row: Row) => Row): void {
   queryClient.setQueriesData<unknown>({ queryKey: ["sf-frappe", "list", doctype] }, (data: unknown) => {
     if (!data || typeof data !== "object") return data;
     const d = data as { pages?: { rows: Row[] }[]; rows?: Row[] };

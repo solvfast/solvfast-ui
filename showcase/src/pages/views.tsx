@@ -7,14 +7,18 @@ import * as React from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { CalendarMonth, KanbanBoard, ViewSwitcher, type CalendarEvent, type KanbanMove, type ListViewType } from "@ui";
 import { FrappeImageView, FrappeProvider, FrappeViews, createFrappeClient } from "@ui/frappe";
-import { createFixtureTransport, viewsDemoBackend } from "../../../src/frappe/testing";
+import { createFixtureTransport, viewsDemoBackend, type FixtureTransport } from "../../../src/frappe/testing";
+import { reportSetValueHandler } from "../../../src/frappe/testing/handlers/views";
 import { Example, Section } from "../doc/Doc";
 import { l } from "../i18n";
 import { StatusStrip } from "./frappe/shared";
 
 function useViewsSite() {
   return React.useMemo(() => {
-    const transport = createFixtureTransport(viewsDemoBackend());
+    // P36: set_value with the child-table branch (client.py:195-203), so Report view child cells save as on a site
+    // eslint-disable-next-line prefer-const
+    let transport: FixtureTransport;
+    transport = createFixtureTransport(viewsDemoBackend(), { handlers: { "frappe.client.set_value": reportSetValueHandler(() => transport) } });
     return { transport, client: createFrappeClient({ transport }), qc: new QueryClient({ defaultOptions: { queries: { retry: false } } }) };
   }, []);
 }
@@ -30,7 +34,7 @@ export function ViewsPage() {
         note={l("SIMULATED. Every view is the real package component; each request goes to the in-browser simulator (Kanban Board and get_events handlers cite kanban_board.py / calendar.py). Permissions are not evaluated by the simulated Kanban and calendar handlers. No view here has been run against a real site.", "محاكاة. كل عرض هو مكوّن الحزمة الحقيقي؛ كل طلب يذهب إلى المحاكي داخل المتصفّح (معالجات لوحة كانبان و get_events تستشهد بـ kanban_board.py و calendar.py). لا تقيّم المعالجات المحاكاة للكانبان والتقويم الأذونات. لم يُشغَّل أي عرض هنا على موقع حقيقي.")} />
       <FrappeProvider client={site.client} queryClient={site.qc} session={SESSION}>
         <Section title={l("One DocType, every implemented view (SIMULATED)", "نوع مستند واحد، كل العروض المنفّذة (محاكاة)")}
-          description={l("FrappeViews on Project Task: the switcher offers List, Report, Kanban (a Kanban Board exists) and Calendar (date fields); Image is listed disabled (no image_field) and Gantt / Dashboard / Map / Tree / Inbox are listed disabled as not implemented. Filters set in the Report, Kanban or Calendar view carry to the next view.", "FrappeViews على مهام المشروع: يعرض المبدّل القائمة والتقرير وكانبان (توجد لوحة كانبان) والتقويم (حقول تاريخ)؛ وتظهر الصور معطّلة (لا يوجد image_field) وجانت ولوحة المعلومات والخريطة والشجرة وصندوق الوارد معطّلة لأنها غير منفّذة. تنتقل التصفيات من عرض التقرير أو كانبان أو التقويم إلى العرض التالي.")}>
+          description={l("FrappeViews on Project Task: the switcher offers List, Report, Kanban (a Kanban Board exists) and Calendar (date fields); Image is listed disabled (no image_field) and Gantt / Dashboard / Map / Tree / Inbox are listed disabled as not implemented. Filters set in the Report, Kanban or Calendar view carry to the next view. The Report view edits cells as Desk 15.110 does (Project Task has a Table field, so every writable field of a draft is editable, child-table columns included; editable=\"strict\" or a function opts out).", "FrappeViews على مهام المشروع: يعرض المبدّل القائمة والتقرير وكانبان (توجد لوحة كانبان) والتقويم (حقول تاريخ)؛ وتظهر الصور معطّلة (لا يوجد image_field) وجانت ولوحة المعلومات والخريطة والشجرة وصندوق الوارد معطّلة لأنها غير منفّذة. تنتقل التصفيات من عرض التقرير أو كانبان أو التقويم إلى العرض التالي. يحرّر عرض التقرير الخلايا كما يفعل Desk 15.110 (لمهام المشروع حقل جدول، فكل حقل قابل للكتابة في المسودة قابل للتحرير، بما في ذلك أعمدة الجداول الفرعية؛ ويغيّر editable=\"strict\" أو دالة ذلك).")}>
           <Example className="p-3" code={`<FrappeViews doctype="Project Task" showUnavailable
   view={view} onViewChange={setView}
   calendarView={{ initialMonth: "2026-11-01" }} />`}>
