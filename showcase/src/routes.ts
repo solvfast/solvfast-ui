@@ -226,3 +226,12 @@ const p36bSocial = () => import("./pages/p36b-social");
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P36c views — Desk's Actions in the Image view (SIMULATED backend operations)
+{
+  const p36cViews = () => import("./pages/p36c-views");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = { id: "p36c-views", title: l("Image view actions (SIMULATED)", "إجراءات عرض الصور (محاكاة)"), description: l("Desk's Image view keeps the List view's selection: a checkbox per card, Add ↔ Actions, the same actions, rights, lifecycle rules and outcomes (Submit / Cancel / Delete / Assign / Tags / Print / Export / Edit) — on the in-page simulator.", "يحتفظ عرض الصور في ديسك بتحديد عرض القائمة: مربع اختيار لكل بطاقة، والإضافة ↔ الإجراءات، والإجراءات والصلاحيات وقواعد دورة الحياة والنتائج نفسها — على المحاكي."), Component: from(p36cViews, "P36cViewsPage") };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}
