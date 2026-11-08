@@ -112,6 +112,11 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
   const [assigning, setAssigning] = React.useState(false);
   const setMessage = (m: string) => onMessage?.(m);
   const [field, setField] = React.useState(meta.editable[0]?.name ?? "");
+  // The views (Report / Image) mount this hook before the DocType meta has loaded (a placeholder with no editable fields):
+  // follow the meta once it arrives so Edit opens on Desk's first editable field (P36c integration fix).
+  React.useEffect(() => {
+    if (!meta.editable.some((f) => f.name === field)) setField(meta.editable[0]?.name ?? "");
+  }, [meta.editable]); // eslint-disable-line react-hooks/exhaustive-deps
   const [value, setValue] = React.useState("");
   const [tags, setTags] = React.useState<string[]>([]);
   const [wf, setWf] = React.useState<{ loading: boolean; actions: string[] }>({ loading: false, actions: [] });

@@ -312,6 +312,18 @@ describe("P36C.views Image view: selection and the header actions (image_view.js
     await waitFor(() => expect(strip()).toBeNull());
   });
 
+  it("P36C.views.32 Edit opens on the DocType's first editable field although the view mounted before the meta loaded (integrator fix; Desk preselects a field)", async () => {
+    const s = site();
+    mount("image", s, { bulk: {} });
+    await cardsReady();
+    checkCard("INV-2");
+    await runAction(en("listBulkEdit"));
+    const dlg = await screen.findByRole("dialog", { name: en("listBulkEdit") });
+    const picker = within(dlg).getByRole("combobox", { name: en("listBulkField") });
+    expect((picker.textContent ?? "").trim()).not.toBe("");
+    expect(within(dlg).getByLabelText(en("listBulkValue"))).toBeTruthy();
+  });
+
   it("P36C.views.10 Delete (confirm → delete_items, cleared + reloaded) and Edit (update; the selection STAYS, Desk's rule)", async () => {
     const s = site();
     mount("image", s, { bulk: {} });

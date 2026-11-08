@@ -21,6 +21,7 @@ import type { DocTypeMeta, FixtureBackend, FrappeDoc, FrappeDocField, PermType, 
 import type { FrappeSession } from "../services/permissions";
 import { createPermissionEngine, permissionError, type PermissionEngine, type SimulatedPermissions } from "./permissions";
 import { workstreamHandlers } from "./handlers";
+import { USER_GROUP_MEMBER_META, userGroupMeta } from "./handlers/sidebar";
 import { parseCsv, parseTemplate, payloadsOf, previewOf, type ParsedTemplate } from "./importer";
 import { fieldCurrency, formatDate, formatDatetime, formatDuration, formatNumber, formatTime, numberFormatPrecision, type FormatContext } from "../services/format";
 
@@ -228,6 +229,9 @@ function splitField(field: string): [string | undefined, string] {
  * lets every Desk User search users (select) and keep saved filters.
  */
 export const BUILTIN_FIXTURE_META: Record<string, DocTypeMeta[]> = {
+  // core/doctype/user_group + user_group_member (Frappe 15.110 ships them on every site; P36c "Assign To User Group")
+  "User Group": [userGroupMeta()],
+  "User Group Member": [USER_GROUP_MEMBER_META],
   User: [{
     name: "User", autoname: "field:email", title_field: "full_name", search_fields: "full_name", show_title_field_in_link: 0,
     permissions: [
