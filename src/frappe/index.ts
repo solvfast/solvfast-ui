@@ -136,3 +136,6 @@ export { actsAsSystemManagerFor } from "./services/permissions";
 // P36 report — Report view inline editing as Frappe 15.110 (docs/components/views.md §3)
 export { deskCanWrite, evaluateReportReadOnlyDependsOn, isNonStdField, rowFromSavedDoc, updateCachedRows } from "./views";
 export type { ReportEditable, ReportEditInfo, ReportEditMode, ReportEditOptions } from "./views";
+
+// P36 selection — what a bulk action leaves selected (Desk list_view.js / bulk_operations.js)
+export { selectionAfterBulk } from "./list/bulk";
