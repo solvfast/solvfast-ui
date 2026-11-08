@@ -237,3 +237,7 @@ export type {
 // P36b search — the header's global search (Desk awesome bar + Global Search dialog), Core (docs/components/search.md)
 export * from "./shell/search";
 export type { NavbarSearchSlot } from "./shell/Navbar";
+
+// P36c usergroup — AssignDialog's "Assign To User Group" source (docs/components/record.md, Assign)
+export { uniqueMembers } from "./record";
+export type { AssignGroupSource } from "./record";

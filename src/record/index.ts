@@ -51,3 +51,7 @@ export { AttachDialog } from "./AttachDialog";
 export type { AttachDialogProps, LibraryFile } from "./AttachDialog";
 export { TagList } from "./TagList";
 export type { TagListProps } from "./TagList";
+
+// P36c usergroup — "Assign To User Group" source of AssignDialog
+export { uniqueMembers } from "./AssignDialog";
+export type { AssignGroupSource } from "./AssignDialog";

@@ -50,6 +50,11 @@ export const sidebarEn = {
   sbTagInput: "New tag",
   sbTagNone: "No tags",
   sbTagRemove: "Remove tag {0}",
+  // ---- P36c usergroup: "Assign To User Group" (assign_to.js:142-160, 191-197) ----
+  sbAssignGroup: "Assign To User Group",
+  sbAssignGroupSearch: "Search user groups",
+  sbAssignGroupEmpty: "{0} has no members.",
+  sbAssignGroupMembers: "{1} member(s) of {0} added to Assign To.",
 };
 
 export const sidebarAr: { [K in keyof typeof sidebarEn]: string } = {
@@ -99,4 +104,9 @@ export const sidebarAr: { [K in keyof typeof sidebarEn]: string } = {
   sbTagInput: "وسم جديد",
   sbTagNone: "لا توجد وسوم",
   sbTagRemove: "إزالة الوسم {0}",
+  // Frappe ar.po:2675-2676 "تعيين لمجموعة المستخدمين"; worded with the DS's own "إسناد" for the Assign dialog
+  sbAssignGroup: "إسناد إلى مجموعة مستخدمين",
+  sbAssignGroupSearch: "البحث في مجموعات المستخدمين",
+  sbAssignGroupEmpty: "لا يوجد أعضاء في {0}.",
+  sbAssignGroupMembers: "أُضيف {1} من أعضاء {0} إلى قائمة الإسناد.",
 };
