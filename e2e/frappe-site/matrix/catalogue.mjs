@@ -803,7 +803,7 @@ export const TESTS = [
     cite: ["model/document.py:1218-1233 notify_update", "realtime.py:23-52 publish_realtime (list_update room)"], evidence: "socket frames (event names), screenshot timestamps" },
   { id: "L-HDR-1", area: "List", feature: "selection header: Add ↔ Actions", kind: "browser", automated: "browser", users: ["manager"],
     rows: ["LV.F16", "LV.F17", "LV.F15", "LV.G1"],
-    pre: "harness list with selectionMode=\"header\" (the package default is still \"bar\" — open owner decision)", steps: ["no selection → '+ Add SFUI Test Parent' visible in the header action area", "tick one row → the same area shows the Actions control instead of Add", "clear the selection → Add is back", "tick every row on the page → 'Select all N matching' → Actions applies to all N"],
+    pre: "harness list with the package default selection (selectionMode=\"header\", Desk header actions — P36 owner decision)", steps: ["no selection → '+ Add SFUI Test Parent' visible in the header action area", "tick one row → the same area shows the Actions control instead of Add", "clear the selection → Add is back", "tick every row on the page → 'Select all N matching' → Actions applies to all N"],
     expect: "Desk list_view.js:590-598, 1613-1634 behaviour", cite: ["public/js/frappe/list/list_view.js:590-598, 1613-1634 (Desk)"], evidence: "3 screenshots (none / some / cleared) + the bounding box of the action area" },
   { id: "L-PAGE-1", area: "List", feature: "page sizes / load more", kind: "browser", automated: "browser", users: ["manager"],
     rows: ["LV.I5", "LV.I6", "LV.I8"],

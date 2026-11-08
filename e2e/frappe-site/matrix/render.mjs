@@ -146,7 +146,7 @@ export function render() {
     ["`export_query` writes an Access Log before refusing a user without `export`.", "L-EXPORT-1"],
     ["`user_settings.save` merges shallowly: a Desk save of `List` without `sf_ui` drops it (LV.A6b).", "L-USERSET-1"],
     ["Bulk submit / cancel / update return HTTP 200 with a per-document failed list; bulk delete reports failures by realtime msgprint.", "L-BULK-2, L-BULK-3"],
-    ["The package's `selectionMode` default is still `\"bar\"`; the harness mounts `\"header\"` (Desk's layout) explicitly — open owner decision.", "L-HDR-1"],
+    ["Since 0.7.0-dev.2 the package's `selectionMode` default is `\"header\"` (Desk's header actions, P36 owner decision); the run confirms Desk's swap and per-action selection outcome on a real site.", "L-HDR-1"],
   ]) L.push(`- ${txt} (${id})`);
   L.push("", "## 8. What has run", "", "Only local, network-free checks: `run-matrix.mjs --dry-run` (guards + plan), the guard tests in",
     "`tests/frappe-site-guards.test.ts`, the Python guards' refusal paths with a Python that cannot import frappe, and `vite build` of the",

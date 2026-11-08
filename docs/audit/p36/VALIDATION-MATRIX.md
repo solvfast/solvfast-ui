@@ -1081,7 +1081,7 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Kind / automation:** browser · browser
 - **Rows:** LV.F16, LV.F17, LV.F15, LV.G1
 - **User / role:** manager
-- **Preconditions:** harness list with selectionMode="header" (the package default is still "bar" — open owner decision)
+- **Preconditions:** harness list with the package default selection (selectionMode="header", Desk header actions — P36 owner decision)
 - **Steps:** (1) no selection → '+ Add SFUI Test Parent' visible in the header action area (2) tick one row → the same area shows the Actions control instead of Add (3) clear the selection → Add is back (4) tick every row on the page → 'Select all N matching' → Actions applies to all N
 - **Expected Frappe behaviour:** Desk list_view.js:590-598, 1613-1634 behaviour
 - **Frappe source:** public/js/frappe/list/list_view.js:590-598, 1613-1634 (Desk)
@@ -1436,7 +1436,7 @@ These come from reading the 15.110 source; each is asserted (or recorded) by the
 - `export_query` writes an Access Log before refusing a user without `export`. (L-EXPORT-1)
 - `user_settings.save` merges shallowly: a Desk save of `List` without `sf_ui` drops it (LV.A6b). (L-USERSET-1)
 - Bulk submit / cancel / update return HTTP 200 with a per-document failed list; bulk delete reports failures by realtime msgprint. (L-BULK-2, L-BULK-3)
-- The package's `selectionMode` default is still `"bar"`; the harness mounts `"header"` (Desk's layout) explicitly — open owner decision. (L-HDR-1)
+- Since 0.7.0-dev.2 the package's `selectionMode` default is `"header"` (Desk's header actions, P36 owner decision); the run confirms Desk's swap and per-action selection outcome on a real site. (L-HDR-1)
 
 ## 8. What has run
 
