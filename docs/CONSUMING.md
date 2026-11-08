@@ -175,7 +175,7 @@ const columns: ColumnDef<Task>[] = [
   onRowClick={(t) => navigate(`/tasks/${t.name}`)}
   rowActions={[{ key: "delete", label: { en: "Delete", ar: "حذف" }, icon: Trash2, tone: "destructive",
                  confirm: { title: { en: "Delete this task?", ar: "حذف هذه المهمة؟" } }, onSelect: remove }]}
-  toolbarActions={<Button onClick={create}>New task</Button>}
+  primaryAction={<Button onClick={create}>New task</Button>}   // gives way to the Actions menu while rows are selected
   emptyMessage={<>No tasks yet <Button size="sm" onClick={create}>New task</Button></>}
   // PMO features — all optional:
   selectable bulkActions={[{ key: "close", label: "Close", run: (keys, rows) => close(keys) }]}
@@ -200,7 +200,11 @@ const columns: ColumnDef<Task>[] = [
 - **Row actions** are a fixed last column (never sorted, filtered, hidden or moved). With `confirm`, the package shows
   the confirmation dialog — red confirm button when `tone: "destructive"` — and calls your `onSelect` only after the
   user confirms; the deletion itself (API call, optimistic update, toast) is yours.
-- **Selection** is kept across pages and sorting, and pruned when the search or filters change.
+- **Selection** is kept across pages and sorting, and pruned when the search or filters change. Since 0.7.0-dev.2 the
+  default is Frappe Desk's header layout (`selectionMode="header"`): while rows are selected the header shows "{n} items
+  selected" + Clear and `primaryAction` is replaced by an Actions menu holding `bulkActions`; Ctrl/⌘-click ticks a row.
+  Put your "New" button in `primaryAction` (content in `toolbarActions` is never hidden). `selectionMode="bar"` keeps the
+  older bulk bar (not Desk's layout).
 - **Storage.** Default: `localStorage` under `sf:list:<viewKey>:…`. Per-user keys or a server: pass
   `storage={{ prefs, saved }}` (e.g. from `createLocalStorageAdapter({ userKey })`, or your own `SavedFiltersStorage`,
   whose methods may return promises); `storage={null}` keeps everything in memory.
@@ -399,6 +403,35 @@ Duplicate / New open an unsaved document in the same form (`menu.onOpened(doc, "
 `FrappeProvider` applies `boot.userDefaults` to new documents (`userDefaults={false}` opts out). See
 `docs/components/forms.md` §2.4 and `docs/components/record.md` §5.
 Every server write these components make has been tested only against the simulator (docs/LIMITATIONS.md).
+
+## 9. Changes in 0.7.0-dev.2 (P36)
+
+Unreleased; the full list is in CHANGELOG.md (0.7.0-dev.2). What an app may have to change:
+
+- **List selection** (`ListView`, `FrappeListView`): header actions are now the default (§4 "Selection"). Lists with
+  `selectable` / `bulk` and no `selectionMode` lose the bulk bar; move a "New" button from `toolbarActions` to
+  `primaryAction`, or pass `selectionMode="bar"` to keep the bar. In `FrappeListView`, Edit and workflow actions now keep
+  the selection, and Submit / Cancel keep it when a document failed or the job was queued.
+- **Report view** (`FrappeReportView`): inline editing follows Frappe 15.110 by default — more cells can be editable than
+  in 0.7.0-dev.1 (fields with `read_only_depends_on` that evaluates false, permlevel fields, child-table cells). Pass
+  `editable="strict"` for the stricter client checks. **BREAKING vs 0.7.0-dev.1:** `isCellEditable(df, row, levels)` is now
+  `isCellEditable(df, row, { fields, levels, … })`.
+- **DataGrid on phones** (new, opt-in): `layout="auto"` shows a card per row when the grid's container is narrower than
+  `cardsBelow` (640 px), with no sideways scroll; `DataGridColumn.mobile` picks the card title or hides a column. The
+  default table is unchanged.
+
+```tsx
+import { DataGrid, Input } from "@solvfast/ui";
+
+<DataGrid label="Commission" rows={rows} getRowKey={(r) => r.id} layout="auto" cardsBelow={480}
+  onAddRow={addRow} onDeleteRows={deleteRows}
+  columns={[
+    { key: "name", label: "Name", mobile: "primary", renderCell: (r) => r.name,
+      renderEditor: (r, i) => <Input aria-label={`Name ${i + 1}`} value={r.name} onChange={(e) => setName(i, e.target.value)} /> },
+    { key: "share", label: "Share %", renderCell: (r) => `${r.share} %`,
+      renderEditor: (r, i) => <Input aria-label={`Share % ${i + 1}`} value={r.share} onChange={(e) => setShare(i, e.target.value)} /> },
+  ]} />
+```
 
 ## Known limitations
 The full list is in docs/LIMITATIONS.md. The ones most likely to matter:

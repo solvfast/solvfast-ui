@@ -6,6 +6,117 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.2 (unreleased) — P36
+
+P36 — owner decisions on the P35 open items, and real-site validation **prepared, not run**. `package.json` `version` is
+`0.7.0-dev.2` (not tagged, not published). Coverage of the fixed P35 list is unchanged (**258 / 301**,
+`docs/audit/p35/COVERAGE.md` §8 lists the rows whose evidence changed). **No real-site validation has been done;** every
+write path is still simulator-only. Index: `docs/audit/p36/README.md` (repository only).
+
+Owner decisions (final): (1) Desk's header-actions selection is the List View standard; (2) CRM pickers migrate per usage,
+by semantics only; (3) CRM confirmations use `AlertDialog`; (4) no CRM Commission `DataGrid` migration until its responsive
+behaviour is verified; (5) Report view editing matches Frappe 15.110 by default, with an explicit opt-in. (2)–(4) are CRM
+work; the package delivers (1), (5) and the DataGrid layout (4).
+
+### Added
+- **DataGrid (Core)** — `layout="table" | "cards" | "auto"` for phones: one card per row (the primary column as the title,
+  the others as label / value lines; `DataGridColumn.mobile: "primary" | false`, as ListView's `ColumnDef.mobile`).
+  `"auto"` switches on the grid's **container** width (ResizeObserver; `cardsBelow`, default 640 px), not the window; an
+  unmeasured width (SSR, hidden tab) gives the table. Cards keep the grid's editing (one row inline at a time; tap a value
+  or the "Edit row {n}" toggle; Escape / tap outside stops), the row menu, selection, Add Row, paging and Desk's shortcuts;
+  no sideways scroll. `minTableWidth` (table layout only; default `"32rem"`, `false` = none). `FrappeChildTable` does not
+  forward these props yet (Frappe Table fields keep the table).
+- **List (Core)** — Ctrl/⌘-click on a row toggles its selection instead of opening it (Desk `list_view.js:1296-1306`; not
+  on links).
+- **Report view (`@solvfast/ui/frappe`)** — `FrappeReportView` `editable`: `"desk"` (default) | `"strict"` (adds the
+  field-permlevel write, `write`-not-`create`, `submit` on submitted documents, `read_only_depends_on` always evaluated) |
+  `(df, row, info) => boolean` (`info.desk` = Desk's verdict). Child-table cells are editable as in Desk and save through
+  `frappe.client.set_value` on the child row.
+- **Exports from `@solvfast/ui/frappe`** — `deskCanWrite`, `evaluateReportReadOnlyDependsOn`, `isNonStdField`,
+  `rowFromSavedDoc`, `updateCachedRows`; types `ReportEditable`, `ReportEditInfo`, `ReportEditMode`, `ReportEditOptions`;
+  `selectionAfterBulk(kind, outcome, count)` (Desk's selection outcome per bulk action, `src/frappe/list/bulk.ts`).
+- **Messages** — `listNoActions` ("No actions available for the selection"), `coreGridEditRow` ("Edit row {n}"), en + ar.
+- **Simulator (not public)** — `reportSetValueHandler` in `src/frappe/testing/handlers/views.ts`: SIMULATED
+  `frappe.client.set_value` with the child-table branch, the submit right and update-after-submit validation. It is **not**
+  exported from `@solvfast/ui/frappe/testing` (the showcase imports it directly) and not part of the builtin handlers.
+- **Real-site validation infrastructure (repository only, NOT RUN)** — `docs/audit/p36/VALIDATION-MATRIX.md` (every COVERAGE
+  row classified, 75-test catalogue), `e2e/frappe-site/run-matrix.mjs` (matrix runner: `--dry-run`, `--write`,
+  `--browser`), `staging-seed.py` / `staging-teardown.py` with `fixtures/staging/*.json`, `guards.mjs` /
+  `staging_guards.py` / `production-denylist.json` (refuse production names, loopback, a missing owner approval or a
+  private directory inside a repository), a FrappeForm / FrappeListView / FrappeViews harness, `tests/frappe-site-guards.test.ts`
+  (23 tests).
+
+### Changed (behaviour visible to 0.7.0-dev.1 consumers)
+1. **List selection follows Frappe Desk's header actions by default** (owner decision 1). `ListView` and `FrappeListView`
+   now default to `selectionMode="header"`: no bulk bar; with ≥ 1 row selected the header shows "{n} items selected" +
+   Clear, and the primary action ("Add {DocType}" / `primaryAction`) is replaced in place by the Actions menu; clearing
+   the selection restores it. `selectionMode="bar"` remains as an explicit opt-in (not Desk's layout).
+   **What apps must do:**
+   - Any `ListView` / `FrappeListView` with `selectable` (or `bulk`) and no `selectionMode` now renders the header mode:
+     `bulkActions` are Actions-menu items, and the column titles are replaced by the count while rows are selected (header
+     sorting is unavailable during a selection — offer `controls.sortMenu`). To keep the bar, pass `selectionMode="bar"`.
+   - Put the "New" button in `primaryAction`, not `toolbarActions`: only `primaryAction` gives way to the Actions menu
+     (Desk's swap); `toolbarActions` content is never hidden.
+   - `renderBulkActions` content renders in the toolbar next to the Actions menu (header) instead of inside the bar.
+   - In header mode the selected rows are resolved across pages (`rowByKey`), so Print's draft / cancelled check and the
+     workflow `get_common_transition_actions` see every selected row; opting back into `"bar"` keeps the current-page-only
+     `ctx.rows`.
+2. Header mode swaps the primary action on the selection alone (Desk `list_view.js:1634`): when no action applies, the
+   Actions menu shows a disabled "No actions available for the selection" item instead of bringing the primary action back.
+3. `FrappeListView` / `useFrappeBulkActions` / `FrappeBulkActions`: **the selection after an action follows Desk's
+   callbacks** (`selectionAfterBulk`). Edit and workflow actions keep the selection (the list reloads); Submit / Cancel
+   clear it only when every document went through (a partial failure keeps it and reloads; a queued job keeps it, no
+   reload); dismissing Clear Assignment's confirmation clears the selection and reloads (Desk's `reject_action`). Assign
+   To / Apply Assignment Rule / Add Tags / Delete (clear on success) and Export / Print (keep) are unchanged.
+4. **`FrappeReportView` / `isCellEditable` (LV.H1): inline editing follows Frappe 15.110's report view by default**
+   (owner decision 5), verified from report_view.js `is_editable` + `build_row` and frappe-datatable's `=== false` check.
+   On a DocType without a Table field, plain fields are editable and a field with `read_only_depends_on` is editable when
+   it evaluates false on the loaded row (true → read-only); with a Table field `read_only_depends_on` is not evaluated; the
+   write right is Desk's `can_write` (level-0 write or create) and the field's permlevel is not checked (the server
+   silently resets such a change). Before (0.7.0-dev.1): `read_only_depends_on` fields were never editable, a permlevel
+   without write locked the cell, and child cells were read-only. `editable="strict"` restores the per-permlevel check.
+5. `FrappeReportView` refreshes the edited row (every loaded row of that document) from the returned document, sends
+   nothing for an unchanged value, and treats a response without `message` as a failure — the editor stays open (Desk).
+6. Repository only: `e2e/frappe-site/seed-crm-site.py` and `teardown-crm-site.py` now refuse to run (they targeted a
+   production site); the legacy `seed.py` / `validate.mjs` and the harness proxy refuse anything but an approved staging site.
+
+Unchanged: `DataGrid`'s default `layout="table"` renders exactly as before (same classes), so `FrappeChildTable` and other
+existing grids are unaffected. `package.json` `exports` unchanged.
+
+### BREAKING (vs 0.7.0-dev.1)
+- `isCellEditable(df, row, levels)` → `isCellEditable(df, row, { fields, levels, issingle?, child?: { name }, mode?: "desk" |
+  "strict", onIssue? })`. Migrate: pass the DocType's `fields` and the user's `levels` in the options object; pass
+  `mode: "strict"` for the 0.7.0-dev.1 permlevel check. (0.7.0-dev.1 was never released; 0.6.0 has no `isCellEditable`.)
+
+### Fixed
+- Header selection mode: the primary action no longer stays visible while rows are selected and no action applies.
+- `FrappeReportView`: a response without `message` was treated as a successful save; an unchanged value sent a
+  `set_value` request.
+- The Report view editability deviation recorded in P35 (`views.md` §3, "deliberately not :772-777") rested on a misread of
+  Desk; the rule now matches 15.110 (Changed 4).
+
+### Docs
+- `docs/LIMITATIONS.md`, `docs/FRAPPE.md`, `docs/CONSUMING.md`, `docs/release/LISTVIEW-FRAPPE-PARITY.md`: header selection is
+  the default; DataGrid on phones; Report view editability; real-site status "prepared, not run"; Frappe 15.110 server
+  rules the validation run must confirm (read from source, not yet observed on a site).
+- `docs/components/list.md` (selection default, "The selection after an action"), `views.md` §3 (truth table, save path,
+  opt-in), `forms.md` (DataGrid on phones), `docs/FEATURES.md` (F20, F21, C3, C4) — updated by the workstreams.
+- `docs/audit/p35/COVERAGE.md` (§8 P36 changes; no status change), `docs/audit/p35/CRM-MIGRATION.md` (§5 decisions),
+  new `docs/audit/p36/README.md` and `VALIDATION-MATRIX.md` (repository only).
+
+### Validation status
+- **No real-site validation.** No Frappe site was contacted, seeded, read or written in P36; every real-site result in
+  `VALIDATION-MATRIX.md` is BLOCKED (not run). Running it needs an owner-approved, isolated staging site
+  (`docs/audit/p36/README.md` §"What the owner must provide").
+- Evidence for the P36 changes is jsdom / simulator only (`tests/list-selection-desk.test.tsx`,
+  `tests/list-selection-header.test.tsx`, `tests/frappe-views-report.test.tsx` 26 `LV.H1`, `tests/datagrid-p36.test.tsx`
+  14 `CORE.DG*`, `tests/frappe-site-guards.test.ts` 23) plus one real-browser check of the showcase DataGrid section
+  (`e2e/datagrid-mobile.mjs`, Chromium, 360 / 390 / 1280 px × en / ar × light / dark — run in the W3 worktree).
+- Integration gates (at this commit): `npx vitest run` — 75 files, 1505 passed, 10 todo, 0 failed (0.7.0-dev.1: 72 files,
+  1415 passed); `npm run typecheck` exit 0; `check-boundaries` source rules OK. Not run at integration: `npm run build` (so `dist/styles/full.css` for consumers without Tailwind has not been rebuilt with the new DataGrid
+  utilities), `check:package`, `showcase:build`, `e2e/showcase-smoke.mjs` (its list checks were rewritten for the header
+  default by W1 and have not run), `e2e/consumers/run.sh`.
+
 ## 0.7.0-dev.1 (unreleased)
 
 P35 — Form View / List View coverage. Coverage of the fixed P35 requirement list (`docs/audit/p35/COVERAGE.md`, repository

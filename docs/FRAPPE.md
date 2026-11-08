@@ -1,4 +1,4 @@
-# The Frappe layer — `@solvfast/ui/frappe` (0.7.0-dev.1)
+# The Frappe layer — `@solvfast/ui/frappe` (0.7.0-dev.2)
 
 An optional entry point that renders Frappe DocTypes — list, form, record panels, other list views — on **stock Frappe 15
 whitelisted methods only** (no app-specific backend). The core package (`@solvfast/ui`) never imports it;
@@ -18,6 +18,8 @@ import { FrappeListView, FrappeForm } from "@solvfast/ui/frappe";
 > sidebar counts, list settings, Kanban, Import / Export — is tested against stub transports and the in-package
 > **simulator** (`@solvfast/ui/frappe/testing`), which does not reproduce Frappe's naming, validation or every permission
 > rule. Results obtained on it are "simulated", never "verified against Frappe". Per-feature status: `docs/LIMITATIONS.md`.
+> A real-site validation is **prepared, not run** (P36): it requires an owner-approved, isolated staging site (see the
+> last section).
 
 ## Requirements
 
@@ -91,6 +93,19 @@ Frappe drops arguments a whitelisted function doesn't declare, so "Match any" to
   filters become 4-tuples with a distinct count; conditions on fields the DocType no longer has are dropped. Grouping is
   client-side over loaded chunks (opt-in `groupByFields`); the opt-in `sidebar` shows Desk's server group counts.
   Realtime `list_update` refreshes the list (a full reload) when the app supplies a realtime port.
+- **Selection (since 0.7.0-dev.2).** Desk's header actions by default: with rows selected the header shows "{n} items
+  selected" + Clear and the "Add {DocType}" primary action is replaced in place by the Actions menu (Desk's order and
+  gates); `selectionMode="bar"` is an opt-in bulk bar that is not Desk's layout. After an action the selection follows
+  Desk's callbacks (`selectionAfterBulk`): Edit and workflow actions keep it; Submit / Cancel clear it only when every
+  document went through; dismissing Clear Assignment's confirmation clears it; Assign To / Apply Assignment Rule / Add
+  Tags / Delete clear it on success; Export / Print keep it.
+- **Report view editing (since 0.7.0-dev.2).** `FrappeReportView` follows Frappe 15.110's report view by default
+  (`editable="desk"`, report_view.js `is_editable` + frappe-datatable's `=== false` check): plain fields are editable
+  also on DocTypes without a Table field, `read_only_depends_on` is evaluated on the loaded row only when the DocType
+  has no Table field, the write right is Desk's `can_write` (level-0 write or create) and the field permlevel is not
+  checked; child-table cells save through `frappe.client.set_value` on the child row. `editable="strict"` adds the
+  permlevel, write-not-create, submit and `read_only_depends_on` checks; a function decides per cell (`info.desk` =
+  Desk's verdict). Details: `docs/components/views.md` §3.
 - **Writes are implemented**: form Save / Submit / Update / Cancel (with the linked-document pre-flight) / Amend, delete,
   rename, workflow, assignment, comments, tags, likes, bulk actions, print, e-mail, reminders, List Settings and saved
   filters call the methods above. The UI never reports a success the server did not confirm; refusals show the server's
@@ -114,9 +129,29 @@ Frappe drops arguments a whitelisted function doesn't declare, so "Match any" to
 
 See `docs/LIMITATIONS.md` for the complete list and the reasons.
 
-## Real-site validation — not done
+## Real-site validation — prepared, not run
 
-The decision (2026-10-17) is to validate against a real Frappe site when the package is first integrated into a real
-project, with an approved test account. `e2e/frappe-site/` (repository only) holds a prepared, never-run read-only
-procedure (`validate.mjs`): list load, search, "Match any" / "Match all" totals, link search, date filters, an obsolete
-saved filter, CSRF refusal and Frappe's own permissions. Write paths need an approved site.
+Nothing in this layer has run against a real Frappe site. P36 prepared a guarded validation (repository only):
+`docs/audit/p36/VALIDATION-MATRIX.md` classifies every requirement row of the coverage matrix by the evidence it needs and
+names the test that would validate it (75 tests: API reads and writes, browser checks through a harness of
+`FrappeForm` / `FrappeListView` / `FrappeViews`, and 5 manual checks); `e2e/frappe-site/run-matrix.mjs` runs them,
+`staging-seed.py` / `staging-teardown.py` create and remove synthetic `@example.com` accounts and records. **It requires an
+owner-approved, isolated staging site** (Frappe 15, its own database, credentials, Redis and workers, not on a production
+server) and the owner's written approval file; the scripts refuse production site names, loopback URLs and a missing
+approval. How to run it: `e2e/frappe-site/README.md`.
+
+### Frappe server rules to know (read from Frappe 15.110 source, not yet observed on a site)
+
+Frappe's own behaviour, which the package cannot change; the validation run asserts each one (test ids in brackets).
+
+- **`mandatory_depends_on` is client-only** — the server enforces only `reqd`. [F-REQ-2, F-REQ-3]
+- **Permlevel writes are reset silently** — a user without write on a field's permlevel gets HTTP 200 and the stored value
+  is kept (`validate_higher_perm_levels`). [F-PERMLEVEL-2]
+- **Amend is checked against `create`** (and a cancelled source), not the `amend` right. [F-AMEND-2]
+- **Saved filters (`List Filter`)** — every Desk User may create global filters and delete other users' filters. [L-SAVED-2]
+- **`toggle_like` has no permission check.** [L-LIKE-1]
+- **`export_query` writes an Access Log** before it refuses a user without `export`. [L-EXPORT-1]
+- **`user_settings.save` merges shallowly** — a Desk save of `List` drops the package's `sf_ui` key. [L-USERSET-1]
+
+More (bulk responses, User Permissions in lists and sidebar counts): `docs/LIMITATIONS.md` and
+`docs/audit/p36/VALIDATION-MATRIX.md` §7 (repository only).

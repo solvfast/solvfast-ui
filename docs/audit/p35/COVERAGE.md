@@ -12,6 +12,13 @@ record features defaults: `FrappeForm` mounts the ⋯ menu (`FrappeRecordMenu`) 
 the behaviour"; it never means "verified on a site". The only real-Frappe evidence in the package is recorded 15.110
 responses replayed in `tests/real/sada-real.test.tsx` (read paths) and the real 15.110 metas used as test input.
 
+> **P36 update (0.7.0-dev.2).** The denominator (301), the row ids, the status rule and every status are unchanged; P36
+> changed only the Test evidence, Location and Known limitations cells of 18 rows — listed with the reason in §8. The
+> **real-site classification** of every row (categories (a)–(e), the catalogue test that would validate it, and the
+> real-site result, today BLOCKED: not run) is a separate document: `docs/audit/p36/VALIDATION-MATRIX.md`, generated from
+> this file's Requirement / Now / Evidence-level columns (`node e2e/frappe-site/matrix/render.mjs --check`). Still no row
+> has `real-site` evidence.
+
 ## 1. The rule (one rule, both matrices)
 
 1. **COMPLETE** — a cited test exercises the row's behaviour through the public API a consumer uses (an exported
@@ -123,6 +130,8 @@ List (baseline, from B-list.md): `L` list · `LQ` list-query · `LA` list-action
 `SR` real/sada-real · `FI` frappe-indicator (all `tests/<name>.test.ts(x)`).
 List (P35): `flp` tests/frappe-list-p35.test.tsx · `lp` tests/list-p35.test.tsx · `vsw` tests/views-switcher.test.tsx · `fvh` / `fvr` /
 `fvk` / `fvc` / `fvi` tests/frappe-views-{host,report,kanban,calendar,image}.test.tsx. Form-row tests (`ffp`, `fqe`) are also cited for List G.
+P36: `lsd` tests/list-selection-desk.test.tsx (FrappeListView with no `selectionMode` prop); Core DataGrid layout tests are
+`CORE.DG1`–`DG14` in tests/datagrid-p36.test.tsx; the 26 `LV.H1` tests are in `fvr`.
 
 Source abbreviations: `FF` src/frappe/form/FrappeField.tsx · `FFV` src/frappe/form/FrappeFormView.tsx · `FForm` src/frappe/form/FrappeForm.tsx ·
 `FLF` src/frappe/form/FrappeLinkField.tsx · `FCT` src/frappe/form/FrappeChildTable.tsx · `m/` src/frappe/form/model/. List paths are relative to
@@ -257,12 +266,12 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
-| FV.G1 | Render | COMPLETE | COMPLETE | Frappe (+Core DataGrid) | `FCT` | ff Contact tests; sr Sada Lifecycle rows | `#frappe-forms` contact | simulator; recorded-real (render) | fallback with no in_list_view unverified |
+| FV.G1 | Render | COMPLETE | COMPLETE | Frappe (+Core DataGrid) | `FCT` | ff Contact tests; sr Sada Lifecycle rows | `#frappe-forms` contact | simulator; recorded-real (render) | fallback with no in_list_view unverified; (P36) `FrappeChildTable` does not forward DataGrid's new `layout` / `minTableWidth`, so Frappe Table fields keep the table layout and scroll sideways on a 390 px phone |
 | FV.G2 | Add row | COMPLETE | COMPLETE | both | `FCT`, `m/docStore.ts` | ff "Contact: Add Row…"; fld insert above / below | `#frappe-forms` contact | simulator | — |
 | FV.G3 | Delete rows | COMPLETE | COMPLETE | both | `FFV`, `m/docStore.ts` | ff "table events: … before_<table>_remove…"; prr1 idx | — | simulator, unit | — |
 | FV.G4 | Reorder | PARTIAL | **COMPLETE** | both | DataGrid Move Up/Down; `FFV` | ffp "FV.G4 Move Down / Move Up reorder rows (idx 1..n) and fire items_move…" | — | simulator | no drag |
 | FV.G5 | Row edit form (dialog) | PARTIAL | **COMPLETE** | Frappe | `FCT` row form | ffp "FV.G5 row form: Edit Row opens 'Editing Row #1 · Items'…" | — | simulator | flat sections (no tabs / collapsible in the row form) |
-| FV.G6 | Inline edit | COMPLETE | COMPLETE | both | `FCT`, DataGrid | ff Contact; fld "edits one row inline…" | `#frappe-forms` contact | simulator | — |
+| FV.G6 | Inline edit | COMPLETE | COMPLETE | both | `FCT`, DataGrid | ff Contact; fld "edits one row inline…" | `#frappe-forms` contact | simulator | (P36) Core DataGrid edits one row at a time in both layouts (`layout="cards"` adds tap / "Edit row {n}" editing, `tests/datagrid-p36.test.tsx` CORE.DG6–DG8); Table fields use the table layout only (FV.G1) |
 | FV.G7 | Child validation & reqd | COMPLETE | COMPLETE | Frappe | `m/mandatory.ts` | ff Contact "…Email ID is required in every row."; pmd child block | — | simulator, unit | — |
 | FV.G8 | Child permissions | COMPLETE | COMPLETE | Frappe | `FCT`, `FFV` | rff R1-F8; ff R1-F15; p27 "child table is read-only…" | `#frappe-permissions` | simulator | — |
 | FV.G9 | Upload / download (grid CSV) | MISSING | MISSING | — | — | none | — | — | Desk grid Download / Upload absent |
@@ -495,23 +504,23 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
-| LV.F1 | Edit (typed value control) | PARTIAL | **COMPLETE** | Frappe | `FrappeBulkActions.tsx` `BulkEditValue`, `bulkEditValue` | flp "LV.F1 a Link field gets a link search over its target…", "LV.F1 a number field gets a number input…"; LIO "mixed result…" | `#p35-list` | simulator | — |
-| LV.F2 | Export (selection) | COMPLETE | COMPLETE | Frappe | `FrappeExportDialog` | LIO; RK | `#frappe-import-export` | simulator | real `download_template` not run |
-| LV.F3 | Assign To | COMPLETE | COMPLETE | Frappe + Core | `FrappeBulkActions.tsx`; `AssignDialog` | FLH; FL; RK; LSH | `#frappe-list-view` | simulator, unit | — |
-| LV.F4 | Clear Assignment | COMPLETE | COMPLETE | Frappe | `bulk.ts` | LA; RK | `#frappe-list-view` | simulator | — |
-| LV.F5 | Apply Assignment Rule | COMPLETE | COMPLETE | Frappe | `bulk.ts` | LA; RK | `#frappe-list-view` | simulator | — |
-| LV.F6 | Add Tags | COMPLETE | COMPLETE | Frappe | `bulk.ts`; `FrappeBulkActions.tsx` | LA; RK | `#frappe-list-view` | simulator | — |
-| LV.F7 | Print | COMPLETE | COMPLETE | Frappe | `print.ts`; `FrappePrintDialog.tsx` | LA (9) | `#frappe-list-view` | simulator | background completion needs the host's `subscribeTask` |
-| LV.F8 | Submit | PARTIAL | **COMPLETE** | Frappe | `FrappeBulkActions.tsx` | flp "LV.F8 Submit: click → Desk's confirmation → submit_cancel_or_update_docs(action: submit)…" | — | simulator | — |
-| LV.F9 | Cancel | PARTIAL | **COMPLETE** | Frappe | `FrappeBulkActions.tsx` | flp "LV.F9 Cancel: click → confirmation → submit_cancel_or_update_docs(action: cancel)…" | — | simulator | — |
-| LV.F10 | Delete | COMPLETE | COMPLETE | Frappe | `bulk.ts` | FL; FLH; LIO; RK; P27 | `#frappe-list-view` | simulator | failures arrive as a realtime msgprint |
-| LV.F11 | Workflow bulk actions | COMPLETE | COMPLETE | Frappe | `workflowBulk.ts` | LA; FLH; RK | `#frappe-list-view` | simulator | — |
-| LV.F12 | Permission-aware menu | COMPLETE | COMPLETE | Frappe | `bulk.ts`; `FrappeListView.tsx` | FL; LA; FLH; P27 | `#frappe-list-view` | unit, simulator | — |
+| LV.F1 | Edit (typed value control) | PARTIAL | **COMPLETE** | Frappe | `FrappeBulkActions.tsx` `BulkEditValue`, `bulkEditValue` | flp "LV.F1 a Link field gets a link search over its target…", "LV.F1 a number field gets a number input…"; LIO "mixed result…"; (P36) flp LV.F1 ×2 ported to the header default — now asserts Edit KEEPS the selection; lsd "LV.F selectionAfterBulk" (15 cases) | `#p35-list` | simulator | (P36) the selection stays after Edit and the list reloads (Desk `done` = `refresh()` only, list_view.js:2066-2069) |
+| LV.F2 | Export (selection) | COMPLETE | COMPLETE | Frappe | `FrappeExportDialog` | LIO; RK; (P36) lsd "LV.F2 / LV.F7 Export and Print open their dialogs and never touch the selection…" | `#frappe-import-export` | simulator | real `download_template` not run |
+| LV.F3 | Assign To | COMPLETE | COMPLETE | Frappe + Core | `FrappeBulkActions.tsx`; `AssignDialog` | FLH; FL; RK; LSH; (P36) lsd "LV.F3 Assign To: closing the dialog keeps the selection; assigning clears it and reloads" | `#frappe-list-view` | simulator, unit | — |
+| LV.F4 | Clear Assignment | COMPLETE | COMPLETE | Frappe | `bulk.ts` | LA; RK; (P36) lsd "LV.F4 Clear Assignment: No / Escape on the confirmation CLEARS the selection and reloads (Desk's reject action…)"; LA Clear Assignment test also asserts cancel clears | `#frappe-list-view` | simulator | (P36) dismissing the confirmation clears the selection and reloads (Desk `reject_action`, list_view.js:1919-1921) |
+| LV.F5 | Apply Assignment Rule | COMPLETE | COMPLETE | Frappe | `bulk.ts` | LA; RK; (P36) lsd "LV.F5 Apply Assignment Rule: no confirmation; clears and reloads once the server answered" | `#frappe-list-view` | simulator | — |
+| LV.F6 | Add Tags | COMPLETE | COMPLETE | Frappe | `bulk.ts`; `FrappeBulkActions.tsx` | LA; RK; (P36) lsd "LV.F6 Add Tags: Cancel in the dialog keeps the selection…" | `#frappe-list-view` | simulator | — |
+| LV.F7 | Print | COMPLETE | COMPLETE | Frappe | `print.ts`; `FrappePrintDialog.tsx` | LA (9); (P36) lsd "LV.F2 / LV.F7 Export and Print…never touch the selection…" | `#frappe-list-view` | simulator | background completion needs the host's `subscribeTask` |
+| LV.F8 | Submit | PARTIAL | **COMPLETE** | Frappe | `FrappeBulkActions.tsx` | flp "LV.F8 Submit: click → Desk's confirmation → submit_cancel_or_update_docs(action: submit)…"; (P36) flp LV.F8 ported to the header default; lsd "LV.F8 Submit: every document submitted → cleared + reloaded; some failed → the selection STAYS…" | — | simulator | (P36) partial failure keeps the selection (Desk throws before `done`, bulk_operations.js:286-298) |
+| LV.F9 | Cancel | PARTIAL | **COMPLETE** | Frappe | `FrappeBulkActions.tsx` | flp "LV.F9 Cancel: click → confirmation → submit_cancel_or_update_docs(action: cancel)…"; (P36) flp LV.F9 ported to the header default; lsd "LV.F9 Cancel queued by the server (no answer): the selection STAYS and nothing reloads…" | — | simulator | (P36) a queued job keeps the selection, no reload (bulk_operations.js:300-303) |
+| LV.F10 | Delete | COMPLETE | COMPLETE | Frappe | `bulk.ts` | FL; FLH; LIO; RK; P27; (P36) lsd "LV.F10 Delete: dismissing the confirmation keeps the selection; confirming clears it and reloads", "LV.F10 a refused Delete (403) keeps the selection and does not reload…" | `#frappe-list-view` | simulator | failures arrive as a realtime msgprint |
+| LV.F11 | Workflow bulk actions | COMPLETE | COMPLETE | Frappe | `workflowBulk.ts` | LA; FLH; RK; (P36) lsd "LV.F11 a workflow action keeps the selection (Desk: no done…) and the list reloads" | `#frappe-list-view` | simulator | (P36) keeps the selection (Desk has no `done`, list_view.js:1802-1826); the package reloads because realtime is paused while rows are selected |
+| LV.F12 | Permission-aware menu | COMPLETE | COMPLETE | Frappe | `bulk.ts`; `FrappeListView.tsx` | FL; LA; FLH; P27; (P36) lsd "LV.F12 System Manager, submittable: Edit, Export, …", "LV.F12 a Reader: Export + the read-level actions…", "LV.F12 no session roles: only Export…" (header default) | `#frappe-list-view` | unit, simulator | — |
 | LV.F13 | Destructive confirmation | COMPLETE | COMPLETE | Frappe + Core | `FrappeBulkActions.tsx` | FL; FLH; LA; LSH; flp LV.F8 / LV.F9 (texts now rendered) | — | simulator | — |
 | LV.F14 | UI keys → document names | COMPLETE | COMPLETE | Frappe | `FrappeListView.tsx` | RK | — | simulator | — |
-| LV.F15 | Selection across filters / pages | COMPLETE | COMPLETE | Core + Frappe | `useListState.ts` | L; F; RK | — | unit, simulator | bar mode passes current-page rows only |
-| LV.F16 | Header selection mode | COMPLETE | COMPLETE | Core + Frappe | `ListView.tsx`; `FrappeListView.tsx` | LSH; FLH | `#frappe-list-view` | unit, simulator | default is still `"bar"` (owner decision pending) |
-| LV.F17 | Empty selection | COMPLETE | COMPLETE | Core | `ListFooter.tsx` | LSH | — | unit | — |
+| LV.F15 | Selection across filters / pages | COMPLETE | COMPLETE | Core + Frappe | `useListState.ts` | L; F; RK | — | unit, simulator | (P36) header mode (the default) resolves the selected rows across pages (`rowByKey`); opt-in `selectionMode="bar"` still passes current-page rows only |
+| LV.F16 | Header selection mode | COMPLETE | COMPLETE | Core + Frappe | `ListView.tsx`; `FrappeListView.tsx` | LSH; FLH; (P36) lsd "LV.F16 no selectionMode prop: 'Add ToDo' ↔ Actions in the same header slot; no bar…"; LSH "LV.F16 default (no selectionMode)…", "LV.F16 clearing the selection restores the primary action…", "LV.F16 Ctrl/⌘-click on a row ticks it…", "LV.F16 Escape closes the Actions menu and keeps the selection…", "LV.F16 renderBulkActions content sits in the toolbar…" | `#frappe-list-view` | unit, simulator | (P36) resolved: `"header"` is the default (owner decision P36-1); `"bar"` is an explicit opt-in (not Desk). Not reproduced: Shift+↑/↓ and drag-select |
+| LV.F17 | Empty selection | COMPLETE | COMPLETE | Core | `ListFooter.tsx` | LSH; (P36) LSH "LV.F17 empty selection: the primary action, never an Actions trigger…", "LV.F17 the select-all box: checked only when every row is…" | — | unit | (P36) with rows selected and no applicable action, Actions still replaces the primary action and shows a disabled "No actions available for the selection" (Desk list_view.js:1634); a partial select-all is indeterminate (Desk: unchecked) — deliberate a11y divergence |
 | LV.F18 | Outcome reporting | COMPLETE | COMPLETE | Frappe | `FrappeBulkActions.tsx` | LIO; LA | `#frappe-list-view` | simulator | `role=status` line, not a toast |
 | LV.F19 | Every bulk write on a real site | BLOCKED | BLOCKED | Frappe | — | — | — | — | needs an approved real site |
 
@@ -534,7 +543,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
 | LV.H0 | View switcher | MISSING | **COMPLETE** | both | Core `ViewSwitcher`, `switcherOptions`; Frappe `availableViews`, `FrappeViews` (List view `onQueryStateChange` carries filters / sort) | vsw "LV.H0 offers only available, implemented views…", "LV.H0 a bare DocType…"; fvh "LV.H0 showUnavailable lists the rest disabled; filters carry from the Report view into the Kanban view"; lint "LV.H0 onQueryStateChange reports the applied filters and sort", "LV.H0 filters applied in the List view reach the Report view after switching" | `#frappe-views` | unit, simulator | — |
-| LV.H1 | Report view | MISSING | **PARTIAL** | Frappe (+Core ListView) | `FrappeReportView`, `report.ts` (`isCellEditable`, `columnTotals`) | fvr "LV.H1 column picker lists every field incl. child-table fields…", "LV.H1 inline edit → frappe.client.set_value…", "LV.H1 a refused save keeps the editor open…", "LV.H1 without write permission (Reader) no cell is editable", "LV.H1 totals row…", "LV.H1 group by (loaded rows)…", "LV.H1 child columns are requested as Desk's report view does…" | `#frappe-views` | simulator | no `save_report`, SQL aggregate group-by, charts, multi-sort, child-cell edit; child-column row shape and `set_value` unverified on a site |
+| LV.H1 | Report view | MISSING | **PARTIAL** | Frappe (+Core ListView) | `FrappeReportView` (`editable` prop: `"desk"` default / `"strict"` / function), `report.ts` (`isCellEditable`, `deskCanWrite`, `evaluateReportReadOnlyDependsOn`, `isNonStdField`, `rowFromSavedDoc`, `columnTotals`) | fvr "LV.H1 column picker lists every field incl. child-table fields…", "LV.H1 inline edit → frappe.client.set_value…", "LV.H1 a refused save keeps the editor open…", "LV.H1 without write permission (Reader) no cell is editable", "LV.H1 totals row…", "LV.H1 group by (loaded rows)…", "LV.H1 child columns are requested as Desk's report view does…"; (P36, 26 LV.H1 tests in fvr) "LV.H1 DocType WITHOUT a Table field: a plain field IS editable…", "LV.H1 DocType WITHOUT a Table field: read_only_depends_on evaluating false → editable, true → not editable…", "LV.H1 DocType WITH a Table field: a plain field is editable and read_only_depends_on is NOT evaluated…", "LV.H1 write right = Desk's can_write…", "LV.H1 child-table cells: Boolean(name && is_editable)…", "LV.H1 DocType with a Table field: a child cell is edited through set_value on the CHILD row…", "LV.H1 submittable DocType without a Table field (report_view.js's Cypress case)…", "LV.H1 opt-in editable=\"strict\"…", "LV.H1 opt-in editable={fn}…", "LV.H1 an unchanged value sends no request…", "LV.H1 rowFromSavedDoc…" | `#frappe-views` | simulator | no `save_report`, SQL aggregate group-by, charts, multi-sort; editors only for `INLINE_EDIT_TYPES` (Desk edits any fieldtype); child-column row shape and `set_value` on a child row unverified on a site. (P36) editability = Frappe 15.110 by default (owner decision P36-5), child cells editable |
 | LV.H2 | Kanban | MISSING | **COMPLETE** | both | Core `KanbanBoard`; `FrappeKanbanView`, `kanban.ts` | fvk "LV.H2 columns with counts…", "LV.H2 keyboard: Move to… menu and Alt+Arrow…", "LV.H2 drag and drop…; a rejected move is taken back…", "LV.H2 board mode…", "LV.H2 moving a card → update_order_for_single_card…", "LV.H2 group mode (no board)…", "LV.H2 filters shared… read-only without write permission" | `#frappe-views` | simulator | no board creation, column add / archive, Kanban Settings; Kanban Board API approximated by the simulator; WS4 proposed BLOCKED — reclassified |
 | LV.H3 | Calendar | MISSING | **PARTIAL** | both | Core `CalendarMonth`; `FrappeCalendarView` | fvc "LV.H3 monthGrid…", "LV.H3 events on each day they cover…", "LV.H3 Arabic / RTL…", "LV.H3 reportview with the visible range…", "LV.H3 get_events source…", "LV.H3 an explicit field map…" | `#frappe-views` | unit, simulator | month view only; no week / day view, no event drag (`update_event`), no TZ conversion; reportview mode drops rows without an end date |
 | LV.H4 | Gantt | MISSING | MISSING | — | — | vsw "LV.H0 … not implemented here (never available)" | `#frappe-views` (marked missing) | — | see LIMITATIONS: configuration is app JavaScript + a Gantt renderer |
@@ -703,7 +712,7 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
   write-only roles on a new doc untested · D8 search_link User Permission filtering is server-side and unverified · G10 attach in a row
   untested · J8 naming-series preview · L3 `download_pdf` not simulated.
 - **List:** LV.B3 Date In / Not In · D11 sidebar "Edit" modal · E12 relative modified time · H1 Report (no `save_report`,
-  aggregates, charts, multi-sort, child-cell edit) · H3 Calendar (month only) · I5 "Load more" only when grouped.
+  aggregates, charts, multi-sort; child-cell edit added in P36) · H3 Calendar (month only) · I5 "Load more" only when grouped.
 
 ### 7.3 Backend-dependent
 - BLOCKED: FV.I9 real Workflow · FV.L7 real print formats / letterheads · LV.A6b `user_settings` `List.sf_ui` merge ·
@@ -716,7 +725,9 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
 - Realtime: only a fake port (`createSocketRealtime` is a skeleton).
 - Simulator fidelity limits found in P35 (test-fidelity, not product behaviour): the P35 list handlers use a local row
   matcher (no child-table conditions, no simulated permissions); `reportview.get` answers one row per parent for child
-  columns and has no `aggregate_function`; `frappe.client.set_value` has no child-table branch; `download_pdf` is not
+  columns and has no `aggregate_function`; `frappe.client.set_value` has no child-table branch (P36: the opt-in
+  `reportSetValueHandler` in `src/frappe/testing/handlers/views.ts` adds it for the Report view tests; the builtin is
+  unchanged); `download_pdf` is not
   simulated; print preview HTML is a placeholder. Since integration the P35 handlers use the transport's permission
   engine and row filter (`FixtureContext`, `tests/sim-context.test.tsx`); still not simulated: Communication Links, the
   engine for `get_kanban_boards` when the Kanban Board meta is not loaded, Kanban's `private` permission query.
@@ -730,16 +741,24 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
 - `FrappeListView create` without `create.onOpenFullForm`: a DocType that is not Quick Entry eligible shows the whole form
   in the Quick Entry dialog (Desk routes to the full form).
 - **DataGrid** has a fixed `min-w-[32rem]`: on a 390 px phone it scrolls horizontally (blocked the CRM M10 migration).
+  **(P36)** Still the default (`layout="table"`, now adjustable with `minTableWidth`); `layout="auto"` / `"cards"` show a
+  card per row instead (`CORE.DG1`–`DG14`, `e2e/datagrid-mobile.mjs`). `FrappeChildTable` does not forward `layout` yet;
+  CRM M10 stays not migrated (`CRM-MIGRATION.md` §5.3).
 - **Kanban** with a filtered list: `update_order_for_single_card` pops `old_index` blindly (kanban_board.py:147-151) and
   can move a different name — Desk behaves the same; documented in `views.md` §5.
 - **Report view** inline edit deliberately does not reproduce report_view.js:772-777 (see `views.md` §3), so the package
   allows editing on DocTypes Desk 15.110 would leave read-only — owner decision recorded in `CRM-MIGRATION.md` §5.5.
+  **(P36) Superseded, and the premise was wrong:** Desk 15.110 does NOT leave plain fields read-only on a DocType without a
+  Table field (`is_editable` returns the falsy `read_only_depends_on`, and frappe-datatable blocks editing only on
+  `=== false`; Frappe's own Cypress `report_view.js` edits such a field). The package now follows 15.110 by default
+  (`editable="desk"`); `"strict"` is an opt-in (`views.md` §3, `CRM-MIGRATION.md` §5.5).
 - **Quick Entry** saves through `savedocs`; Desk uses `frappe.client.save` and offers Submit after saving a submittable DocType.
 - `emailMakeArgs` always sends `print_letterhead: 1` (Desk reads a checkbox).
 - `buildListRequest` drops Attach Image fields; the views add `image_field` through `extraFields`.
 - C-native F9 is still open: no *source* boundary rule forbids `src/frappe/**` from importing `./testing` (the dist rule
   exists but needs a build).
 - `selectionMode` default is still `"bar"` although header mode is the Desk-like layout (owner decision).
+  **(P36) Resolved:** `"header"` is the default; `"bar"` is an explicit opt-in (LV.F16).
 
 ### 7.6 Future enhancements
 Report Builder (`save_report`, aggregates, charts) · Kanban board creation / column editing / settings · Calendar week and
@@ -747,3 +766,29 @@ day views, event drag, Calendar View documents · Gantt / Tree / Dashboard adapt
 HTML previews, signature pad, JSON validation · sidebar "Edit" modal and "assigned to me" · rename title path
 (`update_document_title`) · e-mail preview, schedule, signature, reply-all · Quick Entry Submit step · filters carried from
 an export-list snapshot gate in CI (the integration snapshot script exists in the session scratchpad only).
+
+## 8. P36 changes (0.7.0-dev.2)
+
+**No status, denominator, evidence level or requirement text changed** — totals in §2 stand (258 / 301). P36 edited the
+Test evidence and Known limitations cells (and, for LV.H1, the Location cell) of the rows below. Every new test is jsdom /
+simulator evidence; none ran against a site. Owner decisions P36-1 … P36-5 and the workstreams: `docs/audit/p36/README.md`.
+
+| Row | P36 change | Why | Evidence added |
+|---|---|---|---|
+| LV.F16 | limitation "default is still `"bar"` (owner decision pending)" → resolved | owner decision P36-1: Desk's header actions are the default for `ListView` and `FrappeListView`; `"bar"` is opt-in | `lsd` LV.F16; LSH LV.F16 ×5 (default, restore, Ctrl/⌘-click, Escape, `renderBulkActions`) |
+| LV.F17 | tests + limitation | the primary action now gives way on the selection alone ("No actions available" item); indeterminate select-all documented | LSH LV.F17 ×2 |
+| LV.F1 | tests ported; limitation | Edit keeps the selection (Desk) | flp LV.F1 ×2 (ported); `lsd` `selectionAfterBulk` table (15) |
+| LV.F4 | tests + limitation | cancel of Clear Assignment's confirmation clears + reloads (Desk `reject_action`) | `lsd` LV.F4; LA |
+| LV.F8, LV.F9 | tests ported; limitation | Submit / Cancel clear only when every document went through; queued keeps | flp ported; `lsd` LV.F8, LV.F9 |
+| LV.F11 | tests + limitation | workflow action keeps the selection | `lsd` LV.F11 |
+| LV.F2, F3, F5, F6, F7, F10, F12 | tests only | per-action selection outcome now asserted under the header default (unchanged behaviour) | `lsd` LV.F2/F7, F3, F5, F6, F10 ×2, F12 ×3 |
+| LV.F15 | limitation reworded | the current-page-rows limit now applies only to the opt-in bar | — |
+| LV.H1 | tests, location, limitation | Report view editing = Frappe 15.110 by default (owner decision P36-5), child-cell edit added; status stays **PARTIAL** (`save_report`, aggregates, charts, multi-sort) | fvr: 26 LV.H1 tests (was 9) |
+| FV.G1, FV.G6 | limitation | Core DataGrid got `layout="table" \| "cards" \| "auto"` (P36 W3), but `FrappeChildTable` does not forward it — Table fields are unchanged | `CORE.DG1`–`DG14` (Core DataGrid, not a FV row test) |
+
+Also annotated in place, marked "(P36)": §7.2 H1, §7.4 `set_value` child branch, §7.5 DataGrid, Report view, `selectionMode`.
+
+Real-site classification: `docs/audit/p36/VALIDATION-MATRIX.md` — 301 applicable rows: (a) unit 96 · (b) simulator 103 ·
+(c) needs real-server validation 84 · (d) BLOCKED 5 · (e) not validatable now 13; real-site result BLOCKED (not run) for
+every row. Its §7 L-HDR-1 note "the package's `selectionMode` default is still `"bar"`" predates the W1 merge and is stale
+(it is generated from `e2e/frappe-site/matrix/catalogue.mjs`).

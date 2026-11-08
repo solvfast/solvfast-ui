@@ -9,6 +9,10 @@ the public entry `@solvfast/ui` (no deep imports, no local copies, no style over
 exists in the package at 0.7.0-dev but **cannot be consumed by the CRM until a package release** is published and the pin
 is bumped. Nothing in this file was run against a Frappe site; the CRM runs in mock mode.
 
+> **P36 update.** The five owner decisions of §5 are now decided (P36-1 … P36-5); §5 records each outcome, and §3 / §7
+> are annotated "(P36)". The package side is 0.7.0-dev.2 (unreleased, `feat/0.7.x/p36-int`); the CRM side is the P36 CRM
+> workstream on `crm/p36-ds`. Index: `docs/audit/p36/README.md`.
+
 ## 1. Rules every migration followed
 
 - **Scope gate.** Every DS branch is inside `useDsScope() === true` (the CRM's `DsScopeContext`) or the existing `inDs`
@@ -90,9 +94,9 @@ not in the repository).
 
 | Item | Reason |
 |---|---|
-| M9 record-menu confirm bars → `AlertDialog` / `Alert` | owner decision (modal vs inline) — §5.2 |
-| M10 Commission & Referral → `DataGrid` | phone regression + editing-model change — §5.3 |
-| M11 `SearchableSelect` → `LinkInput`, M12 `ClientPicker` → `LinkInput` | owner decision (behavioural: free text, empty value, avatars) — §5.1 |
+| M9 record-menu confirm bars → `AlertDialog` / `Alert` | owner decision (modal vs inline) — §5.2. **(P36)** decided: `AlertDialog`; P36 CRM workstream |
+| M10 Commission & Referral → `DataGrid` | phone regression + editing-model change — §5.3. **(P36)** still not migrated: DataGrid now has phone cards, migration waits for CRM evidence (§5.3 readiness criteria) |
+| M11 `SearchableSelect` → `LinkInput`, M12 `ClientPicker` → `LinkInput` | owner decision (behavioural: free text, empty value, avatars) — §5.1. **(P36)** decided: per usage, by semantics; P36 CRM workstream |
 | M15 typed dynamic import of `@solvfast/ui/frappe` in `frappeRecordKit.ts` | not in WS6 scope (D-crm §5 items 1–4) |
 | N1–N13 | need a DS capability beyond 0.6.0 — §4 |
 
@@ -121,46 +125,96 @@ Also new in 0.7.0-dev and relevant to the CRM-specific rows of D-crm §3d, **for
 
 ## 5. Owner decisions
 
-### 5.1 `SearchableSelect` and `ClientPicker` → `LinkInput` (M11, M12)
+All five were decided by the owner in P36 (final). The package side is merged on `feat/0.7.x/p36-int` (0.7.0-dev.2,
+unreleased); the CRM side is the P36 CRM workstream (branch `crm/p36-ds`). P36 index: `docs/audit/p36/README.md`.
+
+### 5.1 `SearchableSelect` and `ClientPicker` → `LinkInput` (M11, M12) — **owner decided (P36): per-usage semantics**
 `SearchableSelect` is shared by ContactsPage, OrganizationFormWorkspace, CrmTypeFormPage, InlineCreateForms and Proposals;
 it allows free text (`allowCustom`) and shows subtitles. A scope-gated `LinkInput` branch (in-memory `SearchFn`,
 `onCommitText` for free text) changes the keyboard model and the empty-value behaviour for every caller. `ClientPicker`
-needs avatars and a "Create New" row: avatars need `Suggestion.icon` (0.7.0-dev, N6). **Decision needed:** migrate both
-after the release that carries N6 / N7, or keep them.
+needs avatars and a "Create New" row: avatars need `Suggestion.icon` (0.7.0-dev, N6).
 
-### 5.2 Record-menu confirm bars → `AlertDialog` (M9)
-`useRecordMenu.tsx:320-350` shows inline delete / unsaved-reload confirmation bars with hex colours. The DS pattern is a
-modal `AlertDialog` (delete) or an inline `Alert` (reload). **Decision needed:** modal or inline — a UX change in a file
-shared with SD / SM (gated either way).
+**Decision (P36-2):** pickers are migrated **per usage, by semantics only** — a picker moves to `LinkInput` where its
+meaning is a link to a record, not as a blanket swap of the shared component. See the P36 CRM workstream.
 
-### 5.3 M10 `DataGrid` phone layout
-`DataGrid` has a fixed `min-w-[32rem]`: at 390 px the Commission grid scrolls horizontally (scrollWidth 512 vs 316) and
-the Share % column is off-screen; today's DS `Table` shows Name + Share % without scrolling. No public prop changes it
-and overriding it would be a styling hack. The editing model also changes (every row editable → one row at a time,
-Desk-style; "Add year" → "Add Row"; new No. / checkbox / row-menu columns). **Decision needed:** a compact / phone layout
-for `DataGrid` in the package, or owner acceptance of the scroll and the editing model.
+TODO(p36-crm): summarise the P36 CRM workstream report (`scratchpad/p36/ws/crm.md`, not written when this file was
+integrated) — which pickers moved, which stayed and why, and the regression evidence. Commit seen on `crm/p36-ds` (not yet
+reported): `6310fc0` "P36 P1–P5: configuration Link pickers = the Design System's LinkInput (CRM scope only, per usage)".
 
-### 5.4 `selectionMode` default
-`ListView` / `FrappeListView` still default to `selectionMode="bar"`; the CRM already passes `"header"` (Desk's layout,
-D-crm A5). Making `"header"` the default is a visible change for every other consumer. **Decision needed:** keep `"bar"`
-or switch the default in a minor release.
+### 5.2 Record-menu confirm bars → `AlertDialog` (M9) — **owner decided (P36): `AlertDialog`**
+`useRecordMenu.tsx:320-350` showed inline delete / unsaved-reload confirmation bars with hex colours.
 
-### 5.5 Report view editability vs report_view.js:772-777
-Frappe 15.110 `is_editable` (report_view.js:758-779) ends with
+**Decision (P36-3):** CRM confirmations use the DS `AlertDialog` (modal). See the P36 CRM workstream.
 
-```js
-return (
-    this.meta.fields.some((df) => df.fieldtype === "Table") ||
-    (df.read_only_depends_on && !this.evaluate_read_only_depends_on(df.read_only_depends_on, data))
-);
-```
+TODO(p36-crm): summarise the P36 CRM workstream results for M9 (files, scope gating, SD / SM untouched, regression
+evidence). Commits seen on `crm/p36-ds` (not yet reported): `8015184` "P36 C1: record ⋯ menu confirmations = the Design
+System's AlertDialog (CRM scope only)", `431cf9e` "P36 C2/C3: unsaved-changes and 'Remove this squad?' confirmations = the
+Design System's AlertDialog (CRM scope only)".
 
-so on a DocType **without a Table field**, a field is inline-editable only when it has a `read_only_depends_on` that
-evaluates false — every other field is read-only in Desk's Report view. `isCellEditable` (`src/frappe/views/report.ts:21-29`)
-ports :758-771 only: on such DocTypes the package lets users edit fields Desk would not (still gated by write right,
-docstatus, `allow_on_submit`, read-only / virtual / hidden / standard fields), and it never edits a field that has a
-`read_only_depends_on`. `docs/components/views.md` §3 records this as a deliberate deviation ("looks like a defect").
-**Decision needed:** keep the deviation, or follow 15.110 literally.
+### 5.3 M10 `DataGrid` phone layout — **still NOT migrated (owner decision P36-4)**
+P35 finding: `DataGrid` had a fixed `min-w-[32rem]`; at 390 px the Commission grid scrolled horizontally (scrollWidth 512
+vs 316) and the Share % column was off-screen, while today's DS `Table` shows Name + Share % without scrolling. The editing
+model also changes (every row editable → one row at a time, Desk-style; "Add year" → "Add Row"; new No. / checkbox /
+row-menu columns).
+
+**P36 (package, W3):** `DataGrid` now has `layout="table" | "cards" | "auto"` (`"auto"` switches on the grid's own container
+width, `cardsBelow` default 640 px), `DataGridColumn.mobile: "primary" | false` and `minTableWidth`. Cards keep the grid's
+editing (one row at a time; tap a value or "Edit row {n}"), row menu, selection, Add Row and paging, with no sideways
+scroll — `tests/datagrid-p36.test.tsx` (`CORE.DG1`–`DG14`, jsdom) and `e2e/datagrid-mobile.mjs` (showcase, Chromium, 360 /
+390 px × en / ar × light / dark: page overflow 0, every Name and Share % fully readable, edit / add / delete). The default
+`layout="table"` is unchanged.
+
+**Decision (P36-4):** no Commission `DataGrid` migration until the responsive behaviour is verified **in the CRM**. Readiness
+criteria for a future M10 workstream (against a package release containing W3):
+1. `layout="auto"` on all four child tables (Leadership weights, Stage split, Recurring years, Referral rates); Name / Year
+   `mobile: "primary"`, Share % a detail line; consider `cardsBelow` ≈ 420–480 so a desktop form column keeps the table;
+   hide no column (`mobile: false`) — both are essential.
+2. CRM e2e evidence at 360 and 390 px, en + ar, light + dark (modelled on `e2e/datagrid-mobile.mjs`): no page overflow;
+   every Name and Share % fully visible in every row; the editor reachable and on-screen; Add Row and the row menu
+   visible; `RunningTotal` updating. Compare with `comm390-base.png`; the P35 `comm390-new.png` state (Share % off-screen)
+   must not reproduce.
+3. Owner acceptance of the editing-model change W3 does not remove: one row editable at a time (tap or pencil) instead of
+   all rows; the new No. / checkbox / ⋯ chrome; "Add year" → "Add Row". All-rows-always-editable would be a separate
+   DataGrid feature request.
+4. Closed-won lock: `canDelete={false}` hides every delete path in cards (checkbox, selection Delete, menu Delete) —
+   tested in `CORE.DG11`; re-check on a locked plan in the CRM.
+5. `RecurringTable`: "Year n" is the card title (no editor); editing shows only the Share % editor.
+6. Keep the editors' existing aria-labels ("Name n", "Share % n").
+7. The full CRM regression (P35's 28-check suite) plus the package gates on the 0.7.x build that ships W3.
+
+### 5.4 `selectionMode` default — **resolved (owner decision P36-1)**
+`ListView` / `FrappeListView` now default to `selectionMode="header"` (Desk's header actions: "{n} items selected" + Clear
+in the header, the primary action replaced in place by the Actions menu); `"bar"` is an explicit opt-in. The CRM already
+passes `"header"` (D-crm A5), so the default flip changes nothing for it. On upgrading to 0.7.0-dev.2 the CRM does get:
+- the **no-actions swap**: with rows selected and no applicable action, the primary action still gives way and the Actions
+  menu shows a disabled "No actions available for the selection" (before: the primary action stayed);
+- Desk's **per-action selection outcome** in `FrappeListView` / `useFrappeBulkActions`: Edit and workflow actions keep the
+  selection (the list reloads); Submit / Cancel clear it only when every document went through (partial failure or a
+  queued job keeps it); dismissing Clear Assignment's confirmation clears it and reloads — this reaches the CRM only through
+  `FrappeEntityList` (Frappe builds; it passes `selectionMode="header"`);
+- **Ctrl/⌘-click** on a row ticks it instead of opening it (Core `ListTable`, so also `CrmDsListView`, which passes
+  `selectionMode="header"` too). `CrmDsListView`'s own bulk actions keep deciding whether to clear (`renderBulkActions` gets
+  `clear`).
+The CRM runs in mock mode; nothing was run against it for this change.
+
+### 5.5 Report view editability — **resolved (owner decision P36-5): Frappe 15.110 by default, explicit opt-in**
+**The P35 premise was wrong.** P35 read `is_editable` (report_view.js:758-779) as making every field without a
+`read_only_depends_on` read-only on a DocType without a Table field. At runtime that is not what happens: with no Table
+field and no `read_only_depends_on`, the trailing clause returns that falsy value (`undefined` / `null` / `""`), never
+`false`; `build_row` stores it as `cell.editable` (:1330), and frappe-datatable 1.20.4 (pinned by Frappe) refuses editing
+only on a strict `=== false` (cellmanager.js:442-449). Plain fields **are** editable — Frappe's own Cypress test
+(`cypress/integration/report_view.js`, fixture `custom_submittable_doctype.js`: no Table field) edits `enabled` through
+`frappe.client.set_value`. The only effect of the clause: no Table field + `read_only_depends_on` evaluating true → locked
+(and child cells, `Boolean(name && …)`).
+
+P36 W2 (`isCellEditable`, `FrappeReportView`): the default `editable="desk"` reproduces 15.110 — `read_only_depends_on`
+evaluated on the loaded row on a DocType without a Table field, ignored with one; write right = Desk's `can_write` (level-0
+write or create), the field's permlevel not checked (the server silently resets such a change); child-table cells editable
+and saved with `set_value` on the child row. `editable="strict"` restores the P35-style checks (field permlevel write,
+`write` not `create`, `submit` on submitted documents, `read_only_depends_on` always evaluated); a function gets Desk's
+verdict as `info.desk`. 26 `LV.H1` tests (jsdom / simulator). No CRM code change (mock mode); a CRM that wants the P35
+permlevel check passes `editable="strict"`. Note for the CRM: `isCellEditable`'s third argument changed from `levels` to
+an options object (BREAKING vs 0.7.0-dev.1 only; the CRM does not call it).
 
 ## 6. Blocked by mock mode / backend (unchanged from D-crm §3f)
 
@@ -178,4 +232,6 @@ menu, Connections, e-mail composer, sidebar counts) that the CRM can use only in
   popup it covers the Apply button until Esc / Tab / a click elsewhere (8 / 8 combinations). Candidate fix: close the list
   after a create. **Fixed in 0.7.0-dev.1** (integration: Enter / comma that creates a tag closes the list;
   `CORE.M7 …`, `tests/core-integration.test.tsx`).
-- `DataGrid` fixed minimum width on phones (§5.3) — still open.
+- `DataGrid` fixed minimum width on phones (§5.3) — still open. **(P36)** Addressed in the package: `layout="auto"` /
+  `"cards"` (no sideways scroll) and `minTableWidth`; the default `layout="table"` keeps the 32rem minimum. CRM M10 is
+  still not migrated (§5.3).

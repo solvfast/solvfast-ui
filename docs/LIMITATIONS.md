@@ -1,4 +1,4 @@
-# Known limitations — @solvfast/ui 0.7.0-dev.1 (unreleased)
+# Known limitations — @solvfast/ui 0.7.0-dev.2 (unreleased)
 
 What this version does **not** do, has **not** been verified, or does differently on purpose. The row-by-row status of the
 Form View and List View requirements is in `docs/audit/p35/COVERAGE.md` (repository only).
@@ -9,13 +9,19 @@ Form View and List View requirements is in `docs/audit/p35/COVERAGE.md` (reposit
 and no restricted user has been tested on one. "COMPLETE" in the coverage matrix means "a test exercises it", never
 "verified on a site".
 
+**Real-site validation: prepared, not run** (P36). A guarded validation against a Frappe 15 staging site is ready in the
+repository — the requirement matrix `docs/audit/p36/VALIDATION-MATRIX.md`, the runner `e2e/frappe-site/run-matrix.mjs`,
+staging seed / teardown scripts — but nothing has run: it **requires an owner-approved, isolated staging site** (own
+database, credentials, Redis and workers; never a production site — the scripts refuse production names and loopback).
+Until it runs, every real-site result is BLOCKED.
+
 | Area | Evidence |
 |---|---|
 | Core 0.1–0.3 (theme, primitives, shell, List View) | Unit tests, pixel parity with Sear's real components, clean installs (Tailwind and no-Tailwind) |
-| Core additions 0.4–0.7 (fields, record components, Export / Import dialogs, views, sidebar, record menu, e-mail composer, file dropzone, …) | Unit tests in jsdom and a Showcase smoke render (jsdom). No pixel parity, no manual screen-reader pass; 0.7.0-dev additions have not been checked in a real browser |
+| Core additions 0.4–0.7 (fields, record components, Export / Import dialogs, views, sidebar, record menu, e-mail composer, file dropzone, …) | Unit tests in jsdom and a Showcase smoke render (jsdom). No pixel parity, no manual screen-reader pass; 0.7.0-dev additions have not been checked in a real browser (except DataGrid's phone cards: a Chromium check of the showcase section, P36) |
 | Frappe layer — read paths | Replayed from **recorded real Frappe 15.110 responses** and anonymous HTTP (`tests/real/sada-real.test.tsx`): meta, list rows, counts, link search / validation, document load, the 403 / 417 envelopes |
 | Frappe layer — everything else | **Simulator only** (`@solvfast/ui/frappe/testing`) or stub transports — see the next section |
-| Frappe layer — an authenticated real site | **Not done.** A prepared, never-run read-only procedure is in `e2e/frappe-site/` (repository only) |
+| Frappe layer — an authenticated real site | **Not done.** Prepared, not run (P36): matrix, guarded staging seed / teardown and runner in `docs/audit/p36/` and `e2e/frappe-site/` (repository only); needs an owner-approved isolated staging site |
 
 ## Simulator-only areas
 
@@ -52,7 +58,8 @@ SQL or every permission rule. These behaviours have **only** simulator (or stub)
 | Inbox | applies to Communication only and depends on Email Accounts; low relevance |
 
 The implemented views are partial: **Report** has no Report Builder `save_report`, no SQL aggregate group-by, no
-charts, no multi-column sort, no column widths and no child-cell editing; **Calendar** is a month view only (no week /
+charts, no multi-column sort and no column widths, and inline editors exist only for `INLINE_EDIT_TYPES` (Desk edits any
+fieldtype); **Calendar** is a month view only (no week /
 day view, no event drag / resize, no Calendar View documents, no time-zone conversion; in `reportview` mode rows without
 an end date are left out); **Kanban** cannot create a board, add / archive / reorder columns or edit Kanban Settings;
 **Image** has no gallery / zoom. In `FrappeViews` the List view's filters and sort carry into the other views
@@ -82,13 +89,21 @@ ungrouped lists (they page).
   for translations.
 - **Datetime filters** compare in the server's time zone, as Frappe does.
 - **Realtime** is a full reload on `list_update` (Desk refreshes changed names only).
-- **Selection layout:** `selectionMode` defaults to `"bar"`; `"header"` is Desk's layout (Actions menu). Owner decision pending.
+- **Selection layout:** `selectionMode` defaults to `"header"` (Desk's layout: "{n} items selected" in the header, the
+  primary action replaced by the Actions menu; since 0.7.0-dev.2). `"bar"` is an opt-in that is not Desk's layout; in bar
+  mode `bulkActions` get row objects for the current page only. Not reproduced: Desk's Shift+↑/↓ row checking and
+  drag-select; a partial select-all shows as indeterminate (Desk: unchecked); in server mode a new query clears the
+  selection; realtime updates are paused while rows are selected (actions that keep the selection reload explicitly).
 - **Select all matching** (header mode) runs only query-based actions (Export by filter); name-based actions are disabled
   with a reason.
 - **Print:** list background PDFs need the host's `subscribeTask` to see completion; the draft / cancelled rules need the
   site's Print Settings from the host.
-- **Report view inline edit** follows report_view.js:758-771 but deliberately not :772-777 (Desk 15.110 leaves fields
-  read-only on DocTypes without a Table field); a field with `read_only_depends_on` is never edited inline.
+- **Report view inline edit** follows Frappe 15.110's report view by default (`editable="desk"`, since 0.7.0-dev.2):
+  `read_only_depends_on` is evaluated on the loaded row on a DocType without a Table field and ignored with one; the
+  write right is Desk's `can_write` (level-0 write **or create**) and the field's permlevel is not checked — so the editor
+  can appear where the server then refuses (create-only user: 403) or silently resets the value (permlevel without
+  write). `editable="strict"` adds those checks on the client. Expressions that use more than `doc` are outside the
+  package's interpreter.
 - **Quick Entry** saves through `savedocs` (Desk: `frappe.client.save`).
 - **Kanban** with a filtered list: the server's `update_order_for_single_card` pops `old_index` blindly
   (kanban_board.py:147-151), as on Desk.
@@ -107,9 +122,36 @@ ungrouped lists (they page).
   the Kanban Board meta is not loaded; Kanban's `private` permission query is a local rule.
 - **`@solvfast/ui/frappe/testing`** (the simulator) ships as its own entry; `@solvfast/ui/frappe` never imports it.
 
+### Frappe 15.110 server rules to know (read from Frappe 15.110 source, not yet observed on a site)
+
+These are Frappe's behaviour, not the package's. They were read from the 15.110 source in P36 and are asserted by the
+prepared validation run (`docs/audit/p36/VALIDATION-MATRIX.md` §7, test ids in brackets) — **none has been observed on a
+site yet**.
+
+- **`mandatory_depends_on` is client-only.** The server enforces only `reqd`; a conditionally mandatory field is enforced
+  by the form (the package does, on the simulator). Any other client that writes skips it. [F-REQ-2, F-REQ-3]
+- **Permlevel writes are reset silently.** A user without write on a field's permlevel who changes it gets HTTP 200 and the
+  stored value is kept (`validate_higher_perm_levels`), not a 403. Lists drop unreadable permlevel fields silently.
+  [F-PERMLEVEL-2, L-PERM-2]
+- **Amend is checked against `create`.** Amending is an insert: the server checks `create` and that the source is
+  cancelled, not the `amend` right ("amend needs amend + create" is a client gate). [F-AMEND-2]
+- **Saved filters are open to every Desk user.** `List Filter` grants read / write / create / delete to every Desk User
+  with no owner rule: anyone can create a global filter or delete another user's filter; the package's "Is Global" gate
+  is client-side. [L-SAVED-2]
+- **`toggle_like` has no permission check.** [L-LIKE-1]
+- **`export_query` writes an Access Log** before it refuses a user without `export`. [L-EXPORT-1]
+- **`user_settings.save` merges shallowly:** a Desk save of `List` without the package's `sf_ui` key drops it (LV.A6b).
+  [L-USERSET-1]
+- Also: bulk submit / cancel / update answer HTTP 200 with a per-document failed list, bulk delete reports failures by
+  realtime msgprint [L-BULK-2, L-BULK-3]; User Permissions filter list rows silently while `getdoc` of a hidden record is
+  403 [L-PERM-1]; whether User Permissions apply to the sidebar's `assigned_to` counts (`frappe.qb.get_query`) is recorded,
+  not known [L-GROUP-1].
+
 ## Known bugs
 
-- `DataGrid` has a fixed minimum width (`32rem`): on a 390 px phone it scrolls horizontally.
+- `DataGrid` in the default table layout has a minimum width (`32rem`, `minTableWidth`) and scrolls sideways on a 390 px
+  phone; `layout="auto"` / `"cards"` show a card per row instead. `FrappeChildTable` (Frappe Table fields) does not
+  forward `layout` yet, so Table fields still scroll sideways on phones.
 
 ## Environment
 
@@ -144,7 +186,8 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
 - Server mode: the selection keeps keys across pages, but `bulkActions` receive row objects only for rows on the
   current page (keys for all).
 - Grouped: collapsing a group can re-balance column widths (all groups still share the header's columns).
-- `layout="auto"` switches to cards only where a phone media query matches; `layout="cards"` forces them.
+- `layout="auto"` switches to cards only where a phone media query matches; `layout="cards"` forces them. (DataGrid's
+  `layout="auto"` is different: it follows the grid's own container width, `cardsBelow`.)
 - Select all matching ends when a row is unchecked or the query changes.
 
 ## Merged components (0.3.0)
