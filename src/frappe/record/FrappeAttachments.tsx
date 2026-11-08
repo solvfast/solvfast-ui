@@ -92,7 +92,10 @@ export function FrappeAttachments({ doctype, name, readOnly, doc: givenDoc, bund
           defaultPrivate={!Number(meta.make_attachments_public ?? 0)}
           maxFiles={max ? Math.max(0, max - list.length) : undefined}
           note={max ? fmt(t("sbAttachRemaining"), Math.max(0, max - list.length)) : undefined}
-          onUpload={(file, isPrivate) => actions.upload.mutateAsync({ ...ref, file, filename: file.name, isPrivate })}
+          // Desk's sidebar uploader keeps FileUploader's default allow_toggle_optimize = true (FileUploader.vue:305-307;
+          // attachments.js:249-258 does not override it) — P36b integration
+          allowOptimize
+          onUpload={(file, isPrivate, opts) => actions.upload.mutateAsync({ ...ref, file, filename: file.name, isPrivate, optimize: opts?.optimize })}
           {...(library ? {
             searchLibrary: async (text: string) => (await searchFiles(api, text)).map((f) => ({ id: f.name, fileName: f.file_name || f.file_url, fileUrl: f.file_url })),
             onAttachExisting: (f: { id: string }) => actions.attachExisting.mutateAsync({ ...ref, libraryFileName: f.id }),

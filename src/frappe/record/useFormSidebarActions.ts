@@ -13,7 +13,7 @@ import { ATTACHMENTS_FOLDER, FILE_SEARCH_METHOD, REMOVE_ATTACH_METHOD, UPLOAD_FI
 import { ADD_TAG_METHOD, GET_TAGS_METHOD, REMOVE_TAG_METHOD } from "./tags";
 
 type Ref = { doctype: string; name: string };
-export type UploadAttachmentVars = Ref & { file: Blob; filename: string; isPrivate: boolean };
+export type UploadAttachmentVars = Ref & { file: Blob; filename: string; isPrivate: boolean; optimize?: boolean };
 export type AttachExistingVars = Ref & { libraryFileName: string };
 export type AttachLinkVars = Ref & { fileUrl: string };
 export type RemoveAttachmentVars = Ref & { fid: string };
@@ -44,7 +44,7 @@ export function useFormSidebarActions(): FormSidebarActions {
   const fileDoc = (r: { message?: unknown }) => (r.message ?? {}) as FrappeDoc;
   return {
     upload: useMutation<FrappeDoc, FrappeError, UploadAttachmentVars>({
-      mutationFn: ({ doctype, name, file, filename, isPrivate }) => api.uploadFile(file, filename, { doctype, docname: name, isPrivate, folder: ATTACHMENTS_FOLDER }),
+      mutationFn: ({ doctype, name, file, filename, isPrivate, optimize }) => api.uploadFile(file, filename, { doctype, docname: name, isPrivate, folder: ATTACHMENTS_FOLDER, ...(optimize ? { optimize: true } : {}) }),
       onSuccess: after,
     }),
     attachExisting: useMutation<FrappeDoc, FrappeError, AttachExistingVars>({

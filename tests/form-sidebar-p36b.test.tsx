@@ -217,6 +217,19 @@ describe("P36B.sidebar — Attachments (attachments.js, FileUploader.vue)", () =
     expect([...s.t.store.comments.values()].filter((c) => c.comment_type === "Attachment")).toHaveLength(2); // file.py:126-128
   });
 
+  it("P36B.sidebar.23 Desk's sidebar uploader offers Optimize (FileUploader.vue:305-307 allow_toggle_optimize default true; attachments.js:249-258) — on above 200 KB, off for a small image", async () => {
+    const s = site();
+    mount(s, <FrappeFormSidebar doctype="Site Visit" name="SV-1" />);
+    await waitFor(() => expect(sectionOf("attachments")).toBeTruthy());
+    fireEvent.click(within(sectionOf("attachments")).getByRole("button", { name: "Attach a file" }));
+    const dlg = await screen.findByRole("dialog");
+    pickFiles(dlg, [new File([new Uint8Array(300 * 1024)], "big.png", { type: "image/png" })]);
+    expect((within(dlg).getByRole("checkbox", { name: "big.png: Optimize" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(within(dlg).getByRole("button", { name: "Upload" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(calls(s.t, "upload_file").map((c) => c.args)).toEqual([expect.objectContaining({ file_name: "big.png", doctype: "Site Visit", docname: "SV-1" })]);
+  });
+
   it("P36B.sidebar.10 negative: a server refusal keeps the dialog open with the message; nothing is listed", async () => {
     const s = site({ handlers: { upload_file: (() => { throw new FrappeError("Not permitted. Size exceeds the maximum allowed file size.", 417); }) as never } });
     mount(s, <FrappeFormSidebar doctype="Site Visit" name="SV-1" />);
