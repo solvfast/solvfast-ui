@@ -179,7 +179,7 @@ export function FrappeAttachField({ id, df, value, onChange, doctype, docname, b
     df, bundle, doctype, docname,
     onUploaded: (url) => {
       onChange(url); // attach.js:139 / 143
-      if (host) void host.save(attachSaveAction(host.getDoc())); // :141
+      if (host) void Promise.resolve(host.save(attachSaveAction(host.getDoc()))).catch(() => { /* the form shows its own save error */ }); // :141
     },
   });
 
