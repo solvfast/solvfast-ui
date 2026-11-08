@@ -497,11 +497,15 @@ describe("Phase 27 list actions on the simulated server (handlers + permission c
     expect(await t("frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply", { doctype: "Travel Request", docnames: JSON.stringify(["TR-0001"]) })).toEqual({});
     expect((await refused(t("frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply", { doctype: "Travel Request", docnames: JSON.stringify(["TR-9"]) }))).status).toBe(404);
   });
-  it("tag.add_tags: no permission check (tag.py:42-116); the Tag master is created and found by search_link (All: read)", async () => {
+  it("tag.add_tags: DocTags.update → update_tags → doc.check_permission(\"write\") (tag.py:105-120, 147-152; P36b correction — the earlier \"no permission check\" missed update_tags); the Tag master is created and found by search_link (All: read)", async () => {
     const t = site(SCENARIOS.restrictedDoctype);
-    await t("frappe.desk.doctype.tag.tag.add_tags", { tags: JSON.stringify(["urgent", "q4"]), dt: "Travel Request", docs: JSON.stringify(["TR-0001", "TR-0002"]) });
-    expect(t.store.docs.get("Travel Request")!.get("TR-0001")!._user_tags).toBe(",urgent,q4");
-    const found = (await t("frappe.desk.search.search_link", { doctype: "Tag", txt: "urg" })).message as { value: string }[];
+    const err = await refused(t("frappe.desk.doctype.tag.tag.add_tags", { tags: JSON.stringify(["urgent"]), dt: "Travel Request", docs: JSON.stringify(["TR-0001"]) }));
+    expect(err.status).toBe(403);
+    expect(t.store.docs.get("Travel Request")!.get("TR-0001")!._user_tags ?? "").not.toContain("urgent");
+    const w = site(SCENARIOS.administrator);
+    await w("frappe.desk.doctype.tag.tag.add_tags", { tags: JSON.stringify(["urgent", "q4"]), dt: "Travel Request", docs: JSON.stringify(["TR-0001", "TR-0002"]) });
+    expect(w.store.docs.get("Travel Request")!.get("TR-0001")!._user_tags).toBe(",urgent,q4");
+    const found = (await w("frappe.desk.search.search_link", { doctype: "Tag", txt: "urg" })).message as { value: string }[];
     expect(found.map((x) => x.value)).toEqual(["urgent"]);
   });
   it("workflow: common actions per evaluated roles, self-approval from the row's owner; bulk approval publishes the log", async () => {
