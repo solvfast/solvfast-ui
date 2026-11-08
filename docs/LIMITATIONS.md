@@ -13,8 +13,8 @@ and no restricted user has been tested on one. "COMPLETE" in the coverage matrix
 repository — the requirement matrix `docs/audit/p36/VALIDATION-MATRIX.md`, the runner `e2e/frappe-site/run-matrix.mjs`,
 staging seed / teardown scripts — but nothing has run: it **requires an owner-approved, isolated staging site** (own
 database, credentials, Redis and workers; never a production site — the scripts refuse production names and loopback).
-Until it runs, every real-site result is BLOCKED. P36 batch 2 (0.7.0-dev.3) added 11 catalogue tests for its server paths
-(86 in all); none has run.
+Until it runs, every real-site result is BLOCKED. P36 batch 2 (0.7.0-dev.3) added 16 catalogue tests for its server paths
+(11 + 5 for the Attach Image control; 91 in all); none has run.
 
 | Area | Evidence |
 |---|---|
@@ -43,7 +43,10 @@ SQL or every permission rule. These behaviours have **only** simulator (or stub)
   from the sidebar (`toggle_like`); comments (`add_comment`, `update_comment`, `update_comment_publicity`,
   `frappe.client.delete` on Comment, Mention notifications); Global Search (`frappe.utils.global_search.search` — the
   simulator has no MyISAM ranking, stopwords, minimum word length or 15-minute index lag, and with no Global Search
-  Settings single in the store every DocType with a global-search field is searchable).
+  Settings single in the store every DocType with a global-search field is searchable); the Attach / Attach Image control
+  (`FrappeAttachField`) — `upload_file` with `fieldname` and a `new-…` docname, `optimize`, the Library / Link forms,
+  `frappe.core.api.file.get_max_file_size`, `remove_attach` on Clear and the save that follows (see "Attach / Attach Image"
+  below).
 - **Simulator wrappers still needed for batch 2:** the built-in docinfo answers `attachments: []` / `tags: ""` and
   `files.upload` refuses everything but Data Import unless the transport is wrapped in `withSimulatedSidebar` (exported
   from `@solvfast/ui/frappe/testing`); the built-in bulk handler does not refuse Cancel for submitted back links — the
@@ -139,9 +142,11 @@ ungrouped lists (they page).
 - **Form Sidebar** (`FrappeFormSidebar`, since 0.7.0-dev.3): the host places it (`FrappeFormView` does not mount it);
   not hidden on phones; no sidebar image, Follow / Followed by, Reviews (energy points), auto-repeat, page views or
   sidebar extension; no "Assign To User Group"; uploads show waiting / uploading / uploaded / failed but no percentage
-  (`fetch` has no upload progress); no Camera, Google Drive, crop or optimize; the Library tab is a text search
+  (`fetch` has no upload progress); no Google Drive; the Library tab is a text search
   (`get_files_by_search_text`), not Desk's folder tree. Attach "+" and tag editing are offered to every reader, as Desk;
   the server refuses without write. `disable_document_sharing` is not read from the site: pass `sharingDisabled`.
+  Since the Attach Image merge the sidebar's uploader shares `AttachDialog`'s thumbnails, public-file warning, Crop and
+  Camera, and offers Desk's per-image Optimize (FileUploader's `allow_toggle_optimize` default; forwarded as `optimize`).
 - **Global Search** (`GlobalSearchBar` + `useFrappeGlobalSearch`, since 0.7.0-dev.3): not reproduced — calculator,
   random password, `#tag` search, Help table, executables (Background Jobs), Marketplace rows; `desk_settings.search_bar`
   gating is the app's choice to render the bar. The awesome bar's rows come from the boot lists the app passes
@@ -149,9 +154,50 @@ ungrouped lists (they page).
   pages and recents only. Recents are in memory per tab, as Desk's `route_history`.
 - **LinkInput picker mode** (opt-in, since 0.7.0-dev.3): Space types (it does not open), arrows wrap at the ends, no
   Ctrl+N/J/P/K bindings; `FrappeLinkField` does not expose the picker props.
+- **Terminology — Lifecycle (since 0.7.0-dev.3):** the design system calls Frappe's Workflow feature **Lifecycle**
+  (ar **دورة الحياة**) in its own chrome — today only two message values: `listBulkWorkflow` ("Lifecycle", the opt-in
+  `selectionMode="bar"` menu button) and `listBulkWorkflowNone` ("No lifecycle action applies to all the selected
+  documents"). Everything technical keeps Frappe's name: the message keys, components / hooks / props
+  (`FrappeWorkflowActions`, `useWorkflow`, `bulk.hasWorkflow`, …), test ids (`sf-bulk-workflow`), Frappe methods
+  (`apply_workflow`, `get_transitions`, `bulk_workflow_approval`), fields (`workflow_state`), DocTypes (Workflow, Workflow
+  State), the comment type "Workflow", and **server-sent text** (e.g. the "Workflow Status" message after bulk approval,
+  DocField labels such as "Workflow State") — shown as Frappe sends it, so both words can appear on one screen. Apps that
+  override the two keys (the CRM does) see no change. Guard: `tests/lifecycle-p36b.test.ts`.
 - **Simulator coverage gaps:** Communication Links are not simulated; `get_kanban_boards` skips the permission engine when
   the Kanban Board meta is not loaded; Kanban's `private` permission query is a local rule.
 - **`@solvfast/ui/frappe/testing`** (the simulator) ships as its own entry; `@solvfast/ui/frappe` never imports it.
+
+### Attach / Attach Image (`FrappeAttachField`, since 0.7.0-dev.3)
+
+Desk's control (attach.js, attach_image.js, FileUploader.vue): "Attach" opens the uploader (My Device / Library / Link /
+Camera; per file a thumbnail, Private + Desk's public-file warning, Optimize — on above 200 KB, never for SVG — and Crop for
+JPEG / PNG); uploads carry `doctype`, `docname`, `fieldname`, `folder` "Home"; the site's `max_file_size` is read on every
+opening and a file of that size or more is skipped (`size < max`); "Clear" asks, then removes the File (`remove_attach`)
+and saves; "Reload File" re-sends the last local file; Attach Image shows a 150 px preview on hover and focus; the form
+header's image has Desk's Change → Upload / Remove menu.
+
+- **Behaviour change for consumers: `FrappeFormView` saves the form after an upload or a Clear** ("Update" on a submitted
+  document), as Desk's `frm.save()`. It provides `FrappeAttachHost`; pass `attachHost={false}` to keep the old
+  value-only behaviour. `FrappeQuickEntry` opts out (Desk's quick-entry controls have no `frm`). Outside a host (a bare
+  `FrappeField`) an upload only sets the value and Clear only clears it.
+- **New documents:** an upload is attached to the unsaved document's `new-…` name (before: unattached); Frappe relinks the
+  File to the real name when `savedocs` inserts the document within 60 minutes (save.py:20-22, file/utils.py:377-419).
+  The package's `new-${slug}-…` names match Frappe's `new-<doctype lower, spaces → '-'>` check for DocType names without
+  repeated or non-space whitespace.
+- **Not reproduced:** Google Drive and app-registered upload handlers; upload percentages (`fetch`); `df.options` merged
+  into the uploader options; the cropper has no rotate / zoom (Desk disables zoom too); Camera tries `getUserMedia` first
+  on every device (Desk uses the `capture` file input on phones; the package falls back to it when the stream is refused)
+  and `force_web_capture_mode_for_uploads` is not read; the image menu is in the form header (no sidebar image block) and
+  its Remove saves with the form's default action.
+- **Simulator-only (no real-site evidence):** every request above. The simulator answers `get_max_file_size`
+  (System Settings → conf → 25 MiB), records `optimize` but does **not** run `optimize_image` (bytes are not stored), and
+  its `savedocs` relinks `new-…` Files like `relink_mismatched_files`.
+- **Needs a real site:** the bytes `optimize_image` produces (≤ 1024 × 768 and ≤ 80 % of each side, min 200 px, quality 85,
+  kept only if smaller; utils/image.py:45-72); the site's `max_file_size` from System Settings and the server's refusal of
+  a larger upload (413 before the handler, app.py:197-200); the relink after a real `savedocs` insert; `remove_attach` with
+  the real File delete right and `protect_attached_files`; Library / Link uploads under the real File permission hook;
+  Camera on real phones and browsers (permission prompt, facing mode) and crop output per browser. Prepared tests:
+  F-ATTIMG-1 … F-ATTIMG-5 (`docs/audit/p36/VALIDATION-MATRIX.md` §5.1; F-ATTIMG-1 is manual).
 
 ### Frappe 15.110 server rules to know (read from Frappe 15.110 source, not yet observed on a site)
 
@@ -200,6 +246,12 @@ site yet**.
   submitted document's files cannot be removed and a cancelled one's need delete. [F-SB-ATTACH-1, F-SB-ATTACH-2]
 - **Bulk Submit / Cancel:** an unknown name fails the whole request (404) after earlier documents were committed; a name
   sent twice is reported failed the second time. [L-BULK-5, V-REPORT-2]
+- **Attach fields:** `upload_file` stores `cint(is_private)` — a client that omits it gets a **public** file (the private
+  default is the client's: `!make_attachments_public`) [F-ATTIMG-5]; an upload to a `new-…` name needs write on a new
+  document of the DocType and is relinked on insert only for Attach / Attach Image Files whose `file_url` is the field's
+  value (others stay on the `new-…` name) [F-ATTIMG-3]; `max_file_size` = System Settings MB × 1 MiB, else site config,
+  else 25 MiB, and a larger body is refused with 413 before the handler [F-ATTIMG-4]; any non-empty `optimize` is
+  truthy and only image/* file parts are optimized [F-ATTIMG-1].
 
 ## Known bugs
 

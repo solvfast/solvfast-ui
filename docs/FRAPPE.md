@@ -43,7 +43,7 @@ cross-origin) plugs in as a custom `transport` (`createFrappeClient({ transport 
 | Data hooks and services | `useMetaBundle`, `useDoc`, `useDocInfo`, `useSaveDoc`, `useDocAction`, `usePermissions`, `formatValue`, `resolveIndicator`, realtime (`useListRealtime`; `createSocketRealtime` is a skeleton) | `foundation.md` |
 | List View | `FrappeListView`, `useFrappeList`, bulk actions (`useFrappeSelectionActions`, shared with the Report view), print, Import / Export, saved filters and user settings (`createFrappeSavedFilters`, `createFrappeUserSettings`), the group-by sidebar (`FrappeGroupBySidebar`), `FrappeListSettingsDialog` | `docs/components/list.md` |
 | Other list views | `FrappeViews` (switcher host; `bulk`), `FrappeReportView` (`bulk`: Desk's Actions incl. Submit / Cancel), `FrappeImageView`, `FrappeKanbanView`, `FrappeCalendarView`, `availableViews` | `docs/components/views.md` (repository only — not in the npm tarball) |
-| Form View | `FrappeForm`, `FrappeFormView`, `FrappeField`, `FrappeLinkField`, `FrappeChildTable`, `FrappeQuickEntry`, `useUnsavedChangesBlocker`, the behaviour engine (`depends_on`, defaults, mandatory, `fetch_from`, undo / redo), `formEvents` (Desk's form events instead of Client Scripts) | `docs/components/forms.md` |
+| Form View | `FrappeForm`, `FrappeFormView`, `FrappeField`, `FrappeLinkField`, `FrappeChildTable`, `FrappeQuickEntry`, Attach / Attach Image (`FrappeAttachField`, `useFrappeAttach`, `FrappeAttachHost` / `useAttachHost` / `attachSaveAction`, `FrappeFormImage`; 0.7.0-dev.3), `useUnsavedChangesBlocker`, the behaviour engine (`depends_on`, defaults, mandatory, `fetch_from`, undo / redo), `formEvents` (Desk's form events instead of Client Scripts) | `docs/components/forms.md` |
 | Record panels | `FrappeWorkflowActions`, `FrappeTimeline`, `FrappeAssignTo`, `FrappeStatusIndicator`, the ⋯ menu (`FrappeRecordMenu`, `formMenuItems`), `FrappeFormPrint`, `FrappeConnections`, `FrappeEmailComposer`, `FrappeReminder` | `docs/components/record.md` |
 | Form Sidebar (0.7.0-dev.3) | `FrappeFormSidebar`, `FrappeAttachments`, `FrappeDocTags`, `FrappeAssignTo layout="sidebar"`, `FrappeSidebarShare`, `FrappeSidebarLikes`, `FrappeComments`, `useFormSidebarActions`, the `attachments` / `tags` / `share` / `like` / `comments` helpers | `docs/components/record.md` |
 | Global Search (0.7.0-dev.3) | `useFrappeGlobalSearch`, `createFrappeSearchSource`, `deskSearchBootFrom`, `fuzzySearch` (the bar / dialog are Core: `GlobalSearchBar`, `GlobalSearchDialog`) | `docs/components/search.md` |
@@ -65,7 +65,7 @@ security: a refused call is shown as the server's error.
 | Document writes | `frappe.desk.form.save.savedocs` (Save / Submit / Update), `frappe.desk.form.save.cancel`, `frappe.desk.form.linked_with.get_submitted_linked_docs` / `cancel_all_linked_docs`, `frappe.client.is_document_amended`, `frappe.client.delete`, `frappe.rename_doc`, `frappe.client.set_value` (Report view inline edit, Kanban group mode), `run_doc_method`, `upload_file` |
 | Workflow | `frappe.model.workflow.get_transitions`, `apply_workflow`, `get_common_transition_actions`, `bulk_workflow_approval` |
 | Assignment, comments, tags, likes | `frappe.desk.form.assign_to.add` / `remove` / `close` / `add_multiple` / `remove_multiple`; `frappe.automation.doctype.assignment_rule.assignment_rule.bulk_apply`; `frappe.desk.form.utils.add_comment` / `update_comment` / `update_comment_publicity` (delete = `frappe.client.delete` on the Comment); `frappe.desk.doctype.tag.tag.add_tags` / `add_tag` / `remove_tag` / `get_tags`; `frappe.desk.like.toggle_like` |
-| Attachments (Form Sidebar) | `upload_file` (multipart, or JSON with `library_file_name` / `file_url`); `frappe.desk.form.utils.remove_attach`; `frappe.core.api.file.get_files_by_search_text` |
+| Attachments (Form Sidebar; Attach / Attach Image fields) | `upload_file` (multipart, or JSON with `library_file_name` / `file_url`; the fields add `fieldname` and `folder` "Home", a new document's `new-…` docname, and `optimize` when the file's Optimize switch is on — also from the sidebar; `UploadFileOptions.maxWidth` / `maxHeight` send `max_width` / `max_height`); `frappe.desk.form.utils.remove_attach`; `frappe.core.api.file.get_files_by_search_text`; `frappe.core.api.file.get_max_file_size` (each uploader opening of an Attach field) |
 | Sharing | `frappe.share.get_users`, `frappe.share.add`, `frappe.share.set_permission` |
 | Global Search | `frappe.utils.global_search.search` (`{text, start, limit, doctype}`); the awesome bar itself makes no request (boot lists) |
 | Bulk | `frappe.desk.reportview.delete_items`; `frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs` |
@@ -121,6 +121,17 @@ Frappe drops arguments a whitelisted function doesn't declare, so "Match any" to
   docinfo query; Attach "+" and tag editing are offered to every reader and the server refuses without write, as in Desk.
   `useFrappeGlobalSearch` feeds the Core `GlobalSearchBar` (Desk's awesome bar from boot lists, `global_search.search`
   for documents). All of it is simulator-only.
+- **Attach / Attach Image (0.7.0-dev.3).** `FrappeAttachField` is Desk's control: the uploader dialog (My Device / Library
+  / Link / Camera, Private + public warning, Optimize, Crop), the site's `max_file_size`, uploads with `fieldname` (a new
+  document's go to its `new-…` name; Frappe relinks them on insert), Clear → confirm → `remove_attach`, Reload File, the
+  image preview, and the header image's Change → Upload / Remove menu. **`FrappeFormView` now saves the form after an
+  upload or a Clear** ("Update" on a submitted document), as Desk's `frm.save()`; `attachHost={false}` opts out, and
+  `FrappeQuickEntry` opts out as Desk does. Simulator-only: `optimize_image` output, the site's limit, the relink on a real
+  `savedocs` and Camera on real devices need a site / device (`docs/LIMITATIONS.md` "Attach / Attach Image").
+- **Terminology.** The package's chrome calls Frappe's Workflow feature **Lifecycle** (ar دورة الحياة) — today the
+  `listBulkWorkflow` / `listBulkWorkflowNone` message values only. Keys, components, props, test ids, methods
+  (`apply_workflow`, …), fields (`workflow_state`), DocTypes and server-sent text keep Frappe's "Workflow"; apps that
+  override the two keys see no change.
 - **Per-user list settings** go to Frappe's `user_settings` (Desk's `sort_by` / `sort_order` / `filters`, plus the
   package's own keys under `List.sf_ui`) when `serverStorage` is on; saved filters are `List Filter` rows.
 - **Errors.** Frappe's message (from `_server_messages` or the exception) is shown by kind, with Retry only where retrying
@@ -144,9 +155,10 @@ See `docs/LIMITATIONS.md` for the complete list and the reasons.
 
 Nothing in this layer has run against a real Frappe site. P36 prepared a guarded validation (repository only):
 `docs/audit/p36/VALIDATION-MATRIX.md` classifies every requirement row of the coverage matrix by the evidence it needs and
-names the test that would validate it (86 tests since 0.7.0-dev.3: 73 API reads and writes, 7 browser checks through a
-harness of `FrappeForm` / `FrappeListView` / `FrappeViews`, and 6 manual checks; the 11 batch-2 tests cover Report view
-Submit / Cancel, the Form Sidebar, Share, Like, Comments and Global Search); `e2e/frappe-site/run-matrix.mjs` runs them,
+names the test that would validate it (91 tests since 0.7.0-dev.3: 77 API reads and writes, 7 browser checks through a
+harness of `FrappeForm` / `FrappeListView` / `FrappeViews`, and 7 manual checks; the 16 batch-2 tests cover Report view
+Submit / Cancel, the Form Sidebar, Share, Like, Comments, Global Search and the Attach Image control — F-ATTIMG-1 … -5:
+Optimize (manual), Clear, new-document relink, `max_file_size`, private default); `e2e/frappe-site/run-matrix.mjs` runs them,
 `staging-seed.py` / `staging-teardown.py` create and remove synthetic `@example.com` accounts and records. **It requires an
 owner-approved, isolated staging site** (Frappe 15, its own database, credentials, Redis and workers, not on a production
 server) and the owner's written approval file; the scripts refuse production site names, loopback URLs and a missing
@@ -171,6 +183,10 @@ Frappe's own behaviour, which the package cannot change; the validation run asse
 - **Comment delete follows the Comment DocPerm** (System / Website Manager), not authorship; publish = author or System
   Manager. [F-SB-COMMENT-1]
 - **Sharing grants only rights the sharer holds**; un-ticking read deletes the share. [S-SHARE-1]
+- **Attach uploads:** the server stores `cint(is_private)` (omitted → public; the private default is the client's)
+  [F-ATTIMG-5]; a `new-…` upload needs write on a new document and is relinked on insert only when it is the Attach
+  field's value with that `fieldname` [F-ATTIMG-3]; a body above `max_file_size` (System Settings MB, else site config,
+  else 25 MiB) is refused with 413 before `upload_file` runs [F-ATTIMG-4].
 
 More (bulk responses, User Permissions in lists and sidebar counts): `docs/LIMITATIONS.md` and
 `docs/audit/p36/VALIDATION-MATRIX.md` §7 (repository only).

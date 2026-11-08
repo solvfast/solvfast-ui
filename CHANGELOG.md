@@ -9,7 +9,8 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 ## 0.7.0-dev.3 (unreleased) — P36 batch 2
 
 P36 batch 2 (P36b) — owner-requested features: LinkInput picker mode, Submit / Cancel in the Report view, Frappe Global
-Search, the Form Sidebar (Assign, Attach, Tags) and its Share / Like / Comments parts. `package.json` `version` is
+Search, the Form Sidebar (Assign, Attach, Tags) and its Share / Like / Comments parts; mid-batch, Desk's **Attach / Attach
+Image** control and the **Workflow → Lifecycle** label in the design system's chrome. `package.json` `version` is
 `0.7.0-dev.3` (not tagged, not published). Coverage of the fixed P35 list is unchanged (**258 / 301**); the batch-2 features
 without a requirement row are recorded outside the denominator (`docs/audit/p35/COVERAGE.md` §9–§10). **No real-site
 validation:** every new server path is simulator-only. Index: `docs/audit/p36b/README.md` (repository only).
@@ -45,17 +46,37 @@ validation:** every new server path is simulator-only. Index: `docs/audit/p36b/R
   publish, @mentions; `focusCommentBox`) and the `share.ts` / `like.ts` / `comments.ts` helpers; Core `Timeline`
   `onTogglePublish` / `canPublish` / `isPublished` (+ labels); `FrappeTimeline` `allowPublish` (default off). Never
   optimistic: the UI changes only after the server answered.
+- **Attach / Attach Image (mid-batch, `@solvfast/ui/frappe`)** — `FrappeAttachField` reproduces Desk's control
+  (attach.js, attach_image.js, FileUploader.vue): "Attach" opens the uploader dialog (My Device / Library / Link / Camera;
+  per file a thumbnail, Private + Desk's public-file warning, Optimize, Crop), `image/*` for Attach Image (drop too), the
+  site's `max_file_size` read on every opening (a file of that size or more is skipped); uploads carry `fieldname` and
+  `folder` "Home"; "Clear" asks, then (in a form) removes the File with `remove_attach` and saves; "Reload File"; the image
+  preview is Desk's 150 px popover (hover and focus). New: `FrappeAttachHost` / `useAttachHost` / `attachSaveAction`
+  (the form an Attach control saves — `FrappeFormView` provides it), `useFrappeAttach`, `attachUploadOptions`,
+  `fileIdForUrl`, `MAX_FILE_SIZE_METHOD`, `ATTACH_FIELD_FOLDER`; `FrappeFormImage` (the form header image's Change →
+  Upload / Remove menu for users who can write, on saved documents, unless the image field is read-only);
+  `FrappeFormView` `attachHost?: boolean` (default true).
+- **Core (mid-batch)** — `AttachInput` + `parseAttachValue` (Desk's Attach button / attached-file row); `ImageCropper`
+  (`initialCropBox`, `clampCropBox`, `CropBox`; dependency-free, ratios 1:1 / 4:3 / 16:9 / Free, keyboard); `CameraCapture`
+  (`cameraSupported`, `captureFileName`, `dataUrlToFile`). `AttachDialog` (additive): `onUpload(file, isPrivate,
+  { optimize })`, `allowOptimize` (default false; per image on above 200 KB, never SVG), `allowCrop`, `cropAspectRatio`,
+  `allowCamera`, thumbnails, the public-file warning, the drop zone hides once `maxFiles` files are listed.
+- `createFrappeClient().uploadFile`: `UploadFileOptions.optimize` / `maxWidth` / `maxHeight` → multipart `optimize`,
+  `max_width`, `max_height` (handler.py:229-235). `UploadAttachmentVars.optimize` (`useFormSidebarActions`).
 - Additive props: `TagInput` `exclude`, `autoFocus`; `AssigneeGroup` `hideHeading`, `onComplete`, `canComplete`;
   `AssignDialog` `defaultDetails`.
 - **Messages** (en + ar): `listBulkCannotSubmit` "Cannot submit {names}.", `listBulkCannotCancel` "Cannot cancel {names}.",
-  and the search / sidebar / social chrome strings (`src/theme/messages-ws/{search,sidebar,social}.ts`).
+  the search / sidebar / social chrome strings (`src/theme/messages-ws/{search,sidebar,social}.ts`), and the Attach strings
+  `formAttachReload`, `formAttachErrors`, `formAttachPreview`, `formImageChange` / `formImageUpload` / `formImageRemove` and
+  the uploader's `formUp*` keys (`messages-ws/form.ts`).
 - **Simulator (`@solvfast/ui/frappe/testing`, SIMULATED)** — built-in handlers for `frappe.utils.global_search.search`
   (DocType-level read filter, Global Search Settings order), `upload_file` (JSON `library_file_name` / `file_url`),
   `frappe.desk.form.utils.remove_attach`, `tag.add_tag` / `remove_tag` / `get_tags`,
   `frappe.core.api.file.get_files_by_search_text`, `frappe.share.get_users` / `add` / `set_permission`,
   `update_comment_publicity`, and an `add_comment` that records Mention notifications. New exports: `withSimulatedSidebar`
   (docinfo attachments / tags + attachment uploads), `bulkUpdateHandler` (opt-in: the form path + submitted back links),
-  `bulkDemoBackend`.
+  `bulkDemoBackend`. Mid-batch: `frappe.core.api.file.get_max_file_size` (System Settings → conf → 25 MiB, core/api/file.py:86-91)
+  and a `savedocs` that relinks Files uploaded against a `new-…` name (relink_mismatched_files, file/utils.py:377-419).
 
 ### Changed (behaviour visible to 0.7.0-dev.2 consumers)
 1. **Bulk Submit / Cancel failure wording** (`FrappeBulkActions`, List and Report views): the outcome line now adds Desk's
@@ -79,12 +100,39 @@ validation:** every new server path is simulator-only. Index: `docs/audit/p36b/R
    - `get_docinfo` / getdoc docinfo `comments` carry `published` (load.py:158).
    - `add_comment` (social handler) truncates the parent's `_comments` entries at 100 characters (comment.py:130-131) and
      writes Mention Notification Log rows.
+   - Mid-batch: `savedocs` re-attaches `new-…` Files of Attach / Attach Image fields to the inserted name (created in the
+     last 60 minutes, same `file_url` and field); the upload stub records `optimize`.
+6. **`FrappeFormView` saves after an Attach upload or Clear (mid-batch attachimage).** It now provides `FrappeAttachHost`,
+   so an Attach / Attach Image field inside it saves the form after an upload or a Clear, as Desk's `frm.save()`
+   (attach.js:45, 141) — "Update" on a submitted document (an `allow_on_submit` field). Pass `attachHost={false}` for the
+   old value-only behaviour; `FrappeQuickEntry` passes it (Desk's quick-entry controls have no `frm`). A bare `FrappeField`
+   outside a host still only sets / clears the value.
+7. **Attach / Attach Image field behaviour** (`FrappeAttachField`, mid-batch): "Attach" opens the uploader dialog instead of
+   the OS file picker; an unsaved document's upload is attached to its `new-…` name (was unattached; Frappe relinks it on
+   insert); "Clear" asks for confirmation and, in a form, deletes the File via `remove_attach` (the File was kept); the link
+   text is the stored URL (was the file name); the Attach Image thumbnail is now a hover / focus preview; the uploader
+   rejects non-images for Attach Image and files ≥ the site's `max_file_size`.
+8. **Form Sidebar uploader offers Optimize** (integrator `2dd3c6e`): Desk's sidebar keeps FileUploader's
+   `allow_toggle_optimize` default (FileUploader.vue:305-307; attachments.js:249-258), so `FrappeAttachments` passes
+   `allowOptimize` and forwards `optimize` to `upload_file` (on by default for images above 200 KB). Thumbnails, the
+   public-file warning, Crop and Camera come with the shared `AttachDialog`.
+9. **Design-system label Workflow → Lifecycle (mid-batch lifecycle).** `listBulkWorkflow` "Workflow" → **"Lifecycle"**
+   (ar "سير العمل" → **"دورة الحياة"**; the opt-in `selectionMode="bar"` menu button) and `listBulkWorkflowNone` → "No
+   lifecycle action applies to all the selected documents" (ar "لا يوجد إجراء في دورة الحياة ينطبق على كل المستندات
+   المحددة"; the disabled item in the Actions menu). Consumers that do not override these keys see the new text; apps that
+   override them (the CRM does, `CrmAppLayout.tsx:173-176`) see no change. Message keys, component / hook / prop names,
+   test ids (`sf-bulk-workflow`), Frappe methods, fields, DocTypes and server-sent text are unchanged; Showcase and docs
+   follow. Guard test `P36B.lifecycle.1` (no en / ar message value says Workflow).
 
 ### Fixed
 - Simulator: bulk Submit of a submitted document succeeded; bulk calls had no 20 / 500 thresholds and an unknown name was
   reported as a per-document failure instead of failing the request (Changed 5).
 - Simulator: `tag.add_tags` accepted a user without write.
 - Simulator: docinfo comments lacked `published`, so the "Published" marker never showed.
+- Attach / Attach Image (mid-batch; Desk mismatches of the previous control): an upload on an unsaved document went out unattached (no
+  doctype / docname / fieldname, so Frappe could not relink it on insert); Clear left the File on the server and did not
+  save; the site's `max_file_size` and Attach Image's `image/*` restriction were not enforced before the request (only the
+  OS picker's `accept`).
 
 ### Deviations from Desk (each deliberate; details in `docs/audit/p36b/README.md` §4)
 - **LinkInput picker mode** opens on click / Enter on a filled box (Desk's Link never does, link.js:35-41) and marks the
@@ -97,24 +145,42 @@ validation:** every new server path is simulator-only. Index: `docs/audit/p36b/R
   ↑/↓/Enter navigation; "New X" goes to `/app/<slug>/new` (Desk may open Quick Entry); result links are the canonical
   `/app/<slug>/<name>`.
 - **Form Sidebar:** assignees listed one per row with Done / × (Desk: avatar stack + "Assignments" dialog); no "Assign To
-  User Group"; no upload percentage, Camera, Google Drive, crop / optimize; Library is a text search (no folder tree);
+  User Group"; no upload percentage or Google Drive (Camera, Crop and Optimize arrived mid-batch); Library is a text
+  search (no folder tree);
   empty-section texts; a refused tag pill is removed with the server message (Desk keeps it); not hidden on phones (Desk
-  `hidden-xs hidden-sm`); not reproduced: sidebar image, Follow, Reviews, auto-repeat, page views; the comment list is in
+  `hidden-xs hidden-sm`); not reproduced: sidebar image (the image menu is in the form header), Follow, Reviews,
+  auto-repeat, page views; the comment list is in
   the sidebar slot (Desk: form footer). Attach "+" and Tags add / remove are offered to every reader as in Desk (the
   server refuses: handler.py:220-221, tag.py:152); removing an attachment still needs write (attachments.js:161).
 - **Share / Like / Comments:** full name + id in share rows; an "Everyone" pill; a read-only hint naming the reason;
   `disable_document_sharing` is a prop (`sharingDisabled`); a saving share row is disabled until the answer; the liked-by
   list opens from the count button (Desk: hover only); comment edit is not optimistic (Desk shows the new text first);
   Delete / Publish are icon buttons with Desk's confirmations; the count focuses the comment box.
+- **Attach / Attach Image:** no Google Drive / app upload handlers, no upload percentage (`fetch`); the cropper is
+  dependency-free (no cropperjs; no rotate / zoom — Desk disables zoom too); Camera uses `getUserMedia` first on every
+  device (Desk: the `capture` input on phones; the package falls back to it) and ignores
+  `force_web_capture_mode_for_uploads`; the preview also opens on focus; Reload File re-sends this session's last local
+  file; the image menu is in the form header and its Remove saves with the form's default action ("Update" when
+  submitted; Desk: "Save"); `df.options` is not merged into the uploader options; the Clear lookup also uses Files this
+  control uploaded (Desk pushes the new File into docinfo). The simulator does not run `optimize_image`.
+- **Lifecycle:** Desk says "Workflow"; the design system says "Lifecycle" (owner wording) in its own chrome only — Desk
+  shows no group label for workflow items in the Actions menu, so the label appears only in the opt-in bar button and the
+  "none applies" item.
 
 ### Validation status
 - **No real-site validation.** No Frappe site was contacted, seeded, read or written in batch 2. Evidence is jsdom + the
-  in-package simulator: `tests/bulk-p36b.test.tsx` (21), `tests/form-sidebar-p36b.test.tsx` (22),
-  `tests/social-p36b.test.tsx` (22), `tests/global-search-p36b.test.tsx` (15), `tests/linkinput-p36b.test.tsx` (13).
-- Real-site validation stays **prepared, not run**: the catalogue gained 11 batch-2 tests (now **86**: 73 API, 7 browser,
-  6 manual) — `docs/audit/p36/VALIDATION-MATRIX.md` §5 (L-BULK-5, V-REPORT-2, F-SB-ASSIGN-1, F-SB-ATTACH-1, F-SB-ATTACH-2,
-  F-SB-TAGS-1, S-SHARE-1, F-SB-LIKE-1, F-SB-COMMENT-1, S-GSEARCH-1, S-GSEARCH-2). Every real-site result is BLOCKED.
-- Integration gates at this docs commit: `npx vitest run` — 79 files, 1585 passed, 10 todo, 0 failed (0.7.0-dev.2 batch 2 before the merges: 74 files, 1492); `node e2e/frappe-site/matrix/render.mjs
+  in-package simulator: `tests/bulk-p36b.test.tsx` (21), `tests/form-sidebar-p36b.test.tsx` (23, incl. `.23` Optimize),
+  `tests/social-p36b.test.tsx` (22), `tests/global-search-p36b.test.tsx` (15), `tests/linkinput-p36b.test.tsx` (13),
+  `tests/attach-image-p36b.test.tsx` (37), `tests/attach.test.tsx` (6, adapted), `tests/lifecycle-p36b.test.ts` (1).
+- Coverage of the fixed list is unchanged (**258 / 301**): FV.A20 / FV.A21 stay COMPLETE with new evidence; FV.G10 stays
+  PARTIAL (the row test mounts `FrappeField` with `parent`, not `FrappeChildTable`) — `docs/audit/p35/COVERAGE.md` §9.
+- Real-site validation stays **prepared, not run**: the catalogue gained 16 batch-2 tests (now **91**: 77 API, 7 browser,
+  7 manual) — `docs/audit/p36/VALIDATION-MATRIX.md` §5 (L-BULK-5, V-REPORT-2, F-SB-ASSIGN-1, F-SB-ATTACH-1, F-SB-ATTACH-2,
+  F-SB-TAGS-1, S-SHARE-1, F-SB-LIKE-1, F-SB-COMMENT-1, S-GSEARCH-1, S-GSEARCH-2; mid-batch F-ATTIMG-1 Optimize (manual),
+  F-ATTIMG-2 Clear, F-ATTIMG-3 new-document relink, F-ATTIMG-4 `max_file_size`, F-ATTIMG-5 private default). Every
+  real-site result is BLOCKED.
+- Integration gates at this docs commit: `npx vitest run` — 81 files, 1624 passed, 10 todo, 0 failed (first batch-2 docs
+  commit: 79 files, 1585; 0.7.0-dev.2 batch 2 before the merges: 74 files, 1492); `node e2e/frappe-site/matrix/render.mjs
   --check` current; `tests/frappe-site-guards.test.ts` 23 passed. Integrator gates (typecheck, boundaries, build, CRM
   regression): `docs/audit/p36b/README.md` "Integrator gate results".
 

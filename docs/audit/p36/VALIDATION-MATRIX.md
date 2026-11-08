@@ -49,7 +49,7 @@ Frappe behaviour is cited from Frappe 15.110.0, apps/frappe commit ab7e5ae (sour
 | MISSING | 6 | 4 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 5 | 0 |
 
-Catalogue: **86 tests** — 73 API (run by `run-matrix.mjs`; 19 read, 54 write / server-rejection needing `--write`), 7 browser (`--browser`, harness), 6 manual (infrastructure).
+Catalogue: **91 tests** — 77 API (run by `run-matrix.mjs`; 19 read, 58 write / server-rejection needing `--write`), 7 browser (`--browser`, harness), 7 manual (infrastructure).
 
 ## 3. P36 areas → tests
 
@@ -155,8 +155,8 @@ Catalogue: **86 tests** — 73 API (run by `run-matrix.mjs`; 19 read, 54 write /
 | FV.A17 | HTML Editor | PARTIAL | unit | (a) | — | — (not in real-site scope) |  |
 | FV.A18 | Code | PARTIAL | unit | (a) | — | — (not in real-site scope) |  |
 | FV.A19 | Password | COMPLETE | unit | (a) | F-META-1 | BLOCKED (not run) |  |
-| FV.A20 | Attach | COMPLETE | simulator | (c) W | F-ATT-1 | BLOCKED (not run) |  |
-| FV.A21 | Attach Image | COMPLETE | simulator | (c) W | F-ATT-1 | BLOCKED (not run) |  |
+| FV.A20 | Attach | COMPLETE | simulator | (c) W | F-ATT-1, F-ATTIMG-2, F-ATTIMG-3, F-ATTIMG-4, F-ATTIMG-5 | BLOCKED (not run) |  |
+| FV.A21 | Attach Image | COMPLETE | simulator | (c) W | F-ATT-1, F-ATTIMG-1, F-ATTIMG-2, F-ATTIMG-3, F-ATTIMG-4, F-ATTIMG-5 | BLOCKED (not run) |  |
 | FV.A22 | Read Only | COMPLETE | simulator (+real meta), unit | (b) | F-META-1 | BLOCKED (not run) |  |
 | FV.A23 | Table | COMPLETE | simulator (+real meta); recorded-real (render) | (b) | F-META-1, F-CHILD-1 | BLOCKED (not run) |  |
 | FV.A24 | Table MultiSelect | COMPLETE | simulator | (b) | F-META-1 | BLOCKED (not run) |  |
@@ -263,7 +263,7 @@ Catalogue: **86 tests** — 73 API (run by `run-matrix.mjs`; 19 read, 54 write /
 | FV.G7 | Child validation & reqd | COMPLETE | simulator, unit | (c) W | F-CHILD-2 | BLOCKED (not run) |  |
 | FV.G8 | Child permissions | COMPLETE | simulator | (b) | S-API-3 | BLOCKED (not run) |  |
 | FV.G9 | Upload / download (grid CSV) | MISSING | — | (a) | — | — (not in real-site scope) | MISSING — nothing to validate until implemented |
-| FV.G10 | Attachments in rows | PARTIAL | — | (c) W | F-ATT-1 | BLOCKED (not run) | PARTIAL: untested in the package |
+| FV.G10 | Attachments in rows | PARTIAL | (P36b) simulator | (c) W | F-ATT-1 | BLOCKED (not run) | PARTIAL: row context tested at FrappeField level only (P36b); SFUI Test Child has no Attach field |
 | FV.G11 | Dirty state | COMPLETE | unit, simulator | (b) | F-CHILD-1, F-DIRTY-1 | BLOCKED (not run) |  |
 | FV.G12 | Parent-child save | COMPLETE | simulator | (c) W | F-CHILD-1 | BLOCKED (not run) |  |
 | FV.G13 | Grid flags | COMPLETE | simulator | (b) | — | — (not in real-site scope) |  |
@@ -952,6 +952,61 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Expected Frappe behaviour:** draft: removed (200); submitted: 417 'This file is attached to a protected document and cannot be deleted.' (title 'Protected File'); cancelled: writer 417, manager 200 (delete permission on the document). Desk hides × in the same cases (attachments.js:161-174)
 - **Frappe source:** core/doctype/file/file.py:510-538 validate_protected_file; core/doctype/file/file.py:183-190 on_trash; public/js/frappe/form/sidebar/attachments.js:161-174 can_delete_attachment (Desk UI)
 - **Evidence to capture:** the meta flag, statuses / exc_type per case
+
+#### F-ATTIMG-1 — P36b — Attach Image upload with Optimize (server optimize_image)
+
+- **Kind / automation:** infra · manual — needs a multipart upload of a real image with the `optimize` field — run-matrix.mjs's upload helper sends only a text/plain part with doctype / docname / is_private (run-matrix.mjs:132-137); use the package Showcase or a harness page pointed at staging, Desk itself, or extend the helper
+- **Rows:** FV.A21
+- **User / role:** writer, manager
+- **Preconditions:** a fresh draft SFUI Test Parent P by writer; a JPEG of > 200 KB and about 2000 × 1500 px, and an SVG
+- **Steps:** (1) writer: upload_file multipart {file: the large JPEG, is_private 1, folder 'Home', doctype 'SFUI Test Parent', docname P, fieldname 'attach_image', optimize 'true'} — what FrappeAttachField sends with the row's Optimize on (the default above 200 KB) (2) writer: the same JPEG without `optimize` (3) writer: the SVG with `optimize` (4) writer: savedocs P with attach_image = the first file_url (5) manager: frappe.client.get_value File (file_size, attached_to_field) for the three Files; download them and read the image dimensions
+- **Expected Frappe behaviour:** all 200; the optimized JPEG is smaller (file_size) and fits min(1024, 0.8 × width) × min(768, 0.8 × height), never below 200 px, same format, quality 85; the copy without `optimize` keeps the original bytes; the SVG is stored unchanged; attached_to_field = 'attach_image'. Any non-empty `optimize` value is truthy on the server — the package sends the field only when the switch is on (as Desk)
+- **Frappe source:** handler.py:205 (optimize read), :223-235 (optimize_image only for an image/* file part; max_width / max_height :231-234); utils/image.py:45-72 optimize_image (SVG returned as is :46-47; bounds :53-54; quality 85 :45; kept only if smaller :69); public/js/frappe/file_uploader/FileUploader.vue:428-434 (default on above 200 KB, never SVG), :693-695 (multipart optimize); handler.py:251-263 File insert (attached_to_field = fieldname :256)
+- **Evidence to capture:** statuses, file_size and image dimensions before / after (images not stored in the results)
+
+#### F-ATTIMG-2 — P36b — Attach Clear: remove_attach, then save the emptied field
+
+- **Kind / automation:** write · api
+- **Rows:** FV.A20, FV.A21
+- **User / role:** writer, reader, manager
+- **Preconditions:** a fresh draft SFUI Test Parent P by writer
+- **Steps:** (1) writer: upload_file (multipart, is_private 1) to P (2) writer: savedocs Save of P with attach = the File's file_url (what the package does after an upload, attach.js:137-144) (3) manager: getdoc P → docinfo.attachments (the package finds the File id by file_url, attachments.js:199-207) (4) reader: remove_attach {fid, dt, dn} (POST) (5) writer: remove_attach {fid, dt, dn} (POST) (6) writer: savedocs Save of the returned P with attach = null (attach.js:36-46) (7) manager: getdoc P
+- **Expected Frappe behaviour:** upload 200; save 200 with attach = file_url; docinfo.attachments has a row with that file_url and the File's name; reader remove → 403 (File has_permission delete: owner or write on the document); writer remove → 200; save 200 with attach empty; docinfo.attachments no longer lists the File and an 'Attachment Removed' comment exists
+- **Frappe source:** public/js/frappe/form/controls/attach.js:36-55 (Clear → remove_attachment_by_filename → save), :137-144 (save after upload); public/js/frappe/form/sidebar/attachments.js:199-236 remove_attachment_by_filename / remove_attach; desk/form/utils.py:19-23 remove_attach; core/doctype/file/file.py:183-190 on_trash ('Attachment Removed'), :872-911 has_permission; desk/form/load.py:124 docinfo.attachments
+- **Evidence to capture:** statuses / exc_type, the attach value after each save, docinfo.attachments before / after
+
+#### F-ATTIMG-3 — P36b — upload on a new document (new-… name) and the relink on savedocs
+
+- **Kind / automation:** write · api
+- **Rows:** FV.A20, FV.A21
+- **User / role:** writer, reader
+- **Preconditions:** none (the test names its own unsaved document new-sfui-test-parent-…)
+- **Steps:** (1) writer: upload_file JSON {doctype 'SFUI Test Parent', docname N = 'new-sfui-test-parent-<random>', fieldname 'attach_image', file_url U (unique https URL), is_private 0, folder 'Home'} — FrappeAttachField's request for an unsaved document (Link source; a file part is the same for the server) (2) writer: the same with no fieldname and another URL U2 (a File not owned by an Attach field) (3) reader: upload_file JSON with docname 'new-sfui-test-parent-<other>' (4) writer: savedocs Save {doctype, name N, __islocal 1, attach_image U, …} (5) writer: frappe.client.get_value File (attached_to_name, attached_to_field) for both Files
+- **Expected Frappe behaviour:** writer uploads 200 (check_write_permission: a missing document → write on a new doc of the DocType); reader → 403; savedocs 200 → name P; the attach_image File now has attached_to_name = P (relinked: same file_url, attached_to_field, created in the last 60 min); the File without fieldname stays on N (orphan) — relinking covers Attach / Attach Image fields only
+- **Frappe source:** handler.py:266-282 check_write_permission (new_doc(doctype).check_permission('write') :279); handler.py:251-263 File insert (attached_to_name = the new-… name, attached_to_field :256); desk/form/save.py:20-22 savedocs keeps __temporary_name for 'new-<doctype slug>'; model/document.py:333 relink_mismatched_files on insert; core/doctype/file/utils.py:377-419 relink_files (60-minute window :395) / relink_mismatched_files; public/js/frappe/form/controls/attach.js:80-87 (doctype / docname / fieldname from frm, also for a new doc)
+- **Evidence to capture:** statuses / exc_type, attached_to_name of both Files before / after the insert
+
+#### F-ATTIMG-4 — P36b — max_file_size: the site's limit and the refusal of a larger upload
+
+- **Kind / automation:** reject · api
+- **Rows:** FV.A20, FV.A21
+- **User / role:** writer, manager
+- **Preconditions:** a fresh draft SFUI Test Parent P by writer; the site's limit must be ≤ 30 MiB (else BLOCKED: the runner will not send more)
+- **Steps:** (1) writer: GET frappe.core.api.file.get_max_file_size (the package asks on every uploader opening, as FileUploader.vue:352-356) (2) writer: upload_file (multipart) of limit + 1 bytes to P (3) writer: upload_file of 1 KiB to P (control) (4) manager: getdoc P → docinfo.attachments
+- **Expected Frappe behaviour:** get_max_file_size = System Settings max_file_size (MB) × 1048576, else site_config max_file_size, else 25 MiB; the larger upload → 413 (Werkzeug: request.max_content_length = get_max_file_size() for /api/method/upload_file, so the body is refused before the handler; a front proxy with a smaller client_max_body_size also answers 413 — recorded) and no File is created; File.check_max_file_size (417 MaxFileSizeReachedError) is the second line, reached only when the body fits; the 1 KiB upload → 200. The package, like Desk, skips a file of size ≥ limit client-side (`size < max`) and never sends it
+- **Frappe source:** core/api/file.py:85-91 get_max_file_size; app.py:197-200 request.max_content_length for upload_file; core/doctype/file/file.py:711, 757-767 check_max_file_size (MaxFileSizeReachedError, a ValidationError → 417); public/js/frappe/file_uploader/FileUploader.vue:352-356, 491-492 (client check size < max_file_size), :619-653 (413 message)
+- **Evidence to capture:** the limit (bytes), statuses / exc_type / content type of the refusal, docinfo.attachments count
+
+#### F-ATTIMG-5 — P36b — private by default: is_private as sent, make_attachments_public
+
+- **Kind / automation:** write · api
+- **Rows:** FV.A20, FV.A21
+- **User / role:** manager, writer
+- **Preconditions:** a fresh draft SFUI Test Parent P by writer
+- **Steps:** (1) manager: getdoctype SFUI Test Parent → make_attachments_public (the package's default switch = private unless the DocType or the field's make_attachment_public says public) (2) writer: upload_file (multipart) to P with is_private 1 (the default the package sends) (3) writer: upload_file to P with is_private 0 (switch turned off)
+- **Expected Frappe behaviour:** make_attachments_public is 0 / unset on SFUI Test Parent (so the package starts each file private); is_private 1 → File.is_private 1 and file_url under /private/files/; is_private 0 → is_private 0 and /files/. The server stores `cint(is_private)`: a client that omits the field gets a PUBLIC file — the private default is the client's job (Desk: `private = !make_attachments_public`)
+- **Frappe source:** public/js/frappe/form/controls/attach.js:84-86 (make_attachments_public from the field or the DocType); public/js/frappe/file_uploader/FileUploader.vue:443 (private: !make_attachments_public); handler.py:197, 260 (is_private = cint(form_dict.is_private)); core/doctype/file/file.py:811-813 set_is_private (from a /private file_url)
+- **Evidence to capture:** the meta flag, is_private and the file_url prefix of both Files
 
 #### F-SB-TAGS-1 — P36b — Form Sidebar Tags: add_tag / remove_tag / get_tags; write refusal rolls back
 

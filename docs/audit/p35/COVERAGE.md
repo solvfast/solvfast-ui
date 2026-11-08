@@ -19,9 +19,10 @@ responses replayed in `tests/real/sada-real.test.tsx` (read paths) and the real 
 > this file's Requirement / Now / Evidence-level columns (`node e2e/frappe-site/matrix/render.mjs --check`). Still no row
 > has `real-site` evidence.
 
-> **P36b update (0.7.0-dev.3).** Denominator (301), row ids, the status rule, every status and every evidence level are
-> unchanged (**258 / 301**). Batch 2 edited only the Location, Test evidence, Showcase and Known limitations cells of 6
-> rows (LV.F8, LV.F9, LV.F12, LV.F14, LV.F18, LV.H1) — §9. The batch-2 features that have no row in the fixed list (Form
+> **P36b update (0.7.0-dev.3).** Denominator (301), row ids, the status rule and every status are unchanged
+> (**258 / 301**). Batch 2 edited only the Layer, Location, Test evidence, Showcase and Known limitations cells of 9 rows
+> (LV.F8, LV.F9, LV.F12, LV.F14, LV.F18, LV.H1; mid-batch FV.A20, FV.A21, FV.G10) and FV.G10's evidence level ("—" →
+> simulator; it stays PARTIAL) — §9. The batch-2 features that have no row in the fixed list (Form
 > Sidebar, Share / Like / Comments, Global Search, LinkInput picker mode) are recorded **outside the denominator** in §10.
 > All batch-2 evidence is jsdom / simulator; no site was contacted.
 
@@ -172,8 +173,8 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.A17 | HTML Editor | PARTIAL | PARTIAL | both | `FF` monospace textarea | fft (same) | — | unit | no preview, no syntax highlighting |
 | FV.A18 | Code | PARTIAL | PARTIAL | both | `FF` monospace textarea `dir=ltr` | fft (same) | — | unit | no syntax editor |
 | FV.A19 | Password | PARTIAL | **COMPLETE** | both | `FF` `type=password`; skipped on copy | fft "FV.A19 Password renders type=password…"; ff "copy_doc / amend_doc" | — | unit | — |
-| FV.A20 | Attach | COMPLETE | COMPLETE | Frappe | `FrappeAttachField.tsx` | att (6) | — | simulator | no library/link/camera source; Clear does not delete the File; `max_attachments` not enforced client-side |
-| FV.A21 | Attach Image | COMPLETE | COMPLETE | Frappe | `FrappeAttachField.tsx` (`accept="image/*"`) | att (Attach Image variants) | `#frappe-forms` contact | simulator | as A20 |
+| FV.A20 | Attach | COMPLETE | COMPLETE | Frappe (+Core `AttachInput`, `AttachDialog`) | `FrappeAttachField.tsx`; (P36b) `attachHost.tsx` (`FFV` is the host) | att (6, adapted in P36b); (P36b) aim P36B.attachimage.1–37 (one control serves both types; .17 asserts Attach has no image preview) | (P36b) `#p36b-attachimage` | simulator | (P36b) Desk's control (attach.js): uploader My Device / Library / Link / Camera, Private + public warning, Optimize, Crop; Clear → confirm → `remove_attach` → save; `FrappeFormView` saves after an upload / Clear ("Update" when submitted; `attachHost={false}` and Quick Entry opt out). Not reproduced: Google Drive / app upload handlers, upload percentage, `df.options` merge. `max_attachments` is not pre-checked (Desk's control passes no `frm` either, file_uploader.bundle.js:31; the server refuses, file.py:333-357). Simulator-only: `optimize_image` output, the site's `max_file_size`, the relink on a real savedocs |
+| FV.A21 | Attach Image | COMPLETE | COMPLETE | Frappe (+Core `AttachInput`, `AttachDialog`, `ImageCropper`, `CameraCapture`) | `FrappeAttachField.tsx` (`image/*`); (P36b) `FrappeFormImage.tsx` (header image Change menu) | att (Attach Image variants); (P36b) aim P36B.attachimage.1–37 (incl. .3 non-image skipped, .4 `max_file_size`, .17 preview, .21–.24 Change → Upload / Remove, .32 SVG, .35 Crop, .36 Camera) | `#frappe-forms` contact; (P36b) `#p36b-attachimage` | simulator | as A20; (P36b) preview = Desk's 150 px popover on hover **and focus**; Crop has no rotate / zoom (no cropperjs); Camera uses `getUserMedia` first (Desk: the `capture` input on phones); the image menu is in the form header (no sidebar image block). Camera on real devices is unverified |
 | FV.A22 | Read Only | COMPLETE | COMPLETE | both | `m/status.ts`, `FF` read display | ff "searches search_link … pick validates and fetches"; fft "FV.A22 Read Only shows the formatted value, never an input" | `#frappe-forms` todo | simulator (+real meta), unit | — |
 | FV.A23 | Table | COMPLETE | COMPLETE | Frappe | `FF` → `FCT` | ff "Contact: Add Row…"; sr "FrappeForm renders the real Sada Lifecycle … child-table rows" | `#frappe-forms` contact | simulator (+real meta); recorded-real (render) | see §G |
 | FV.A24 | Table MultiSelect | COMPLETE | COMPLETE | Frappe | `FrappeTableMultiSelect.tsx` | ff "adds rows for picked values…" | `#frappe-forms` travel | simulator | standalone test only; `<table>_add` not fired (Desk parity) |
@@ -280,7 +281,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.G7 | Child validation & reqd | COMPLETE | COMPLETE | Frappe | `m/mandatory.ts` | ff Contact "…Email ID is required in every row."; pmd child block | — | simulator, unit | — |
 | FV.G8 | Child permissions | COMPLETE | COMPLETE | Frappe | `FCT`, `FFV` | rff R1-F8; ff R1-F15; p27 "child table is read-only…" | `#frappe-permissions` | simulator | — |
 | FV.G9 | Upload / download (grid CSV) | MISSING | MISSING | — | — | none | — | — | Desk grid Download / Upload absent |
-| FV.G10 | Attachments in rows | PARTIAL | PARTIAL | Frappe | `FF` (attaches to the parent) | none in a row context | — | — | untested |
+| FV.G10 | Attachments in rows | PARTIAL | PARTIAL | Frappe | `FF` (attaches to the parent; (P36b) and saves the parent through the host) | (P36b) aim P36B.attachimage.16 (`FrappeField` with `doc` = row, `parent` = form doc: `upload_file` doctype / docname of the parent, `fieldname` = the row field; savedocs) | — | (P36b) simulator | (P36b) the test mounts `FrappeField` as `FCT` does (FrappeChildTable.tsx:154, 209) but not through `FCT` itself (grid cell or row form) — stays PARTIAL |
 | FV.G11 | Dirty state | COMPLETE | COMPLETE | Frappe | `m/docStore.ts` | ffm "set_value: … dirty flag…" | — | unit, simulator | — |
 | FV.G12 | Parent-child save | COMPLETE | COMPLETE | Frappe | savedocs; `m/docStore.ts` | ff Contact "…the row is saved"; ffm "replace() drops __unsaved…" | — | simulator | — |
 | FV.G13 | Grid flags | PARTIAL | **COMPLETE** | Frappe | `FCT` | ffp "FV.G13 grid flags from the meta: cannot_add_rows / cannot_delete_rows hide their controls; static_rows…" | — | simulator | — |
@@ -602,8 +603,8 @@ come on top.
 
 | Row | Requirement | Since | Server method(s) | Evidence level | What the simulator / test does not prove |
 |---|---|---|---|---|---|
-| FV.A20 | Attach | baseline | `upload_file` | simulator | size limits, `max_attachments`, private/public File rules |
-| FV.A21 | Attach Image | baseline | `upload_file` | simulator | as A20; image handling |
+| FV.A20 | Attach | baseline | `upload_file`; (P36b) `frappe.core.api.file.get_max_file_size`, `frappe.desk.form.utils.remove_attach`, then `savedocs` | simulator | size limits (the site's `max_file_size`; a larger body is refused with 413, app.py:197-200), `max_attachments`, private/public File rules; (P36b) the new-… relink on a real savedocs (save.py:20-22, file/utils.py:377-419), `remove_attach` with the File delete right / `protect_attached_files` |
+| FV.A21 | Attach Image | baseline | `upload_file` | simulator | as A20; image handling — (P36b) `optimize=true` → `optimize_image` (utils/image.py:45-72) is not simulated (bytes are not stored) |
 | FV.A43 | Validation & error messages (server errors on fields) | P35 | `savedocs` → MandatoryError / LinkValidationError | simulator (MandatoryError body shaped in the test), unit | the MandatoryError body is shaped in the test (document.py:963, base_document.py:758); message wording on translated sites |
 | FV.D9 | Server authoritative | baseline | server refusals (simulated permission engine) | simulator | real DocPerm / User Permission / sharing evaluation |
 | FV.F6 | Create new linked doc | P35 | `savedocs` (Quick Entry insert) | simulator (+real metas) | naming, server validation, Desk uses `frappe.client.save` |
@@ -715,7 +716,7 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
   A41 placeholders on non-Data controls · A42 required mark untested at FrappeField level · B4 `collapsible_depends_on`
   not recomputed on change · B7 no real-viewport e2e · C5 workflow-state mandatory expression untested · D4 create-only /
   write-only roles on a new doc untested · D8 search_link User Permission filtering is server-side and unverified · G10 attach in a row
-  untested · J8 naming-series preview · L3 `download_pdf` not simulated.
+  tested at `FrappeField` level only (P36b), not through the grid · J8 naming-series preview · L3 `download_pdf` not simulated.
 - **List:** LV.B3 Date In / Not In · D11 sidebar "Edit" modal · E12 relative modified time · H1 Report (no `save_report`,
   aggregates, charts, multi-sort; child-cell edit added in P36) · H3 Calendar (month only) · I5 "Load more" only when grouped.
 
@@ -799,13 +800,15 @@ since been corrected and now states the `"header"` default.
 
 ## 9. P36b changes (0.7.0-dev.3)
 
-**No status, denominator, evidence level or requirement text changed** — totals in §2 stand (258 / 301); §5 still lists the
-same 62 rows. Batch 2 (P36b) edited the Location, Test evidence, Showcase and Known limitations cells of the rows below, each
-marked "(P36b)" in place. Every new test is jsdom / simulator evidence; none ran against a site. Index:
+**No status, denominator or requirement text changed** — totals in §2 stand (258 / 301); §5 still lists the same 62 rows
+(FV.A20 / FV.A21 were already in it; FV.G10 is PARTIAL and stays out). Batch 2 (P36b) edited the Layer, Location, Test
+evidence, Showcase and Known limitations cells of the rows below, each marked "(P36b)" in place; the only evidence-level
+change is FV.G10 ("—" → simulator, status unchanged). Every new test is jsdom / simulator evidence; none ran against a site. Index:
 `docs/audit/p36b/README.md`.
 
 Test-file abbreviations (P36b): `bk` tests/bulk-p36b.test.tsx · `fsb` tests/form-sidebar-p36b.test.tsx · `soc`
-tests/social-p36b.test.tsx · `gs` tests/global-search-p36b.test.tsx · `lip` tests/linkinput-p36b.test.tsx.
+tests/social-p36b.test.tsx · `gs` tests/global-search-p36b.test.tsx · `lip` tests/linkinput-p36b.test.tsx · `aim`
+tests/attach-image-p36b.test.tsx (mid-batch attachimage, 37 tests; `att` tests/attach.test.tsx was adapted, 6 tests).
 
 | Row | P36b change | Why | Evidence added |
 |---|---|---|---|
@@ -814,14 +817,21 @@ tests/social-p36b.test.tsx · `gs` tests/global-search-p36b.test.tsx · `lip` te
 | LV.F14 | location, tests, limitation | a document shown on several Report rows (one per child-table row) is sent **once** — a documented deviation (Desk sends one name per checked row, report_view.js:1339-1352) | bk P36B.bulk.11 |
 | LV.F18 | tests, limitation | Desk's failure sentence added to the outcome line (en + ar) | bk P36B.bulk.6, .13 |
 | LV.H1 | location, tests, showcase, limitation | `bulk` gives the Report view Desk's Actions menu; status stays **PARTIAL** (`save_report`, aggregates, charts, multi-sort) | bk P36B.bulk.1, .2, .11, .15 |
+| FV.A20, FV.A21 | layer, location, tests, showcase, limitation (status stays COMPLETE) | mid-batch **attachimage**: `FrappeAttachField` reproduces Desk's Attach / Attach Image control (attach.js, attach_image.js, FileUploader.vue) — uploader dialog (My Device / Library / Link / Camera), Private + public warning, Optimize, Crop, `max_file_size`, `fieldname` + `new-…` docname, save after upload / Clear (`FrappeAttachHost`, provided by `FrappeFormView`), Clear → `remove_attach`, Reload File, preview popover, header image Change menu (`FrappeFormImage`). The old limitations "no library / link / camera source" and "Clear does not delete the File" are gone; §5 cells name the new server paths | aim P36B.attachimage.1–37; att (6, adapted) |
+| FV.G10 | location, tests, evidence level, limitation (stays **PARTIAL**) | a row's Attach Image attaches to the PARENT with the row field's `fieldname` and the parent form is saved — but the test mounts `FrappeField` with `parent` (as `FCT` does at FrappeChildTable.tsx:154, 209), not `FCT`'s grid cell / row form, so the row-context sub-path through the grid is still untested | aim P36B.attachimage.16 |
 
 Not changed but related: LV.E5 (list like heart) — the sidebar's `FrappeSidebarLikes` uses the same `toggle_like` and is
-counted in §10, not here; FV.A20 / FV.A21 (Attach **fields**) — the sidebar's attachments use the same `upload_file` but
-are a different surface (§10). The default `LinkInput` (FV.A2, FV.F1–F9) is unchanged; its picker mode is opt-in (§10).
+counted in §10, not here. FV.A20 / FV.A21 (Attach **fields**) changed mid-batch (rows above); the sidebar's attachments use
+the same `upload_file` and, since the attachimage merge, the same `AttachDialog` (thumbnails, public warning, Crop, Camera,
+Optimize), but are a different surface (§10 P36b-4). The DS label change Workflow → Lifecycle (mid-batch **lifecycle**,
+two message values) touches no row: Desk shows no group label for the workflow items (list_view.js:1802-1826), the label
+appears only in the opt-in `selectionMode="bar"` button and the "none applies" item; LV.F11 is unchanged. The default `LinkInput` (FV.A2, FV.F1–F9) is unchanged; its picker mode is opt-in (§10).
 
 Real-site classification: the catalogue gained 11 P36b tests (`docs/audit/p36/VALIDATION-MATRIX.md` §5; L-BULK-5 and
-V-REPORT-2 attach to LV.F8 / LV.F9 / LV.F14 / LV.F18 / LV.H1, F-SB-LIKE-1 to LV.E5; the others have no COVERAGE row). No row
-changed category; the real-site result of every row is still BLOCKED (not run).
+V-REPORT-2 attach to LV.F8 / LV.F9 / LV.F14 / LV.F18 / LV.H1, F-SB-LIKE-1 to LV.E5; the others have no COVERAGE row) and,
+mid-batch, 5 Attach Image tests F-ATTIMG-1 … F-ATTIMG-5 on FV.A20 / FV.A21 (F-ATTIMG-1 `optimize` is manual — the
+runner's upload helper sends text only; FV.G10 keeps F-ATT-1: SFUI Test Child has no Attach field). No row changed category
+(FV.A20 / FV.A21 / FV.G10 stay (c) W); the real-site result of every row is still BLOCKED (not run).
 
 ## 10. P36b additions (outside the fixed denominator)
 
@@ -834,7 +844,7 @@ they are **not counted** in §2 (the denominator stays 301, coverage stays 258 /
 | P36b-1 | LinkInput picker mode (open on click when filled, check mark on the current value) | COMPLETE | Core | `LinkInput` `openOnClickWhenFilled`, `selectedIndicator`, `selectedValue`, `keepValueWhenEmptied`, `emptyText`, `searchPlaceholder` (opt-in; defaults unchanged) | lip P36B.linkinput.1–13 (incl. negative controls .10–.12 for the unchanged default) | `#p36b-linkinput` | unit | — (Core control, no server) | deliberate deviation from Desk's Link (link.js:35-41 never opens on a filled box); Space types instead of opening, arrows wrap, no Ctrl+N/P (owner judgement, `docs/audit/p36b/README.md`) |
 | P36b-2 | Form Sidebar (Desk's order: Assigned To, Attachments, Tags, Share, likes · comments, last edited / created) | COMPLETE | both | Core `FormSidebar`, `SidebarSection`; Frappe `FrappeFormSidebar` (Share / Likes / comment count / Comments by default) | fsb P36B.sidebar.1–5, .22 | `#frappe-form-sidebar` | simulator | — (render only; the parts below have API tests) | not hidden on phones (Desk: `hidden-xs hidden-sm`); no sidebar image, Follow, Reviews, auto-repeat, page views; `FrappeFormView` does not mount it — the host places it |
 | P36b-3 | Assign (sidebar) | COMPLETE | both | `FrappeAssignTo layout="sidebar"` (`allowComplete`, `bundle`), Core `AssigneeGroup` `onComplete` / `canComplete`, `AssignDialog defaultDetails` | fsb P36B.sidebar.6–8 | `#frappe-form-sidebar` | simulator | F-SB-ASSIGN-1 | one row per assignee with Done / × inline (Desk: avatar stack + "Assignments" dialog); no "Assign To User Group" |
-| P36b-4 | Attachments (sidebar): upload, Library, Link, remove, `max_attachments`, `protect_attached_files` | COMPLETE | both | Core `AttachmentList`, `AttachDialog`; Frappe `FrappeAttachments`, `useFormSidebarActions`, `attachments.ts` helpers | fsb P36B.sidebar.9–16, .20 | `#frappe-form-sidebar` | simulator | F-SB-ATTACH-1, F-SB-ATTACH-2 | "+" offered to every reader, as Desk (server refuses, handler.py:220-221); remove needs write (attachments.js:161-174); no upload percentage, Camera, Google Drive, crop / optimize; Library is a text search (no folder tree) |
+| P36b-4 | Attachments (sidebar): upload, Library, Link, remove, `max_attachments`, `protect_attached_files` | COMPLETE | both | Core `AttachmentList`, `AttachDialog`; Frappe `FrappeAttachments`, `useFormSidebarActions`, `attachments.ts` helpers | fsb P36B.sidebar.9–16, .20, .23 (Optimize offered and forwarded, mid-batch); the shared `AttachDialog` parts (thumbnails, public warning, Crop, Camera) are tested in aim P36B.attachimage.30–36 | `#frappe-form-sidebar` | simulator | F-SB-ATTACH-1, F-SB-ATTACH-2 | "+" offered to every reader, as Desk (server refuses, handler.py:220-221); remove needs write (attachments.js:161-174); no upload percentage, Google Drive; Library is a text search (no folder tree). Since the attachimage merge the dialog has thumbnails, the public warning, Crop and Camera, and Optimize (Desk's `allow_toggle_optimize` default, FileUploader.vue:305-307) |
 | P36b-5 | Tags (sidebar) | COMPLETE | both | Core `TagList`; Frappe `FrappeDocTags`; `tags.ts` (`docTags`, `sanitizeTag`) | fsb P36B.sidebar.17–19, .21; simp `tag.add_tags` (write via `update_tags`) | `#frappe-form-sidebar` | simulator | F-SB-TAGS-1 | add / remove offered to every reader, as Desk (tag.py:152 refuses); a refused pill is removed with the server message (Desk keeps it) |
 | P36b-6 | Share | COMPLETE | both | Core `ShareDialog`, `SharedAvatars`; Frappe `FrappeSidebarShare`, `share.ts` | soc P36B.social.1–11 | `#p36b-social` | simulator | S-SHARE-1 | full name + id in rows; "Everyone" pill; read-only hint with the reason; `disable_document_sharing` is a prop (`sharingDisabled`); a saving row is disabled until the answer |
 | P36b-7 | Like (sidebar) | COMPLETE | both | Core `LikedBy`; Frappe `FrappeSidebarLikes`, `like.ts` | soc P36B.social.12–15 | `#p36b-social` | simulator | F-SB-LIKE-1 | liked-by list opens from the count button (Desk: hover popover, none on touch); not optimistic, as Desk |

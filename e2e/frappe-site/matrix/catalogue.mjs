@@ -1078,6 +1078,110 @@ export const TESTS = [
       const rm = await remove("manager", fc, C0?.name);
       ctx.check("cancelled: manager (delete) removes → 200", is(rm, 200), 200, { status: rm.status, exc_type: rm.exc_type });
     } },
+  // P36b mid-batch attachimage — Desk's Attach / Attach Image control (FrappeAttachField). Simulator-only in the package;
+  // these confirm the server half. The runner's `upload` helper sends a text/plain part with doctype / docname / is_private
+  // only (run-matrix.mjs:132-137), so `fieldname` goes through the JSON form (`file_url`, app.py:302-314) and Optimize is manual.
+  { id: "F-ATTIMG-1", area: "Form", feature: "P36b — Attach Image upload with Optimize (server optimize_image)", kind: "infra", automated: "manual",
+    infra: "a multipart upload of a real image with the `optimize` field — run-matrix.mjs's upload helper sends only a text/plain part with doctype / docname / is_private (run-matrix.mjs:132-137); use the package Showcase or a harness page pointed at staging, Desk itself, or extend the helper",
+    users: ["writer", "manager"],
+    rows: ["FV.A21"],
+    pre: "a fresh draft SFUI Test Parent P by writer; a JPEG of > 200 KB and about 2000 × 1500 px, and an SVG", steps: ["writer: upload_file multipart {file: the large JPEG, is_private 1, folder 'Home', doctype 'SFUI Test Parent', docname P, fieldname 'attach_image', optimize 'true'} — what FrappeAttachField sends with the row's Optimize on (the default above 200 KB)", "writer: the same JPEG without `optimize`", "writer: the SVG with `optimize`", "writer: savedocs P with attach_image = the first file_url", "manager: frappe.client.get_value File (file_size, attached_to_field) for the three Files; download them and read the image dimensions"],
+    expect: "all 200; the optimized JPEG is smaller (file_size) and fits min(1024, 0.8 × width) × min(768, 0.8 × height), never below 200 px, same format, quality 85; the copy without `optimize` keeps the original bytes; the SVG is stored unchanged; attached_to_field = 'attach_image'. Any non-empty `optimize` value is truthy on the server — the package sends the field only when the switch is on (as Desk)",
+    cite: ["handler.py:205 (optimize read), :223-235 (optimize_image only for an image/* file part; max_width / max_height :231-234)", "utils/image.py:45-72 optimize_image (SVG returned as is :46-47; bounds :53-54; quality 85 :45; kept only if smaller :69)", "public/js/frappe/file_uploader/FileUploader.vue:428-434 (default on above 200 KB, never SVG), :693-695 (multipart optimize)", "handler.py:251-263 File insert (attached_to_field = fieldname :256)"],
+    evidence: "statuses, file_size and image dimensions before / after (images not stored in the results)" },
+  { id: "F-ATTIMG-2", area: "Form", feature: "P36b — Attach Clear: remove_attach, then save the emptied field", kind: "write", automated: "api", users: ["writer", "reader", "manager"],
+    rows: ["FV.A20", "FV.A21"],
+    pre: "a fresh draft SFUI Test Parent P by writer", steps: ["writer: upload_file (multipart, is_private 1) to P", "writer: savedocs Save of P with attach = the File's file_url (what the package does after an upload, attach.js:137-144)", "manager: getdoc P → docinfo.attachments (the package finds the File id by file_url, attachments.js:199-207)", "reader: remove_attach {fid, dt, dn} (POST)", "writer: remove_attach {fid, dt, dn} (POST)", "writer: savedocs Save of the returned P with attach = null (attach.js:36-46)", "manager: getdoc P"],
+    expect: "upload 200; save 200 with attach = file_url; docinfo.attachments has a row with that file_url and the File's name; reader remove → 403 (File has_permission delete: owner or write on the document); writer remove → 200; save 200 with attach empty; docinfo.attachments no longer lists the File and an 'Attachment Removed' comment exists",
+    cite: ["public/js/frappe/form/controls/attach.js:36-55 (Clear → remove_attachment_by_filename → save), :137-144 (save after upload)", "public/js/frappe/form/sidebar/attachments.js:199-236 remove_attachment_by_filename / remove_attach", "desk/form/utils.py:19-23 remove_attach", "core/doctype/file/file.py:183-190 on_trash ('Attachment Removed'), :872-911 has_permission", "desk/form/load.py:124 docinfo.attachments"],
+    evidence: "statuses / exc_type, the attach value after each save, docinfo.attachments before / after",
+    async run(ctx) {
+      const w = ctx.as("writer");
+      const d = await newParent(ctx, "writer", { title: "attimg-clear" });
+      if (!d) return;
+      const up = await w.upload({ doctype: "SFUI Test Parent", docname: d.name, is_private: "1", filename: "sfui-p36b-attimg-clear.txt", content: "SFUI P36b attach clear" });
+      const fid = up.message?.name, url = up.message?.file_url;
+      ctx.check("upload → 200", up.status === 200 && !!fid, 200, { status: up.status, exc_type: up.exc_type });
+      if (!fid) return;
+      const s1 = await savedocs(w, { ...d, attach: url });
+      ctx.check("save after upload → 200, attach = file_url", is(s1, 200) && docOf(s1)?.attach === url, url, { status: s1.status, attach: docOf(s1)?.attach });
+      const atts = async () => (await getdoc(ctx.as("manager"), "SFUI Test Parent", d.name)).body?.docinfo?.attachments ?? [];
+      ctx.check("docinfo.attachments lists the File by file_url", (await atts()).some((a) => a.name === fid && a.file_url === url), fid, (await atts()).map((a) => a.name));
+      const rr = await ctx.as("reader").call("frappe.desk.form.utils.remove_attach", { fid, dt: "SFUI Test Parent", dn: d.name });
+      ctx.check("reader remove_attach → 403", is(rr, 403), 403, { status: rr.status, exc_type: rr.exc_type });
+      const wr = await w.call("frappe.desk.form.utils.remove_attach", { fid, dt: "SFUI Test Parent", dn: d.name });
+      ctx.check("writer remove_attach → 200", is(wr, 200), 200, { status: wr.status, exc_type: wr.exc_type });
+      const s2 = await savedocs(w, { ...(docOf(s1) ?? d), attach: null });
+      ctx.check("save after Clear → 200, attach empty", is(s2, 200) && !docOf(s2)?.attach, "empty", { status: s2.status, attach: docOf(s2)?.attach ?? null });
+      const after = await getdoc(ctx.as("manager"), "SFUI Test Parent", d.name);
+      ctx.check("File gone from docinfo.attachments", !(after.body?.docinfo?.attachments ?? []).some((a) => a.name === fid), "absent", (after.body?.docinfo?.attachments ?? []).map((a) => a.name));
+      ctx.record("Attachment Removed comment", { present: (after.body?.docinfo?.comments ?? []).some((c) => /Attachment Removed/i.test(`${c.comment_type ?? ""} ${c.content ?? ""}`)) });
+    } },
+  { id: "F-ATTIMG-3", area: "Form", feature: "P36b — upload on a new document (new-… name) and the relink on savedocs", kind: "write", automated: "api", users: ["writer", "reader"],
+    rows: ["FV.A20", "FV.A21"],
+    pre: "none (the test names its own unsaved document new-sfui-test-parent-…)", steps: ["writer: upload_file JSON {doctype 'SFUI Test Parent', docname N = 'new-sfui-test-parent-<random>', fieldname 'attach_image', file_url U (unique https URL), is_private 0, folder 'Home'} — FrappeAttachField's request for an unsaved document (Link source; a file part is the same for the server)", "writer: the same with no fieldname and another URL U2 (a File not owned by an Attach field)", "reader: upload_file JSON with docname 'new-sfui-test-parent-<other>'", "writer: savedocs Save {doctype, name N, __islocal 1, attach_image U, …}", "writer: frappe.client.get_value File (attached_to_name, attached_to_field) for both Files"],
+    expect: "writer uploads 200 (check_write_permission: a missing document → write on a new doc of the DocType); reader → 403; savedocs 200 → name P; the attach_image File now has attached_to_name = P (relinked: same file_url, attached_to_field, created in the last 60 min); the File without fieldname stays on N (orphan) — relinking covers Attach / Attach Image fields only",
+    cite: ["handler.py:266-282 check_write_permission (new_doc(doctype).check_permission('write') :279)", "handler.py:251-263 File insert (attached_to_name = the new-… name, attached_to_field :256)", "desk/form/save.py:20-22 savedocs keeps __temporary_name for 'new-<doctype slug>'", "model/document.py:333 relink_mismatched_files on insert", "core/doctype/file/utils.py:377-419 relink_files (60-minute window :395) / relink_mismatched_files", "public/js/frappe/form/controls/attach.js:80-87 (doctype / docname / fieldname from frm, also for a new doc)"],
+    evidence: "statuses / exc_type, attached_to_name of both Files before / after the insert",
+    async run(ctx) {
+      const w = ctx.as("writer");
+      const rnd = () => Math.random().toString(36).slice(2, 8);
+      const N = `new-sfui-test-parent-${rnd()}`, U = `https://example.com/sfui-p36b-relink-${rnd()}.png`, U2 = `https://example.com/sfui-p36b-orphan-${rnd()}.png`;
+      const a = await w.call("upload_file", { doctype: "SFUI Test Parent", docname: N, fieldname: "attach_image", file_url: U, is_private: 0, folder: "Home" });
+      ctx.check("writer upload to a new-… name → 200", a.status === 200 && !!a.message?.name, 200, { status: a.status, exc_type: a.exc_type });
+      const b = await w.call("upload_file", { doctype: "SFUI Test Parent", docname: N, file_url: U2, is_private: 0, folder: "Home" });
+      const r = await ctx.as("reader").call("upload_file", { doctype: "SFUI Test Parent", docname: `new-sfui-test-parent-${rnd()}`, fieldname: "attach_image", file_url: `https://example.com/sfui-p36b-reader-${rnd()}.png`, is_private: 0 });
+      ctx.check("reader upload to a new-… name → 403", is(r, 403), 403, { status: r.status, exc_type: r.exc_type });
+      if (!a.message?.name) return;
+      const s = await savedocs(w, parentDoc(ctx.X, { name: N, title: `${ctx.tag} attimg-relink`, attach_image: U }));
+      const P = docOf(s)?.name;
+      ctx.check("savedocs insert → 200", is(s, 200) && !!P, 200, { status: s.status, exc_type: s.exc_type });
+      const file = async (name) => (await w.call("frappe.client.get_value", { doctype: "File", fieldname: J(["attached_to_name", "attached_to_field"]), filters: J({ name }) })).message ?? {};
+      const fa = await file(a.message.name);
+      ctx.check("the attach_image File is relinked to the saved name", !!P && fa.attached_to_name === P && fa.attached_to_field === "attach_image", P, fa);
+      if (b.message?.name) { const fb = await file(b.message.name); ctx.check("a File without fieldname stays on the new-… name", fb.attached_to_name === N, N, fb); }
+    } },
+  { id: "F-ATTIMG-4", area: "Form", feature: "P36b — max_file_size: the site's limit and the refusal of a larger upload", kind: "reject", automated: "api", users: ["writer", "manager"],
+    rows: ["FV.A20", "FV.A21"],
+    pre: "a fresh draft SFUI Test Parent P by writer; the site's limit must be ≤ 30 MiB (else BLOCKED: the runner will not send more)", steps: ["writer: GET frappe.core.api.file.get_max_file_size (the package asks on every uploader opening, as FileUploader.vue:352-356)", "writer: upload_file (multipart) of limit + 1 bytes to P", "writer: upload_file of 1 KiB to P (control)", "manager: getdoc P → docinfo.attachments"],
+    expect: "get_max_file_size = System Settings max_file_size (MB) × 1048576, else site_config max_file_size, else 25 MiB; the larger upload → 413 (Werkzeug: request.max_content_length = get_max_file_size() for /api/method/upload_file, so the body is refused before the handler; a front proxy with a smaller client_max_body_size also answers 413 — recorded) and no File is created; File.check_max_file_size (417 MaxFileSizeReachedError) is the second line, reached only when the body fits; the 1 KiB upload → 200. The package, like Desk, skips a file of size ≥ limit client-side (`size < max`) and never sends it",
+    cite: ["core/api/file.py:85-91 get_max_file_size", "app.py:197-200 request.max_content_length for upload_file", "core/doctype/file/file.py:711, 757-767 check_max_file_size (MaxFileSizeReachedError, a ValidationError → 417)", "public/js/frappe/file_uploader/FileUploader.vue:352-356, 491-492 (client check size < max_file_size), :619-653 (413 message)"],
+    evidence: "the limit (bytes), statuses / exc_type / content type of the refusal, docinfo.attachments count",
+    async run(ctx) {
+      const w = ctx.as("writer");
+      const lim = await w.call("frappe.core.api.file.get_max_file_size", {}, "GET");
+      const max = Number(lim.message);
+      ctx.record("max_file_size (bytes)", { status: lim.status, value: lim.message });
+      ctx.check("get_max_file_size → 200, a positive number", lim.status === 200 && max > 0, "> 0", lim.message);
+      if (!(max > 0)) return;
+      if (max > 30 * 1024 * 1024) return ctx.block(`the site's max_file_size is ${max} bytes (> 30 MiB): the runner does not send a larger body`);
+      const d = await newParent(ctx, "writer", { title: "attimg-size" });
+      if (!d) return;
+      const big = await w.upload({ doctype: "SFUI Test Parent", docname: d.name, is_private: "1", filename: "sfui-p36b-attimg-big.txt", content: "x".repeat(max + 1) });
+      ctx.record("refusal", { status: big.status, exc_type: big.exc_type, content_type: big.contentType });
+      ctx.check("limit + 1 bytes refused (413, or 417 MaxFileSizeReachedError)", big.status === 413 || is(big, 417, "MaxFileSizeReachedError"), "413", { status: big.status, exc_type: big.exc_type });
+      const small = await w.upload({ doctype: "SFUI Test Parent", docname: d.name, is_private: "1", filename: "sfui-p36b-attimg-small.txt", content: "x".repeat(1024) });
+      ctx.check("1 KiB upload → 200", small.status === 200, 200, { status: small.status, exc_type: small.exc_type });
+      const atts = (await getdoc(ctx.as("manager"), "SFUI Test Parent", d.name)).body?.docinfo?.attachments ?? [];
+      ctx.check("only the small File is attached", atts.length === 1, 1, atts.map((a) => a.file_name));
+    } },
+  { id: "F-ATTIMG-5", area: "Form", feature: "P36b — private by default: is_private as sent, make_attachments_public", kind: "write", automated: "api", users: ["manager", "writer"],
+    rows: ["FV.A20", "FV.A21"],
+    pre: "a fresh draft SFUI Test Parent P by writer", steps: ["manager: getdoctype SFUI Test Parent → make_attachments_public (the package's default switch = private unless the DocType or the field's make_attachment_public says public)", "writer: upload_file (multipart) to P with is_private 1 (the default the package sends)", "writer: upload_file to P with is_private 0 (switch turned off)"],
+    expect: "make_attachments_public is 0 / unset on SFUI Test Parent (so the package starts each file private); is_private 1 → File.is_private 1 and file_url under /private/files/; is_private 0 → is_private 0 and /files/. The server stores `cint(is_private)`: a client that omits the field gets a PUBLIC file — the private default is the client's job (Desk: `private = !make_attachments_public`)",
+    cite: ["public/js/frappe/form/controls/attach.js:84-86 (make_attachments_public from the field or the DocType)", "public/js/frappe/file_uploader/FileUploader.vue:443 (private: !make_attachments_public)", "handler.py:197, 260 (is_private = cint(form_dict.is_private))", "core/doctype/file/file.py:811-813 set_is_private (from a /private file_url)"],
+    evidence: "the meta flag, is_private and the file_url prefix of both Files",
+    async run(ctx) {
+      const meta = await ctx.as("manager").call("frappe.desk.form.load.getdoctype", { doctype: "SFUI Test Parent" }, "GET");
+      const flag = (meta.body?.docs ?? []).find((x) => x.name === "SFUI Test Parent")?.make_attachments_public ?? 0;
+      ctx.check("make_attachments_public is off (the package's default is private)", !Number(flag), 0, flag);
+      const d = await newParent(ctx, "writer", { title: "attimg-private" });
+      if (!d) return;
+      const up = (p, i) => ctx.as("writer").upload({ doctype: "SFUI Test Parent", docname: d.name, is_private: p, filename: `sfui-p36b-attimg-priv-${i}.txt`, content: `SFUI P36b private ${i}` });
+      const a = await up("1", 1), b = await up("0", 2);
+      ctx.check("is_private 1 → private File under /private/files/", a.status === 200 && Number(a.message?.is_private) === 1 && String(a.message?.file_url ?? "").startsWith("/private/files/"), "/private/files/…", { status: a.status, is_private: a.message?.is_private, file_url: a.message?.file_url });
+      ctx.check("is_private 0 → public File under /files/", b.status === 200 && !Number(b.message?.is_private) && String(b.message?.file_url ?? "").startsWith("/files/"), "/files/…", { status: b.status, is_private: b.message?.is_private, file_url: b.message?.file_url });
+    } },
   { id: "F-SB-TAGS-1", area: "Form", feature: "P36b — Form Sidebar Tags: add_tag / remove_tag / get_tags; write refusal rolls back", kind: "reject", automated: "api", users: ["writer", "reader", "manager"],
     rows: [],
     pre: "a fresh draft by writer", steps: ["writer: frappe.desk.doctype.tag.tag.add_tag {tag: 'sfui-p36b', dt, dn}", "writer: get_tags {doctype, txt: 'sfui-p3'}", "manager: getdoc → _user_tags, modified, docinfo.tags", "reader: add_tag {tag: 'sfui-p36b-reader', dt, dn}", "reader: remove_tag {tag: 'sfui-p36b', dt, dn}", "writer: remove_tag {tag: 'sfui-p36b', dt, dn}"],
@@ -1246,7 +1350,7 @@ const C = (sub, note) => ({ cat: "c", sub, note });
 const E = (note) => ({ cat: "e", note });
 export const ROW_CLASS = {
   // FORM — writes / permissions / server rules
-  "FV.A20": C("W"), "FV.A21": C("W"), "FV.A43": C("W"), "FV.G10": C("W", "PARTIAL: untested in the package"),
+  "FV.A20": C("W"), "FV.A21": C("W"), "FV.A43": C("W"), "FV.G10": C("W", "PARTIAL: row context tested at FrappeField level only (P36b); SFUI Test Child has no Attach field"),
   "FV.C3": C("W", "server does not enforce it; the package must"), "FV.C5": C("W", "PARTIAL"),
   "FV.D1": C("P"), "FV.D2": C("P"), "FV.D3": C("P"), "FV.D4": C("P", "PARTIAL"), "FV.D5": C("P"), "FV.D6": C("P"), "FV.D7": C("P"),
   "FV.D8": C("P", "PARTIAL"), "FV.D9": C("P"), "FV.D10": C("P"), "FV.D11": C("P"),
