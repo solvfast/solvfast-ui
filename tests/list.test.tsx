@@ -670,10 +670,12 @@ describe("F19 group-by and rule C1", () => {
     pickMenu("Group by", "Status");
     fireEvent.click(screen.getByRole("button", { name: /^Working/ })); // collapse Working (8)
     fireEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
-    expect(screen.getByRole("region").querySelector("[aria-live]")!.textContent).toBe("17 selected"); // Done 8 + Open 9
+    // Desk's header (the default selectionMode): "{n} items selected" in the table header
+    const headerCount = () => document.querySelector("thead [aria-live]")?.textContent;
+    expect(headerCount()).toBe("17 items selected"); // Done 8 + Open 9
     expect(screen.getByRole("checkbox", { name: "Select all in Working" }).getAttribute("data-state")).toBe("unchecked");
     fireEvent.click(screen.getByRole("checkbox", { name: "Select all in Working" })); // acts on the group even when collapsed
-    expect(screen.getByRole("region").querySelector("[aria-live]")!.textContent).toBe("25 selected");
+    expect(headerCount()).toBe("25 items selected");
   });
 
   it("C1 client mode: grouping covers every row and turns paging off — negative control: ungrouped pages", () => {
@@ -705,19 +707,24 @@ describe("F19 group-by and rule C1", () => {
 // ---- F20 · C3 · F21 selection and bulk actions ------------------------------------------------------------------------------
 describe("F20 selection (rule C3) and F21 bulk actions", () => {
   const rowBox = (title: string) => within(bodyRows().find((tr) => tr.textContent!.includes(title))!).getByRole("checkbox");
-  const count = () => screen.queryByRole("region")?.querySelector("[aria-live]")?.textContent ?? "none";
+  // Desk's header (the default selectionMode): "{n} items selected" replaces the column titles; no bar row
+  const count = () => document.querySelector("thead [aria-live]")?.textContent?.replace(" items selected", " selected") ?? "none";
 
-  it("survives sort and paging (negative control), is pruned to matching rows when search or filters change", () => {
+  it("survives sort and paging (negative control), is pruned to matching rows when search or filters change", async () => {
     const run = vi.fn();
-    renderList({ selectable: true, bulkActions: [{ key: "archive", label: "Archive", icon: Archive, run }] });
+    renderList({ selectable: true, controls: { sortMenu: true }, bulkActions: [{ key: "archive", label: "Archive", icon: Archive, run }] });
     fireEvent.click(rowBox("Task 2")); fireEvent.click(rowBox("Task 3"));
     expect(count()).toBe("2 selected");
-    fireEvent.click(within(th("Title")).getByRole("button"));
+    // the header shows "{n} items selected" instead of the column titles (Desk, list_view.js:1621-1631): sort from the menu
+    openMenu("Sort by");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Title" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     fireEvent.click(btn("Next page")); fireEvent.click(btn("Previous page"));
     expect(count()).toBe("2 selected");
     type(screen.getByPlaceholderText("Search…"), "Task 2");
     expect(count()).toBe("1 selected");
-    fireEvent.click(btn("Archive"));
+    fireEvent.keyDown(screen.getByTestId("sf-list-actions"), { key: "Enter" }); // the Actions menu that replaced the primary action
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Archive" }));
     expect(run).toHaveBeenCalledWith(["r2"], [ROWS[1]]);
   });
 

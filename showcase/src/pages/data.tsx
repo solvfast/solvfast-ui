@@ -48,10 +48,11 @@ export function ListViewPage() {
 export function ListFeaturesPage() {
   return (
     <div className="space-y-12">
-      <Section title={l("PMO's list features, opt-in", "ميزات قوائم PMO، اختيارية")} description={l("Selection with bulk actions, group-by, the sort menu, a customisable quick filter, a confirmation on delete, and a row style (presets with 10+ fields are tinted).", "التحديد مع الإجراءات الجماعية والتجميع وقائمة الفرز والتصفية السريعة القابلة للتخصيص والتأكيد عند الحذف وتنسيق الصف (المجموعات ذات 10 حقول فأكثر ملوّنة).")}>
+      <Section title={l("PMO's list features, opt-in", "ميزات قوائم PMO، اختيارية")} description={l("Selection with bulk actions (Desk's layout: \"{n} items selected\" in the header, and the Create button becomes an Actions menu while rows are selected), group-by, the sort menu, a customisable quick filter, a confirmation on delete, and a row style (presets with 10+ fields are tinted).", "التحديد مع الإجراءات الجماعية (تخطيط ديسك: «{n} عنصر محدد» في الترويسة، ويصبح زر الإنشاء قائمة إجراءات أثناء التحديد) والتجميع وقائمة الفرز والتصفية السريعة القابلة للتخصيص والتأكيد عند الحذف وتنسيق الصف (المجموعات ذات 10 حقول فأكثر ملوّنة).")}>
         <Example className="p-0" code={`<ListView
   {...base}
-  selectable
+  selectable                               // default selectionMode="header" (Desk): the Actions menu replaces primaryAction
+  primaryAction={<Button>Create Field Preset</Button>}
   bulkActions={[{ key: "delete", label: { en: "Delete", ar: "حذف" }, icon: Trash2, variant: "destructive", run: (keys) => removeMany(keys) }]}
   groupByOptions={[{ key: "created_by", label: "Created By", groupOf: (r) => ({ key: r.created_by, label: r.created_by }) }]}
   quickFilterFields={["created_by"]}

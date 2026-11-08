@@ -1,7 +1,8 @@
 /**
  * Sear's Field Library list (sear_studio/pages/FieldLibrary/FieldLibraryListPage.tsx) rebuilt on @solvfast/ui's ListView
  * with the same data, columns, cells, delete action and "Create Field Preset" button. `variant="features"` turns on the
- * PMO features Sear doesn't have (selection + bulk actions, group-by, sort menu, quick-filter picker, confirm on delete);
+ * PMO features Sear doesn't have (selection + bulk actions in Desk's header Actions menu, group-by, sort menu, quick-filter
+ * picker, confirm on delete);
  * `variant="error" | "loading"` show those states. Playground only.
  */
 import * as React from "react";
@@ -57,7 +58,9 @@ export function FieldLibraryDemo({ variant = "sear" }: { variant?: string }) {
             key: "delete", label: { en: "Delete", ar: "حذف" }, icon: Trash2, tone: "destructive", onSelect: remove,
             confirm: features ? { title: { en: "Delete this preset?", ar: "حذف هذه المجموعة؟" }, confirmLabel: { en: "Delete", ar: "حذف" } } : undefined,
           }]}
-          toolbarActions={
+          // the page's primary action: with `selectable` (header mode, the default — Desk's layout) it gives way to the
+          // Actions menu while rows are selected and comes back when the selection is cleared
+          primaryAction={
             <Button onClick={() => {}} className="gap-2 shrink-0">
               <Plus className="h-4 w-4" />
               {isRTL ? "إنشاء مجموعة حقول" : "Create Field Preset"}

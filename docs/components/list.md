@@ -45,7 +45,7 @@ Works without a provider too (it creates one with the default same-origin client
 | `urlFilters` | **Opt-in** filters in the page URL, Desk's format (`?status=Open&priority=["!=","Low"]`; section 4a): `true`, or `{ read, write, routeOptions? }`. |
 | `formatContext` | `FormatContext` for `formatValue` (number/date formats, currencies). Default: the provider's `formatContext`. |
 | `bulk` | Bulk actions (section 6). Turns `selectable` on. |
-| `selectionMode` / `primaryAction` | 0.4.1: `"header"` = Desk's own selection layout (`list_view.js:590-598, 1613-1634`) and the design system's intended one: no bar row — the header shows "{n} items selected" + Clear, and `primaryAction` (or the built-in "Add {DocType}") gives way to an **Actions** menu with the `bulk` actions in Desk's order, the workflow's actions appended (asked on every opening) and Assign To as Desk's dialog (`AssignDialog`: Assign to me, users, Complete By, Priority, Comment → `add_multiple`). The **default is still `"bar"`** (a bulk bar above the table, 0.4.x; changing the default is an open owner decision). `useFrappeBulkActions` returns the same actions as data. |
+| `selectionMode` / `primaryAction` | **Default `"header"` since 0.7.0** — Frappe Desk's own selection layout (`list_view.js:590-598, 1613-1634`; owner decision P36): no bar row — while rows are selected the header shows "{n} items selected" + Clear, and `primaryAction` (or the built-in "Add {DocType}") is replaced, in the same place, by an **Actions** menu with the `bulk` actions in Desk's order, the workflow's actions appended (asked on every opening) and Assign To as Desk's dialog (`AssignDialog`: Assign to me, users, Complete By, Priority, Comment → `add_multiple`). Clearing the selection brings the primary action back. `selectionMode="bar"` is an explicit opt-in that is **not Desk** (a bulk bar above the table — the 0.4.x–0.6.x default). `useFrappeBulkActions` returns the same actions as data. |
 | `selectAllMatching` | P35, header mode: once the page is fully checked the header offers "Select all {n} matching" (section 6). |
 | `serverStorage` | Saved filters and user settings on the server (section 4). |
 | `realtime` / `realtimeDebounceMs` | Reload on `list_update` (section 7). |
@@ -234,9 +234,9 @@ field is requested with the rows. A `workflow` prop overrides it; `workflow={fal
 <FrappeListView doctype="Sales Invoice" bulk={{ print: { settings: boot.print_settings, subscribeTask } }} />  // Print Settings from your boot
 ```
 
-Desk's Actions menu (`list_view.js:1855-2128`) — with `selectionMode="header"` as Desk's **Actions** dropdown in the toolbar (the header shows
-"{n} items selected"; no extra row), with the default `"bar"` as buttons in a selection bar above the table (sticky, so it never scrolls away) — **in Desk's
-order** (`:2088-2128`, workflow last `:163-168`). The gate is `usePermissions(bundle).can()` (session roles + the DocType's permissions); the `permissions` prop
+Desk's Actions menu (`list_view.js:1855-2128`) — by default (`selectionMode="header"`) as Desk's **Actions** dropdown that takes the primary action's place
+while rows are selected (the header shows "{n} items selected"; no extra row); with the opt-in `selectionMode="bar"` (not Desk) as buttons in a selection bar
+above the table (sticky, so it never scrolls away) — **in Desk's order** (`:2088-2128`, workflow last `:163-168`). The gate is `usePermissions(bundle).can()` (session roles + the DocType's permissions); the `permissions` prop
 (a rights map or `can(ptype)`) overrides it. **No rights → no actions** (Export excepted, as in Desk). Phase 27 (SIMULATED tests only: `tests/list-actions.test.tsx`).
 
 | Action | Shown when | Endpoint |
@@ -267,8 +267,23 @@ the dialog says the job is queued (the server saves the PDF as a private File) �
 
 **Outcome line** (under the list): what the server answered, never more. `submit_cancel_or_update_docs` answers the failed names: "N succeeded, M failed: B, D".
 Methods that answer nothing per document — delete, clear assignment, assignment rule, tags, workflow approval — say "Action: N requested — the server reports
-failures in its messages" (`listBulkRequested`); an enqueued job says "queued, will run in the background". The list reloads and the selection clears unless
-everything failed; a refusal (403 …) shows the server's message and changes nothing. `onDone(kind, outcome, names, action?)` / `onError(error, kind)` report each action.
+failures in its messages" (`listBulkRequested`); an enqueued job says "queued, will run in the background". A refusal (403 …) shows the server's message and
+changes nothing (selection kept, no reload — Desk's `frappe.throw`). `onDone(kind, outcome, names, action?)` / `onError(error, kind)` report each action.
+
+**The selection after an action (P36 — Desk's `done` callbacks, `list_view.js:1855-2068`; `selectionAfterBulk` in `list/bulk.ts`).** Same in both layouts.
+
+| Action | Completed | Dialog / confirmation dismissed | List reload |
+|---|---|---|---|
+| Edit | **kept** (Desk's `done` = `refresh()` only, `:2066-2069`) | kept | yes, unless every name failed |
+| Export, Print | kept (Desk passes no callback, `:1959-1964, 2075-2084`) | kept | no |
+| Assign To | cleared (`:1897-1898`) | kept | yes |
+| Clear Assignment | cleared (`:1915-1916`) | **cleared** — Desk's `frappe.confirm` reject action (`:1919-1921`, `ui/messages.js:52-58`; No, Escape or close) | yes (both) |
+| Apply Assignment Rule | cleared (`:1936-1937`) — no confirmation | — | yes |
+| Add Tags | cleared (`:1951-1952`) | kept | yes |
+| Submit / Cancel | cleared only when **every** document went through; some failed → **kept** (Desk throws before `done`, `bulk_operations.js:286-305`; cleared at `list_view.js:2015-2016, 2042-2043`); queued by the server (≥ 20) → **kept** | kept | all / some done: yes; queued or all failed: no |
+| Delete | cleared unless every name failed (`bulk_operations.js:214-221`; `list_view.js:1990-1991`) | kept | yes |
+| Workflow action | **kept** (no `done`, `:1802-1826`) | — | yes (Desk updates the rows through realtime with the checks kept; the package pauses realtime while rows are selected, so it reloads) |
+| App `bulkActions` | kept — the action decides (Desk: a custom action calls `clear_checked_items()` itself; here `renderBulkActions` gets `clear`) | kept | the app's |
 
 **Select all matching (P35, `selectAllMatching`, header mode).** Once every row on the page is checked, the header offers "Select all {n} matching".
 Then the actions get `ctx.allMatching = { total }`: only actions marked `allMatching: true` run — in `FrappeListView` that is **Export**, which exports by the
@@ -424,10 +439,10 @@ Custom cells can use `useListActions().applyCondition(field, operator, value)` t
 `ColumnDef.mobile`: `"primary"` = the card title, `false` = not on the card), `savedFiltersGlobal` (the Is Global checkbox; `SavedFiltersStorage.save`
 takes `{ global }`), `GroupByOption.groupOf` returning several buckets, `FilterField.operators`.
 
-**Selection layout (0.4.1).** `selectionMode="bar"` (still the default) shows the bulk bar above the table. `selectionMode="header"` is Frappe Desk's and the layout the design system intends (no separate bulk bar): no extra row; while rows are selected the table header shows "{n} items selected" with a Clear button instead of the column titles, and the toolbar's `primaryAction` (e.g. New) is replaced by an **Actions** menu built from `bulkActions` (+ `renderActionsMenu` items; `onActionsOpenChange`, `actionsLabel`). Shift-click checks a range (Desk `list_view.js:1400-1421`). A `BulkAction` may set `tone: "destructive"`, `hidden(ctx)`, `disabled(ctx)` (a string is the reason shown with the item), `confirm` (AlertDialog first; a function gets the selection) and `group` (a separator between groups); `run(keys, rows)` gets exactly the selected keys (P35: plus `ctx` for an all-matching selection, see above). `ListActionsMenu`, `useBulkActionRunner` and `resolveBulkActions` are exported for custom toolbars. `onSelectionChange` fires on every change of the selected set (0.4.0: only when its size changed).
+**Selection layout (0.4.1; default since 0.7.0).** `selectionMode="header"` — the **default** — is Frappe Desk's (owner decision P36; no separate bulk bar): no extra row; while ANY row is selected the table header shows "{n} items selected" with a Clear button instead of the column titles, and the toolbar's `primaryAction` (e.g. New) is replaced, in the same place, by an **Actions** menu built from `bulkActions` (+ `renderActionsMenu` items; `onActionsOpenChange`, `actionsLabel`); when nothing applies to the selection the menu holds one disabled "No actions available for the selection" item (Desk swaps on the selection alone, `list_view.js:1634`). Clearing the selection (Clear, unchecking the last row, select-all off) restores `primaryAction`; `renderBulkActions` content sits in the toolbar next to Actions and gets `clear`. `selectionMode="bar"` is an **explicit opt-in, not Desk**: the bulk bar above the table (the 0.4.x–0.6.x default), with the header and `primaryAction` unchanged. Selection gestures (both layouts): the select-all box checks / unchecks the rows on screen (Desk checks all loaded rows; checked only when every row is — a partial selection shows the box as mixed, where Desk shows it empty; a click selects all in both); shift-click checks a range (Desk `list_view.js:1400-1421`); Ctrl/⌘-click on a row toggles it instead of opening it (`:1296-1306`). Escape closes the Actions menu or a dialog and never clears the selection (Desk has no such shortcut). Not reproduced: Desk's Shift+↑/↓ row checking and drag-to-select. A `BulkAction` may set `tone: "destructive"`, `hidden(ctx)`, `disabled(ctx)` (a string is the reason shown with the item), `confirm` (AlertDialog first; a function gets the selection) and `group` (a separator between groups); `run(keys, rows)` gets exactly the selected keys (P35: plus `ctx` for an all-matching selection, see above). `ListActionsMenu`, `useBulkActionRunner` and `resolveBulkActions` are exported for custom toolbars. `onSelectionChange` fires on every change of the selected set (0.4.0: only when its size changed).
 
 ```tsx
-<ListView rows={rows} columns={columns} rowKey={(r) => r.id} selectable selectionMode="header"
+<ListView rows={rows} columns={columns} rowKey={(r) => r.id} selectable                // selectionMode="header" is the default
   primaryAction={<Button onClick={create}>New</Button>}
   bulkActions={[
     { key: "export", label: "Export", run: (keys) => exportRows(keys) },
@@ -443,7 +458,7 @@ takes `{ global }`), `GroupByOption.groupOf` returning several buckets, `FilterF
 - Nested-set operators need the app to name tree Link targets the page has no meta for (`treeDoctypes`); they filter nothing in client mode.
 - Sidebar (P35): opt-in; the "Edit" dialog for `user_settings.group_by_fields` (Desk's `make_group_by_fields_modal`) is not reproduced (the app passes `sidebar.fields`); counts ignore OR queries; "assigned to me" counters are not reproduced.
 - URL filters: the package keeps non-filter query parameters (Desk replaces the whole string); OR queries, search text and sort are not written.
-- Selection: the default is still `"bar"`; `selectionMode="header"` gives Desk's Actions dropdown. "Select all matching" can run only query-based actions (Export in `FrappeListView`). Print's background completion (`task_complete`) needs a host `subscribeTask`, and its draft / cancelled filter needs the site's Print Settings from the host.
+- Selection: Desk's header Actions menu is the default (0.7.0); `selectionMode="bar"` is a non-Desk opt-in. In server mode a new query clears the selection (rule C3) where Desk keeps the re-loaded rows that were checked; realtime reloads pause while rows are selected (Desk refreshes the changed rows and keeps the checks). Shift+↑/↓ and drag-to-select are not reproduced. "Select all matching" can run only query-based actions (Export in `FrappeListView`). Print's background completion (`task_complete`) needs a host `subscribeTask`, and its draft / cancelled filter needs the site's Print Settings from the host.
 - Views: the Report view itself, Kanban, Calendar and the other Desk views are not part of this layer; report-view export (`export_query`) is available as `downloadReportExport` / `FrappeReportExportDialog`.
 - Create: the package draws "Add {DocType}"; the dialog behind it is the app's (`create.render`), a route (`create.onCreate`), or by default `FrappeQuickEntry` / `create.onOpenFullForm` (P35 integration).
 - Import: progress is polled, not realtime (the preview, column mapping and log are `FrappeDataImport`'s, section 6a).

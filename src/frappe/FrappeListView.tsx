@@ -57,16 +57,20 @@ export interface FrappeListViewProps<T> extends Omit<ListViewProps<T>, Managed>,
    * localStorage. An explicit `storage` prop wins. `user` (the session user) is required for saved filters.
    */
   /**
-   * Desk's Actions in the selection bar, in Desk's order (`list_view.js:2088-2128`): Edit, Export, Assign To, Clear
+   * Desk's Actions on the selection, in Desk's order (`list_view.js:2088-2128`): Edit, Export, Assign To, Clear
    * Assignment, Apply Assignment Rule, Add Tags, Print, Submit, Cancel, Delete, then the workflow's actions — each offered
    * only when `permissions` allow it (Export always). Turns `selectable` on. Runs next to the app's own `bulkActions`.
    * `bulk.print` passes the site's Print Settings and a background-print task subscriber; `bulk.hasWorkflow` defaults to
    * the DocType's active Workflow (`__workflow_docs`).
    *
-   * With `selectionMode="header"` (Desk's own layout, list_view.js:590-598, 1613-1634) the same actions are the items of the
-   * toolbar's Actions menu that replaces `primaryAction` while rows are selected — no bar row; the workflow's actions are
-   * asked from the server each time the menu opens, and Assign To opens Desk's dialog (Assign to me, users, Complete By,
-   * Priority, Comment). The default stays "bar" (0.4.x).
+   * Default `selectionMode="header"` (Desk's own layout, list_view.js:590-598, 1613-1634; the default since 0.7.0): the
+   * actions are the items of the toolbar's Actions menu that replaces `primaryAction` / "Add {DocType}" while rows are
+   * selected — no bar row; the workflow's actions are asked from the server each time the menu opens, and Assign To opens
+   * Desk's dialog (Assign to me, users, Complete By, Priority, Comment). After an action the selection follows Desk
+   * (`selectionAfterBulk`): Assign To / Clear Assignment / Apply Assignment Rule / Add Tags / Delete clear it, Submit /
+   * Cancel clear it only when every document went through, Edit / Workflow / Print / Export keep it; dismissing Clear
+   * Assignment's confirmation clears it too (Desk's reject action). `selectionMode="bar"` (opt-in, not Desk) shows the
+   * same actions as buttons in a bar above the table.
    */
   bulk?: FrappeBulkOptions;
   /** Offers "Create your first {DocType}" in the empty list — only when the user may create (level-0 `create`, from
@@ -309,8 +313,9 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       );
     };
   }, [bulk, perms, f.meta, f.bundle, f.settings, c, doctype, rest.renderBulkActions, showExport, L.exportEntry, session?.roles, nameByKey, t]);
-  // Desk's header mode: the same actions as data for the ListView's Actions menu (selection keys → document names)
-  const header = rest.selectionMode === "header";
+  // Desk's header mode (the default; "bar" is the explicit opt-in): the same actions as data for the ListView's Actions
+  // menu (selection keys → document names)
+  const header = rest.selectionMode !== "bar";
   const clearRef = React.useRef<() => void>(() => {});
   const sel = documentNamesForKeys(selectedKeys, nameByKey);
   const hb = useFrappeBulkActions<T>({

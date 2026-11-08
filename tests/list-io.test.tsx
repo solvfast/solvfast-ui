@@ -67,7 +67,7 @@ function mountList(roles: string[] | undefined, meta: Record<string, unknown>, p
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const ui = render(
     <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
-      <QueryClientProvider client={qc}><FrappeProvider client={client} session={roles ? { user: "u@x.com", roles } : undefined}><FrappeListView doctype="ToDo" storage={null} {...props} /></FrappeProvider></QueryClientProvider>
+      <QueryClientProvider client={qc}><FrappeProvider client={client} session={roles ? { user: "u@x.com", roles } : undefined}><FrappeListView doctype="ToDo" storage={null} selectionMode="bar" {...props} /></FrappeProvider></QueryClientProvider>
     </ThemeProvider>,
   );
   return { ...ui, mock, calls: (method: string) => mock.calls.filter((c) => c.method === method) };

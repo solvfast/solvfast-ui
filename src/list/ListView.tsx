@@ -8,6 +8,7 @@ import * as React from "react";
 import { Search } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../primitives/alert-dialog";
 import { Button } from "../primitives/button";
+import { DropdownMenuItem } from "../primitives/dropdown-menu";
 import { Input } from "../primitives/input";
 import { cn } from "../lib/cn";
 import { loc, type Localized } from "../lib/localized";
@@ -62,15 +63,20 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   /** Trailing toolbar content (always shown). */
   toolbarActions?: React.ReactNode;
   /**
-   * The page's primary action (e.g. "New" / Desk's "Add {DocType}"), last in the toolbar. In `selectionMode="header"`
-   * it gives way to the Actions menu while rows are selected (Desk's toggle_actions_menu_button, list_view.js:590-598).
+   * The page's primary action (e.g. "New" / Desk's "Add {DocType}"), last in the toolbar. In the default header mode it
+   * gives way to the Actions menu while ANY row is selected and comes back when the selection is empty (Desk's
+   * toggle_actions_menu_button, list_view.js:590-598, called from on_row_checked :1634 whatever the menu holds).
    */
   primaryAction?: React.ReactNode;
   /**
-   * Where a selection's actions live. `"bar"` (default, unchanged): the bulk bar above the table. `"header"` (Frappe
-   * Desk): no extra row — the table header shows "{n} items selected" + Clear instead of the column titles, and the toolbar's
-   * `primaryAction` is replaced by an **Actions** menu of `bulkActions` (+ `renderActionsMenu`); `renderBulkActions` content
-   * stays in the toolbar next to it.
+   * Where a selection's actions live.
+   * - `"header"` (default since 0.7.0 — Frappe Desk's own layout, owner decision P36): no extra row. While rows are
+   *   selected the table header shows "{n} items selected" + Clear instead of the column titles, and the toolbar's
+   *   `primaryAction` is replaced, in the same place, by an **Actions** menu of `bulkActions` (+ `renderActionsMenu`);
+   *   with nothing to offer the menu says so (a disabled item) rather than bringing the primary action back.
+   *   `renderBulkActions` content stays in the toolbar next to it. Clearing the selection restores `primaryAction`.
+   * - `"bar"` (explicit opt-in, NOT Desk; the 0.4.x–0.6.x default): a bulk bar above the table with one button per action;
+   *   the header and `primaryAction` never change.
    */
   selectionMode?: "bar" | "header";
   /** Header mode: extra Actions-menu content (DropdownMenuItems), e.g. actions the server computes when the menu opens. */
@@ -167,7 +173,7 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     like, onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, primaryAction, selectionMode = "bar", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage, pageSizes, aside, asideOpen, selectAllMatching, layout, savedFiltersGlobal,
+    emptyMessage, toolbarActions, primaryAction, selectionMode = "header", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage, pageSizes, aside, asideOpen, selectAllMatching, layout, savedFiltersGlobal,
   } = props;
   const s = useListState(props);
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
@@ -211,7 +217,10 @@ export function ListView<T>(props: ListViewProps<T>) {
     keys: selectedKeys, rows: header && selectedKeys.length ? s.selectedRows() : [], clear: s.clearSelection,
     ...(header && selectAllMatching && s.allMatching ? { allMatching: { total: s.total } } : {}),
   };
-  const hasActions = header && selectedKeys.length > 0 && (resolveBulkActions(bulkActions, actionCtx).length > 0 || !!renderActionsMenu);
+  // Desk swaps on the selection alone (on_row_checked → toggle_actions_menu_button(checked > 0), list_view.js:1634), never on
+  // what the menu would hold: an empty menu says so instead of bringing the primary action back under a selection
+  const hasActions = header && selectedKeys.length > 0;
+  const noActions = hasActions && resolveBulkActions(bulkActions, actionCtx).length === 0 && !renderActionsMenu;
   const actions = React.useMemo(() => ({
     applyCondition: (field: string, operator: Operator, value: string) =>
       s.setQuery({ ...s.query, conditions: [...s.query.conditions.filter((c) => c.field !== field), { id: `c${Date.now()}`, field, operator, value }] }),
@@ -241,7 +250,8 @@ export function ListView<T>(props: ListViewProps<T>) {
           {toolbarActions}
           {header && selectedKeys.length > 0 && renderBulkActions?.(actionCtx)}
           {hasActions
-            ? <ListActionsMenu actions={bulkActions} ctx={actionCtx} extra={renderActionsMenu?.(actionCtx)} label={actionsLabel} onOpenChange={onActionsOpenChange} />
+            ? <ListActionsMenu actions={bulkActions} ctx={actionCtx} label={actionsLabel} onOpenChange={onActionsOpenChange}
+                extra={noActions ? <DropdownMenuItem disabled data-no-actions="">{t("listNoActions")}</DropdownMenuItem> : renderActionsMenu?.(actionCtx)} />
             : primaryAction}
         </div>
       </div>

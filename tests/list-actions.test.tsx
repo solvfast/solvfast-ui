@@ -64,7 +64,7 @@ function mountList(roles: string[] | undefined, meta: Record<string, unknown>, p
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const ui = render(
     <ThemeProvider defaultTheme="light" defaultLanguage={lang} storageKeys={null}>
-      <QueryClientProvider client={qc}><FrappeProvider client={client} session={roles ? { user: "u@x.com", roles } : undefined}><FrappeListView doctype="ToDo" storage={null} bulk={{}} {...props} /></FrappeProvider></QueryClientProvider>
+      <QueryClientProvider client={qc}><FrappeProvider client={client} session={roles ? { user: "u@x.com", roles } : undefined}><FrappeListView doctype="ToDo" storage={null} bulk={{}} selectionMode="bar" {...props} /></FrappeProvider></QueryClientProvider>
     </ThemeProvider>,
   );
   const calls = (method: string) => mock.calls.filter((c) => c.method === method);
@@ -226,7 +226,7 @@ describe("the selection bar: Desk's order and gates (list_view.js:2088-2128)", (
 
 // ---------------------------------------------------------------------------------------------------------------------
 describe("Clear Assignment / Apply Assignment Rule / Add Tags in the list", () => {
-  it("Clear Assignment confirms with Desk's text, sends remove_multiple for the checked names, says 'requested', reloads; Cancel sends nothing", async () => {
+  it("Clear Assignment confirms with Desk's text, sends remove_multiple for the checked names, says 'requested', reloads; Cancel sends nothing and (Desk's reject action) clears the selection", async () => {
     const seen: Record<string, unknown>[] = [];
     const { calls, firstNames } = mountList(["Reader"], META(), {}, (m, a) => (m === "frappe.desk.form.assign_to.remove_multiple" ? (seen.push(a), ok()) : undefined));
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
@@ -236,7 +236,10 @@ describe("Clear Assignment / Apply Assignment Rule / Add Tags in the list", () =
     fireEvent.click(screen.getByRole("button", { name: en("cancel") }));
     await act(() => new Promise((r) => setTimeout(r, 50)));
     expect(seen).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: en("listBulkClearAssignment") }));
+    // Desk's frappe.confirm reject action (list_view.js:1919-1921): No / Escape clears the checks and refreshes — the bar goes
+    await waitFor(() => expect(screen.queryByRole("region", { name: /selected/ })).toBeNull());
+    check(1, 2);
+    fireEvent.click(await screen.findByRole("button", { name: en("listBulkClearAssignment") }));
     const before = calls("frappe.desk.reportview.get").length;
     fireEvent.click(await screen.findByRole("button", { name: en("confirm") }));
     await waitFor(() => expect(seen).toHaveLength(1));

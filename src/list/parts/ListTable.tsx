@@ -201,6 +201,16 @@ export function ListTable<T>({
     cursor.current = k;
   };
   const selecting = !!selection && !!selectionHeader && selectionHeader.count > 0;
+  // Desk's Ctrl/⌘-click on a row (list_view.js:1296-1306): ticks / unticks the row instead of opening it; a link inside
+  // the row keeps its own Ctrl/⌘-click (new tab)
+  const onRowActivate = (row: T, e: React.MouseEvent) => {
+    if (selection && (e.ctrlKey || e.metaKey) && !(e.target as HTMLElement).closest?.("a")) {
+      e.preventDefault();
+      selection.toggleRow(row);
+      return;
+    }
+    onRowClick?.(row);
+  };
 
   // a row can sit in several groups (multi-bucket `groupOf`): its React key carries the group
   const renderRow = (row: T, group?: string) => {
@@ -209,7 +219,7 @@ export function ListTable<T>({
       <tr
         key={group === undefined ? rowKey(row) : `${group}\u0000${rowKey(row)}`}
         tabIndex={onRowClick ? 0 : undefined}
-        onClick={() => onRowClick?.(row)}
+        onClick={(e) => onRowActivate(row, e)}
         onKeyDown={(e) => { if (onRowClick && e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); }}
         aria-selected={selection ? on : undefined}
         className={cn(
@@ -274,7 +284,7 @@ export function ListTable<T>({
       const on = !!selection?.isSelected(row);
       return (
         <li key={group === undefined ? rowKey(row) : `${group}\u0000${rowKey(row)}`} data-card="" data-selected={selection ? String(on) : undefined}
-          tabIndex={onRowClick ? 0 : undefined} onClick={() => onRowClick?.(row)}
+          tabIndex={onRowClick ? 0 : undefined} onClick={(e) => onRowActivate(row, e)}
           onKeyDown={(e) => { if (onRowClick && e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); }}
           className={cn("flex items-start gap-3 border-b border-border px-3 py-3 last:border-0", onRowClick && "cursor-pointer outline-none hover:bg-accent/50 focus-visible:bg-accent/60", on && "bg-primary/5", rowClassName?.(row))}>
           {selection && (
