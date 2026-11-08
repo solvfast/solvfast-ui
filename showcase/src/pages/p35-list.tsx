@@ -141,8 +141,8 @@ function CardsDemo() {
   return (
     <Section title={l("Card layout for phones (Core ListView)", "تخطيط البطاقات للهواتف")} description={l("layout=\"cards\" draws one card per row (ColumnDef.mobile picks the title and hides columns); \"auto\" switches below 768 px. Selection, row click and groups work in both.", "layout=\"cards\" يرسم بطاقة لكل صف؛ \"auto\" يبدّل تحت 768 بكسل.")}>
       <Picker legend={l("Layout", "التخطيط")} value={layout} onChange={setLayout} options={[{ value: "cards", label: l("cards", "بطاقات") }, { value: "auto", label: l("auto", "تلقائي") }, { value: "table", label: l("table", "جدول") }]} />
-      <Example code={`<ListView rows={rows} columns={columns} rowKey={(r) => r.id} layout="${layout}" selectable selectionMode="header" />`}>
-        <div className="max-w-sm"><ListView<Row> rows={ROWS} columns={COLS} rowKey={(r) => r.id} layout={layout} selectable selectionMode="header" storage={null} pageSizes={[5, 20]} /></div>
+      <Example code={`<ListView rows={rows} columns={columns} rowKey={(r) => r.id} layout="${layout}" selectable bulkActions={[{ key: "export", label: "Export", run }]} />`}>
+        <div className="max-w-sm"><ListView<Row> rows={ROWS} columns={COLS} rowKey={(r) => r.id} layout={layout} selectable bulkActions={[{ key: "export", label: { en: "Export", ar: "تصدير" }, run: () => {} }]} storage={null} pageSizes={[5, 20]} /></div>
       </Example>
     </Section>
   );

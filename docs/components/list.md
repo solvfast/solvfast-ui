@@ -308,7 +308,7 @@ the dialog shows the refusal as `FrappeErrorState` (kind permission) — no file
 (`exporter.py:116-126`, `data_import.py:59-75`).
 
 **Export** (`list/export.ts`, `list/FrappeExportDialog.tsx`): Desk's Data Exporter dialog (`data_exporter.js`) — file type Excel / CSV, export type All /
-Filtered (the list's current filters) / Selected (`[doctype, "name", "in", names]` from the selection bar, `bulk_operations.js:463-474`) / 5 records / Blank
+Filtered (the list's current filters) / Selected (`[doctype, "name", "in", names]` from the selection's Export action, `bulk_operations.js:463-474`) / 5 records / Blank
 template, field groups per DocType and child table (child groups keyed by the **table fieldname**, `exporter.py:63-67`) with Select All / Select Mandatory /
 Unselect All; fields the user cannot read (permlevel) are not offered. The file comes from the server — `api.download("…data_import.download_template",
 {doctype, file_type, export_records, export_fields, export_filters})`, objects JSON-encoded as Desk's `open_url_post` form does — and is handed to the
