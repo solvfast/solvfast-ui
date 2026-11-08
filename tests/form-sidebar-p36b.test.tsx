@@ -86,7 +86,7 @@ describe("P36B.sidebar — native structure", () => {
     expect(within(document.querySelector<HTMLElement>('[data-sidebar-slot="share"]')!).getByTestId("share-slot")).toBeTruthy();
     expect(within(sectionOf("stats")).getByTestId("likes-slot")).toBeTruthy();
     expect(within(sectionOf("comments")).getByTestId("comments-slot")).toBeTruthy();
-    expect(within(sectionOf("stats")).getByRole("button", { name: "0 comments" })).toBeTruthy();
+    expect(within(sectionOf("stats")).getByRole("button", { name: "Comments: 0" })).toBeTruthy();
     // created / modified as Desk words them (form_sidebar.js:92-113): owner lina, modified by the session user sara
     expect(sectionOf("meta").textContent).toContain("You last edited this");
     expect(sectionOf("meta").textContent).toContain("lina Q created this");
@@ -132,7 +132,7 @@ describe("P36B.sidebar — native structure", () => {
 
   it("P36B.sidebar.5 Core FormSidebar: the comment count scrolls to (focuses) the comments slot; hidden / loading / error states", () => {
     const { unmount } = render(<ThemeProvider storageKeys={null}><FormSidebar commentCount={3} comments={<textarea aria-label="Comment box" />} /></ThemeProvider>);
-    fireEvent.click(screen.getByRole("button", { name: "3 comments" }));
+    fireEvent.click(screen.getByRole("button", { name: "Comments: 3" }));
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Comment box");
     unmount();
     expect(FORM_SIDEBAR_SECTIONS).toEqual(["userActions", "assign", "attachments", "tags", "share", "stats", "meta", "comments"]);

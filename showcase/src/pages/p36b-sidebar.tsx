@@ -24,7 +24,9 @@ function useSidebarSite(session: SessionKey) {
     const base = createFixtureTransport({
       meta: { ...REAL_META, "Travel Request": [{ ...TRAVEL, max_attachments: 6 }, TRAVEL_COMPANION] },
       docs: {
-        User: userDocs, ToDo: [],
+        User: userDocs,
+        // an open assignment seeded in the store (not through assign_to.add, which the read-only session may not call)
+        ToDo: [{ doctype: "ToDo", name: "TD-SB-1", allocated_to: "khaled@example.com", reference_type: "Travel Request", reference_name: "TR-0001", status: "Open", description: "Book the hotel", assigned_by: "Administrator", owner: "Administrator", modified: T, creation: T }] as FrappeDoc[],
         "Travel Request": TRAVELS.map((d) => (d.name === "TR-0001" ? { ...d, _user_tags: ",offsite,finance" } : d)),
         File: [
           { doctype: "File", name: "FILE-001", file_name: "itinerary.pdf", file_url: "/private/files/itinerary.pdf", is_private: 1, attached_to_doctype: "Travel Request", attached_to_name: "TR-0001", owner: "Administrator", modified: T, creation: T },
@@ -35,7 +37,6 @@ function useSidebarSite(session: SessionKey) {
       },
     }, { permissions: sessionPermissions(session) });
     const transport = withSimulatedSidebar(base);
-    void transport("frappe.desk.form.assign_to.add", { doctype: "Travel Request", name: "TR-0001", assign_to: JSON.stringify(["khaled@example.com"]), description: "Book the hotel" }).catch(() => {});
     return { transport, client: createFrappeClient({ transport, files: transport.files }), qc: new QueryClient({ defaultOptions: { queries: { retry: false } } }) };
   }, [session]);
 }
