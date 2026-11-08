@@ -86,6 +86,11 @@ def refuse(msg: str):
 
 
 def require_site(site: str):
+	# P36: the footprint is defined for the PRODUCTION site internal.solvfaster.com, so it is refused unconditionally.
+	refuse(
+		"P36 forbids touching the production site internal.solvfaster.com; use staging-seed.py / staging-teardown.py "
+		"against an owner-approved STAGING site (e2e/frappe-site/README.md)"
+	)
 	if site != SITE:
 		refuse(f"site must be exactly {SITE!r} (got {site!r}); this footprint is defined for that site only")
 

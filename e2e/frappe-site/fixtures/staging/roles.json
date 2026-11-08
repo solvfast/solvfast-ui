@@ -1,0 +1,6 @@
+[
+  {"doctype": "Role", "role_name": "SFUI Manager", "desk_access": 1, "is_custom": 1, "purpose": "full: CRUD, submit / cancel / amend, permlevel 1 read + write, workflow approver"},
+  {"doctype": "Role", "role_name": "SFUI Writer", "desk_access": 1, "is_custom": 1, "purpose": "read / write / create; NO submit, cancel, amend or delete; no permlevel 1"},
+  {"doctype": "Role", "role_name": "SFUI Reader", "desk_access": 1, "is_custom": 1, "purpose": "read / report / print only"},
+  {"doctype": "Role", "role_name": "SFUI Field", "desk_access": 1, "is_custom": 1, "purpose": "permlevel 1 READ only (combined with SFUI Writer)"}
+]

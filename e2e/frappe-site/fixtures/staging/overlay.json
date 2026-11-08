@@ -1,0 +1,18 @@
+{
+  "about": "Staging changes applied in memory on top of the reused fixtures (fixtures/*.json are not edited).",
+  "field_patches": {
+    "SFUI Test Workflow": {
+      "approval_notes": {"mandatory_depends_on": "eval:doc.workflow_state=='SFUI Pending'", "description": "P36: mandatory while Pending (client-side rule; the server only enforces reqd, base_document.py:738-786)"}
+    },
+    "SFUI Test Parent": {
+      "due_date": {"in_standard_filter": 1}
+    }
+  },
+  "doctype_patches": {
+    "SFUI Test Parent": {"image_field": "attach_image"}
+  },
+  "after_create_links": {
+    "SFUI Test Contact": [{"link_doctype": "SFUI Test Parent", "link_fieldname": "contact", "group": "SFUI"}]
+  },
+  "workflow_role_map": {"SFUI Tester": "SFUI Writer", "SFUI Approver": "SFUI Manager"}
+}
