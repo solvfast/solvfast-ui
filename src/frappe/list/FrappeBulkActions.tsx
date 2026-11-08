@@ -43,6 +43,7 @@ import { checkPrintable, MAX_PRINT_LIMIT, type PrintSettingsInput, type PrintTas
 import { FrappePrintDialog } from "./FrappePrintDialog";
 import { bulkWorkflowApproval, commonTransitionActions, workflowDocs } from "./workflowBulk";
 import { commaAnd } from "../record/timeline";
+import { userGroupSource } from "../record/userGroups";
 
 export interface FrappeBulkOptions {
   /** The user's rights on the DocType (`usePermissions().levels[0]` or `can`). Without it no action is offered. */
@@ -63,6 +64,9 @@ export interface FrappeBulkOptions {
   /** After each action (also failures), e.g. for the app's own refresh or toast. `action` is the workflow action's name. */
   onDone?: (kind: ListActionKind, outcome: BulkOutcome, names: string[], action?: string) => void;
   onError?: (error: unknown, kind: ListActionKind) => void;
+  /** P36c: "Assign To User Group" in the Assign To dialog (Desk's AssignToDialog, bulk_operations.js:225-238 +
+   *  assign_to.js:191-197). Default on; `false` hides it. The bar's popover (`FrappeBulkActions`) never shows it. */
+  userGroups?: boolean;
 }
 
 const ICON = { delete: Trash2, submit: Send, cancel: Ban, edit: Pencil, assign: UserPlus, export: Download, clear_assignment: UserMinus, assignment_rule: Shuffle, add_tags: Tags, print: Printer, workflow: Workflow } as const;
@@ -188,6 +192,8 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
 
   const searchUsers = async (q: string): Promise<UserOption[]> =>
     (await client.searchLink("User", q, { referenceDoctype: doctype })).map((u) => ({ id: u.value, label: u.label || u.value, description: u.description }));
+  // P36c: Desk's bulk Assign To is the same AssignToDialog (bulk_operations.js:225-238), "Assign To User Group" included
+  const assignGroups = React.useMemo(() => (options.userGroups === false ? undefined : userGroupSource(client)), [client, options.userGroups]);
   const assignTo = (users: UserOption[], d: Parameters<typeof bulkAssign>[4]) => run("assign", () => bulkAssign(client, doctype, keys, users.map((u) => u.id), d));
   // the same click for a bar button and a menu item (Assign To: the bar keeps its popover; the menu opens Desk's dialog)
   const trigger = (k: ListActionKind) => {
@@ -275,7 +281,7 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
             onDone={(r) => options.onDone?.("print", { failed: [], queued: !!r.taskId, silent: true }, printing)} />
         )}
   
-      <AssignDialog open={assigning} onOpenChange={setAssigning} details count={keys.length} searchUsers={searchUsers}
+      <AssignDialog open={assigning} onOpenChange={setAssigning} details count={keys.length} searchUsers={searchUsers} groups={assignGroups}
         me={session?.user && session.user !== "Guest" ? { id: session.user, label: session.fullName || session.user } : undefined}
         onAssign={(users, d) => assignTo(users, d)} />
     </>

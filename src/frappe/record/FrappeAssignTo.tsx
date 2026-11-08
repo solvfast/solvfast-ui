@@ -9,6 +9,7 @@ import type { AssignmentInfo, DocInfo, FrappeDoc, MetaBundle } from "../contract
 import { useDocAction } from "../hooks";
 import { useRecordApi, useRecordDocInfo } from "./data";
 import { useFormSidebarActions } from "./useFormSidebarActions";
+import { userGroupSource } from "./userGroups";
 
 export interface FrappeAssignToProps extends Pick<AssigneeGroupProps, "variant" | "maxVisible" | "heading" | "labels" | "className" | "single" | "withDetails"> {
   doc: FrappeDoc;
@@ -35,13 +36,16 @@ export interface FrappeAssignToProps extends Pick<AssigneeGroupProps, "variant" 
   allowComplete?: boolean;
   /** P36b: the meta, for the title field that prefills the dialog's Comment (sidebar layout). */
   bundle?: MetaBundle;
+  /** P36c: Desk's "Assign To User Group" in the sidebar's "Add to ToDo" dialog (assign_to.js:142-160, 191-197): a User Group
+   *  Link whose members replace the users to assign. Default on in the sidebar layout (as Desk); `false` hides it. */
+  userGroups?: boolean;
 }
 
 /**
  * ToDo-based assignment. List from `docinfo.assignments` (uncapped); after add / remove the docinfo is re-fetched — the
  * 5-row list `assign_to.add` returns is never used as the source of truth (docs 14 A2). Unsaved documents cannot be assigned.
  */
-export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = true, canWrite = false, searchUsers, onChanged, layout = "group", allowComplete, bundle, ...rest }: FrappeAssignToProps) {
+export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = true, canWrite = false, searchUsers, onChanged, layout = "group", allowComplete, bundle, userGroups = true, ...rest }: FrappeAssignToProps) {
   const { t } = useLocale();
   const c = useRecordApi();
   const actions = useDocAction();
@@ -60,6 +64,10 @@ export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = t
     [c, searchUsers],
   );
   const complete = allowComplete ?? layout === "sidebar";
+  const groups = React.useMemo(
+    () => (userGroups ? userGroupSource(c, { userLabel: (u) => info?.user_info?.[u]?.fullname }) : undefined),
+    [c, userGroups, info],
+  );
   if (layout === "sidebar") {
     if (doc.__islocal) return null; // assign_to.js:13-16
     const titleField = bundle?.meta.title_field;
@@ -83,7 +91,7 @@ export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = t
         {canAssign ? (
           <AssignDialog open={dialog} onOpenChange={setDialog} searchUsers={search} onAssign={assign} me={{ id: user, label: userFullName ?? user }}
             existing={assignees} details={rest.withDetails ?? true} labels={{ title: t("sbAssignAdd") }}
-            defaultDetails={title ? { description: title } : undefined} />
+            defaultDetails={title ? { description: title } : undefined} groups={groups} />
         ) : null}
       </SidebarSection>
     );
