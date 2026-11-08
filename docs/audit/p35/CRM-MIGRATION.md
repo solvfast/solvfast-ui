@@ -137,19 +137,47 @@ needs avatars and a "Create New" row: avatars need `Suggestion.icon` (0.7.0-dev,
 **Decision (P36-2):** pickers are migrated **per usage, by semantics only** — a picker moves to `LinkInput` where its
 meaning is a link to a record, not as a blanket swap of the shared component. See the P36 CRM workstream.
 
-TODO(p36-crm): summarise the P36 CRM workstream report (`scratchpad/p36/ws/crm.md`, not written when this file was
-integrated) — which pickers moved, which stayed and why, and the regression evidence. Commit seen on `crm/p36-ds` (not yet
-reported): `6310fc0` "P36 P1–P5: configuration Link pickers = the Design System's LinkInput (CRM scope only, per usage)".
+**P36 result.** Every usage was inventoried (`scratchpad/p36/ws/crm.md`), and each was classified by what it selects.
+
+| Usages | Decision | Branch |
+|---|---|---|
+| Lifecycle, SLA and Assignment Profile on the Lead/Deal type form; "Reuse an existing form" on the proposal type form; the CRM Configuration defaults (P1–P5) | Pick an existing document → `LinkInput` | **Not on the 0.6.0 branch.** Kept on `crm/p36-linkinput-review` (`6310fc0`) pending owner review: `LinkInput` is a text box, so clicking a filled field does not open the list (type, ArrowDown or clear first), and there is no check mark. Owner decision 2 ("only when the DS component fully supports the existing behaviour") is not met. A DS "open on focus/click when filled" option would close the gap. |
+| Field designer "Links to" (P6) | Static option list → `SearchCombobox` `options` (0.7.0-dev.1) | `crm/p36-needs-070` (`bf46479`) |
+| Country, City, Organization-by-name (7) | Kept: the explicit "Use «typed»" row has no DS equivalent | — |
+| `ClientPicker` (3) | Kept: CRM-specific trigger avatar and "Create New Client" | — |
+| `MultiSearchableSelect`, `TypeFilterPicker`, `AppliesToPicker` | Kept: no DS removable chips / groups / select-all, even in 0.7 | — |
 
 ### 5.2 Record-menu confirm bars → `AlertDialog` (M9) — **owner decided (P36): `AlertDialog`**
 `useRecordMenu.tsx:320-350` showed inline delete / unsaved-reload confirmation bars with hex colours.
 
 **Decision (P36-3):** CRM confirmations use the DS `AlertDialog` (modal). See the P36 CRM workstream.
 
-TODO(p36-crm): summarise the P36 CRM workstream results for M9 (files, scope gating, SD / SM untouched, regression
-evidence). Commits seen on `crm/p36-ds` (not yet reported): `8015184` "P36 C1: record ⋯ menu confirmations = the Design
-System's AlertDialog (CRM scope only)", `431cf9e` "P36 C2/C3: unsaved-changes and 'Remove this squad?' confirmations = the
-Design System's AlertDialog (CRM scope only)".
+**P36 result: migrated, on `crm/p36-ds`** (0.6.0) = `d244b64` + `8015184` (C1) + `431cf9e` (C2/C3). All three are scope-gated with `useDsScope()`; outside the CRM the old markup is unchanged.
+
+| Id | Location | Previous UI | DS UI | Preserved |
+|---|---|---|---|---|
+| C1 | ⋯ menu Delete / Delete-blocked / Reload-with-unsaved-changes (`useRecordMenu`) | inline confirmation bars with hex colours | the shared `CrmDeleteConfirm` (`AlertDialog`) | copy, handlers, permission checks, ⇧Ctrl+D. Only Delete is reachable in the CRM (proposal detail); the other two were type-checked and built only. |
+| C2 | Unsaved-changes prompt on the Deal / Lead / Contact / Organization detail (`RecordEditSession`) | custom popup | `AlertDialog`: Discard · Stay · Save | Save stays open if validation fails. That path is not reachable in mock mode, so it is not exercised. |
+| C3 | "Remove this squad?" in the squad proposal wizard | inline confirm | `AlertDialog`: Keep · red Remove | copy and action |
+
+Regression of `431cf9e` (0.6.0, local build):
+
+| Check | Result |
+|---|---|
+| Typecheck | 30 errors (identical list) |
+| Build | ✓ |
+| Route sweep | 82 loads, 0 console errors |
+| Mock flows | 16 / 0 |
+| Records-assign | 111 / 0 |
+| 28 lists | 112 / 112 |
+| Legacy interactions | 56 / 0 |
+| `p35.mjs` | 344 / 0 (bulk-tags excluded on 0.6.0) |
+| `p36.mjs` confirmation steps | 168 / 0 (8 combinations: cancel keeps state, confirm runs, destructive style, Escape) |
+| `p36-legacy.mjs` | 10 / 0 (legacy routes keep the old UI) |
+| tags/assign | 43 / 43 en + ar |
+| SD / SM + legacy (`outside.mjs`, 172 loads, 0 console errors) | 158 identical vs baseline; the SD / SM differences are 2–3 px (base-vs-base noise is 17 shots, up to 16 px); the CRM's own lifecycle / workflow designer canvases differ by edge-rendering noise (inspected visually; they also differ between two baseline runs) |
+
+`crm/p36-needs-070` = `12a1c10` (P35 + M7) + C1–C3 + P6. The workstream ran its suites against the local 0.7.0-dev.1 pack: `p35.mjs` 376 / 0, `p36.mjs` 336 / 0 (with "Links to"), tags/assign 43 / 43 ×2, SD / SM noise only.
 
 ### 5.3 M10 `DataGrid` phone layout — **still NOT migrated (owner decision P36-4)**
 P35 finding: `DataGrid` had a fixed `min-w-[32rem]`; at 390 px the Commission grid scrolled horizontally (scrollWidth 512

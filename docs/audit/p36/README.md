@@ -89,7 +89,7 @@ Expected Frappe behaviours the run will confirm or refute (read from Frappe 15.1
 
 ## 5. Open follow-ups (outside this docs step)
 
-- **CRM workstream report** — `CRM-MIGRATION.md` §5.1 / §5.2 carry `TODO(p36-crm)` placeholders until it is written.
+- **CRM workstream** — results in `CRM-MIGRATION.md` §5.1 / §5.2 (branches `crm/p36-ds` `431cf9e`, `crm/p36-needs-070` `bf46479`, `crm/p36-linkinput-review` `6310fc0`).
 - **Stale line in the generated matrix:** `VALIDATION-MATRIX.md` §7 last bullet and the L-HDR-1 precondition still say the
   package's `selectionMode` default is `"bar"`. The text comes from `e2e/frappe-site/matrix/catalogue.mjs` (W4); fix it there
   and re-render.
