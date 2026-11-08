@@ -19,7 +19,6 @@ import type { DocInfo, FrappeDoc, MetaBundle } from "../contract";
 import { useFrappeApi } from "../FrappeProvider";
 import { useDoc, useMetaBundle } from "../hooks";
 import { useRecordDocInfo } from "./data";
-import { usePermissions } from "../hooks/usePermissions";
 import { docTags, sanitizeTag } from "./tags";
 import { searchTags, useFormSidebarActions } from "./useFormSidebarActions";
 
@@ -43,7 +42,6 @@ export function FrappeDocTags({ doctype, name, readOnly, doc: givenDoc, bundle: 
   const bundle = givenBundle ?? metaQ.data;
   const infoQ = useRecordDocInfo(doc && !doc.__islocal ? doctype : undefined, name, givenInfo);
   const info = infoQ.data;
-  const perms = usePermissions(bundle, doc, info);
   const actions = useFormSidebarActions();
   const [adding, setAdding] = React.useState(false);
   const raw = info?.tags;
@@ -51,7 +49,9 @@ export function FrappeDocTags({ doctype, name, readOnly, doc: givenDoc, bundle: 
   const search = React.useCallback(async (txt: string) => (await searchTags(api, doctype, txt)).map((value) => ({ value })), [api, doctype]);
 
   if (doc?.__islocal || Number(bundle?.meta.issingle ?? 0)) return null;
-  const canEdit = !readOnly && perms.can("write");
+  // Desk's TagEditor (ui/tag_editor.js) has no client-side permission check; tag.py:152 refuses without write and the error
+  // is shown — P36b integration: native, no client gate
+  const canEdit = !readOnly;
   const ref = { doctype, name };
   return (
     <SidebarSection id="tags" label={t("sbTags")} icon={Tag} busy={infoQ.isLoading} className={className}

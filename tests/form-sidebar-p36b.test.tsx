@@ -86,7 +86,8 @@ describe("P36B.sidebar — native structure", () => {
     expect(within(document.querySelector<HTMLElement>('[data-sidebar-slot="share"]')!).getByTestId("share-slot")).toBeTruthy();
     expect(within(sectionOf("stats")).getByTestId("likes-slot")).toBeTruthy();
     expect(within(sectionOf("comments")).getByTestId("comments-slot")).toBeTruthy();
-    expect(within(sectionOf("stats")).getByRole("button", { name: "Comments: 0" })).toBeTruthy();
+    // the default count is D2's FrappeComments variant="count" (P36b integration)
+    expect(within(sectionOf("stats")).getByRole("button", { name: /^Comments: 0/ })).toBeTruthy();
     // created / modified as Desk words them (form_sidebar.js:92-113): owner lina, modified by the session user sara
     expect(sectionOf("meta").textContent).toContain("You last edited this");
     expect(sectionOf("meta").textContent).toContain("lina Q created this");
@@ -229,11 +230,11 @@ describe("P36B.sidebar — Attachments (attachments.js, FileUploader.vue)", () =
     expect(within(sectionOf("attachments")).getByText("No attachments")).toBeTruthy();
   });
 
-  it("P36B.sidebar.11 negative: a reader gets no Attach and no remove; the simulated server refuses both anyway (403)", async () => {
+  it("P36B.sidebar.11 negative: a reader gets Desk's Attach \"+\" (form_sidebar.html:68 — no client gate) but no remove (attachments.js:161 can_delete_attachment = write); the simulated server refuses both (403)", async () => {
     const s = site({ permissions: READER, files: [{}] });
     mount(s, <FrappeFormSidebar doctype="Site Visit" name="SV-1" />);
     await waitFor(() => expect(within(sectionOf("attachments")).getByText("f1.pdf")).toBeTruthy());
-    expect(within(sectionOf("attachments")).queryByRole("button", { name: "Attach a file" })).toBeNull();
+    expect(within(sectionOf("attachments")).getByRole("button", { name: "Attach a file" })).toBeTruthy();
     expect(within(sectionOf("attachments")).queryByRole("button", { name: /Remove/ })).toBeNull();
     await expect(s.t("upload_file", { file_name: "x.txt", doctype: "Site Visit", docname: "SV-1" })).rejects.toMatchObject({ status: 403 });
     await expect(s.t("frappe.desk.form.utils.remove_attach", { fid: "F-1", dt: "Site Visit", dn: "SV-1" })).rejects.toMatchObject({ status: 403 });
@@ -350,12 +351,11 @@ describe("P36B.sidebar — Tags (ui/tags.js, tag_editor.js, tag.py)", () => {
     await waitFor(() => expect(within(sectionOf("tags")).queryByText("urgent")).toBeNull());
   });
 
-  it("P36B.sidebar.18 negative: a reader gets no add / remove; the simulated server refuses add_tag (update_tags write check, tag.py:152)", async () => {
+  it("P36B.sidebar.18 negative: a reader gets Desk's add / remove (ui/tag_editor.js has no client gate); the simulated server refuses add_tag (update_tags write check, tag.py:152)", async () => {
     const s = site({ permissions: READER, doc: { _user_tags: ",urgent" } });
     mount(s, <FrappeDocTags doctype="Site Visit" name="SV-1" />);
     await waitFor(() => expect(within(sectionOf("tags")).getByText("urgent")).toBeTruthy());
-    expect(within(sectionOf("tags")).queryByRole("button", { name: "Add a tag" })).toBeNull();
-    expect(within(sectionOf("tags")).queryByRole("button", { name: /Remove tag/ })).toBeNull();
+    expect(within(sectionOf("tags")).getByRole("button", { name: "Add a tag" })).toBeTruthy();
     await expect(s.t("frappe.desk.doctype.tag.tag.add_tag", { tag: "x", dt: "Site Visit", dn: "SV-1" })).rejects.toMatchObject({ status: 403 });
     expect(s.t.store.docs.get("Site Visit")!.get("SV-1")!._user_tags).toBe(",urgent");
   });

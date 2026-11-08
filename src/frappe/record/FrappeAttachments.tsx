@@ -64,7 +64,9 @@ export function FrappeAttachments({ doctype, name, readOnly, doc: givenDoc, bund
   const meta = (bundle?.meta ?? {}) as Record<string, unknown>;
   const max = Number(meta.max_attachments ?? 0) || 0;
   const reached = attachmentLimitReached(list.length, max);
-  const canAdd = !readOnly && perms.can("write") && !reached;
+  // Desk offers "+" to every reader and lets the server refuse (form_sidebar.html:68, attachments.js:55 hides it only when
+  // max_attachments is reached; upload_file → check_write_permission is the authority) — P36b integration: native, no client gate
+  const canAdd = !readOnly && !reached;
   const canRemove = !readOnly && canDeleteAttachment({ protectAttachedFiles: meta.protect_attached_files as 0 | 1, docstatus: doc?.docstatus, perms: perms.levels });
   const { rows, hasMore } = attachmentsToShow(list, showAll);
   const ref = { doctype, name };
@@ -98,7 +100,7 @@ export function FrappeAttachments({ doctype, name, readOnly, doc: givenDoc, bund
           {...(webLink ? { onAttachLink: (url: string) => actions.attachLink.mutateAsync({ ...ref, fileUrl: url }) } : {})}
         />
       ) : null}
-      {reached && !readOnly && perms.can("write") ? <p className="text-[11px] text-muted-foreground">{fmt(t("sbAttachLimit"), max)}</p> : null}
+      {reached && !readOnly ? <p className="text-[11px] text-muted-foreground">{fmt(t("sbAttachLimit"), max)}</p> : null}
     </SidebarSection>
   );
 }

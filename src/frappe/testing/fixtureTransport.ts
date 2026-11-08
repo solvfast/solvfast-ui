@@ -1370,6 +1370,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const dt = String(a.dt);
       for (const n of (parse(a.docs) as string[]) ?? []) {
         const doc = get(dt, n);
+        if (P) P.assertDoc(doc, "write"); // tag.py update_tags → frappe.has_permission(write, throw) (P36b)
         const tl = String(doc._user_tags ?? "").split(",").filter(Boolean);
         for (const tag of tags) {
           if (tl.includes(tag)) continue;

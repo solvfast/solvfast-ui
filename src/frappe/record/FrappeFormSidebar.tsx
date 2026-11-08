@@ -23,6 +23,9 @@ import { usePermissions } from "../hooks/usePermissions";
 import { FrappeAssignTo, type FrappeAssignToProps } from "./FrappeAssignTo";
 import { FrappeAttachments, type FrappeAttachmentsProps } from "./FrappeAttachments";
 import { FrappeDocTags } from "./FrappeDocTags";
+import { FrappeSidebarShare } from "./FrappeSidebarShare";
+import { FrappeSidebarLikes } from "./FrappeSidebarLikes";
+import { FrappeComments } from "./FrappeComments";
 
 export interface FrappeFormSidebarProps {
   doctype: string;
@@ -93,8 +96,13 @@ export function FrappeFormSidebar({
       }
       attachments={<FrappeAttachments doctype={doctype} name={doc.name} doc={doc} bundle={bundle} docinfo={givenInfo} readOnly={readOnly} onOpenFileList={onOpenFileList} fileRecordHref={fileRecordHref} />}
       tags={<FrappeDocTags doctype={doctype} name={doc.name} doc={doc} bundle={bundle} docinfo={givenInfo} readOnly={readOnly} />}
-      share={share} likes={likes} comments={comments}
-      commentCount={(info.comments ?? []).length} commentCountSlot={commentCount} onCommentsClick={onCommentsClick}
+      // D2's parts by default (P36b integration); a host passes its own node, or `null` to leave a slot empty
+      share={share === undefined ? <FrappeSidebarShare doctype={doctype} name={doc.name} readOnly={readOnly} docinfo={givenInfo} /> : share}
+      likes={likes === undefined ? <FrappeSidebarLikes doctype={doctype} name={doc.name} readOnly={readOnly} docinfo={givenInfo} /> : likes}
+      comments={comments === undefined ? <FrappeComments doctype={doctype} name={doc.name} readOnly={readOnly} docinfo={givenInfo} /> : comments}
+      commentCount={(info.comments ?? []).length}
+      commentCountSlot={commentCount === undefined ? <FrappeComments doctype={doctype} name={doc.name} variant="count" readOnly={readOnly} docinfo={givenInfo} onCountClick={onCommentsClick} /> : commentCount}
+      onCommentsClick={onCommentsClick}
       modified={stamp(doc.modified_by, doc.modified)} created={stamp(doc.owner, doc.creation)}
     />
   );
