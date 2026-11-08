@@ -7,9 +7,10 @@
  * Carried from every view: Report, Image, Kanban, Calendar and (P35 integration) the List view, through
  * `FrappeListView`'s `onQueryStateChange`.
  *
- * P36b bulk — `bulk`: Desk's Actions on the checked rows in the two TABLE views that have them in Desk, List and Report
- * (ReportView extends ListView, report_view.js:9). Kanban has no row checkboxes in Desk (kanban_board.js); Image and
- * Calendar get nothing here (see docs/components/views.md).
+ * P36b bulk — `bulk`: Desk's Actions on the checked rows in the views that have them in Desk: List, Report (ReportView
+ * extends ListView, report_view.js:9) and, P36c, Image (ImageView extends ListView, image_view.js:6, with a checkbox per
+ * card, :113). Kanban has no row checkboxes in Desk (kanban_board.js); Calendar gets nothing here (see
+ * docs/components/views.md).
  */
 import * as React from "react";
 import { QueryClientContext, useQuery } from "@tanstack/react-query";
@@ -53,8 +54,8 @@ export interface FrappeViewsProps {
   showUnavailable?: boolean;
   /** Calendar field map (Desk's `<doctype>_calendar.js`); default: guessed from the meta; `false`: no calendar. */
   calendar?: CalendarFieldMap | false;
-  /** P36b — Desk's Actions (incl. Submit / Cancel) on the checked rows of the List AND Report views; `list.bulk` /
-   *  `report.bulk` override per view. */
+  /** P36b — Desk's Actions (incl. Submit / Cancel) on the checked rows of the List, Report and (P36c) Image views;
+   *  `list.bulk` / `report.bulk` / `image.bulk` override per view. */
   bulk?: FrappeBulkOptions;
   /** Extra props per view. */
   list?: Partial<FrappeListViewProps<Row>>;
@@ -85,7 +86,7 @@ function Inner({ doctype, client, view: controlled, defaultView = "list", onView
     case "report":
       return <FrappeReportView key="report" doctype={doctype} client={client} defaultSort={sort} bulk={bulk} {...shared} {...report} toolbarActions={<>{switcher}{report?.toolbarActions}</>} />;
     case "image":
-      return <FrappeImageView key="image" doctype={doctype} client={client} defaultSort={sort} {...shared} {...image} toolbarLeading={<>{switcher}{image?.toolbarLeading}</>} />;
+      return <FrappeImageView key="image" doctype={doctype} client={client} defaultSort={sort} bulk={bulk} {...shared} {...image} toolbarLeading={<>{switcher}{image?.toolbarLeading}</>} />;
     case "kanban":
       return <FrappeKanbanView key="kanban" doctype={doctype} client={client} defaultSort={sort} {...shared} {...kanban} toolbarLeading={<>{switcher}{kanban?.toolbarLeading}</>} />;
     case "calendar":

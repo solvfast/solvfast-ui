@@ -24,7 +24,7 @@ No view here reaches "site".
 |---|---|---|---|---|---|
 | List | yes | `FrappeListView` (pre-existing, WS3) | sim + recorded reads (pre-existing) | yes (pre-existing) | B-list.md sections A–J |
 | Report | yes | `FrappeReportView` on `ListView` | sim: `reportview.get` with Desk's child-column field form, `frappe.client.set_value` | filters, search, sort, paging, group-by (loaded rows), column picker including child-table fields, inline edit (Desk 15.110 rule by default, child cells included; `editable` opt-in), totals | `tests/frappe-views-report.test.tsx` (`LV.H1 …`, 26 tests) |
-| Image | yes, only when `image_field` names a field | Core `ImageGrid` / `ImageView` + `FrappeImageView` | sim: `reportview.get` with `image_field` + `title_field` | filters, search, sort, paging, selection, keyboard | `tests/frappe-views-image.test.tsx` (`LV.H5 …`, 7 tests) |
+| Image | yes, only when `image_field` names a field | Core `ImageGrid` / `ImageView` + `FrappeImageView` | sim: `reportview.get` with `image_field` + `title_field` | filters, search, sort, paging, selection, keyboard; P36c: Desk's Actions on checked cards (`bulk`) | `tests/frappe-views-image.test.tsx` (`LV.H5 …`, 7 tests), `tests/views-p36c.test.tsx` (`P36C.views.1`–`14`) |
 | Kanban | yes, when the DocType has a Kanban Board or a Select field | Core `KanbanBoard` + `FrappeKanbanView` | sim: `get_kanban_boards`, `frappe.client.get` (board), `reportview.get` (all rows), `update_order_for_single_card` / `set_value` | move by drag, by the "Move to…" menu or by Alt+Arrow keys; filters and search; read-only without write permission | `tests/frappe-views-kanban.test.tsx` (`LV.H2 …`, 8 tests) |
 | Calendar | yes, with a field map or a Date / Datetime field | Core `CalendarMonth` + `FrappeCalendarView` | sim: `reportview.get` with a date range, or `frappe.desk.calendar.get_events` | month navigation, filters and search, event click | `tests/frappe-views-calendar.test.tsx` (`LV.H3 …`, 6 tests) |
 | Gantt | no (disabled, "not implemented") | no | no | no | `LV.H0` availableViews tests |
@@ -221,7 +221,11 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
   `submit`, Cancel = `cancel` (`frappe.model.can_cancel`), both hidden under an active Workflow (list_view.js:2108-2120);
   List View Settings `allow_edit` is read as Desk's report view does (report_view.js:53). A document shown on several
   rows (one per child-table row) is sent **once** — Desk would send its name once per checked row, and the server would
-  then report the second copy as failed (documented difference). Without `bulk` nothing changes.
+  then report the second copy as failed (documented difference, kept by owner decision P36c #3). Every action that takes
+  names does this — Submit, Cancel, Edit, Delete, Assign To, Clear Assignment, Apply Assignment Rule, Add Tags, Print,
+  Export and the workflow's actions — and the confirmation, the "N succeeded, M failed" line and the selection outcome
+  count DOCUMENTS, not rows (regression tests `P36C.views.20`–`31`, `tests/views-p36c.test.tsx`). Without `bulk`
+  nothing changes.
 - **Totals:** "Show totals" sums the visible numeric columns over the **loaded rows (this page)**, as Desk's
   `get_columns_totals` does (:1523-1549). The totals appear in a card under the table, not in a table row.
 - **Group by:** the list's Group by (`groupByFields`) groups the loaded rows (rule C1, chunk of 200).
@@ -253,10 +257,41 @@ Rows are cached under `["sf-frappe","list",doctype,…]`, so `invalidateFrappeLi
 - **Data:** `FrappeImageView` requests `image_field` and `title_field` with the list fields (image_view.js:21-29). No
   recorded real `reportview.get` response includes an Attach Image column, so reading that field is simulator-only evidence.
 - **Not reproduced:** the PhotoSwipe gallery and zoom, `get_attached_images`, the Like heart on cards.
-- **Actions (P36b finding, not reproduced):** Desk's Image view is a `ListView` too (image_view.js:6) and its cards carry
-  the `list-row-checkbox` (:113), so Desk shows the same Actions menu there. `ImageView` has card selection only — no
-  Actions menu, so no Frappe action (Submit / Cancel included) on an image view. A Core Actions surface for the non-table
-  views is a follow-up.
+- **Actions on the checked cards (P36c, `bulk`; owner decision 5).** Desk's `ImageView` extends `ListView`
+  (image_view.js:6). Its `setup_view` (:17-21) keeps `setup_check_events` (list_view.js:1375-1429) but not
+  `render_header`, every card carries a `list-row-checkbox` (:113-114), and the page head is the List view's
+  (`set_primary_action` + `set_actions_menu_items`, list_view.js:157-179, 285-296). So checking a card swaps
+  "Add {DocType}" for the Actions menu (`on_row_checked` → `toggle_actions_menu_button`, :1613-1634, 590-598) with the
+  List view's items, gates and outcomes (`get_actions_menu_items`, :1855-2128).
+
+  ```tsx
+  <FrappeImageView doctype="Item" bulk={{}} primaryAction={<Button>Add Item</Button>} />
+  <FrappeViews doctype="Item" bulk={{}} image={{ primaryAction: addItem }} />   // bulk reaches List, Report and Image
+  ```
+
+  - `bulk` (the same `FrappeBulkOptions` as the List / Report views) turns the card checkboxes on. The actions come from
+    the shared `useFrappeSelectionActions` — no separate implementation: Edit, Export, Assign To, Clear Assignment, Apply
+    Assignment Rule, Add Tags, Print, Submit, Cancel, Delete, then the workflow's actions; Submit only with a submittable
+    DocType + level-0 `submit`, Cancel with `cancel`, both hidden under an active Workflow; nothing but Export without
+    `session.roles`.
+  - Outcomes as in the List view: Submit / Cancel clear the selection only when every document went through (a partial
+    failure keeps it, the cards reload); Edit and workflow actions keep it; Delete / Assign / Tags clear it; the outcome
+    line sits under the cards.
+  - Core `ImageView` takes the same props as `ListView` for this: `primaryAction`, `bulkActions`, `renderBulkActions`,
+    `selectionMode` ("header" default | "bar"), `renderActionsMenu`, `onActionsOpenChange`, `actionsLabel`. In header
+    mode, while cards are selected, a strip above the cards shows select-all (this page), "{n} items selected" and Clear.
+    A plain `selectable` `ImageView` with none of those props keeps its cards-only selection (unchanged).
+  - The host supplies "Add {DocType}" (`primaryAction`); `FrappeImageView` does not build FrappeListView's create /
+    Quick Entry flow.
+  - **Differences from Desk:** (1) the selection strip — Desk's Image view has no header row (`get_header_html` is
+    commented out, image_view.js:161-177), so it has no select-all, no "{n} items selected" and no Clear; the package
+    shows the List view's header content there (owner decision). (2) Desk hides the card checkbox on phones
+    (`hidden-xs`, :113); the package keeps it (keyboard: Space on a focused card). (3) Desk's shift-click range select
+    (list_view.js:1398-1424) is not reproduced on cards. (4) Desk's Image view requests no `docstatus` (its `set_fields`,
+    :23-31, replaces the list's standard fields), so Desk's Print check (bulk_operations.js:16-40) refuses every card of
+    a submittable DocType except for the Administrator; the package requests `docstatus` (useFrappeViewList) and checks
+    the real value. (5) `bulk` is opt-in, as in the other views.
+  - Tests: `tests/views-p36c.test.tsx` (`P36C.views.1`–`14`, SIMULATED). Showcase: "Image view actions (SIMULATED)".
 
 ## 5. Kanban — `KanbanBoard` (Core) and `FrappeKanbanView`
 

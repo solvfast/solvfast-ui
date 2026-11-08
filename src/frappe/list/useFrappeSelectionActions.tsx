@@ -11,6 +11,10 @@
  * and their dialogs come from `useFrappeBulkActions` (header mode, the default) or `FrappeBulkActions` (the opt-in bar),
  * and the selection / list follow Desk per action (`selectionAfterBulk`). Spread `listProps` into the `ListView`, render
  * `dialogs` and `message` next to it; `busy` / `selectedCount` pause realtime as Desk's `disable_list_update` does.
+ *
+ * P36c views — also `FrappeImageView`: Desk's ImageView extends ListView too (image_view.js:6) and keeps its check events
+ * (:17-21) and card checkboxes (:113), so the Core `ImageView` takes the same `listProps` (its header-actions surface
+ * mirrors `ListView`'s). One implementation for the three views.
  */
 import * as React from "react";
 import { Download } from "lucide-react";
