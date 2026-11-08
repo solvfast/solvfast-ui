@@ -418,3 +418,77 @@ Simulator (P35 integration): these handlers use the transport's own permission e
 `createFixtureTransport(…, { permissions })` is on (DocPerm × roles, if_owner, User Permissions, shares — through the handler context
 `FixtureContext`, third handler argument), its `printSettings` option (a stored "Print Settings" single wins) and its clock; the
 simulated `get_docinfo` / `get_communications` list stored Communications, so a sent e-mail appears in the simulated timeline.
+
+## P36b social — Share, Like, Comments (form sidebar parts)
+
+Three standalone parts the form sidebar renders, each `{ doctype, name, readOnly? }` (+ optional extras). They read the
+document's docinfo through the package's shared docinfo query (`useRecordDocInfo` → `useDocInfo`, key
+`frappeKeys.docinfo`) and the document through `useDoc` (`frappeKeys.doc`), the same keys `FrappeForm` seeds — nothing is
+fetched twice and every part follows the others. Source of truth: Frappe 15.110 (file:line in the components' headers and
+in `src/frappe/record/{share,like,comments}.ts`).
+
+### Generic pieces (`@solvfast/ui`, `src/record/`)
+
+- **`<ShareDialog>`** (`ShareDialog.tsx`) — Desk's share dialog (set_sharing.html): the **Everyone** row first, then one row
+  per user, with exactly Desk's rights **Can Read / Can Write / Can Submit / Can Share**; an add row (user + the four boxes +
+  Add). `entries: ShareEntry[]`, `canShare` (false → every box disabled, no add row, a hint), `canGrant: { write, submit }`
+  (those columns are disabled without the right), `searchUsers`, `onAdd(user, rights)`, `onSetRight(entry, right, value)`.
+  Not optimistic: a box is applied by the host's promise; the row is disabled meanwhile and a rejection keeps the box and
+  shows the message.
+- **`<SharedAvatars>`** — up to `max` (5) overlapping avatars + "+n", an "Everyone" pill; nothing when not shared.
+- **`<LikedBy>`** (`LikedBy.tsx`) — the controlled `LikeToggle` + the count; the count opens the list of who liked
+  (avatar + name). `liked`, `users`, `onToggle(next) => Promise`, `onError`, `disabled`.
+- **`Timeline`** (additive): `onTogglePublish(item, publish)`, `canPublish(item)`, `isPublished(item)` — Desk's comment
+  Publish / Unpublish with its confirmation and the "Published" marker. Without them nothing changes.
+
+### Frappe wiring (`@solvfast/ui/frappe`, `src/frappe/record/`)
+
+**`<FrappeSidebarShare doctype name readOnly? docinfo? sharingDisabled? searchUsers? maxAvatars? heading? labels?>`** — the
+"Share" heading with "+", the avatars of `docinfo.shared`, the dialog:
+- open → `frappe.share.get_users {doctype, name}` (share.py:125-152; `[]` without read);
+- add → `frappe.share.add {doctype, name, user, read, write, submit, share, notify: 1}` (share.js:129-141); the server
+  always adds read (share.py:44-45) and cascades share/write/submit ⇒ read, submit ⇒ write (docshare.py:40-44); the
+  dialog shows the row the server answered;
+- each box → `frappe.share.set_permission {doctype, name, user, permission_to, value, everyone}` (share.js:168-177; the
+  Everyone row sends `user: ""`, `everyone: 1`); un-ticking **Can Read** removes the share (share.py:111-120; `share.remove`
+  is not whitelisted); no answer = the row was deleted;
+- after each change `applyDocInfoChange` (the sidebar avatars and the permissions follow).
+- Who may change: `frm.perm[0].share` (usePermissions: roles, or a DocShare with share = 1) and not `sharingDisabled`
+  unless Administrator (model.js:462-473); Write / Submit only with those rights (set_sharing.html). Without the right the
+  dialog is read-only. The server decides (share.py:216-244: "No permission to share …", "You cannot share `write` …";
+  docshare.py:63-69: submit on a non-submittable DocType); its message is shown in the dialog.
+- User search: `search_link("User", { user_type: "System User", name: ["!=", me] })` (share.js:103-117).
+
+**`<FrappeSidebarLikes doctype name readOnly? docinfo? onError?>`** — reads the **document's** `_liked_by`
+(form_sidebar.js:242-250). Click → `frappe.desk.like.toggle_like {doctype, name, add: "Yes" | "No"}` (like.js:12-24); the heart
+is disabled and unchanged until the server answered; then the cached document's `_liked_by` is rewritten in place
+(`applyLikeToCaches`: `modified` untouched, like.py:55-58 / like.js:36-50; list rows too) and docinfo is invalidated
+(`like_logs`). A failure changes nothing (Desk is quiet) and calls `onError`. Guest / `readOnly` → disabled.
+
+**`<FrappeComments doctype name readOnly? docinfo? variant? onCountClick? order? searchMentions? canDeleteComment? isSystemManager?>`**
+- `variant="list"` (default): the comment box (Ctrl/⌘+Enter, @mentions from `get_names_for_mentions`, stored as
+  `<span class="mention" data-id …>`) and the document's comments (`docinfo.comments` — all of them; comments are not
+  paged, load.py:156-160). Add → `frappe.desk.form.utils.add_comment {reference_doctype, reference_name, content,
+  comment_email, comment_by}`; edit → `update_comment {name, content}`; delete → confirm, `frappe.client.delete {doctype:
+  "Comment", name}`; publish → confirm, `update_comment_publicity {name, publish}`. Nothing changes before the server answered.
+- Rights (comments.ts, form_timeline.js:607-663): Edit = author or Administrator; Delete = (author or System Manager) and
+  delete on Comment (System Manager / Website Manager in comment.json — `canDeleteComment` overrides for a customised site);
+  Publish = author or System Manager. `readOnly`: no box and no actions.
+- `variant="count"`: `docinfo.comments.length`; a click calls `onCountClick`, else focuses the page's `[data-sf-comment-box]`
+  (form_sidebar.js:51-55).
+- `FrappeTimeline` gets `allowPublish` (default false) for the same Publish / Unpublish in the full timeline.
+
+### Simulated (src/frappe/testing/handlers/social.ts) vs needs a real site
+
+| Method | Simulator | Needs a real site for |
+|---|---|---|
+| `frappe.share.get_users` / `add` / `set_permission` | share right, granted rights, cascade, submittable check, row deleted when empty, "Shared" / "Unshared" comments, Share Notification Log **recorded** | e-mail / realtime notification, Document Follow (`follow_shared_documents`), `validate_share` controller hooks |
+| `frappe.desk.like.toggle_like` | (transport built-in) `_liked_by`, Like comment, Guest refused | Document Follow (`follow_liked_documents`), realtime `docinfo_update` |
+| `frappe.desk.form.utils.add_comment` | read check, Comment + `_comments`, Mention Notification Log **recorded** (overrides the built-in) | HTML sanitising, image extraction, `allowed_in_mentions`, Document Follow, realtime |
+| `update_comment_publicity` | author or System Manager, `published` stored | website / portal visibility |
+
+The simulator computes `docinfo.shared` only when the transport has `permissions` (fixtureTransport.ts docinfo): on a
+permission-less transport the shared-with avatars stay empty even after a share (the dialog, which reads `get_users`, works).
+The `add_comment` override keeps the parent's `_comments` entries truncated at 100 characters (comment.py:130-131), as Frappe does.
+The simulator's `docinfo.comments` does not carry `published` yet (fixtureTransport.ts) — the "Published" marker shows on a
+real site and once the simulator adds the field.

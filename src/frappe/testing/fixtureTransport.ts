@@ -492,7 +492,7 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       doctype, name, attachments: [], communications, automated_messages, views: [], shared, milestones: [],
       versions: meta.track_changes ? [...table("Version").values()].filter((v) => v.ref_doctype === doctype && v.docname === name).slice(-10).reverse().map((v) => ({ name: v.name, owner: v.owner, creation: v.creation, data: v.data })) : [],
       energy_point_logs: [], additional_timeline_content: [], tags: "", document_email: null, is_document_followed: 0,
-      comments: byType("Comment").map((c) => ({ name: c.name, content: c.content, owner: c.owner, creation: c.creation, comment_type: "Comment", comment_email: c.comment_email, comment_by: c.comment_by })),
+      comments: byType("Comment").map((c) => ({ name: c.name, content: c.content, owner: c.owner, creation: c.creation, comment_type: "Comment", comment_email: c.comment_email, comment_by: c.comment_by, published: c.published ?? 0 })),
       assignment_logs: byType("Assigned", "Assignment Completed"), attachment_logs: byType("Attachment", "Attachment Removed"),
       info_logs: byType("Info", "Edit", "Label"), like_logs: byType("Like"), workflow_logs: byType("Workflow"),
       assignments, permissions: doc && P ? P.docPermissions(doc) : permissions(meta),

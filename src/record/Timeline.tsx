@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ChevronDown, FilePlus2, GitBranch, Heart, Info, MessageSquare, Paperclip, Pencil, PencilLine, Trash2, UserCheck, Activity } from "lucide-react";
+import { ChevronDown, FilePlus2, GitBranch, Globe2, Heart, Info, MessageSquare, Paperclip, Pencil, PencilLine, Trash2, UserCheck, Activity } from "lucide-react";
 import { cn } from "../lib/cn";
 import { relativeTime } from "../lib/relative-time";
 import { Button } from "../primitives/button";
@@ -18,6 +18,8 @@ export type TimelineFilter = "all" | "comments" | "changes";
 export interface TimelineLabels {
   all?: string; comments?: string; changes?: string; loadMore?: string; loading?: string; empty?: string; edit?: string; delete?: string;
   deleteTitle?: string; deleteBody?: string; cancel?: string; heading?: string; save?: string;
+  /** P36b social: comment publicity (form_timeline.js:620-625, 734-760). */
+  publish?: string; unpublish?: string; published?: string; publishedTitle?: string; publishBody?: string; unpublishBody?: string;
 }
 
 export interface TimelineProps {
@@ -36,6 +38,14 @@ export interface TimelineProps {
   hiddenKinds?: TimelineKind[];
   onEditComment?: (item: TimelineItem, html: string) => void | Promise<unknown>;
   onDeleteComment?: (item: TimelineItem) => void | Promise<unknown>;
+  /**
+   * P36b social: Desk's comment "Publish" / "Unpublish" (form_timeline.js:620-625 — the author or a System Manager;
+   * `update_comment_publicity`, desk/form/utils.py:72-79). Shown on comments for which `canPublish(item)` is true; asks
+   * for confirmation first (form_timeline.js:734-748). `isPublished` marks a comment "Published" (timeline_message_box.html).
+   */
+  onTogglePublish?: (item: TimelineItem, publish: boolean) => void | Promise<unknown>;
+  canPublish?: (item: TimelineItem) => boolean;
+  isPublished?: (item: TimelineItem) => boolean;
   searchMentions?: (query: string) => Promise<MentionOption[]>;
   composerLabels?: CommentComposerLabels;
   labels?: TimelineLabels;
@@ -99,15 +109,17 @@ export function sortItems(items: TimelineItem[], order: "newest-first" | "oldest
   return order === "newest-first" ? s.reverse() : s;
 }
 
-function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composerLabels, onSelect, showActor }: {
+function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composerLabels, onSelect, showActor, onPublish, canPublish, published }: {
   item: TimelineItem; now?: number; isRTL: boolean; L: Required<TimelineLabels>;
   onEdit?: TimelineProps["onEditComment"]; onDelete?: TimelineProps["onDeleteComment"];
+  onPublish?: TimelineProps["onTogglePublish"]; canPublish?: boolean; published?: boolean;
   searchMentions?: TimelineProps["searchMentions"]; composerLabels?: CommentComposerLabels;
   onSelect?: TimelineProps["onItemSelect"]; showActor?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState(false);
   const [confirmDel, setConfirmDel] = React.useState(false);
+  const [confirmPub, setConfirmPub] = React.useState(false);
   const [err, setErr] = React.useState("");
   const showChangesLabel = useLocale().t("coreShowChanges");
   const when = <time dateTime={new Date(item.at).toISOString()} title={new Date(item.at).toLocaleString()} className="text-[11px] text-muted-foreground">{relativeTime(item.at, isRTL, now)}</time>;
@@ -121,8 +133,10 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
         <div className="mb-1 flex items-center gap-1.5">
           <EntryIcon item={item} fallback="text-primary" className="" />
           <bdi className="text-sm font-medium text-foreground">{item.actor}</bdi><span aria-hidden className="text-muted-foreground">·</span>{when}
-          {!editing && (item.canEdit || item.canDelete) ? (
+          {published ? <><span aria-hidden className="text-muted-foreground">·</span><span className="text-[11px] text-muted-foreground" title={L.publishedTitle} data-published="">{L.published}</span></> : null}
+          {!editing && (item.canEdit || item.canDelete || (canPublish && onPublish)) ? (
             <span className="ms-auto flex items-center gap-1">
+              {canPublish && onPublish ? <button type="button" onClick={() => setConfirmPub(true)} aria-label={published ? L.unpublish : L.publish} title={published ? L.unpublish : L.publish} className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Globe2 className="h-3 w-3" aria-hidden /></button> : null}
               {item.canEdit && onEdit ? <button type="button" onClick={() => setEditing(true)} aria-label={L.edit} title={L.edit} className="rounded p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Pencil className="h-3 w-3" aria-hidden /></button> : null}
               {item.canDelete && onDelete ? <button type="button" onClick={() => setConfirmDel(true)} aria-label={L.delete} title={L.delete} className="rounded p-1 text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="h-3 w-3" aria-hidden /></button> : null}
             </span>
@@ -133,6 +147,17 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
             onCancel={() => setEditing(false)} onSubmit={async (html) => { await onEdit?.(item, html); setEditing(false); }} className="border-0 p-0" />
         ) : body}
         {err ? <p role="alert" className="mt-1 text-xs text-destructive">{err}</p> : null}
+        {canPublish && onPublish ? (
+          <AlertDialog open={confirmPub} onOpenChange={setConfirmPub}>
+            <AlertDialogContent>
+              <AlertDialogHeader><AlertDialogTitle>{published ? L.unpublish : L.publish}</AlertDialogTitle><AlertDialogDescription>{published ? L.unpublishBody : L.publishBody}</AlertDialogDescription></AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{L.cancel}</AlertDialogCancel>
+                <AlertDialogAction onClick={async () => { setErr(""); try { await onPublish(item, !published); } catch (e) { setErr(errorText(e)); } }}>{published ? L.unpublish : L.publish}</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : null}
         <AlertDialog open={confirmDel} onOpenChange={setConfirmDel}>
           <AlertDialogContent>
             <AlertDialogHeader><AlertDialogTitle>{L.deleteTitle}</AlertDialogTitle><AlertDialogDescription>{L.deleteBody}</AlertDialogDescription></AlertDialogHeader>
@@ -183,7 +208,7 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
 /** The record's activity feed. Everything it shows is already resolved into `TimelineItem`s by the caller. */
 export function Timeline({
   items, order = "newest-first", loading, error, hasMore, loadingMore, onLoadMore, showFilters, hiddenKinds, onEditComment, onDeleteComment,
-  searchMentions, composerLabels, labels, now, className, onItemSelect, showActor,
+  searchMentions, composerLabels, labels, now, className, onItemSelect, showActor, onTogglePublish, canPublish, isPublished,
 }: TimelineProps) {
   const { t, isRTL } = useLocale();
   const L: Required<TimelineLabels> = {
@@ -191,6 +216,8 @@ export function Timeline({
     loadMore: labels?.loadMore ?? t("recLoadMore"), loading: labels?.loading ?? t("recLoading"), empty: labels?.empty ?? t("recNoActivity"),
     edit: labels?.edit ?? t("recEdit"), delete: labels?.delete ?? t("recDelete"), deleteTitle: labels?.deleteTitle ?? t("recDeleteCommentTitle"),
     deleteBody: labels?.deleteBody ?? t("recDeleteCommentBody"), cancel: labels?.cancel ?? t("recCancel"), heading: labels?.heading ?? t("recActivity"), save: labels?.save ?? t("recSave"),
+    publish: labels?.publish ?? t("socPublish"), unpublish: labels?.unpublish ?? t("socUnpublish"), published: labels?.published ?? t("socPublished"),
+    publishedTitle: labels?.publishedTitle ?? t("socPublishedTitle"), publishBody: labels?.publishBody ?? t("socPublishBody"), unpublishBody: labels?.unpublishBody ?? t("socUnpublishBody"),
   };
   const [filter, setFilter] = React.useState<TimelineFilter>("all");
   const shown = React.useMemo(() => sortItems(filterItems(items, filter, hiddenKinds), order), [items, filter, hiddenKinds, order]);
@@ -215,7 +242,8 @@ export function Timeline({
         <ul className="space-y-2">
           {shown.map((it) => (
             <Entry key={it.id} item={it} now={now} isRTL={isRTL} L={L} onEdit={onEditComment} onDelete={onDeleteComment} searchMentions={searchMentions} composerLabels={composerLabels}
-              onSelect={onItemSelect} showActor={showActor} />
+              onSelect={onItemSelect} showActor={showActor}
+              onPublish={onTogglePublish} canPublish={it.kind === "comment" && !!canPublish?.(it)} published={it.kind === "comment" && !!isPublished?.(it)} />
           ))}
         </ul>
       )}

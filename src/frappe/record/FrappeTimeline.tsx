@@ -9,6 +9,9 @@ import { usePermissions } from "../hooks";
 import { useRecordApi, useRecordDocInfo, useRecordMeta } from "./data";
 import { useCommunications } from "./useCommunications";
 import { buildTimelineItems, type TimelineContext } from "./timeline";
+import { useQueryClient } from "@tanstack/react-query";
+import { applyDocInfoChange } from "../services/cache";
+import { COMMENT_PUBLICITY_METHOD, mentionSearchWith } from "./comments";
 
 export interface FrappeTimelineProps extends Pick<TimelineProps, "order" | "showFilters" | "hiddenKinds" | "labels" | "composerLabels" | "className"> {
   doc: FrappeDoc;
@@ -30,13 +33,19 @@ export interface FrappeTimelineProps extends Pick<TimelineProps, "order" | "show
   /** Replaces the default `get_names_for_mentions` search. */
   searchMentions?: (query: string) => Promise<MentionOption[]>;
   error?: React.ReactNode;
+  /**
+   * P36b social: offer Desk's comment Publish / Unpublish (form_timeline.js:614, 620-625 — author or System Manager;
+   * `update_comment_publicity`, desk/form/utils.py:72-79). Default false (unchanged timeline).
+   */
+  allowPublish?: boolean;
 }
 
 
 /** The record’s activity, built from `docinfo` (docs 14 A8) with comment add / edit / delete and “load more communications”. */
 export function FrappeTimeline({
-  doc, user, docinfo, bundle, activity = "all", canComment = true, isSystemManager, canDeleteComment, canSeeField, translate = (s) => s, searchMentions, error, ...rest
+  doc, user, docinfo, bundle, activity = "all", canComment = true, isSystemManager, canDeleteComment, canSeeField, translate = (s) => s, searchMentions, error, allowPublish = false, ...rest
 }: FrappeTimelineProps) {
+  const qc = useQueryClient();
   const { t, isRTL } = useLocale();
   const c = useRecordApi();
   const actions = useDocAction();
@@ -72,13 +81,7 @@ export function FrappeTimeline({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [info, comms, doc.modified, user, isSystemManager, canDeleteComment, fieldLabel, activity, t, isRTL]);
 
-  const mentionSearch = React.useCallback(
-    searchMentions ?? (async (term: string): Promise<MentionOption[]> => {
-      const res = await c.call("frappe.desk.search.get_names_for_mentions", { search_term: term });
-      return ((res.message as Array<Record<string, unknown>> | undefined) ?? []).map((r) => ({ id: String(r.id), label: String(r.value ?? r.id), isGroup: !!r.is_group }));
-    }),
-    [c, searchMentions],
-  );
+  const mentionSearch = React.useMemo<(q: string) => Promise<MentionOption[]>>(() => searchMentions ?? mentionSearchWith(c), [c, searchMentions]);
 
   const addComment = async (html: string) => {
     await actions.addComment.mutateAsync({ doctype: doc.doctype, name: doc.name, content: html });
@@ -88,7 +91,8 @@ export function FrappeTimeline({
 
   return (
     <div className="space-y-3">
-      {canComment ? <CommentComposer onSubmit={addComment} searchMentions={mentionSearch} labels={rest.composerLabels} /> : null}
+      {/* P36b social: `data-sf-comment-box` is where the sidebar's comment counter goes (FrappeComments variant "count") */}
+      {canComment ? <div data-sf-comment-box=""><CommentComposer onSubmit={addComment} searchMentions={mentionSearch} labels={rest.composerLabels} /></div> : null}
       <Timeline
         {...rest} items={items}
         loading={q.isLoading || meta.isLoading}
@@ -97,6 +101,14 @@ export function FrappeTimeline({
         searchMentions={mentionSearch}
         onEditComment={async (item, html) => { await actions.updateComment.mutateAsync({ doctype: doc.doctype, name: doc.name, commentName: item.id, content: html }); }}
         onDeleteComment={async (item) => { await actions.deleteComment.mutateAsync({ doctype: doc.doctype, name: doc.name, commentName: item.id }); }}
+        {...(allowPublish ? {
+          canPublish: (item: TimelineItem) => !!user && (item.actorId === user || !!isSystemManager),
+          isPublished: (item: TimelineItem) => { const p = (info?.comments.find((x) => x.name === item.id) as { published?: unknown } | undefined)?.published; return p === 1 || p === true || p === "1"; },
+          onTogglePublish: async (item: TimelineItem, publish: boolean) => {
+            await c.call(COMMENT_PUBLICITY_METHOD, { name: item.id, publish });
+            await applyDocInfoChange(qc, doc.doctype, doc.name);
+          },
+        } : {})}
       />
     </div>
   );

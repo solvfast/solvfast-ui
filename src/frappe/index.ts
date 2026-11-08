@@ -143,3 +143,6 @@ export { selectionAfterBulk } from "./list/bulk";
 // P36b bulk — Desk's Actions (Submit / Cancel incl.) shared by the List and Report views
 export { useFrappeSelectionActions, uniqueNames } from "./list/useFrappeSelectionActions";
 export type { FrappeSelectionActionsInput, FrappeSelectionActions } from "./list/useFrappeSelectionActions";
+
+// P36b social — FrappeSidebarShare, FrappeSidebarLikes, FrappeComments and the share / like / comments helpers are
+// exported through `export * from "./record"` above (src/frappe/record/index.ts, `// P36b social` block).
