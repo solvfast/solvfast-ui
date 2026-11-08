@@ -4,8 +4,8 @@
  * behaviour: the ranking, the index and the permissions are the simulator's approximation.
  */
 import * as React from "react";
-import { Navbar } from "@ui";
-import { FrappeGlobalSearch, FrappeProvider, createFrappeClient, type DeskSearchBoot, type DocTypeMeta } from "@ui/frappe";
+import { GlobalSearchBar, Navbar } from "@ui";
+import { FrappeProvider, createFrappeClient, useFrappeGlobalSearch, type DeskSearchBoot, type DeskSearchTarget, type DocTypeMeta } from "@ui/frappe";
 import { createFixtureTransport } from "../../../src/frappe/testing";
 import { Example, Section } from "../doc/Doc";
 import { l } from "../i18n";
@@ -34,6 +34,10 @@ const BOOT: DeskSearchBoot = {
 
 type Who = "admin" | "sales";
 
+function Search({ onNavigate }: { onNavigate: (url: string, t: DeskSearchTarget & { newTab: boolean }) => void }) {
+  return <GlobalSearchBar {...useFrappeGlobalSearch({ boot: BOOT, onNavigate })} />;
+}
+
 export function P36bSearchPage() {
   const [who, setWho] = React.useState<Who>("admin");
   const [log, setLog] = React.useState<string[]>([]);
@@ -61,7 +65,7 @@ export function P36bSearchPage() {
             <Navbar
               title="CRM"
               showLanguageToggle={false}
-              search={{ slot: <FrappeGlobalSearch boot={BOOT} onNavigate={(url, t) => setLog((x) => [`${t.newTab ? "new tab " : ""}${url}`, ...x].slice(0, 5))} /> }}
+              search={{ slot: <Search onNavigate={(url, t) => setLog((x) => [`${t.newTab ? "new tab " : ""}${url}`, ...x].slice(0, 5))} /> }}
             />
           </div>
         </FrappeProvider>

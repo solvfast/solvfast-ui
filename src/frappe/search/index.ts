@@ -6,5 +6,7 @@ export {
 export type { AwesomeBarContext, DeskRoute, DeskSearchBoot, DeskSearchTarget } from "./awesomebar";
 export { GLOBAL_SEARCH_METHOD, fetchGlobalSearch, makeDescription, globalRowToItem, groupGlobalRows } from "./globalSearch";
 export type { GlobalSearchArgs, GlobalSearchRow, GlobalResultOptions } from "./globalSearch";
-export { FrappeGlobalSearch, createFrappeSearchSource, recordDeskRoute, deskRouteHistory, clearDeskRouteHistory } from "./FrappeGlobalSearch";
-export type { FrappeGlobalSearchProps, FrappeSearchSourceOptions } from "./FrappeGlobalSearch";
+export { useFrappeGlobalSearch, createFrappeSearchSource, recordDeskRoute, deskRouteHistory, clearDeskRouteHistory } from "./useFrappeGlobalSearch";
+export type { FrappeGlobalSearchOptions, FrappeSearchSourceOptions } from "./useFrappeGlobalSearch";
+export { fuzzyMatch, fuzzySearch, fillTemplate } from "./fuzzy";
+export type { FuzzyHit } from "./fuzzy";

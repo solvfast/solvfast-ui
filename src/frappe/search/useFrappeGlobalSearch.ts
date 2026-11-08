@@ -1,7 +1,10 @@
 /**
- * FrappeGlobalSearch — the Frappe adapter of the Core `GlobalSearchBar` (P36b): Desk's awesome bar rows from the boot
+ * useFrappeGlobalSearch — the Frappe adapter of the Core `GlobalSearchBar` (P36b): Desk's awesome bar rows from the boot
  * lists (./awesomebar.ts) and the Global Search dialog over `frappe.utils.global_search.search` (./globalSearch.ts).
- * Navigation is injected (`onNavigate`) — no router dependency.
+ * Navigation is injected (`onNavigate`) — no router dependency. The hook returns the bar's props; the app renders the
+ * Core bar (the Frappe entry never imports the shell — scripts/check-boundaries.mjs):
+ *
+ *   <GlobalSearchBar {...useFrappeGlobalSearch({ boot, onNavigate: (url) => navigate(url) })} />
  *
  * Requests (SU:472-489, SD:52-65, 164-186): on opening / typing in the dialog
  *   `{ text, start: 0, limit: 100, doctype: "" }`; on "More" in a DocType's list `{ text, start: <rows shown>, limit: 20,
@@ -10,8 +13,7 @@
  *   lists the app passes (`can_read`, `can_create`, …), as in Desk.
  */
 import * as React from "react";
-import { GlobalSearchBar, type GlobalSearchBarProps } from "../../shell/search/GlobalSearchBar";
-import type { GlobalSearchSource, SearchItem, SearchResultGroup } from "../../shell/search/types";
+import type { GlobalSearchSource, SearchItem, SearchResultGroup, SelectOptions } from "../../shell/search/types";
 import type { FrappeTransport } from "../client";
 import { useFrappeClient, useFrappeSettings } from "../FrappeProvider";
 import { awesomeBarItems, awesomeBarRecent, deskSearchBootFrom, navGroups, type AwesomeBarContext, type DeskRoute, type DeskSearchBoot, type DeskSearchTarget } from "./awesomebar";
@@ -79,18 +81,21 @@ export function createFrappeSearchSource(o: FrappeSearchSourceOptions): GlobalSe
   };
 }
 
-export interface FrappeGlobalSearchProps extends Omit<FrappeSearchSourceOptions, "call">, Pick<GlobalSearchBarProps, "placeholder" | "className" | "inputClassName" | "shortcut"> {
+export interface FrappeGlobalSearchOptions extends Omit<FrappeSearchSourceOptions, "call"> {
   /**
    * Open a result. `url` is the target's URL (`resolveUrl` applied); `newTab` = Ctrl/⌘-click (AB:118-123). The route
-   * is recorded in the tab's history before this is called.
+   * is recorded in the tab's history before this is called (unless `history` is given).
    */
   onNavigate: (url: string, info: DeskSearchTarget & { newTab: boolean }) => void;
   /** Default: the FrappeProvider client's `call`. */
   call?: FrappeTransport;
 }
 
-/** The header search on Frappe data: `<FrappeGlobalSearch onNavigate={(url) => navigate(url)} boot={…} />`. */
-export function FrappeGlobalSearch({ onNavigate, call, boot, translate, history, routeTitles, currentList, resolveUrl, limit, ...bar }: FrappeGlobalSearchProps) {
+/** The props of the Core `GlobalSearchBar` on Frappe data: `{ source, onSelect }`. Needs a FrappeProvider (or `call`). */
+export function useFrappeGlobalSearch({ onNavigate, call, boot, translate, history, routeTitles, currentList, resolveUrl, limit }: FrappeGlobalSearchOptions): {
+  source: GlobalSearchSource;
+  onSelect: (item: SearchItem, opts: SelectOptions) => void;
+} {
   const client = useFrappeClient();
   const { translations } = useFrappeSettings();
   const __ = React.useMemo(() => translate ?? (translations ? (s: string) => translations[s] || s : undefined), [translate, translations]);
@@ -98,11 +103,11 @@ export function FrappeGlobalSearch({ onNavigate, call, boot, translate, history,
     () => createFrappeSearchSource({ call: call ?? client.call, boot, translate: __, history, routeTitles, currentList, resolveUrl, limit }),
     [call, client, boot, __, history, routeTitles, currentList, resolveUrl, limit],
   );
-  const onSelect = React.useCallback((it: SearchItem, opts: { newTab: boolean }) => {
+  const onSelect = React.useCallback((it: SearchItem, opts: SelectOptions) => {
     const t = it.data as DeskSearchTarget | undefined;
     if (!t) return;
     if (!history) recordDeskRoute(t.route);
     onNavigate(t.url, { ...t, newTab: opts.newTab });
   }, [history, onNavigate]);
-  return <GlobalSearchBar source={source} onSelect={onSelect} {...bar} />;
+  return { source, onSelect };
 }

@@ -2,7 +2,7 @@
  * Desk's Global Search server call and result shaping — `frappe.search.utils.get_global_results` (search_utils.js:447-
  * 489) over `frappe.utils.global_search.search` (frappe/utils/global_search.py:465-526), Frappe v15.110.
  */
-import { fuzzySearch } from "../../shell/search/fuzzy";
+import { fuzzySearch } from "./fuzzy";
 import type { SearchItem, SearchItemDetail, SearchResultGroup } from "../../shell/search/types";
 import type { FrappeTransport } from "../client";
 import { deskRouteUrl, type DeskRoute, type DeskSearchTarget } from "./awesomebar";

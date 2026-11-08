@@ -7,11 +7,11 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { Navbar } from "../src/shell/Navbar";
-import { GlobalSearchBar, fuzzyMatch, fuzzySearch, type GlobalSearchSource, type SearchItem } from "../src";
+import { GlobalSearchBar, type GlobalSearchSource, type SearchItem } from "../src";
 import { createFrappeClient } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import {
-  FrappeGlobalSearch, GLOBAL_SEARCH_METHOD, awesomeBarItems, clearDeskRouteHistory, deskRouteUrl, deskSearchBootFrom, makeDescription,
+  useFrappeGlobalSearch, fuzzyMatch, fuzzySearch, GLOBAL_SEARCH_METHOD, type FrappeGlobalSearchOptions, awesomeBarItems, clearDeskRouteHistory, deskRouteUrl, deskSearchBootFrom, makeDescription,
   type DeskSearchBoot, type DeskSearchTarget,
 } from "../src/frappe/search";
 import type { DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
@@ -54,13 +54,17 @@ const BOOT: DeskSearchBoot = {
   allowed_workspaces: [{ name: "Selling" }],
 };
 
-function renderFrappe(t: FixtureTransport, extra: Partial<React.ComponentProps<typeof FrappeGlobalSearch>> = {}, language: "en" | "ar" = "en") {
+function FrappeSearch(props: FrappeGlobalSearchOptions) {
+  return <GlobalSearchBar {...useFrappeGlobalSearch(props)} />;
+}
+
+function renderFrappe(t: FixtureTransport, extra: Partial<FrappeGlobalSearchOptions> = {}, language: "en" | "ar" = "en") {
   const onNavigate = vi.fn();
   const client = createFrappeClient({ transport: t });
   render(
     <ThemeProvider storageKeys={null} language={language}>
       <FrappeProvider client={client}>
-        <FrappeGlobalSearch boot={BOOT} onNavigate={onNavigate} {...extra} />
+        <FrappeSearch boot={BOOT} onNavigate={onNavigate} {...extra} />
       </FrappeProvider>
     </ThemeProvider>,
   );
@@ -164,7 +168,7 @@ describe("P36B.search — the simulated server method (frappe/utils/global_searc
   });
 });
 
-describe("P36B.search — FrappeGlobalSearch in the header (awesome bar + Global Search dialog)", () => {
+describe("P36B.search — useFrappeGlobalSearch + GlobalSearchBar in the header (awesome bar + Global Search dialog)", () => {
   it("P36B.search.8 debounce 100 ms; from 2 characters; \"Search for\" (index 100) ranks below a DocType match; Enter opens the first row", async () => {
     const t = createFixtureTransport(backend());
     const { input, onNavigate } = renderFrappe(t);

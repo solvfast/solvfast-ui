@@ -1,7 +1,7 @@
 /** Small render helpers shared by the search bar and dialog (P36b). Core. */
 import * as React from "react";
 import { cn } from "../../lib/cn";
-import { markSegments } from "./fuzzy";
+import { markSegments } from "./marks";
 import type { SearchItem } from "./types";
 
 /** Text with its fuzzy-match runs in <mark> (Desk SU:594-619 builds the same runs as HTML). */

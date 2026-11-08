@@ -1,7 +1,7 @@
 /**
  * Fuzzy matching as Frappe Desk's awesome bar does it — a port of frappe/public/js/frappe/ui/toolbar/fuzzy_match.js
  * (v15.110; Forrest Smith's public-domain algorithm, FM:17-180) and of `frappe.search.utils.fuzzy_search` (SU:579-620).
- * Framework-free; Core.
+ * Pure TypeScript (no React); it lives in the Frappe layer because it is Desk's ranking.
  */
 
 const SEQUENTIAL_BONUS = 25; // FM:17
@@ -76,22 +76,6 @@ export interface FuzzyHit {
 export function fuzzySearch(keywords: string, text: string): FuzzyHit {
   const [, score, matches] = fuzzyMatch(keywords ?? "", text ?? "");
   return score ? { score, marks: [...new Set(matches)].sort((a, b) => a - b) } : { score: 0, marks: [] };
-}
-
-export interface TextSegment { text: string; mark: boolean }
-
-/** Split `text` into marked / unmarked runs (the `<mark>` runs of SU:600-619), for rendering without HTML strings. */
-export function markSegments(text: string, marks?: readonly number[]): TextSegment[] {
-  if (!marks?.length) return text ? [{ text, mark: false }] : [];
-  const set = new Set(marks);
-  const out: TextSegment[] = [];
-  for (let i = 0; i < text.length; i++) {
-    const mark = set.has(i);
-    const last = out[out.length - 1];
-    if (last && last.mark === mark) last.text += text[i];
-    else out.push({ text: text[i], mark });
-  }
-  return out;
 }
 
 /**

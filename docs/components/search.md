@@ -5,9 +5,10 @@ The header search of Frappe Desk v15.110, reproduced in two layers:
 - **Core** (`@solvfast/ui`, Frappe-free, `src/shell/search/`): `GlobalSearchBar` (the navbar "awesome bar") and
   `GlobalSearchDialog` (the Global Search dialog). They read a `GlobalSearchSource` and call `onSelect` — no data, no
   router.
-- **Frappe adapter** (`@solvfast/ui/frappe`, `src/frappe/search/`): `FrappeGlobalSearch` and `createFrappeSearchSource`
-  build Desk's rows from the boot lists and call `frappe.utils.global_search.search`. Navigation is injected
-  (`onNavigate(url, info)`).
+- **Frappe adapter** (`@solvfast/ui/frappe`, `src/frappe/search/`): `useFrappeGlobalSearch` (→ the bar's `{ source,
+  onSelect }`) and `createFrappeSearchSource` build Desk's rows from the boot lists (Desk's fuzzy ranking: `fuzzySearch`)
+  and call `frappe.utils.global_search.search`. Navigation is injected (`onNavigate(url, info)`). The Frappe entry never
+  imports the shell (scripts/check-boundaries.mjs), so the app renders the Core bar with the hook's props.
 
 Chrome strings: `src/theme/messages-ws/search.ts` (`globalSearch…`, en + ar). Tests: `tests/global-search-p36b.test.tsx`
 (`P36B.search.1–15`). Showcase: Frappe → *Global search (SIMULATED)*.
@@ -15,13 +16,14 @@ Chrome strings: `src/theme/messages-ws/search.ts` (`globalSearch…`, en + ar). 
 ## Quick start
 
 ```tsx
-import { AppShell } from "@solvfast/ui";
-import { FrappeGlobalSearch, deskSearchBootFrom } from "@solvfast/ui/frappe";
+import { AppShell, GlobalSearchBar } from "@solvfast/ui";
+import { useFrappeGlobalSearch, deskSearchBootFrom } from "@solvfast/ui/frappe";
 
-<AppShell
-  search={{ slot: <FrappeGlobalSearch boot={deskSearchBootFrom(window.frappe?.boot)} onNavigate={(url) => navigate(url)} /> }}
-  …
-/>
+function HeaderSearch() {
+  const navigate = useNavigate();
+  return <GlobalSearchBar {...useFrappeGlobalSearch({ boot: deskSearchBootFrom(window.frappe?.boot), onNavigate: (url) => navigate(url) })} />;
+}
+<AppShell search={{ slot: <HeaderSearch /> }} … />
 ```
 
 `search={{ slot }}` (new, additive) renders the node at every width — the bar shows its input from `md` up and an icon
@@ -53,11 +55,12 @@ interface GlobalSearchSource {
 GlobalSearchBar({ source, onSelect(item, { newTab }), placeholder?, debounceMs = 100, minChars = 2, maxItems = 99, shortcut = true,
                   dialogDebounceMs?, className?, inputClassName? })
 GlobalSearchDialog({ open, onOpenChange, source, onSelect, initialQuery?, debounceMs = 300, minChars = 2, sectionSize = 4, pageSize = 20 })
-fuzzyMatch(pattern, str) → [matched, score, indices]; fuzzySearch(keywords, text) → { score, marks }; markSegments; fillTemplate; Marked
+markSegments(text, marks) → TextSegment[]; Marked
 
 // @solvfast/ui/frappe
-FrappeGlobalSearch({ onNavigate(url, info: DeskSearchTarget & { newTab }), boot?, translate?, history?, routeTitles?, currentList?,
-                     resolveUrl?(route) → url | undefined, limit = 100, call?, placeholder?, className?, inputClassName?, shortcut? })
+useFrappeGlobalSearch({ onNavigate(url, info: DeskSearchTarget & { newTab }), boot?, translate?, history?, routeTitles?, currentList?,
+                        resolveUrl?(route) → url | undefined, limit = 100, call? }) → { source, onSelect }
+fuzzyMatch(pattern, str) → [matched, score, indices]; fuzzySearch(keywords, text) → { score, marks }; fillTemplate(template, value, marks)
 createFrappeSearchSource({ call, boot?, translate?, history?, routeTitles?, currentList?, resolveUrl?, limit? }) → GlobalSearchSource
 DeskSearchBoot { can_read?, can_create?, can_search?, can_get_report?, single_types?, all_reports?, page_info?, allowed_workspaces?,
                  dashboards?, frequently_visited_links? }    deskSearchBootFrom(frappe.boot)

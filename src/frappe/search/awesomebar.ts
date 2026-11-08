@@ -6,7 +6,7 @@
  * Rows are Core `SearchItem`s whose `data` is a `DeskSearchTarget` (the Desk route + route options) and whose `href` is
  * the Desk URL (`/app/…`, router.js:423-453, 466-478).
  */
-import { fillTemplate, fuzzySearch } from "../../shell/search/fuzzy";
+import { fillTemplate, fuzzySearch } from "./fuzzy";
 import type { SearchItem, SearchResultGroup } from "../../shell/search/types";
 
 /** A Desk route as `frappe.set_route` takes it: ["List", "Customer"], ["Form", "Customer", "C-1"], ["query-report", "X"]. */
