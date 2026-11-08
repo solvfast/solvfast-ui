@@ -177,7 +177,7 @@ Regression of `431cf9e` (0.6.0, local build):
 | tags/assign | 43 / 43 en + ar |
 | SD / SM + legacy (`outside.mjs`, 172 loads, 0 console errors) | 158 identical vs baseline; the SD / SM differences are 2–3 px (base-vs-base noise is 17 shots, up to 16 px); the CRM's own lifecycle / workflow designer canvases differ by edge-rendering noise (inspected visually; they also differ between two baseline runs) |
 
-`crm/p36-needs-070` = `12a1c10` (P35 + M7) + C1–C3 + P6. The workstream ran its suites against the local 0.7.0-dev.1 pack: `p35.mjs` 376 / 0, `p36.mjs` 336 / 0 (with "Links to"), tags/assign 43 / 43 ×2, SD / SM noise only.
+`crm/p36-needs-070` = `12a1c10` (P35 + M7) + C1–C3 + P6. Integrator re-run against a local **0.7.0-dev.2** pack (header-selection default, Desk per-action selection, Report view, DataGrid layouts): typecheck 30 (identical); build ✓; route sweep 82 loads, 0 console errors; mock 16 / 0; records-assign 111 / 0; 28 lists 112 / 112; legacy 56 / 0; `p35.mjs` 376 / 0; `p36.mjs` (confirmations + "Links to") 216 / 0; `p36-legacy.mjs` 10 / 0; tags/assign 43 / 43 en + ar; SD / SM 2–3 px noise; the only real differences are the 8 legacy CRM detail shots (the assignee role line, P35 AssigneeGroup). No CRM package pin was changed. The workstream ran its suites against the local 0.7.0-dev.1 pack: `p35.mjs` 376 / 0, `p36.mjs` 336 / 0 (with "Links to"), tags/assign 43 / 43 ×2, SD / SM noise only.
 
 ### 5.3 M10 `DataGrid` phone layout — **still NOT migrated (owner decision P36-4)**
 P35 finding: `DataGrid` had a fixed `min-w-[32rem]`; at 390 px the Commission grid scrolled horizontally (scrollWidth 512
