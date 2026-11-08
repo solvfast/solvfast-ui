@@ -72,6 +72,7 @@ import { useLinkTitles } from "./linkTitles";
 import { FrappeField, type FrappeFieldProps } from "./FrappeField";
 import type { TableController } from "./FrappeChildTable";
 import { FrappeFormImage } from "./FrappeFormImage";
+import { FrappeAttachHost, type FrappeAttachHostValue } from "./attachHost";
 
 /** What the form needs from `usePermissions` (foundation). */
 export interface FormPermissions {
@@ -151,6 +152,10 @@ export interface FrappeFormViewProps extends FormEventsConfig {
    *  (desk.js `trigger_primary_action`), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo (outside text inputs).
    *  Default true; false registers nothing. */
   hotkeys?: boolean;
+  /** P36b attachimage: be the Attach / Attach Image controls' form (Desk's `frm`, attach.js:36-46, 137-144) — after an
+   *  upload or a Clear the form saves (`Update` on a submitted document). Default true; false (Quick Entry: Desk's
+   *  dialog controls have no `frm`) makes them only set their value. */
+  attachHost?: boolean;
 }
 
 /** What a `menu` render function receives (P35 integration). */
@@ -360,6 +365,12 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     frmRef.current = frm;
   }
   React.useEffect(() => { if (props.controllerRef) props.controllerRef.current = frmRef.current; }, [props.controllerRef]);
+  // P36b attachimage: the form the Attach controls save (frm.save — the same checks as the toolbar's Save / Update)
+  const attachHost = React.useMemo<FrappeAttachHostValue>(() => ({
+    save: (a) => fns.current.save(a),
+    getDoc: () => store.getDoc(),
+    getDocInfo: () => latestProps.current.docinfo,
+  }), [store]);
 
   // field-change events (Desk: after the model is set; child rows with (frm, cdt, cdn))
   React.useEffect(() => store.onFieldChange((c: FieldChange) => {
@@ -756,6 +767,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   };
 
   return (
+    <FrappeAttachHost value={props.attachHost === false ? null : attachHost}>
     <div className={cn("min-w-0 space-y-5", className)} data-doctype={meta.name}>
       {!props.hideToolbar && (
         <div className="flex flex-wrap items-center gap-3">
@@ -885,5 +897,6 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </FrappeAttachHost>
   );
 }

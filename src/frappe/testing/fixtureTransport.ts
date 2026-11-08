@@ -655,6 +655,27 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
   };
 
   // ---- save path ----------------------------------------------------------------------------------------------------
+  /**
+   * `relink_files` (core/doctype/file/utils.py:377-406), for every Attach / Attach Image field of the DocType with a
+   * value (:414-417): the File with that `file_url`, `attached_to_doctype` = the DocType, `attached_to_name` = the
+   * temporary name and `attached_to_field` = the field, created in the last 60 minutes, gets `attached_to_name` = the
+   * new name (`frappe.db.set_value`, no hooks).
+   */
+  function relinkMismatchedFiles(doc: FrappeDoc, tempName: string): void {
+    const files = store.docs.get("File");
+    if (!files) return;
+    const nowMs = now().getTime();
+    const created = (v: unknown) => { const t = new Date(String(v ?? "").replace(" ", "T").slice(0, 23)).getTime(); return Number.isNaN(t) ? NaN : t; };
+    for (const df of requireMeta(doc.doctype).fields ?? []) {
+      if (df.fieldtype !== "Attach" && df.fieldtype !== "Attach Image") continue;
+      const url = doc[df.fieldname];
+      if (!url) continue;
+      const hit = [...files.values()].find((f) => f.file_url === url && f.attached_to_doctype === doc.doctype && f.attached_to_name === tempName
+        && f.attached_to_field === df.fieldname && created(f.creation) >= nowMs - 60 * 60 * 1000 && created(f.creation) <= nowMs + 1000);
+      if (hit) hit.attached_to_name = doc.name;
+    }
+  }
+
   function save(raw: FrappeDoc, action: string): FrappeDoc {
     const meta = requireMeta(raw.doctype);
     const isNew = !!raw.__islocal || !raw.name;
@@ -1056,6 +1077,10 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       const raw = parse(a.doc) as FrappeDoc;
       const localname = raw.__islocal ? raw.name : undefined;
       const doc = save(raw, String(a.action));
+      // P36b attachimage: savedocs keeps the `new-<doctype>` name as `__temporary_name` (desk/form/save.py:20-22) and the
+      // insert relinks the Attach / Attach Image Files uploaded against it (model/document.py:333 →
+      // core/doctype/file/utils.py:411-419 relink_mismatched_files → :377-406 relink_files)
+      if (localname && localname.startsWith(`new-${String(raw.doctype).toLowerCase().split(" ").join("-")}`)) relinkMismatchedFiles(doc, localname);
       return docResponse(localname ? { ...doc, localname } as FrappeDoc : doc, String(a.action) === "Save" ? "Saved" : "Submitted");
     },
     "frappe.desk.form.save.cancel": (a) => {
@@ -1580,7 +1605,8 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
      * upload is refused (no file storage is simulated).
      */
     async upload(file, filename, opts) {
-      store.calls.push({ method: "upload_file", args: clone({ filename, ...opts }) });
+      // the multipart fields Desk sends (FileUploader.vue:660-700), `optimize` / `max_width` / `max_height` included
+      store.calls.push({ method: "upload_file", args: clone({ filename, ...opts, ...(opts.optimize ? { optimize: true } : {}) }) });
       if (backend.latency) await new Promise((r) => setTimeout(r, backend.latency));
       if (opts.doctype !== "Data Import") throw toFrappeError(417, { exc_type: "ValidationError", _server_messages: sm({ message: "SIMULATED: uploads are not simulated (no file storage) except a Data Import's file.", indicator: "red", raise_exception: 1 }) });
       if (P) {

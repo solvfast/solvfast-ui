@@ -19,8 +19,8 @@
  *   URL in docinfo (none → no request, attachments.js:199-215) → save; a refusal is shown and nothing is saved. Outside a
  *   form only the value is cleared.
  * - Attach Image: hovering / focusing the link previews the image (attach_image.js:156-169).
- * Not reproduced (listed in docs/components/forms.md): the uploader's Camera, image crop and "Optimize" switch; Google
- * Drive.
+ * The uploader's per-image "Optimize" (sent as `optimize`), thumbnails, public warning, Crop and Camera come from
+ * `AttachDialog` (FilePreview.vue, ImageCropper.vue, ui/capture.js). Not reproduced: Google Drive.
  */
 import * as React from "react";
 import { QueryClientContext } from "@tanstack/react-query";
@@ -100,7 +100,7 @@ export function useFrappeAttach(o: UseFrappeAttachOptions) {
   const [open, setOpen] = React.useState(false);
   const [maxSize, setMaxSize] = React.useState<number | undefined>(undefined);
   const [failure, setFailure] = React.useState<string | null>(null);
-  const [last, setLast] = React.useState<{ file: File; isPrivate: boolean } | null>(null);
+  const [last, setLast] = React.useState<{ file: File; isPrivate: boolean; optimize: boolean } | null>(null);
   const uploaded = React.useRef<FrappeDoc[]>([]);
   const opts = attachUploadOptions(o.df, o.bundle, o.doctype, o.docname, o.imageOnly);
   const target = opts.target;
@@ -122,9 +122,10 @@ export function useFrappeAttach(o: UseFrappeAttachOptions) {
   const fileDoc = (r: { message?: unknown }) => (r.message ?? undefined) as FrappeDoc | undefined;
   const json = target ? { doctype: target.doctype, docname: target.docname, fieldname: target.fieldname } : {};
 
-  const uploadLocal = async (file: File, isPrivate: boolean) => {
-    const doc = await api.uploadFile(file, file.name, { ...(target ?? {}), isPrivate });
-    setLast({ file, isPrivate });
+  const uploadLocal = async (file: File, isPrivate: boolean, optimize = false) => {
+    // FileUploader.vue:693-695: `optimize` only when the row's switch is on
+    const doc = await api.uploadFile(file, file.name, { ...(target ?? {}), isPrivate, ...(optimize ? { optimize: true } : {}) });
+    setLast({ file, isPrivate, optimize });
     return done(doc);
   };
   const attachExisting = async (f: LibraryFile) => done(fileDoc(await api.call(UPLOAD_FILE_METHOD, { library_file_name: f.id, folder: ATTACH_FIELD_FOLDER, ...json })));
@@ -138,7 +139,7 @@ export function useFrappeAttach(o: UseFrappeAttachOptions) {
 
   const reload = last ? async () => {
     setFailure(null);
-    try { await uploadLocal(last.file, last.isPrivate); } catch (e) { setFailure(errorText(e) || t("attachFailed")); }
+    try { await uploadLocal(last.file, last.isPrivate, last.optimize); } catch (e) { setFailure(errorText(e) || t("attachFailed")); }
   } : undefined;
 
   /** `remove_attachment_by_filename` (attachments.js:208-236): true when removed or nothing to remove. */
@@ -162,8 +163,8 @@ export function useFrappeAttach(o: UseFrappeAttachOptions) {
 
   const dialog = (
     <AttachDialog open={open} onOpenChange={setOpen} maxFiles={1} accept={opts.accept} maxSize={maxSize != null ? maxSize - 1 : undefined}
-      defaultPrivate={opts.defaultPrivate}
-      onUpload={(file, isPrivate) => uploadLocal(file, isPrivate)}
+      defaultPrivate={opts.defaultPrivate} allowOptimize
+      onUpload={(file, isPrivate, u) => uploadLocal(file, isPrivate, u.optimize)}
       searchLibrary={async (text) => (await searchFiles(api, text)).map((f) => ({ id: f.name, fileName: f.file_name || f.file_url, fileUrl: f.file_url }))}
       onAttachExisting={attachExisting}
       onAttachLink={attachLink} />

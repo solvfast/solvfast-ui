@@ -442,7 +442,7 @@ describe("P36b attachimage — the form image (meta.image_field) menu (SIMULATED
 });
 
 describe("P36b attachimage — showcase (SIMULATED)", () => {
-  it("P36B.attachimage.25 the page is routed under Frappe, labelled SIMULATED, and a FrappeForm inside FrappeAttachHost saves after an upload", async () => {
+  it("P36B.attachimage.25 the page is routed under Frappe, labelled SIMULATED, and FrappeForm (FrappeFormView provides the host) saves after an upload", async () => {
     const { PAGES } = await import("../showcase/src/routes");
     const { P36bAttachImagePage } = await import("../showcase/src/pages/p36b-attachimage");
     expect(PAGES.find((p) => p.id === "p36b-attachimage")?.group.id).toBe("frappe");
@@ -456,5 +456,256 @@ describe("P36b attachimage — showcase (SIMULATED)", () => {
     upload(dialog);
     await waitFor(() => expect(within(form).getByRole("link", { name: /\/files\/visit\.pdf/ })).toBeTruthy());
     await waitFor(() => expect(screen.getByText(/frappe\.desk\.form\.save\.savedocs/)).toBeTruthy(), { timeout: 3000 });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Integration round: FrappeFormView provides the host; FileUploader options (Optimize, private / public warning,
+// thumbnails, Crop, Camera); simulated savedocs relink.
+// ---------------------------------------------------------------------------------------------------------------------
+type UploadSeen = { filename: string; opts: Record<string, unknown>; file: Blob };
+/** Records what the client hands to the files transport (the multipart fields), then lets the simulator answer. */
+function recordUploads(s: Site): UploadSeen[] {
+  const seen: UploadSeen[] = [];
+  const inner = s.t.files.upload.bind(s.t.files);
+  s.t.files.upload = async (file, filename, opts) => { seen.push({ file, filename, opts: { ...opts } }); return inner(file, filename, opts); };
+  return seen;
+}
+const rightsAll = { levels: [{ read: true, write: true, create: true, submit: true, cancel: true, amend: true }], can: () => true, known: true };
+
+describe("P36b attachimage — FrappeFormView is the Attach controls' form (SIMULATED)", () => {
+  function formView(s: Site, doc: FrappeDoc, docinfo?: DocInfo) {
+    const onSave = vi.fn(async (d: FrappeDoc, action: string) => s.client.saveDoc(d, action as "Save"));
+    const r = mount(s, <FrappeFormView bundle={BUNDLE} doc={doc} docinfo={docinfo} permissions={rightsAll} onSave={onSave} />);
+    const photo = () => document.querySelector<HTMLElement>('[data-attach-field]')!;
+    return { ...r, onSave, photo };
+  }
+
+  it("P36B.attachimage.26 upload in a FrappeFormView: value set, then the FORM saves through its own pipeline (savedocs Save) — attach.js:137-144", async () => {
+    const s = site();
+    const { onSave, photo } = formView(s, visit());
+    fireEvent.click(within(photo()).getByRole("button", { name: /Photo Attach/ }));
+    const dialog = await screen.findByRole("dialog");
+    chooseFile(dialog);
+    upload(dialog);
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![1]).toBe("Save");
+    expect(onSave.mock.calls[0]![0].photo).toBe("/private/files/front.png");
+    expect(calls(s.t, "frappe.desk.form.save.savedocs")).toHaveLength(1);
+  });
+
+  it("P36B.attachimage.27 a submitted document (allow_on_submit field) saves with Update; Clear → remove_attach → Update — attach.js:45, 141", async () => {
+    const s = site({ doc: { docstatus: 1, photo: "/private/files/front.png" }, files: [PHOTO()] });
+    const info = await s.client.getDocInfo("Site Visit", "SV-1");
+    const { onSave } = formView(s, visit({ docstatus: 1, photo: "/private/files/front.png" }), info);
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![1]).toBe("Update");
+    expect(onSave.mock.calls[0]![0].photo).toBeNull();
+    expect(calls(s.t, "frappe.desk.form.utils.remove_attach")[0]!.args).toEqual({ fid: "F-PHOTO", dt: "Site Visit", dn: "SV-1" });
+  });
+
+  it("P36B.attachimage.28 negative: attachHost={false} (Quick Entry) — the value is set, nothing is saved", async () => {
+    const s = site();
+    const onSave = vi.fn(async (d: FrappeDoc) => d);
+    mount(s, <FrappeFormView bundle={BUNDLE} doc={visit()} permissions={rightsAll} onSave={onSave} attachHost={false} />);
+    fireEvent.click(within(document.querySelector<HTMLElement>('[data-attach-field]')!).getByRole("button", { name: /Photo Attach/ }));
+    const dialog = await screen.findByRole("dialog");
+    chooseFile(dialog);
+    upload(dialog);
+    await waitFor(() => expect(screen.getByRole("link", { name: "/private/files/front.png" })).toBeTruthy());
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("P36B.attachimage.29 FrappeQuickEntry: an Attach Image there only sets the value (quick_entry.js:127-131 Dialog → controls without frm); no savedocs until Save", async () => {
+    const { FrappeQuickEntry } = await import("../src/frappe/form");
+    const s = site({ meta: { quick_entry: 1, fields: VISIT.fields.map((f) => (f.fieldname === "subject" ? { ...f, reqd: 1 } : f.fieldname === "photo" ? { ...f, allow_in_quick_entry: 1 } : f)) } });
+    mount(s, <FrappeQuickEntry doctype="Site Visit" open onOpenChange={() => {}} onCreated={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Photo Attach/ }));
+    await waitFor(() => expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(2));
+    const dialog = [...document.querySelectorAll<HTMLElement>('[role="dialog"]')].find((d) => d.querySelector('input[type="file"]'))!;
+    chooseFile(dialog);
+    upload(dialog);
+    await waitFor(() => expect(calls(s.t, "upload_file")).toHaveLength(1));
+    expect(calls(s.t, "upload_file")[0]!.args.docname).toMatch(/^new-site-visit-/);
+    await waitFor(() => expect(screen.getByRole("link", { name: "/private/files/front.png" })).toBeTruthy());
+    expect(calls(s.t, "frappe.desk.form.save.savedocs")).toHaveLength(0);
+  });
+});
+
+describe("P36b attachimage — the uploader's options (FileUploader.vue / FilePreview.vue) (SIMULATED)", () => {
+  it("P36B.attachimage.30 Optimize: offered for images (not SVG), on by default above 200 KB (FileUploader.vue:428-434); sent as optimize (:693-695) only when on", async () => {
+    const s = site();
+    const seen = recordUploads(s);
+    mount(s, <FormHarness client={s.client} field="photo" initial={visit()} />);
+    let dialog = await openUploader();
+    chooseFile(dialog, "big.png", "image/png", 300 * 1024);
+    const box = within(dialog).getByRole("checkbox", { name: "big.png: Optimize" }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    upload(dialog);
+    await waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]!.opts).toMatchObject({ optimize: true, fieldname: "photo" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /Attach/ })).toBeTruthy());
+    dialog = await openUploader();
+    chooseFile(dialog, "small.png", "image/png", 10);
+    expect((within(dialog).getByRole("checkbox", { name: "small.png: Optimize" }) as HTMLInputElement).checked).toBe(false);
+    upload(dialog);
+    await waitFor(() => expect(seen).toHaveLength(2));
+    expect(seen[1]!.opts.optimize).toBeUndefined();
+  });
+
+  it("P36B.attachimage.31 the client sends optimize as Desk's multipart field (FileUploader.vue:693-695; handler.py:225-233)", async () => {
+    const bodies: FormData[] = [];
+    const fake = (async (_url: string, init: RequestInit) => { bodies.push(init.body as FormData); return new Response(JSON.stringify({ message: { doctype: "File", name: "F1", file_url: "/files/a.png" } }), { status: 200 }); }) as unknown as typeof fetch;
+    const client = createFrappeClient({ fetch: fake, csrfToken: "t" });
+    await client.uploadFile(new Blob(["x"], { type: "image/png" }), "a.png", { doctype: "Site Visit", docname: "SV-1", fieldname: "photo", isPrivate: true, optimize: true });
+    await client.uploadFile(new Blob(["x"], { type: "image/png" }), "b.png", { isPrivate: false });
+    expect(bodies[0]!.get("optimize")).toBe("true");
+    expect(bodies[0]!.get("fieldname")).toBe("photo");
+    expect(bodies[0]!.get("is_private")).toBe("1");
+    expect(bodies[1]!.has("optimize")).toBe(false);
+  });
+
+  it("P36B.attachimage.32 SVG: no Optimize; a non-image row has no thumbnail; an image row has its thumbnail (FilePreview.vue:4-7, 120-129)", async () => {
+    const s = site();
+    mount(s, <FormHarness client={s.client} field="report" initial={visit()} />);
+    const dialog = await openUploader();
+    chooseFile(dialog, "logo.svg", "image/svg+xml", 300 * 1024);
+    expect(within(dialog).queryByRole("checkbox", { name: /Optimize/ })).toBeNull();
+    expect(await within(dialog).findByRole("img", { name: "logo.svg" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove logo.svg" }));
+    chooseFile(dialog, "r.pdf", "application/pdf", 10);
+    expect(dialog.querySelector("[data-upload-thumb]")).toBeNull();
+  });
+
+  it("P36B.attachimage.33 private / public: a public file carries Desk's warning (FilePreview.vue:70-80); switching back to private removes it; the request follows the switch", async () => {
+    const s = site();
+    const seen = recordUploads(s);
+    mount(s, <FormHarness client={s.client} field="photo" initial={visit()} />);
+    const dialog = await openUploader();
+    chooseFile(dialog);
+    expect(dialog.querySelector("[data-public-warning]")).toBeNull();
+    const toggle = within(dialog).getByRole("button", { name: "front.png: Private" });
+    fireEvent.click(toggle);
+    expect(dialog.querySelector("[data-public-warning]")?.textContent).toMatch(/public and can be accessed by anyone/);
+    fireEvent.click(toggle); fireEvent.click(toggle);
+    upload(dialog);
+    await waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]!.opts.isPrivate).toBe(false);
+  });
+
+  it("P36B.attachimage.34 one file: the drop zone hides once a file is listed (FileUploader.vue:10) and comes back when it is removed", async () => {
+    const s = site();
+    mount(s, <FormHarness client={s.client} field="photo" initial={visit()} />);
+    const dialog = await openUploader();
+    chooseFile(dialog);
+    expect(dialog.querySelector('input[type="file"]')).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove front.png" }));
+    expect(dialog.querySelector('input[type="file"]')).toBeTruthy();
+  });
+
+  it("P36B.attachimage.35 Crop (JPEG / PNG, FilePreview.vue:51-56, 133-140 → ImageCropper.vue): ratios, keyboard, Crop draws the box from the original and the cropped file is uploaded", async () => {
+    const drawn: number[][] = [];
+    const proto = HTMLCanvasElement.prototype as unknown as Record<string, unknown>;
+    const saved = { getContext: proto.getContext, toBlob: proto.toBlob };
+    proto.getContext = function () { return { drawImage: (...a: unknown[]) => drawn.push(a.slice(1).map(Number)) }; };
+    proto.toBlob = function (this: HTMLCanvasElement, cb: (b: Blob) => void, type: string) { cb(new Blob([new Uint8Array(this.width * this.height % 997 + 1)], { type })); };
+    try {
+      const s = site();
+      const seen = recordUploads(s);
+      mount(s, <FormHarness client={s.client} field="photo" initial={visit()} />);
+      const dialog = await openUploader();
+      chooseFile(dialog, "front.png", "image/png", 50);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Crop front.png" }));
+      const img = await within(dialog).findByRole("img", { name: "front.png" }, { timeout: 2000 }).then(() => dialog.querySelector<HTMLImageElement>("[data-image-cropper] img")!);
+      Object.defineProperty(img, "naturalWidth", { value: 1000 }); Object.defineProperty(img, "naturalHeight", { value: 500 });
+      fireEvent.load(img);
+      const area = await within(dialog).findByRole("group", { name: "Crop area" });
+      expect(area.getAttribute("data-crop-box")).toBe("100,50,800,400"); // Free: 80% centred
+      fireEvent.click(within(dialog).getByRole("button", { name: "1:1" }));
+      expect(area.getAttribute("data-crop-box")).toBe("300,50,400,400");
+      fireEvent.keyDown(area, { key: "ArrowRight" });
+      expect(area.getAttribute("data-crop-box")).toBe("310,50,400,400");
+      expect(within(dialog).queryByRole("button", { name: "Upload" })).toBeNull(); // Desk hides the footer while cropping
+      fireEvent.click(within(dialog).getByRole("button", { name: "Crop" }));
+      expect(drawn[0]).toEqual([310, 50, 400, 400, 0, 0, 400, 400]);
+      upload(dialog);
+      await waitFor(() => expect(seen).toHaveLength(1));
+      expect(seen[0]!.filename).toBe("front.png");
+      expect((seen[0]!.file as Blob).type).toBe("image/png");
+      expect((seen[0]!.file as Blob).size).toBe(400 * 400 % 997 + 1);
+    } finally { proto.getContext = saved.getContext; proto.toBlob = saved.toBlob; }
+  });
+
+  it("P36B.attachimage.36 Camera (ui/capture.js): offered where getUserMedia exists; Take Photo → Preview → Submit adds capture_….png; the stream stops; refused → \"Unable to load camera.\" + the device-camera fallback", async () => {
+    const stop = vi.fn();
+    const nav = navigator as unknown as { mediaDevices?: unknown };
+    const savedMedia = nav.mediaDevices;
+    const proto = HTMLCanvasElement.prototype as unknown as Record<string, unknown>;
+    const savedCanvas = { getContext: proto.getContext, toDataURL: proto.toDataURL };
+    const savedPlay = HTMLMediaElement.prototype.play;
+    let refuse = false;
+    const getUserMedia = vi.fn(async (c: unknown) => { void c; if (refuse) throw new Error("NotAllowedError"); return { getTracks: () => [{ stop }] }; });
+    Object.defineProperty(navigator, "mediaDevices", { value: { getUserMedia }, configurable: true });
+    proto.getContext = () => ({ drawImage: () => {} });
+    proto.toDataURL = () => "data:image/png;base64,iVBORw0KGgo=";
+    HTMLMediaElement.prototype.play = () => Promise.resolve();
+    try {
+      const s = site();
+      const seen = recordUploads(s);
+      mount(s, <FormHarness client={s.client} field="photo" initial={visit()} />);
+      const dialog = await openUploader();
+      fireEvent.mouseDown(within(dialog).getByRole("tab", { name: "Camera" }), { button: 0 });
+      await waitFor(() => expect(getUserMedia).toHaveBeenCalledWith({ video: { facingMode: "environment" } }));
+      expect(within(dialog).getByText("No Images")).toBeTruthy();
+      fireEvent.click(await within(dialog).findByRole("button", { name: "Take Photo" }));
+      expect(within(dialog).getByText("Total Images: 1")).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Preview" }));
+      expect(stop).toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
+      const row = await waitFor(() => { const r = dialog.querySelector<HTMLElement>('[data-upload-row^="capture_"]'); if (!r) throw new Error("no row"); return r; });
+      expect(row.getAttribute("data-upload-row")).toMatch(/^capture_\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}\.png$/);
+      upload(dialog);
+      await waitFor(() => expect(seen).toHaveLength(1));
+      expect((seen[0]!.file as File).type).toBe("image/png");
+      cleanup();
+      refuse = true;
+      mount(s, <FormHarness client={s.client} field="photo" initial={visit()} />);
+      const d2 = await openUploader();
+      fireEvent.mouseDown(within(d2).getByRole("tab", { name: "Camera" }), { button: 0 });
+      expect((await within(d2).findByRole("alert")).textContent).toBe("Unable to load camera.");
+      expect(within(d2).getByRole("button", { name: "Use the device camera" })).toBeTruthy();
+      expect(d2.querySelector("[data-camera-fallback]")!.getAttribute("capture")).toBe("environment");
+      cleanup();
+      Object.defineProperty(navigator, "mediaDevices", { value: undefined, configurable: true });
+      mount(s, <FormHarness client={s.client} field="photo" initial={visit()} />);
+      const d3 = await openUploader();
+      expect(within(d3).queryByRole("tab", { name: "Camera" })).toBeNull();
+    } finally {
+      Object.defineProperty(navigator, "mediaDevices", { value: savedMedia, configurable: true });
+      proto.getContext = savedCanvas.getContext; proto.toDataURL = savedCanvas.toDataURL;
+      HTMLMediaElement.prototype.play = savedPlay;
+    }
+  });
+});
+
+describe("P36b attachimage — simulated savedocs relink (save.py:20-22 → file/utils.py:377-419) (SIMULATED)", () => {
+  it("P36B.attachimage.37 a File uploaded against new-… is re-attached to the inserted name; an old (>60 min) or other-field File is not", async () => {
+    const s = site();
+    const temp = "new-site-visit-abc123";
+    const up = await s.client.uploadFile(new Blob(["x"], { type: "image/png" }), "front.png", { doctype: "Site Visit", docname: temp, fieldname: "photo", isPrivate: true });
+    const stale = { ...PHOTO({ name: "F-OLD", file_url: "/private/files/report.pdf", attached_to_name: temp, attached_to_field: "report", creation: "2020-01-01 00:00:00.000000" }) };
+    const other = { ...PHOTO({ name: "F-OTHER", file_url: "/private/files/front.png", attached_to_name: temp, attached_to_field: "items" }) };
+    s.t.store.docs.get("File")!.set("F-OLD", stale as FrappeDoc).set("F-OTHER", other as FrappeDoc);
+    const saved = await s.client.saveDoc({ doctype: "Site Visit", name: temp, __islocal: 1, docstatus: 0, subject: "New", photo: up.file_url, report: "/private/files/report.pdf" } as FrappeDoc, "Save");
+    expect(saved.name).not.toBe(temp);
+    const files = s.t.store.docs.get("File")!;
+    expect(files.get(String(up.name))!.attached_to_name).toBe(saved.name);
+    expect(files.get("F-OLD")!.attached_to_name).toBe(temp);
+    expect(files.get("F-OTHER")!.attached_to_name).toBe(temp);
   });
 });

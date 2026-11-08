@@ -7,7 +7,7 @@
 import * as React from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { AttachInput } from "@ui";
-import { FrappeAttachHost, FrappeForm, FrappeProvider, createFrappeClient, type DocTypeMeta, type FormController, type FrappeAttachHostValue, type FrappeDoc } from "@ui/frappe";
+import { FrappeForm, FrappeProvider, createFrappeClient, type DocTypeMeta, type FrappeDoc } from "@ui/frappe";
 import { userDocs, T } from "../../../playground/src/demo/sim-site";
 import { createFixtureTransport } from "../../../src/frappe/testing";
 import { withSimulatedSidebar } from "../../../src/frappe/testing/handlers/sidebar";
@@ -54,20 +54,10 @@ function RequestLog({ transport }: { transport: ReturnType<typeof useSite>["tran
   return <Readout label="SIMULATED requests (newest first):">{rows.length ? rows.map((c) => `${c.method} ${JSON.stringify(c.args).slice(0, 300)}`).join("\n") : "—"}</Readout>;
 }
 
-/** The form host (Desk's `frm`) over FrappeForm's controller, until FrappeFormView provides it itself. */
-function useFormHost(ctrl: React.MutableRefObject<FormController | null>): FrappeAttachHostValue {
-  return React.useMemo(() => ({
-    save: (action) => ctrl.current?.save(action) ?? Promise.resolve(false),
-    getDoc: () => ctrl.current?.doc ?? ({ doctype: "", name: "" } as FrappeDoc),
-  }), [ctrl]);
-}
-
 export function P36bAttachImagePage() {
   const [session, setSession] = React.useState<SessionKey>("admin");
   const site = useSite(session);
   const s = site.transport.store.session ?? SESSIONS[session];
-  const ctrl = React.useRef<FormController | null>(null);
-  const host = useFormHost(ctrl);
   const [core, setCore] = React.useState<string | null>("/files/sample.png");
   return (
     <div className="space-y-12">
@@ -75,21 +65,15 @@ export function P36bAttachImagePage() {
         "SIMULATED backend operations: uploads (only the File row is kept — no bytes), Library / Link attachments, remove_attach and savedocs are answered by the in-browser simulator. Nothing on this page ran against a real Frappe site.",
         "عمليات خلفية محاكاة: الرفع (يُحفظ صف File فقط بلا محتوى) والإرفاق من المكتبة أو الرابط و remove_attach و savedocs يجيب عنها المحاكي داخل المتصفّح. لم يُشغَّل شيء في هذه الصفحة على موقع فرابيه حقيقي.")} />
       <Section title={l("Attach Image in a form", "إرفاق صورة في نموذج")}
-        description={l("As Desk: Attach opens the uploader (My Device / Library / Link, private by default, images only, the site's max_file_size — 5 MB here), the value becomes the File's URL and the FORM IS SAVED; hover or focus the link to preview the image; Clear asks, removes the File (remove_attach) and saves; Reload File re-sends the last file. The header image has Desk's Change → Upload / Remove. Sales User only reads: no menu, and the simulated server refuses uploads (403).",
-          "كما في ديسك: «إرفاق» يفتح أداة الرفع (جهازي / المكتبة / رابط، خاص افتراضيًا، صور فقط، الحد الأقصى لحجم الملف في الموقع — 5 ميغابايت هنا)، وتصبح القيمة رابط الملف ويُحفظ النموذج؛ مرّر المؤشر أو ركّز على الرابط لمعاينة الصورة؛ «مسح» يسأل ثم يحذف الملف (remove_attach) ويحفظ؛ «إعادة رفع الملف» يرسل آخر ملف من جديد. ولصورة الرأس قائمة «تغيير» ← رفع / إزالة. مستخدم المبيعات للقراءة فقط: لا قائمة، والخادم المحاكى يرفض الرفع (403).")}>
+        description={l("As Desk: Attach opens the uploader (My Device / Library / Link / Camera where the browser has one; per file: thumbnail, Optimize, Private with the public-file warning, Crop for JPEG / PNG; images only; the site's max_file_size — 5 MB here), the value becomes the File's URL and the FORM IS SAVED; hover or focus the link to preview the image; Clear asks, removes the File (remove_attach) and saves; Reload File re-sends the last file. The header image has Desk's Change → Upload / Remove. Sales User only reads: no menu, and the simulated server refuses uploads (403).",
+          "كما في ديسك: «إرفاق» يفتح أداة الرفع (جهازي / المكتبة / رابط / الكاميرا إن توفّرت؛ لكل ملف: صورة مصغّرة وتحسين وخاص مع تحذير الملف العام وقص لصور JPEG / PNG؛ صور فقط، الحد الأقصى لحجم الملف في الموقع — 5 ميغابايت هنا)، وتصبح القيمة رابط الملف ويُحفظ النموذج؛ مرّر المؤشر أو ركّز على الرابط لمعاينة الصورة؛ «مسح» يسأل ثم يحذف الملف (remove_attach) ويحفظ؛ «إعادة رفع الملف» يرسل آخر ملف من جديد. ولصورة الرأس قائمة «تغيير» ← رفع / إزالة. مستخدم المبيعات للقراءة فقط: لا قائمة، والخادم المحاكى يرفض الرفع (403).")}>
         <SimulatedPermissionStrip />
         <Picker legend={l("Session", "الجلسة")} value={session} onChange={setSession}
           options={[{ value: "admin", label: l("System Manager", "مدير النظام") }, { value: "dataEntry", label: l("Data Entry", "إدخال البيانات") }, { value: "sales", label: l("Sales User", "مستخدم المبيعات") }]} />
         <SessionBadge session={session} />
-        <Example code={`const ctrl = React.useRef<FormController | null>(null);
-const host = { save: (a) => ctrl.current!.save(a), getDoc: () => ctrl.current!.doc };
-<FrappeAttachHost value={host}>
-  <FrappeForm doctype="Site Visit" name="SV-0001" controllerRef={ctrl} />
-</FrappeAttachHost>`}>
+        <Example code={`<FrappeForm doctype="Site Visit" name="SV-0001" />  // FrappeFormView is the Attach controls' form (FrappeAttachHost)`}>
           <FrappeProvider key={session} client={site.client} queryClient={site.qc} session={{ user: s.user, fullName: s.fullName, roles: s.roles }}>
-            <FrappeAttachHost value={host}>
-              <FrappeForm doctype="Site Visit" name="SV-0001" guardUnload={false} controllerRef={ctrl} menu={false} />
-            </FrappeAttachHost>
+            <FrappeForm doctype="Site Visit" name="SV-0001" guardUnload={false} menu={false} />
           </FrappeProvider>
         </Example>
         <RequestLog transport={site.transport} />

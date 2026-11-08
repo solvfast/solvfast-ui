@@ -38,3 +38,7 @@ export type { MonthInputProps } from "./MonthInput";
 // P36b attachimage — the Core attach control UI (Frappe attach.js / attach_image.js)
 export { AttachInput, parseAttachValue } from "./AttachInput";
 export type { AttachInputProps, AttachInputLabels } from "./AttachInput";
+export { ImageCropper, initialCropBox, clampCropBox } from "./ImageCropper";
+export type { ImageCropperProps, CropBox } from "./ImageCropper";
+export { CameraCapture, cameraSupported, captureFileName, dataUrlToFile } from "./CameraCapture";
+export type { CameraCaptureProps } from "./CameraCapture";
