@@ -109,7 +109,8 @@ export function FormSidebar({
         ))}
       </ul>
     ) : null,
-    assign, attachments, tags, share,
+    assign, attachments, tags,
+    share: share ? <div data-sidebar-slot="share">{share}</div> : null,
     stats: likes || commentCount !== undefined ? (
       <div data-sidebar-section="stats" className="flex items-center gap-2 text-xs text-muted-foreground">
         {likes}
