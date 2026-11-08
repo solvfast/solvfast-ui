@@ -8,7 +8,7 @@
  */
 import type { FixtureContextHandler, FixtureHandler, FixtureStore } from "../fixtureTransport";
 import { toFrappeError, type FrappeResponse } from "../../client";
-import type { FrappeDoc } from "../../contract";
+import type { FixtureBackend, FrappeDoc } from "../../contract";
 
 type Row = Record<string, unknown>;
 const parse = (v: unknown): unknown => { if (typeof v !== "string") return v; try { return JSON.parse(v); } catch { return v; } };
@@ -225,4 +225,52 @@ export function bulkUpdateHandler(transport: () => (method: string, args: Record
     }
     return fail(417, "ValidationError", "Bulk operations only support up to 500 documents.", { title: "Too Many Documents" });
   };
+}
+
+/**
+ * P36b — demo site for bulk Submit / Cancel (Showcase): a submittable "Demo Invoice" with an item table, 24 invoices in
+ * every docstatus (two drafts miss the mandatory customer; INV-0005 is linked from the submitted PAY-0001, so its Cancel
+ * is refused), and roles: "Accounts Manager" (submit + cancel), "Submitter" (submit only), "Accounts User" (neither).
+ * `workflow: true` adds an active Workflow (Desk then hides Submit / Cancel). SIMULATED demo data.
+ */
+export function bulkDemoBackend(opts: { workflow?: boolean } = {}): FixtureBackend {
+  const perms = [
+    { role: "Accounts Manager", permlevel: 0, read: 1, write: 1, create: 1, delete: 1, submit: 1, cancel: 1, print: 1, export: 1 },
+    { role: "Submitter", permlevel: 0, read: 1, write: 1, create: 1, submit: 1, print: 1 },
+    { role: "Accounts User", permlevel: 0, read: 1, write: 1, create: 1, print: 1 },
+  ];
+  const invoice = {
+    name: "Demo Invoice", autoname: "hash", is_submittable: 1, title_field: "customer", sort_field: "name", sort_order: "asc", permissions: perms,
+    fields: [
+      { fieldname: "customer", fieldtype: "Data", label: "Customer", reqd: 1, in_list_view: 1 },
+      { fieldname: "amount", fieldtype: "Currency", label: "Amount", in_list_view: 1 },
+      { fieldname: "workflow_state", fieldtype: "Link", label: "Workflow State", options: "Workflow State", hidden: 1 },
+      { fieldname: "items", fieldtype: "Table", label: "Items", options: "Demo Invoice Item" },
+    ],
+  };
+  const item = { name: "Demo Invoice Item", istable: 1, fields: [{ fieldname: "item", fieldtype: "Data", label: "Item", in_list_view: 1 }] };
+  const payment = { name: "Demo Payment", autoname: "hash", is_submittable: 1, permissions: perms, fields: [{ fieldname: "invoice", fieldtype: "Link", label: "Invoice", options: "Demo Invoice", in_list_view: 1 }] };
+  const CUSTOMERS = ["Acme", "Globex", "Initech", "Umbrella", "Hooli", "Stark"];
+  const invoices = Array.from({ length: 24 }, (_, i) => {
+    const n = i + 1;
+    const docstatus = n % 4 === 0 ? 2 : n % 3 === 0 || n === 5 ? 1 : 0;
+    return {
+      doctype: "Demo Invoice", name: `INV-${String(n).padStart(4, "0")}`, customer: n === 7 || n === 14 ? null : `${CUSTOMERS[i % CUSTOMERS.length]} ${n}`,
+      amount: 100 * n, docstatus, workflow_state: docstatus === 0 ? "Draft" : "Approved", items: [{ item: `Item ${n}` }],
+      modified: `2026-11-0${(n % 9) + 1} 10:00:00.000000`,
+    };
+  });
+  const workflow = {
+    name: "Invoice Flow", document_type: "Demo Invoice", workflow_state_field: "workflow_state",
+    states: [{ state: "Draft", doc_status: "0", allow_edit: "Accounts Manager" }, { state: "Approved", doc_status: "1", allow_edit: "Accounts Manager" }],
+    transitions: [{ state: "Draft", action: "Approve", next_state: "Approved", allowed: "Accounts Manager", allow_self_approval: 1 }],
+  };
+  return {
+    meta: { "Demo Invoice": [invoice, item], "Demo Invoice Item": [item], "Demo Payment": [payment] },
+    docs: {
+      "Demo Invoice": invoices,
+      "Demo Payment": [{ doctype: "Demo Payment", name: "PAY-0001", invoice: "INV-0005", docstatus: 1, modified: "2026-11-01 10:00:00.000000" }],
+    },
+    ...(opts.workflow ? { workflows: { "Demo Invoice": workflow } } : {}),
+  } as unknown as FixtureBackend;
 }

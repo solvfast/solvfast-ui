@@ -161,3 +161,12 @@ const p35form = () => import("./pages/frappe-p35-form");
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P36b bulk
+{
+  const p36bBulk = () => import("./pages/p36b-bulk");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = { id: "p36b-bulk", title: l("Bulk Submit / Cancel (SIMULATED)", "الإرسال والإلغاء الجماعي (محاكاة)"), description: l("Desk's Actions on the checked rows of the List and Report views: Submit and Cancel gated by the rights and the Workflow, mixed docstatus selections, per-document failures, queued jobs — on the in-page simulator.", "إجراءات ديسك على الصفوف المحدّدة في عرضي القائمة والتقرير: الإرسال والإلغاء بحسب الصلاحيات وسير العمل، وتحديدات بحالات مختلطة، وإخفاقات لكل مستند، ومهام في قائمة الانتظار — على المحاكي."), Component: from(p36bBulk, "P36bBulkPage") };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}

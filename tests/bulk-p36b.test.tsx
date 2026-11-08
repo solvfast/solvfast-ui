@@ -21,6 +21,7 @@ import { createFixtureTransport, type FixtureTransport } from "../src/frappe/tes
 import { BULK_UPDATE_METHOD, bulkUpdateHandler, submittedBackLink } from "../src/frappe/testing/handlers/list";
 import { uniqueNames } from "../src/frappe/list/useFrappeSelectionActions";
 import { defaultMessages } from "../src/theme/messages";
+import { P36bBulkPage } from "../showcase/src/pages/p36b-bulk";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, WorkflowInfo } from "../src/frappe/contract";
 
 beforeAll(() => {
@@ -414,5 +415,20 @@ describe("P36B.bulk simulator fidelity: bulkUpdateHandler vs bulk_update.py:51-1
     s.transport.store.docs.get("Bulk Payment")!.get("PAY-1")!.docstatus = 2;
     expect(submittedBackLink(s.transport.store, "Bulk Invoice", "INV-5")).toBeNull();
     expect((await call(s, { docnames: JSON.stringify(["INV-5"]), action: "cancel" })).message).toEqual([]);
+  });
+});
+
+// =====================================================================================================================
+describe("P36B.bulk Showcase (SIMULATED)", () => {
+  it("P36B.bulk.21 the Showcase page: Report view of Demo Invoice; checking a draft and a submitted invoice and submitting reports the submitted one", async () => {
+    render(<ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><P36bBulkPage /></ThemeProvider>);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    const row = (customer: string) => bodyRows().find((tr) => tr.textContent?.includes(customer))!;
+    fireEvent.click(within(row("Acme 1")).getAllByRole("checkbox")[0]); // INV-0001 draft
+    fireEvent.click(within(row("Initech 3")).getAllByRole("checkbox")[0]); // INV-0003 submitted
+    await runAction(SUBMIT);
+    await confirm();
+    await waitFor(() => expect(status()).toContain("Cannot submit INV-0003."));
+    expect(document.body.textContent).toContain("failed: INV-0003");
   });
 });
