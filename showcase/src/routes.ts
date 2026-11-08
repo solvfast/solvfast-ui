@@ -226,3 +226,12 @@ const p36bSocial = () => import("./pages/p36b-social");
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P36c usergroup — Desk's "Assign To User Group" in Add to ToDo and the bulk Assign To dialog (SIMULATED backend operations)
+{
+  const p36cUserGroup = () => import("./pages/p36c-usergroup");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = { id: "frappe-assign-user-group", title: l("Assign To User Group (SIMULATED)", "الإسناد إلى مجموعة مستخدمين (محاكاة)"), description: l("Desk's Assign To User Group: a group's members replace the users to assign in Add to ToDo and the list's Assign To dialog; permissions and the members read on the in-page simulator.", "الإسناد إلى مجموعة مستخدمين في ديسك: يحلّ أعضاء المجموعة محلّ المستخدمين المختارين في «إضافة إلى المهام» ونافذة الإسناد في القائمة؛ الصلاحيات وقراءة الأعضاء على المحاكي."), Component: from(p36cUserGroup, "UserGroupAssignPage") };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+}
