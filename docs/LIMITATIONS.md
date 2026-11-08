@@ -185,7 +185,9 @@ site yet**.
 - **Assignment needs read, not write.** `assign_to.add`, `remove` and `close` check only read on the document (`close`
   also requires the session user to be the assignee, else 417); Desk's sidebar offers remove only to the assignee or a
   writer, but the server lets any reader remove an assignment. Assigning a user who cannot read the document shares it
-  with them (unless sharing is disabled → "Missing Permission"). [F-SB-ASSIGN-1]
+  with them — only if the **assigner** holds the `share` right (the automatic share runs `frappe.share.add` as the
+  assigner); otherwise the request fails with 403 and nothing is assigned. With sharing disabled → "Missing Permission".
+  [F-SB-ASSIGN-1]
 - **Tags need write, checked after the write.** `add_tag` / `remove_tag` set `_user_tags` and then `update_tags` checks
   write; the refusal rolls the request back. `modified` is never touched. [F-SB-TAGS-1, L-TAG-2]
 - **Sharing grants only what the sharer holds.** `share` itself is never restricted, but granting read / write / submit

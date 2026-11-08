@@ -142,7 +142,8 @@ search,search-native-spec,sidebar,social}.md`.
 
 **Frappe server rules the real-site tests will confirm** (read from source; Frappe's behaviour, not the package's):
 `global_search.search` filters by DocType only (no per-row check) [S-GSEARCH-1]; `assign_to.add` / `remove` / `close`
-need read only, `close` only by the assignee (417) [F-SB-ASSIGN-1]; tags write `_user_tags` and then check write (rolled
+need read only, `close` only by the assignee (417), and assigning a user who cannot read needs the assigner's `share`
+right (the automatic share runs as the assigner; 403 otherwise) [F-SB-ASSIGN-1]; tags write `_user_tags` and then check write (rolled
 back on refusal) [F-SB-TAGS-1]; sharing grants only rights the sharer holds, un-ticking read deletes the share [S-SHARE-1];
 `toggle_like` has no permission check [F-SB-LIKE-1, L-LIKE-1]; comment edit = author (403), publish = author or System
 Manager (417), delete = Comment DocPerm (System / Website Manager) [F-SB-COMMENT-1]; an unknown name fails a whole bulk
@@ -202,6 +203,10 @@ owner-approved, isolated staging site (`docs/audit/p36/README.md` §4). On top o
   back-link refusal into the built-in bulk handler.
 - `scripts/check-boundaries.mjs`: a `search` area if Core search moves out of `src/shell/search/`.
 - `FrappeFormView` does not mount `FrappeFormSidebar` (the host places it).
+- Check whether the simulator's `assign_to.add` models the assigner's `share` right when it shares the document with an
+  assignee who cannot read it (assign_to.py:112 → share.py:51-52, 223-226); the real-site test F-SB-ASSIGN-1 asserts it.
+- MyISAM boolean mode treats `-` as NOT (`'+sfui-writer*'`): the package passes the user's text through as Desk does; how
+  hyphenated queries behave is for the real-site run (S-GSEARCH-1 / -2) to show.
 - **Stale counts outside this step's files:** `docs/audit/p36/README.md` and `e2e/frappe-site/README.md` still say "75
   tests" (now 86). `e2e/frappe-site/matrix/render.mjs` (not edited) still titles the matrix "0.7.0-dev.1", its §3
   `AREAS` table does not list the batch-2 tests (they are in §5), and its §7 list of expected behaviours has none of the

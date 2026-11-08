@@ -166,8 +166,8 @@ Frappe's own behaviour, which the package cannot change; the validation run asse
 - **`user_settings.save` merges shallowly** — a Desk save of `List` drops the package's `sf_ui` key. [L-USERSET-1]
 - **`global_search.search` filters by DocType only** — every indexed row of a readable DocType in Global Search Settings is
   returned (name + matching snippets), regardless of User Permissions or `if_owner`. [S-GSEARCH-1]
-- **Assignment needs read, not write** — any reader may add or remove an assignment; only the assignee may close it.
-  [F-SB-ASSIGN-1]
+- **Assignment needs read, not write** — any reader may add or remove an assignment; only the assignee may close it;
+  assigning a user who cannot read the document needs the assigner's `share` right (403 otherwise). [F-SB-ASSIGN-1]
 - **Comment delete follows the Comment DocPerm** (System / Website Manager), not authorship; publish = author or System
   Manager. [F-SB-COMMENT-1]
 - **Sharing grants only rights the sharer holds**; un-ticking read deletes the share. [S-SHARE-1]
