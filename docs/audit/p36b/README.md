@@ -288,10 +288,46 @@ Mid-batch (attachimage / lifecycle):
 
 ## Integrator gate results
 
-TODO(integrator): typecheck, `check-boundaries` (source + dist), `npm run build` / `check:package` / showcase build and
-smoke, `e2e/consumers/run.sh`, and the regression of `crm/p36b-070` against a local 0.7.0-dev.3 pack (typecheck, build,
-runqa, legacy, `p35.mjs`, `p36.mjs`, `p36-legacy.mjs`, tags/assign, actions-p33, `linkinput.mjs`, `search-p36b.mjs`, SD /
-SM diff vs `v072` and the base noise).
+Final integrator run (2026-11-08) on the batch-2 branch, including the two mid-batch tasks, at `0a2ebf2` plus this commit.
+
+**Package @solvfast/ui 0.7.0-dev.3:**
+
+| Check | Result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npx vitest run` | 81 files, **1624 passed**, 10 todo, 0 failed |
+| `npm run build` | ✓ (tarball 896 files, 1069.1 kB; styles regenerated identical) |
+| `check:boundaries` (source + dist) | OK |
+| `check:package` | OK |
+| `showcase:build` | ✓ |
+| `e2e/showcase-smoke.mjs` | PASS, 79 sections × 4 combinations, 0 console errors |
+| `e2e/consumers/run.sh` | consumer a and b: tsc ✓, build ✓, 1 React copy each |
+| Export snapshot (d.ts names) vs 0.6.0 | 0 removed, 407 added |
+
+**CRM `crm/p36b-070` (`f7bd1da`)** against a local pack of this package (tarball sha1 `2b464afec42a…`, scratch copy;
+the CRM's package.json / yarn.lock are untouched):
+
+| Check | Result |
+|---|---|
+| typecheck | 30 errors (= baseline list) |
+| build | ✓ |
+| route sweep | 82 loads, 0 console errors (2 known notes) |
+| mock flows | 16 / 0 |
+| records-assign | 111 / 0 |
+| 28 lists | 112 / 112 |
+| legacy | 56 / 0 |
+| `p35.mjs` | 376 / 0 |
+| `p36.mjs` (LINKS_TO=1) | 336 / 0 |
+| `p36-legacy.mjs` | 10 / 0 |
+| `linkinput.mjs` | 1168 / 0 |
+| `search-p36b.mjs` | 188 / 0 |
+| `lifecycle-p36b.mjs` | PASS (no DS Workflow / Lifecycle label shows; the CRM overrides the keys) |
+| tags/assign | 43 / 43 en + ar |
+| actions-p33 | 22 / 22 en + ar |
+| SD / SM + legacy vs `v072` | 169 identical; 3 differ by 2–185 px — the clock / badge noise and the CRM lifecycle-designer canvas, both inside the base-vs-base noise |
+
+**Production untouched:** Live still serves `index-CXY7PzhL.js`, and no file under Live's `frontend/src`,
+`public/serve-fast` or `www` is newer than the P34 deploy.
 
 Docs step (this commit): `npx vitest run` — 79 files, 1585 passed, 10 todo, 0 failed; `node
 e2e/frappe-site/matrix/render.mjs --check` — current; `tests/frappe-site-guards.test.ts` — 23 passed.
