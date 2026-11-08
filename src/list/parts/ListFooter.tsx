@@ -1,7 +1,8 @@
 /**
  * Pager — Sear's DataGrid pager markup (total + prev · page · next), styled as the DS Pagination pill by the rules in
  * styles/src/sf-overrides.css (Sear's sear-studio.css:382-420). Must stay the LAST child of the `.sf-datagrid` root.
- * Bulk actions — PMO's floating bar (solvfast_pmo components/tasks/BulkActionBar.tsx) with app-supplied actions.
+ * Bulk actions — Desk's Actions menu (`ListActionsMenu`, the default header mode) or, opt-in, PMO's floating bar
+ * (solvfast_pmo components/tasks/BulkActionBar.tsx) with app-supplied actions.
  */
 import * as React from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -56,8 +57,8 @@ export function ListPagination({ total, totalLabel, onTotalClick, page, hasPrev,
 export interface BulkActionContext<T> { keys: string[]; rows: T[]; clear: () => void; allMatching?: { total: number } }
 
 /**
- * One action on the selected rows. In the bar (`selectionMode="bar"`) it is a button; in Desk's header mode
- * (`selectionMode="header"`) an item of the toolbar's Actions menu (list_view.js:1855-2127). `hidden` / `disabled`
+ * One action on the selected rows. In Desk's header mode (`selectionMode="header"`, the default) an item of the toolbar's
+ * Actions menu (list_view.js:1855-2127); in the opt-in bar (`selectionMode="bar"`, not Desk) a button. `hidden` / `disabled`
  * gate it per selection (capabilities, permissions, business rules) — a disabled item says why (`disabled` returning a
  * string). `confirm` asks first (AlertDialog). `run` gets exactly the selected keys.
  */

@@ -431,7 +431,7 @@ describe("FrappeListView (F31 data mode)", () => {
 
   it("F32 base filters reach list and count; changing them clears the selection (C3)", async () => {
     const run = vi.fn();
-    const base = { selectable: true, bulkActions: [{ key: "close", label: "Close", run }], baseFilters: [["allocated_to", "=", "sara@example.com"]] as [string, string, unknown][] };
+    const base = { selectable: true, selectionMode: "bar" as const, bulkActions: [{ key: "close", label: "Close", run }], baseFilters: [["allocated_to", "=", "sara@example.com"]] as [string, string, unknown][] };
     const { mock, rerender } = setup(base);
     await waitFor(() => expect(bodyRows().length).toBeGreaterThan(0));
     expect(lastList(mock).filters).toEqual([["allocated_to", "=", "sara@example.com"]]);

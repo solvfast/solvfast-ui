@@ -41,7 +41,7 @@ function mountList(props: Partial<React.ComponentProps<typeof FrappeListView>>, 
   render(
     <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
       <QueryClientProvider client={qc}><FrappeProvider client={createFrappeClient({ transport, files })} session={{ user: "u@x.com", roles: ["System Manager"] }}>
-        <FrappeListView doctype="ToDo" storage={null} bulk={{}} {...props} />
+        <FrappeListView doctype="ToDo" storage={null} bulk={{}} selectionMode="bar" {...props} />
       </FrappeProvider></QueryClientProvider>
     </ThemeProvider>,
   );

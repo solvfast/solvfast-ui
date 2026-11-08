@@ -32,6 +32,11 @@ const en = (k: keyof typeof defaultMessages.en) => defaultMessages.en[k];
 const t = (k: string) => (defaultMessages.en as Record<string, string>)[k] ?? k;
 const bodyRows = () => [...document.querySelectorAll<HTMLElement>("tbody tr")].filter((tr) => !tr.hasAttribute("aria-hidden") && !tr.hasAttribute("data-group-header") && tr.querySelectorAll("td").length > 1);
 const openMenu = (el: HTMLElement) => fireEvent.keyDown(el, { key: "Enter" });
+/** Desk's header mode (the default since 0.7.0): open the toolbar's Actions menu and choose an item. */
+const runAction = async (name: string) => {
+  openMenu(await screen.findByTestId("sf-list-actions"));
+  fireEvent.click(await screen.findByRole("menuitem", { name }));
+};
 
 /** An authored DocType (title, status, a workflow state) with Desk-like DocPerms: System Manager may create, Reader reads. */
 export const MEMO: DocTypeMeta = {
@@ -495,9 +500,9 @@ describe("LV.J4 / LV.J5 / LV.J6 / LV.J7 / LV.J11 list menu: Desk's System-Manage
 });
 
 describe("LV.F1 Bulk Edit: the chosen field's own value control (bulk_operations.js:381-404)", () => {
-  const editDialog = async () => {
-    for (const i of [1, 2]) fireEvent.click(screen.getAllByRole("checkbox")[i]);
-    fireEvent.click(await screen.findByRole("button", { name: en("listBulkEdit") }));
+  const editDialog = async (check = true) => {
+    if (check) for (const i of [1, 2]) fireEvent.click(screen.getAllByRole("checkbox")[i]);
+    await runAction(en("listBulkEdit"));
     return screen.findByRole("dialog");
   };
   const pickField = async (dialog: HTMLElement, label: string) => {
@@ -536,8 +541,9 @@ describe("LV.F1 Bulk Edit: the chosen field's own value control (bulk_operations
     await waitFor(() => expect(calls("frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs").length).toBe(1));
     expect(parsed(update(calls).data)).toEqual({ amount: 42 });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    await waitFor(() => expect(screen.queryByRole("button", { name: en("listBulkEdit") })).toBeNull()); // the run cleared the selection
-    dialog = await editDialog();
+    // Desk's Edit refreshes but keeps the checks (list_view.js:2066-2069: done = refresh only) — the same two rows again
+    await waitFor(() => expect(document.querySelector("thead")!.textContent).toContain(en("listItemsSelected").replace("{n}", "2")));
+    dialog = await editDialog(false);
     await pickField(dialog, "Title");
     expect(within(dialog).getByText(t("listBulkEditEmpty"))).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: en("listBulkApply") }));
@@ -574,7 +580,7 @@ describe("LV.F8 / LV.F9 / LV.A9 test-only gaps (B gap 11)", () => {
     const { calls } = mountSim(transport, { doctype: "Order", bulk: {} });
     await waitFor(() => expect(bodyRows()).toHaveLength(3));
     fireEvent.click(rowBox("First")); fireEvent.click(rowBox("Second"));
-    fireEvent.click(await screen.findByRole("button", { name: en("listBulkSubmit") }));
+    await runAction(en("listBulkSubmit"));
     const confirm = await screen.findByRole("alertdialog");
     expect(confirm.textContent).toContain(en("listBulkSubmitConfirm").replace("{n}", "2"));
     fireEvent.click(within(confirm).getByRole("button", { name: en("confirm") }));
@@ -590,12 +596,12 @@ describe("LV.F8 / LV.F9 / LV.A9 test-only gaps (B gap 11)", () => {
     const sent = () => transport.store.calls.filter((c) => c.method === "frappe.desk.doctype.bulk_update.bulk_update.submit_cancel_or_update_docs").map((c) => c.args);
     await waitFor(() => expect(bodyRows()).toHaveLength(3));
     fireEvent.click(rowBox("Third"));
-    fireEvent.click(await screen.findByRole("button", { name: en("listBulkCancel") }));
+    await runAction(en("listBulkCancel"));
     let confirm = await screen.findByRole("alertdialog");
     expect(confirm.textContent).toContain(en("listBulkCancelConfirm").replace("{n}", "1"));
     fireEvent.click(within(confirm).getByRole("button", { name: en("cancel") }));
     expect(sent()).toHaveLength(0);
-    fireEvent.click(await screen.findByRole("button", { name: en("listBulkCancel") }));
+    await runAction(en("listBulkCancel"));
     confirm = await screen.findByRole("alertdialog");
     fireEvent.click(within(confirm).getByRole("button", { name: en("confirm") }));
     await waitFor(() => expect(sent()).toHaveLength(1));

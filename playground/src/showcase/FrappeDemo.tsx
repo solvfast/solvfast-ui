@@ -6,7 +6,7 @@
  * Playground only.
  */
 import * as React from "react";
-import { Download, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, useLocale, type ColumnDef } from "@ui";
 import { FrappeListView, FrappeProvider, createFrappeClient, invalidateFrappeList } from "@ui/frappe";
@@ -50,8 +50,8 @@ function ToDoList({ variant, remove }: { variant: string; remove: (names: string
         chunkSize={variant === "grouped" ? 20 : 200}
         storage={null}
         selectable
+        // Desk's Export is built in (the Actions menu that replaces "New ToDo" while rows are selected — the default header mode)
         bulkActions={[
-          { key: "export", label: { en: "Export", ar: "تصدير" }, icon: Download, run: () => {} },
           { key: "delete", label: { en: "Delete", ar: "حذف" }, icon: Trash2, variant: "destructive", run: (keys) => del(keys) },
         ]}
         rowActions={[{
@@ -59,7 +59,7 @@ function ToDoList({ variant, remove }: { variant: string; remove: (names: string
           confirm: { title: { en: "Delete this ToDo?", ar: "حذف هذه المهمة؟" }, confirmLabel: { en: "Delete", ar: "حذف" } },
         }]}
         controls={{ sortMenu: true }}
-        toolbarActions={<Button className="gap-2 shrink-0"><Plus className="h-4 w-4" />{isRTL ? "مهمة جديدة" : "New ToDo"}</Button>}
+        primaryAction={<Button className="gap-2 shrink-0"><Plus className="h-4 w-4" />{isRTL ? "مهمة جديدة" : "New ToDo"}</Button>}
       />
     </div>
   );

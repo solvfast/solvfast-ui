@@ -131,7 +131,7 @@ export function FrappeListViewPage() {
             { value: "admin", label: l("Administrator — System Manager", "المدير — System Manager") }, { value: "salesOnly", label: l("Sales User only — no right on ToDo (bulk bar offers nothing)", "Sales User فقط — بلا حق على ToDo (شريط الإجراءات فارغ)") },
           ]} />
           <Picker legend={l("Selection layout", "تخطيط التحديد")} value={layout} onChange={setLayout} options={[
-            { value: "header", label: l("Desk: header + Actions menu (selectionMode=\"header\")", "ديسك: الترويسة + قائمة الإجراءات") }, { value: "bar", label: l("Bar (default)", "الشريط (الافتراضي)") },
+            { value: "header", label: l("Desk: header + Actions menu (default)", "ديسك: الترويسة + قائمة الإجراءات (الافتراضي)") }, { value: "bar", label: l("Bar (opt-in, not Desk)", "الشريط (اختياري، ليس ديسك)") },
           ]} />
           <div className="flex flex-wrap items-center gap-2">
             <SessionBadge session={session} />
@@ -150,7 +150,8 @@ export function FrappeListViewPage() {
     serverStorage={{ user }}               // saved filters → List Filter rows; prefs → __UserSettings
     realtime={port} realtimeDebounceMs={400}
     controls={{ sortMenu: true }} onRowClick={(row) => open(row.name)} onCreate={() => create()}
-    selectionMode="header"                 // Desk: "{n} items selected" in the header, New → Actions menu
+    // default selectionMode="header" (Desk): "{n} items selected" in the header, New → Actions menu while rows are selected;
+    // selectionMode="bar" is the opt-in bulk bar (not Desk)
     primaryAction={<Button onClick={create}>New ToDo</Button>} />
 </FrappeProvider>`}>
           <SimProvider site={site} session={session} key={`${scenario}-${session}-${layout}`}>

@@ -70,6 +70,34 @@ export function bulkMenu(i: BulkMenuInput): BulkKind[] {
   return listActionsMenu(i).filter(isBulkKind);
 }
 
+/**
+ * What Desk does with the selection and the list once a bulk action has answered (Frappe 15.110 `list_view.js:1855-2068`,
+ * `bulk_operations.js`): each standard action passes a `done` callback, and only some of them call
+ * `clear_checked_items()`.
+ * - Assign To (:1890-1903), Clear Assignment (:1905-1927), Apply Assignment Rule (:1929-1942), Add Tags (:1944-1957),
+ *   Delete (:1967-1997): `clear_checked_items(); refresh()` once the server answered — `delete` only when not every name
+ *   failed (`bulk_operations.js:214-221`).
+ * - Submit / Cancel (:1999-2051): `submit_or_cancel` throws on ANY failed name and skips `done` when the server queued the
+ *   job (no answer: `undefined < n` is false, `bulk_operations.js:286-305`) — so the selection is cleared only when every
+ *   document went through. With some failed, Desk's realtime `list_update` re-renders the changed rows and keeps the checks
+ *   (`list_view.js:1520-1583`); the package pauses realtime while rows are selected, so it reloads instead.
+ * - Edit (:2053-2073): `done` = `refresh()` only — the selection STAYS.
+ * - Workflow (:1802-1826): no `done` at all; the rows change through realtime with the checks kept — the selection
+ *   STAYS (the package reloads, for the same reason as above).
+ * - Export, Print: no callback — nothing changes (they do not go through here).
+ * A thrown error (refusal, network) keeps the selection and does not reload, as Desk's `frappe.throw` does.
+ */
+export function selectionAfterBulk(kind: ListActionKind, outcome: BulkOutcome, count: number): { clear: boolean; refresh: boolean } {
+  const someDone = outcome.failed.length < count;
+  if (kind === "submit" || kind === "cancel") {
+    if (outcome.queued) return { clear: false, refresh: false };
+    return { clear: someDone && outcome.failed.length === 0, refresh: someDone };
+  }
+  if (kind === "edit" || kind === "workflow") return { clear: false, refresh: someDone };
+  if (kind === "export" || kind === "print") return { clear: false, refresh: false };
+  return { clear: someDone, refresh: someDone };
+}
+
 export interface BulkOutcome {
   /** Documents the server reported as failed. */
   failed: string[];

@@ -1,8 +1,9 @@
 /**
- * The list's Actions (docs 13 §3), as the content of the generic bar (`renderBulkActions`), in Desk's order
+ * The list's Actions (docs 13 §3) — the items of the header-mode Actions menu (`useFrappeBulkActions`, the default) or the
+ * content of the opt-in bar (`FrappeBulkActions` in `renderBulkActions`) — in Desk's order
  * (`list_view.js:2088-2128`, workflow last `:163-168`): Edit, Export, Assign To, Clear Assignment, Apply Assignment Rule,
  * Add Tags, Print, Submit, Cancel, Delete, Workflow. Destructive ones confirm; the outcome is announced through
- * `onMessage` and the list reloads. Gated by `bulkMenu` (permissions + workflow rules). `onBusy` lets the list pause
+ * `onMessage`; the selection and the list then follow Desk per action (`selectionAfterBulk`). Gated by `bulkMenu` (permissions + workflow rules). `onBusy` lets the list pause
  * realtime refresh (Desk's `disable_list_update`).
  *
  * Outcome wording follows what the SERVER answers: a list of failed names (`submit_cancel_or_update_docs`) is shown as
@@ -35,7 +36,7 @@ import { useFrappeSettings } from "../FrappeProvider";
 import type { FrappeListMeta } from "../meta";
 import { invalidateFrappeList } from "../useFrappeList";
 import {
-  bulkAddTags, bulkApplyAssignmentRule, bulkAssign, bulkClearAssignment, bulkDelete, bulkSubmitCancelOrUpdate, listActionsMenu,
+  bulkAddTags, bulkApplyAssignmentRule, bulkAssign, bulkClearAssignment, bulkDelete, bulkSubmitCancelOrUpdate, listActionsMenu, selectionAfterBulk,
   type BulkOutcome, type BulkPermissions, type ListActionKind,
 } from "./bulk";
 import { checkPrintable, MAX_PRINT_LIMIT, type PrintSettingsInput, type PrintTaskSubscriber } from "./print";
@@ -88,7 +89,7 @@ export interface FrappeBulkActionsProps<T> {
 /**
  * Desk's Actions for a selection as DATA: the typed `BulkAction`s (Desk's order and gates, `listActionsMenu`), the
  * workflow's items (asked from the server each time the menu opens: `onMenuOpenChange`), and the dialogs the actions open
- * (confirmations, Edit, Add Tags, Print, and — in the Actions menu — Desk's Assign To dialog). `ListView`'s
+ * (confirmations, Edit, Add Tags, Print, and — in the Actions menu — Desk's Assign To dialog). `ListView`'s default
  * `selectionMode="header"` renders `actions` in its Actions menu; `FrappeBulkActions` renders the same as bar buttons.
  * `keys` are Frappe DOCUMENT NAMES (sent to the server), not the list's UI row keys.
  */
@@ -123,14 +124,27 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
       // add_tags; bulk_workflow_approval: workflow.py:309-328 sends the result by realtime): never claim "0 failed"
       const requested = t("listBulkRequested").replace("{action}", action ?? t(LABEL[kind])).replace("{n}", n);
       setMessage(out.queued ? t("listBulkQueued") : out.silent || kind === "delete" ? requested : out.failed.length ? `${result}: ${out.failed.join(", ")}` : result);
-      if (out.failed.length < keys.length) { clear(); await invalidateFrappeList(qc, doctype); } // Desk refreshes unless everything failed
+      // Desk's selection outcome per action (`selectionAfterBulk`): Edit / Workflow keep the selection; Submit / Cancel clear
+      // it only when every document went through; the others clear once the server answered
+      const after = selectionAfterBulk(kind, out, keys.length);
+      if (after.clear) clear();
+      if (after.refresh) await invalidateFrappeList(qc, doctype);
     } catch (e) {
       options.onError?.(e, kind);
       setMessage(e instanceof Error ? e.message : String(e));
     } finally { setBusy(null); onBusy?.(false); }
   };
 
+  // Desk's Clear Assignment confirm has a reject action (list_view.js:1919-1921): No, Escape or closing the dialog clears the
+  // selection and refreshes. `fulfilled` tells the confirm button's close from a dismissal (Desk's primary_action_fulfilled).
+  const fulfilled = React.useRef(false);
+  const dismissed = (kind: Confirmable | null) => {
+    if (kind === "clear_assignment" && !fulfilled.current) { clear(); void invalidateFrappeList(qc, doctype); }
+    fulfilled.current = false;
+    setAsking(null);
+  };
   const confirmed = (kind: Confirmable) => {
+    fulfilled.current = true;
     setAsking(null);
     if (kind === "delete") void run(kind, () => bulkDelete(client, doctype, keys));
     else if (kind === "submit") void run(kind, () => bulkSubmitCancelOrUpdate(client, doctype, keys, "submit"));
@@ -180,7 +194,7 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
     // Apply Assignment Rule runs without a confirmation in Desk (list_view.js:1929-1942)
     else if (k === "assignment_rule") void run(k, () => bulkApplyAssignmentRule(client, doctype, keys));
     else if (k === "assign") setAssigning(true);
-    else if (k !== "workflow") setAsking(k);
+    else if (k !== "workflow") { fulfilled.current = false; setAsking(k); }
   };
   const labelOf = (k: ListActionKind) => (k === "export" && exportLabel ? exportLabel : t(LABEL[k]));
   const actions: BulkAction<T>[] = kinds.filter((k) => k !== "workflow").map((k) => ({
@@ -203,7 +217,7 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
   const onMenuOpenChange = (open: boolean) => { if (open && kinds.includes("workflow")) void loadWorkflowActions(); };
   const dialogs = (
     <>
-        <AlertDialog open={!!asking} onOpenChange={(o) => !o && setAsking(null)}>
+        <AlertDialog open={!!asking} onOpenChange={(o) => { if (!o) dismissed(asking); }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>{asking ? t(LABEL[asking]) : ""}</AlertDialogTitle>
@@ -267,7 +281,8 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
   return { kinds, actions, workflowMenu, onMenuOpenChange, dialogs, busy, trigger, searchUsers, assignTo, labelOf, wf, loadWorkflowActions, runWorkflow };
 }
 
-/** Desk's Actions as buttons in the selection bar (`selectionMode="bar"`). Same actions and dialogs as `useFrappeBulkActions`. */
+/** Desk's Actions as buttons in the opt-in selection bar (`selectionMode="bar"`, not Desk's layout). Same actions, dialogs
+ *  and selection outcomes as `useFrappeBulkActions`. */
 export function FrappeBulkActions<T = Record<string, unknown>>(props: FrappeBulkActionsProps<T>) {
   const { t } = useLocale();
   const { kinds, dialogs, busy, trigger, searchUsers, assignTo, labelOf, wf, loadWorkflowActions, runWorkflow } = useFrappeBulkActions<T>(props);

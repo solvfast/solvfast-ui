@@ -406,13 +406,13 @@ describe("bulk bar in the list", () => {
       if (method === "frappe.desk.reportview.delete_items") { del.push(JSON.parse(String(args.items))); return { message: null }; }
       return mock.transport(method, args);
     };
-    const { unmount } = mount(transport, { bulk: { permissions: { read: true } } });
+    const { unmount } = mount(transport, { selectionMode: "bar", bulk: { permissions: { read: true } } });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     expect(screen.queryByRole("button", { name: en("listBulkDelete") })).toBeNull(); // no delete right → no delete button
     unmount();
 
-    mount(transport, { bulk: { permissions: { delete: true } } });
+    mount(transport, { selectionMode: "bar", bulk: { permissions: { delete: true } } });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     const before = mock.calls.filter((c) => c.method === "frappe.desk.reportview.get").length;
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
@@ -435,7 +435,7 @@ describe("bulk bar in the list", () => {
       if (method === "frappe.desk.form.assign_to.add_multiple") { seen.push(args); return { message: null }; }
       return mock.transport(method, args);
     };
-    mount(transport, { bulk: { permissions: { read: true }, only: ["assign"] } }); // Assign To needs read (assign_to.py:67-68)
+    mount(transport, { selectionMode: "bar", bulk: { permissions: { read: true }, only: ["assign"] } }); // Assign To needs read (assign_to.py:67-68)
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     fireEvent.click(await screen.findByRole("button", { name: en("listBulkAssign") }));
@@ -513,17 +513,17 @@ describe("permissions from usePermissions; cells from formatValue", () => {
   }
 
   it("bulk actions follow the DocType's role rights; the `permissions` prop overrides", async () => {
-    const { unmount } = mountWith(["Guest"], { bulk: {} });
+    const { unmount } = mountWith(["Guest"], { selectionMode: "bar", bulk: {} });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     expect(screen.queryByRole("button", { name: en("listBulkDelete") })).toBeNull();
     unmount();
-    const second = mountWith(["System Manager"], { bulk: {} });
+    const second = mountWith(["System Manager"], { selectionMode: "bar", bulk: {} });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     expect(await screen.findByRole("button", { name: en("listBulkDelete") })).toBeTruthy();
     second.unmount();
-    mountWith(["System Manager"], { bulk: { permissions: { read: true } } });
+    mountWith(["System Manager"], { selectionMode: "bar", bulk: { permissions: { read: true } } });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     expect(screen.queryByRole("button", { name: en("listBulkDelete") })).toBeNull();
@@ -611,7 +611,7 @@ describe("Desk's list conventions: subject first, empty states, selection bar pl
   });
   it("the selection bar comes before the table, so selecting never scrolls it away", async () => {
     const mock = createMockFrappe();
-    mount(mock.transport, { bulk: { permissions: { delete: true } } });
+    mount(mock.transport, { selectionMode: "bar", bulk: { permissions: { delete: true } } });
     await waitFor(() => expect(bodyRows()).toHaveLength(20));
     fireEvent.click(screen.getAllByRole("checkbox")[1]);
     const bar = await screen.findByRole("region", { name: /1/ });

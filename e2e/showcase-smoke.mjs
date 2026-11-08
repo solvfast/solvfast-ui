@@ -358,11 +358,17 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
     const after = await rows.count();
     if (!(before > 1 && after < before)) throw new Error(`search did not narrow rows (${before} → ${after})`);
   });
-  await check("list features: select all shows the bulk bar", async () => {
+  await check("list features: select all swaps Create for Desk's Actions menu (default header mode)", async () => {
     const sec = await go(page, "list-features");
     await sec.locator("tbody tr").first().waitFor();
+    await sec.getByRole("button", { name: T("Create Field Preset", "إنشاء مجموعة حقول") }).waitFor();
     await sec.getByRole("checkbox").first().click();
-    await sec.getByRole("button", { name: T("Export", "تصدير") }).waitFor();
+    await sec.getByTestId("sf-list-actions").click();
+    await page.getByRole("menuitem", { name: T("Export", "تصدير") }).waitFor();
+    await page.keyboard.press("Escape");
+    if (await sec.getByRole("button", { name: T("Create Field Preset", "إنشاء مجموعة حقول") }).count()) throw new Error("primary action shown while rows are selected");
+    await sec.getByRole("checkbox").first().click();
+    await sec.getByRole("button", { name: T("Create Field Preset", "إنشاء مجموعة حقول") }).waitFor();
   });
   await check("filters → frappe", async () => {
     const sec = await go(page, "filters");
@@ -403,8 +409,8 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ar"]]) {
   await check("frappe list view: scenarios, session, realtime event, bulk bar", async () => {
     const sec = await go(page, "frappe-list-view");
     await sec.locator("tbody tr").first().waitFor({ timeout: 10_000 });
-    // the page starts in Desk's header layout (Actions menu); this check drives the selection BAR
-    await sec.locator(`[aria-label="${T("Selection layout", "تخطيط التحديد")}"]`).getByRole("radio", { name: T("Bar (default)", "الشريط (الافتراضي)") }).click();
+    // the page starts in Desk's header layout (Actions menu, the default); this check drives the opt-in selection BAR
+    await sec.locator(`[aria-label="${T("Selection layout", "تخطيط التحديد")}"]`).getByRole("radio", { name: T("Bar (opt-in, not Desk)", "الشريط (اختياري، ليس ديسك)") }).click();
     await sec.getByRole("button", { name: T("Simulate server event (list_update)", "محاكاة حدث من الخادم (list_update)") }).click();
     await sec.getByText(/realtime: list_update/).waitFor();
     await page.waitForFunction(() => /Server event #1/.test(document.querySelector("#frappe-list-view-content tbody")?.textContent ?? ""), null, { timeout: 5000 });
