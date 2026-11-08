@@ -6,9 +6,17 @@
  * hand-typed text hands that text to the owner to validate (`onCommitText`; by default it is committed as is).
  * Focusing an empty box lists results at once. Enter refuses to pick a result whose label / value / description does
  * not contain the typed text (Desk's `input_matches_item`). A clear button and an optional open-record link.
+ *
+ * P36b — opt-in "select-like" behaviour for pickers over a known list (defaults unchanged):
+ *  - `openOnClickWhenFilled`: a click / tap on the box opens the FULL list (search "") even when it shows a value —
+ *    the shown text is selected so typing replaces it and filters; Escape restores; picking replaces the value. Enter on
+ *    a closed box opens the list; Home / End move to the first / last row while the list is open and nothing is typed;
+ *    a chevron shows the box opens a list (pointer toggle; keyboard users have ArrowDown / Enter).
+ *  - `selectedIndicator`: the current value's row carries a check mark and `aria-selected="true"`.
+ *  - `selectedValue`, `emptyText`, `searchPlaceholder`, `keepValueWhenEmptied`: see the props.
  */
 import * as React from "react";
-import { ArrowUpRight, X } from "lucide-react";
+import { ArrowUpRight, ChevronDown, X } from "lucide-react";
 import { cn } from "../lib/cn";
 import { useLocale } from "../theme/ThemeProvider";
 import { FIELD_INVALID, interpolate } from "./FieldShell";
@@ -45,6 +53,24 @@ export interface LinkInputProps {
   "aria-labelledby"?: string;
   "aria-describedby"?: string;
   onBlur?: () => void;
+  /** P36b: a click / tap on the box opens the full list even when it already shows a value (like a select). The value
+   *  is kept until another row is picked; typing filters; Escape restores. Also: Enter on a closed box opens the list,
+   *  Home / End jump to the first / last row while nothing is typed, and a chevron is shown. Default false (Desk:
+   *  only an empty box lists results on focus). */
+  openOnClickWhenFilled?: boolean;
+  /** P36b: mark the current value's row with a check mark and `aria-selected="true"` (the highlighted row is then
+   *  announced via `aria-activedescendant` only). Default false (`aria-selected` marks the highlighted row, as Desk). */
+  selectedIndicator?: boolean;
+  /** P36b: the value whose row `selectedIndicator` marks, when it differs from `value` — e.g. a "None" row shown as
+   *  `displayValue` while `value` is null. Default: `value`. */
+  selectedValue?: string | null;
+  /** P36b: text of the "no results" row. Default: the `noResults` chrome string. */
+  emptyText?: React.ReactNode;
+  /** P36b: placeholder while the list is open and the box is empty (e.g. "Search lifecycles…"). Default: `placeholder`. */
+  searchPlaceholder?: string;
+  /** P36b: an emptied box that is left (blur / Enter) restores the shown value instead of clearing it; clearing is
+   *  then only the × button or a row that means "none". Default false (Desk: an emptied Link is cleared). */
+  keepValueWhenEmptied?: boolean;
 }
 
 const contains = (hay: string | undefined, needle: string) => !!hay && hay.toLowerCase().includes(needle.toLowerCase());
@@ -52,7 +78,9 @@ const contains = (hay: string | undefined, needle: string) => !!hay && hay.toLow
 export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(function LinkInput(
   {
     value, displayValue, onChange, search, debounceMs = 500, onCommitText, actions, filterOptions, href, onOpenHref,
-    clearable = true, busy, disabled, readOnly, invalid, placeholder, id, name, className, autoFocus, onBlur, ...aria
+    clearable = true, busy, disabled, readOnly, invalid, placeholder, id, name, className, autoFocus, onBlur,
+    openOnClickWhenFilled = false, selectedIndicator = false, selectedValue, emptyText, searchPlaceholder, keepValueWhenEmptied = false,
+    ...aria
   },
   ref,
 ) {
@@ -62,6 +90,12 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
   const [draft, setDraft] = React.useState<string | null>(null);
   const [active, setActive] = React.useState(-1);
   const sugg = useSuggestions(search, debounceMs);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const setRefs = React.useCallback((el: HTMLInputElement | null) => {
+    inputRef.current = el;
+    if (typeof ref === "function") ref(el); else if (ref) ref.current = el;
+  }, [ref]);
+  const selectLike = openOnClickWhenFilled;
   const shownText = displayValue || value || "";
   const text = draft ?? shownText;
   const options = React.useMemo(() => {
@@ -80,14 +114,27 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
     if (draft == null || draft === shownText) { setDraft(null); return; }
     const typed = draft.trim();
     setDraft(null);
-    if (!typed) { if (value) onChange(null); return; }
+    if (!typed) { if (value && !keepValueWhenEmptied) onChange(null); return; }
     const exact = options.find((o) => o.value === typed || (o.label && o.label === typed));
     if (exact) { onChange(exact.value, exact); return; }
     if (onCommitText) onCommitText(typed); else onChange(typed);
   };
 
+  /** P36b: the full list (search ""), the shown text selected so typing replaces it. */
+  const openFull = (selectText: boolean) => {
+    setDraft(null);
+    sugg.query("", true);
+    if (selectText) {
+      const el = inputRef.current;
+      if (el && el.value) { try { el.select(); } catch { /* not selectable */ } }
+    }
+  };
+
   return (
     <SuggestionList
+      selectedValue={selectedIndicator ? (selectedValue !== undefined ? selectedValue : (value ?? null)) : undefined}
+      emptyText={emptyText}
+      scrollActiveIntoView={selectLike || selectedIndicator}
       open={sugg.open && editable}
       onDismiss={sugg.close}
       listId={listId}
@@ -102,7 +149,7 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
       anchor={
         <div className={cn("sf-field-fill flex h-9 w-full items-center rounded-md focus-within:ring-2 focus-within:ring-ring/60", invalid && FIELD_INVALID, disabled && "opacity-50")}>
           <input
-            ref={ref}
+            ref={setRefs}
             id={id}
             name={name}
             type="text"
@@ -118,14 +165,25 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
             {...aria}
             disabled={disabled}
             readOnly={readOnly}
-            placeholder={placeholder}
+            placeholder={searchPlaceholder && sugg.open && editable ? searchPlaceholder : placeholder}
             className="h-full min-w-0 flex-1 bg-transparent px-3 text-base outline-none focus-visible:outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed md:text-sm"
             value={text}
             onFocus={() => { if (editable && !text) sugg.query("", true); }}
+            onClick={selectLike ? () => { if (editable && !sugg.open) openFull(true); } : undefined}
             onChange={(e) => { setDraft(e.target.value); sugg.query(e.target.value); }}
             onBlur={() => { sugg.close(); if (editable) commitText(); onBlur?.(); }}
             onKeyDown={(e) => {
               if (!editable) return;
+              if (selectLike) {
+                // an IME composition's Enter / arrows belong to the IME
+                if (e.nativeEvent.isComposing) return;
+                if (e.key === "Enter" && !sugg.open && draft == null) { e.preventDefault(); openFull(false); return; }
+                if ((e.key === "Home" || e.key === "End") && sugg.open && !draft && count > 0) {
+                  e.preventDefault();
+                  setActive(e.key === "Home" ? 0 : count - 1);
+                  return;
+                }
+              }
               const handled = handleListKey(e, {
                 open: sugg.open, count, active, setActive,
                 onOpen: () => sugg.query(draft ?? "", true),
@@ -162,6 +220,23 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
             >
               <X className="size-3.5" aria-hidden />
             </button>
+          ) : null}
+          {selectLike && !readOnly ? (
+            // decorative: the box itself is the control (keyboard: ArrowDown / Enter); a pointer toggles the list
+            <span
+              aria-hidden
+              data-link-chevron=""
+              className={cn("me-1 inline-flex size-7 shrink-0 items-center justify-center text-muted-foreground", editable && "cursor-pointer")}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                if (!editable) return;
+                if (sugg.open) { sugg.close(); setDraft(null); return; }
+                inputRef.current?.focus();
+                openFull(true);
+              }}
+            >
+              <ChevronDown className="size-4 opacity-60" />
+            </span>
           ) : null}
         </div>
       }
