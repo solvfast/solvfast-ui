@@ -14,7 +14,8 @@ import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import { FrappeTimeline, buildTimelineItems, deliveryStatusTone, formatVersion, type TimelineContext } from "../src/frappe/record";
 import { Timeline, deskRelativeTime, absoluteTime, type TimelineEntry } from "../src/record";
 import { historyEn, historyAr } from "../src/theme/messages-ws/history";
-import type { DocInfo, DocPerm, DocTypeMeta, FrappeDoc, FrappeTransport } from "../src/frappe/contract";
+import type { DocInfo, DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
+import type { FrappeTransport } from "../src/frappe/client";
 import { BUILTIN_FIXTURE_META, createFixtureTransport, type FixtureTransport, type SimulatedPermissions } from "../src/frappe/testing";
 
 beforeAll(() => {
