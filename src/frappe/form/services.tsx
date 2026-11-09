@@ -52,6 +52,10 @@ export interface FormServices {
   builtin: { canCreate: boolean; linkHref: boolean };
   /** Set by FrappeForm / FrappeQuickEntry: opens the Quick Entry dialog for a quick-entry eligible target. */
   quickEntry?: (req: CreateNewRequest) => void;
+  /** P36d: `frappe.desk.search.get_link_title` (search.py:327-334) — the title of a record of a DocType with
+   *  `show_title_field_in_link`, fetched when the link-title cache has none (link.js:120-132 set_link_title,
+   *  utils.js:1585-1604 fetch_link_title). Default: that server method through the provider's client. */
+  getLinkTitle?: (doctype: string, name: string) => Promise<string | null | undefined>;
 }
 
 const OverridesContext = React.createContext<Partial<FormServices> | null>(null);
@@ -91,6 +95,10 @@ export function useFormServices(): FormServices {
       evaluator: o?.evaluator ?? {},
       builtin: { canCreate: !o?.canCreate, linkHref: !o?.linkHref },
       quickEntry: o?.quickEntry,
+      getLinkTitle: o?.getLinkTitle ?? (async (doctype, docname) => {
+        const r = await api.call("frappe.desk.search.get_link_title", { doctype, docname });
+        return typeof r?.message === "string" ? r.message : null;
+      }),
     };
   }, [api, fmt, translations, o]);
 }

@@ -35,3 +35,5 @@ export { FrappeAttachHost, useAttachHost, attachSaveAction } from "./attachHost"
 export type { FrappeAttachHostValue } from "./attachHost";
 export { FrappeFormImage } from "./FrappeFormImage";
 export type { FrappeFormImageProps } from "./FrappeFormImage";
+// P36d fields — Desk's split_emails (utils.js:839-853), used with dataOptionInvalid by apps that check addresses
+export { splitEmails } from "./FrappeField";

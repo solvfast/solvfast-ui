@@ -88,6 +88,10 @@ export interface LinkInputProps {
   /** P36b: an emptied box that is left (blur / Enter) restores the shown value instead of clearing it; clearing is
    *  then only the × button or a row that means "none". Default false (Desk: an emptied Link is cleared). */
   keepValueWhenEmptied?: boolean;
+  /** P36d: the input's `maxlength` (Desk's Link: `df.length || 140`, data.js:229-238). Default none. */
+  maxLength?: number;
+  /** P36d: paste on the input (e.g. Desk's "Data Clipped" warning, data.js:19-62). */
+  onPaste?: React.ClipboardEventHandler<HTMLInputElement>;
 }
 
 const contains = (hay: string | undefined, needle: string) => !!hay && hay.toLowerCase().includes(needle.toLowerCase());
@@ -97,6 +101,7 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
     value, displayValue, onChange, search, debounceMs = 500, onCommitText, actions, filterOptions, href, onOpenHref,
     clearable = true, busy, disabled, readOnly, invalid, placeholder, id, name, className, autoFocus, onBlur,
     openOnClickWhenFilled = false, selectedIndicator = false, selectedValue, emptyText, searchPlaceholder, keepValueWhenEmptied = false,
+    maxLength, onPaste,
     ...aria
   },
   ref,
@@ -185,6 +190,8 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
             {...aria}
             disabled={disabled}
             readOnly={readOnly}
+            maxLength={maxLength}
+            onPaste={onPaste}
             placeholder={searchPlaceholder && sugg.open && editable ? searchPlaceholder : placeholder}
             className="h-full min-w-0 flex-1 bg-transparent px-3 text-base outline-none focus-visible:outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed md:text-sm"
             value={text}

@@ -8,5 +8,6 @@ import { coreHandlers } from "./core";
 import { searchHandlers } from "./search";
 import { sidebarHandlers } from "./sidebar";
 import { socialHandlers } from "./social";
+import { fieldsHandlers } from "./fields";
 
-export const workstreamHandlers: Record<string, FixtureContextHandler> = { ...formHandlers, ...recordHandlers, ...listHandlers, ...viewsHandlers, ...coreHandlers, ...searchHandlers, ...sidebarHandlers, ...socialHandlers };
+export const workstreamHandlers: Record<string, FixtureContextHandler> = { ...formHandlers, ...recordHandlers, ...listHandlers, ...viewsHandlers, ...coreHandlers, ...searchHandlers, ...sidebarHandlers, ...socialHandlers, ...fieldsHandlers };
