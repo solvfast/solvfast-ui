@@ -5,7 +5,6 @@
  */
 export const printEn = {
   prLanguage: "Language",
-  prDocCount: "{0} documents",
   prBrowserPrintNote: "Print opens your browser's print dialog. To get a PDF, choose “Save as PDF” there.",
   prBackTo: "Back to {0}",
   prPrintFailed: "The browser could not open its print dialog:",
@@ -14,7 +13,6 @@ export const printEn = {
 };
 export const printAr: { [K in keyof typeof printEn]: string } = {
   prLanguage: "اللغة",
-  prDocCount: "{0} مستند",
   prBrowserPrintNote: "تفتح الطباعة نافذة الطباعة في المتصفح. للحصول على ملف PDF اختر «حفظ بتنسيق PDF» هناك.",
   prBackTo: "العودة إلى {0}",
   prPrintFailed: "تعذّر على المتصفح فتح نافذة الطباعة:",

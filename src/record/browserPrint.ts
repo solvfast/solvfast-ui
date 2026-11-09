@@ -31,7 +31,8 @@ export function printHtmlDocument(srcdoc: string, o: PrintHtmlOptions = {}): Pro
   frame.setAttribute("aria-hidden", "true");
   frame.setAttribute("title", "print");
   frame.tabIndex = -1;
-  frame.style.cssText = "position:fixed;inset-inline-end:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none";
+  // 0×0 and off to the corner — not `visibility:hidden` / `opacity:0`, which some engines print blank
+  frame.style.cssText = "position:fixed;inset-inline-end:0;bottom:0;width:0;height:0;border:0;pointer-events:none";
   return new Promise<void>((resolve, reject) => {
     let done = false;
     frame.addEventListener("load", () => {
