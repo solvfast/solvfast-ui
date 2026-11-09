@@ -21,8 +21,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../../lib/cn";
 import { Skeleton } from "../../primitives/skeleton";
 import { CommentComposer, type CommentComposerLabels } from "../../record/CommentComposer";
-import { Timeline, type TimelineLabels } from "../../record/Timeline";
-import type { MentionOption, TimelineItem } from "../../record/types";
+import { Timeline, type TimelineEntry, type TimelineLabels, type TimelineTimeFormat } from "../../record/Timeline";
+import type { MentionOption } from "../../record/types";
 import { fmt } from "../../record/format";
 import { useLocale } from "../../theme/ThemeProvider";
 import type { DocInfo, FrappeDoc } from "../contract";
@@ -53,6 +53,9 @@ export interface FrappeCommentsProps {
   isSystemManager?: boolean;
   labels?: TimelineLabels;
   composerLabels?: CommentComposerLabels;
+  /** P36d history: relative-time wording ("desk" = Frappe's comment_when) and author avatars (timeline_message_box.html). */
+  timeFormat?: TimelineTimeFormat;
+  showAvatars?: boolean;
   className?: string;
 }
 
@@ -69,6 +72,7 @@ export function focusCommentBox(root: ParentNode = document): boolean {
 
 export function FrappeComments({
   doctype, name, readOnly, docinfo, variant = "list", onCountClick, order = "newest-first", searchMentions, canDeleteComment, isSystemManager, labels, composerLabels, className,
+  timeFormat, showAvatars,
 }: FrappeCommentsProps) {
   const { t, isRTL } = useLocale();
   const api = useRecordApi();
@@ -81,7 +85,7 @@ export function FrappeComments({
   const user = session?.user ?? "";
   const rights = React.useMemo(() => commentRights(session, { canDeleteComment, isSystemManager }), [session, canDeleteComment, isSystemManager]);
 
-  const items: TimelineItem[] = React.useMemo(() => {
+  const items: TimelineEntry[] = React.useMemo(() => {
     if (!info) return [];
     const doc = { doctype, name } as FrappeDoc;
     return buildTimelineItems(doc, { ...info, communications: [], automated_messages: [] }, {
@@ -115,7 +119,7 @@ export function FrappeComments({
         </div>
       ) : null}
       <Timeline
-        items={items} order={order} loading={q.isLoading} labels={{ empty: t("socNoComments"), heading: t("socComments"), ...labels }} composerLabels={composerLabels}
+        items={items} order={order} loading={q.isLoading} timeFormat={timeFormat} showAvatars={showAvatars} labels={{ empty: t("socNoComments"), heading: t("socComments"), ...labels }} composerLabels={composerLabels}
         error={q.error ? <p role="alert" className="text-sm text-destructive">{q.error.message}</p> : undefined}
         searchMentions={mentionSearch}
         onEditComment={editable ? async (item, html) => { await actions.updateComment.mutateAsync({ doctype, name, commentName: item.id, content: html }); } : undefined}

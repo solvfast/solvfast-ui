@@ -78,3 +78,6 @@ export {
   USER_GROUP_DOCTYPE, USER_GROUP_MEMBER_DOCTYPE, USER_GROUP_MEMBERS_FIELD, USER_GROUP_MEMBERS_METHOD, USER_GROUP_MEMBERS_LIMIT,
   userGroupMembersArgs, getUserGroupMembers, searchUserGroups, userGroupSource,
 } from "./userGroups";
+
+// P36d history — Desk's communication delivery-status tone (form_timeline.js:298-311)
+export { deliveryStatusTone } from "./timeline";

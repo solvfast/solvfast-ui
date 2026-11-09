@@ -3,11 +3,18 @@
  * Item kinds and their docinfo keys: comments, communications + automated_messages, versions, assignment_logs, attachment_logs,
  * info_logs, like_logs, workflow_logs, milestones, views, plus the created / last-edited lines from the document.
  * Deliberately NOT read: `share_logs` (nothing on the server sets it — Desk shows no sharing events either).
- * Not reproduced (UNVERIFIED gaps): energy_point_logs, additional_timeline_content, reply buttons on communications,
- * " · Impersonated by" / " · [Action taken by]" suffixes, `updater_reference` links.
+ * P36d history: communications / automated messages are cards (body, subject, delivery status, attachments, sender avatar —
+ * form_timeline.js:225-328, timeline_message_box.html); every entry carries the actor's `user_info` image; Version lines
+ * get the `updater_reference` text ("via {doctype}" / its label, version_timeline_content_builder.js:14-24, as text, not
+ * a link), the " · Impersonated by" / " · [Action taken by]" suffixes (:354-365) and the "created this document {ref}"
+ * line (:342-353); `additional_timeline_content` entries with `content` are shown (form_timeline.js:494-508).
+ * Not reproduced: energy_point_logs (frappe.energy_points.format_form_log), `additional_timeline_content` entries that
+ * only carry a `template` (Desk renders a client-side template the package does not have), reply / reply-all on
+ * communications, user / Version form links (Desk routes).
  */
 import type { DocInfo, FrappeDoc, VersionInfo } from "../contract";
-import type { TimelineChange, TimelineItem } from "../../record/types";
+import type { TimelineChange, Tone } from "../../record/types";
+import type { TimelineEntry } from "../../record/Timeline";
 import type { Messages } from "../../theme/messages";
 import { isolate, fmt } from "../../record/format";
 import { htmlToText } from "../../record/sanitize";
@@ -39,6 +46,8 @@ export interface TimelineContext {
   isolate?: boolean;
   /** Display name for a user id (default: docinfo.user_info fullname, else the id). */
   userName?: (id: string) => string;
+  /** P36d history: link of a Communication (Desk: `/app/communication/<name>`, "Open Communication"). Default: none. */
+  communicationHref?: (name: string) => string | undefined;
 }
 
 /** Frappe datetimes are "YYYY-MM-DD HH:mm:ss[.ffffff]" in the server time zone; parsed as local time like the browser does. */
@@ -62,6 +71,11 @@ interface VersionData {
   removed?: Array<[string, Record<string, unknown>]>;
   /** [table_fieldname, row_index, row_name, [[fieldname, old, new], …]] */
   row_changed?: Array<[string, number, string, Array<[string, unknown, unknown]>]>;
+  /** P36d: the document behind the change (version.py `updater_reference`), creation marker, impersonation, audit user. */
+  updater_reference?: { doctype?: string; docname?: string; label?: string };
+  created_by?: string;
+  impersonated_by?: string;
+  audit_user?: string;
 }
 
 export interface VersionLine { summary: string; changes?: TimelineChange[]; kind: "change" | "state" }
@@ -74,13 +88,17 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
   const t = ctx.t;
   if (data.comment) return [{ summary: data.comment, kind: "change" }];
   const out: VersionLine[] = [];
+  // :14-24 — the document that made the change ("via {doctype}" or its label); Desk links it, here it is text
+  const ur = data.updater_reference;
+  const ref = ur && typeof ur === "object" && Object.keys(ur).length ? (ur.label || (ur.doctype ? f(ctx, t("hisVia"), ur.doctype) : "")) : "";
+  const withRef = (line: string) => (ref ? `${line} ${ref}` : line);
 
   if (data.changed?.length) {
     const parts: string[] = []; const detail: TimelineChange[] = [];
     for (const [field, oldV, newV] of data.changed) {
       if (field === "docstatus") {
-        if (newV === 1) out.push({ summary: f(ctx, t("recSubmittedThis"), who), kind: "state" });
-        else if (newV === 2) out.push({ summary: f(ctx, t("recCancelledThis"), who), kind: "state" });
+        if (newV === 1) out.push({ summary: withRef(f(ctx, t("recSubmittedThis"), who)), kind: "state" });
+        else if (newV === 2) out.push({ summary: withRef(f(ctx, t("recCancelledThis"), who)), kind: "state" });
       } else {
         const label = ctx.fieldLabel(field);
         if (label != null) {
@@ -90,7 +108,7 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
         }
       }
     }
-    if (parts.length) out.push({ summary: f(ctx, t("recChangedValue"), who, parts.join(", ")), changes: detail, kind: "change" });
+    if (parts.length) out.push({ summary: withRef(f(ctx, t("recChangedValue"), who, parts.join(", "))), changes: detail, kind: "change" });
   }
 
   if (data.row_changed?.length) {
@@ -104,7 +122,7 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
         if (parts.length < 3) parts.push(f(ctx, t("recFromToRow"), label, o, n, idx + 1));
       }
     }
-    if (parts.length) out.push({ summary: f(ctx, t("recChangedValues"), who, parts.join(", ")), changes: detail, kind: "change" });
+    if (parts.length) out.push({ summary: withRef(f(ctx, t("recChangedValues"), who, parts.join(", "))), changes: detail, kind: "change" });
   }
 
   for (const key of ["added", "removed"] as const) {
@@ -122,7 +140,14 @@ export function formatVersion(version: Pick<VersionInfo, "data" | "owner">, ctx:
     }
     out.push({ summary: commaAnd(msgs, t("recAnd")), kind: "change" });
   }
-  return out;
+  // :342-353 — a document created by another one
+  if (data.created_by && ref) out.push({ summary: f(ctx, t("hisCreatedThisRef"), who, ref), kind: "change" });
+  // :354-365 — impersonation / audit suffixes on every line
+  const suffix = [
+    data.impersonated_by ? f(ctx, t("hisImpersonatedBy"), ctx.userName?.(data.impersonated_by) ?? data.impersonated_by) : "",
+    data.audit_user ? f(ctx, t("hisActionTakenBy"), data.audit_user) : "",
+  ].filter(Boolean);
+  return suffix.length ? out.map((l) => ({ ...l, summary: [l.summary, ...suffix].join(" · ") })) : out;
 }
 
 /** `frappe.utils.comma_and`: "a, b and c". */
@@ -134,27 +159,63 @@ export function commaAnd(list: string[], and: string): string {
 type Row = Record<string, unknown>;
 const s = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : String(v));
 
-export function buildTimelineItems(doc: FrappeDoc, docinfo: DocInfo, ctx: TimelineContext): TimelineItem[] {
+/** Desk's delivery-status pill colour (form_timeline.js:298-311): green / orange / blue, red otherwise. */
+export function deliveryStatusTone(status: string): Tone {
+  if (["Sent", "Clicked"].includes(status)) return "success";
+  if (["Sending", "Scheduled"].includes(status)) return "warning";
+  if (["Opened", "Read"].includes(status)) return "info";
+  return "danger";
+}
+
+/** `attachments` of a communication row: a JSON list of {file_url, is_private} (load.py:264-276). */
+function communicationAttachments(raw: unknown): TimelineEntry["attachments"] {
+  let list: unknown = raw;
+  if (typeof raw === "string") { try { list = JSON.parse(raw); } catch { list = []; } }
+  if (!Array.isArray(list)) return undefined;
+  const out = (list as Row[]).filter((a) => a && a.file_url).map((a) => ({ name: String(a.file_url).split("/").slice(-1)[0], url: encodeURI(String(a.file_url)).replace(/#/g, "%23"), isPrivate: !!Number(a.is_private) }));
+  return out.length ? out : undefined;
+}
+
+export function buildTimelineItems(doc: FrappeDoc, docinfo: DocInfo, ctx: TimelineContext): TimelineEntry[] {
   const t = ctx.t;
   const nameOf = (id: string) => (id === ctx.user ? t("recYou") : ctx.userName?.(id) ?? docinfo.user_info?.[id]?.fullname ?? id);
-  const items: TimelineItem[] = [];
+  const imageOf = (id: unknown) => (typeof id === "string" && id ? docinfo.user_info?.[id]?.image ?? null : null);
+  const items: TimelineEntry[] = [];
   const full = (ctx.activity ?? "all") === "all";
 
   if (doc.creation) items.push({ id: "created", kind: "created", at: parseFrappeTime(doc.creation), actorId: doc.owner, actor: nameOf(s(doc.owner)), summary: f(ctx, t("recCreatedThis"), nameOf(s(doc.owner))) });
   if (doc.modified && doc.modified !== doc.creation) items.push({ id: "modified", kind: "modified", at: parseFrappeTime(doc.modified), actorId: doc.modified_by, actor: nameOf(s(doc.modified_by)), summary: f(ctx, t("recModifiedThis"), nameOf(s(doc.modified_by))) });
 
-  for (const c of [...(docinfo.communications ?? []), ...((docinfo.automated_messages as unknown[] | undefined) ?? [])] as Row[]) {
+  // form_timeline.js:225-249 (communications: card, sender, subject, delivery status, attachments) and :313-328
+  // (automated messages: "Notification sent to" up to 3 recipients, timeline_message_box.html:4-27)
+  for (const c of (docinfo.communications ?? []) as Row[]) {
     const sender = s(c.sender_full_name || c.sender);
+    const status = s(c.delivery_status);
+    const href = ctx.communicationHref?.(s(c.name));
     items.push({
       id: `communication-${s(c.name)}`, kind: "communication", at: parseFrappeTime(s(c.communication_date || c.creation)), actor: sender,
+      actorId: s(c.sender) || undefined, actorImage: imageOf(c.sender),
       summary: [sender, s(c.subject)].filter(Boolean).join(" · "),
+      card: true, body: s(c.content), bodyFormat: "html", subject: s(c.subject) || undefined,
+      status: status ? { label: status, tone: deliveryStatusTone(status) } : undefined,
+      attachments: communicationAttachments(c.attachments), ...(href ? { href } : {}),
+    });
+  }
+  for (const c of ((docinfo.automated_messages as unknown[] | undefined) ?? []) as Row[]) {
+    const emails = [s(c.recipients), s(c.cc), s(c.bcc)].flatMap((x) => (x ? x.split(",") : [])).map((x) => x.trim()).filter(Boolean);
+    const names = emails.slice(0, 3).map((e) => docinfo.user_info?.[e]?.fullname || e).join(", ") + (emails.length > 3 ? "..." : "");
+    const sentTo = f(ctx, t("hisNotificationSentTo"), names);
+    items.push({
+      id: `communication-${s(c.name)}`, kind: "communication", at: parseFrappeTime(s(c.communication_date || c.creation)),
+      summary: sentTo, subject: sentTo, card: true, body: s(c.content), bodyFormat: "html",
+      attachments: communicationAttachments(c.attachments),
     });
   }
 
   for (const c of docinfo.comments ?? []) {
     const own = c.owner === ctx.user;
     items.push({
-      id: c.name, kind: "comment", at: parseFrappeTime(c.creation), actorId: c.owner, actor: nameOf(c.owner), body: c.content, bodyFormat: "html",
+      id: c.name, kind: "comment", at: parseFrappeTime(c.creation), actorId: c.owner, actor: nameOf(c.owner), actorImage: imageOf(c.owner), body: c.content, bodyFormat: "html",
       canEdit: own || ctx.user === "Administrator",
       canDelete: (own || !!ctx.isSystemManager) && !!ctx.canDeleteComment,
     });
@@ -188,6 +249,13 @@ export function buildTimelineItems(doc: FrappeDoc, docinfo: DocInfo, ctx: Timeli
     for (const v of (docinfo.views ?? []) as Row[]) {
       items.push({ id: `view-${s(v.name)}`, kind: "info", at: parseFrappeTime(s(v.creation)), actorId: s(v.owner), actor: nameOf(s(v.owner)), summary: f(ctx, t("recViewed"), nameOf(s(v.owner))) });
     }
+    // form_timeline.js:494-508 — `additional_timeline_content` hook entries: `content` (HTML) is shown; template-only entries are not
+    ((docinfo.additional_timeline_content as unknown[] | undefined) ?? []).forEach((raw, n) => {
+      const a = raw as Row;
+      if (!a || !a.content) return;
+      const html = s(a.content);
+      items.push({ id: `custom-${n}`, kind: "custom", at: parseFrappeTime(s(a.creation)), summary: htmlToText(html).trim(), ...(a.is_card ? { card: true, body: html, bodyFormat: "html" as const } : {}) });
+    });
   }
   return items;
 }

@@ -8,6 +8,8 @@ import { searchEn, searchAr } from "./search";
 import { sidebarEn, sidebarAr } from "./sidebar";
 import { socialEn, socialAr } from "./social";
 import { fieldsEn, fieldsAr } from "./fields";
+// P36d history
+import { historyEn, historyAr } from "./history";
 
-export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn };
-export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr };
+export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn };
+export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr };

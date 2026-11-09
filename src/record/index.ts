@@ -55,3 +55,7 @@ export type { TagListProps } from "./TagList";
 // P36c usergroup — "Assign To User Group" source of AssignDialog
 export { uniqueMembers } from "./AssignDialog";
 export type { AssignGroupSource } from "./AssignDialog";
+
+// P36d history — Timeline entry extras (avatar, cards), Desk relative times (pretty_date.js), absolute time
+export { deskRelativeTime, absoluteTime } from "./Timeline";
+export type { TimelineEntry, TimelineItemExtras, TimelineTimeFormat } from "./Timeline";
