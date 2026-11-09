@@ -41,3 +41,9 @@ export { splitEmails } from "./FrappeField";
 export { FrappeIconField, FrappeIconGlyph, FRAPPE_ICON_NAMES, deskIconNames, hasFrappeIcon } from "./FrappeIconField";
 export type { FrappeIconFieldProps } from "./FrappeIconField";
 export { PARTIAL_FIELDTYPES } from "./model/fieldtypes";
+// P36e mock — FrappeField without a Frappe server: local Link services over host rows, a no-server client, capabilities
+export {
+  FrappeLocalForm, createLocalFormServices, localSearchLink, localValidateLink, localLinkTitle, createNoServerClient, noServerClient,
+  localModeError, useFormCapabilities, SERVER_CAPABILITIES, LOCAL_CAPABILITIES,
+} from "./localServices";
+export type { FrappeLocalFormProps, LocalFormServicesOptions, LocalLinkSource, LocalLinkTarget, LocalRow, LocalTargetMeta, FormCapabilities } from "./localServices";
