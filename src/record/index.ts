@@ -76,7 +76,7 @@ export {
   DOCSTATUS, SUBMIT_MESSAGE_TEXT, DOCSTATUS_LABEL_KEY, DOCSTATUS_TONE, DOCSTATUS_DESCRIPTION_KEY,
   fillArgs, docMessage, formatDocMessage, toDocStatus, docstatusTransition, workflowDocAction, validateWorkflowDocstatus,
   stateDocStatus, hasMandatoryValue, missingMandatory, isEditableAtDocstatus, updateAfterSubmitViolations, deleteRefusal,
-  amendedName, amendRefusal,
+  amendedName, amendRefusal, linkedDeleteRefusal,
 } from "./docstatus";
 export type {
   DocStatus, DocMessage, SubmitMessageKey, DocstatusAction, DocstatusResult, WorkflowDocAction, WorkflowDocResult,

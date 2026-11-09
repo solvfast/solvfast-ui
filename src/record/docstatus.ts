@@ -33,7 +33,7 @@ export type SubmitMessageKey =
   | "subCannotDraftToCancelled" | "subCannotSubmittedToDraft" | "subCannotEditCancelled" | "subIllegalDocStatus"
   | "subWfCancelledRow" | "subWfSubmittedToDraftRow" | "subWfCancelBeforeSubmitRow" | "subValueMissing"
   | "subNotAllowedAfterSubmit" | "subCannotDeleteSubmitted" | "subAlreadyAmended" | "subAmendNotCancelled"
-  | "subNotValidWorkflowAction";
+  | "subNotValidWorkflowAction" | "subLinkExists";
 
 /** Frappe's English wording of each key (the `en` catalogue repeats it). */
 export const SUBMIT_MESSAGE_TEXT: Record<SubmitMessageKey, string> = {
@@ -50,6 +50,7 @@ export const SUBMIT_MESSAGE_TEXT: Record<SubmitMessageKey, string> = {
   subAlreadyAmended: "This document is already amended, you cannot ammend it again",
   subAmendNotCancelled: "{0} cannot be amended because it is not cancelled. Please cancel the document before creating an amendment.",
   subNotValidWorkflowAction: "Not a valid Workflow Action",
+  subLinkExists: "Cannot delete or cancel because {0} {1} is linked with {2} {3}",
 };
 
 /** Fill `{0}`, `{1}`, … (Frappe's `str.format` / `__(text, [args])`). */
@@ -213,6 +214,16 @@ const hasAnyValue = (v: unknown) => !(v === null || v === undefined || v === "" 
 /** Delete is refused for a SUBMITTED document of a submittable DocType (delete_doc.py:252-262); drafts and cancelled go. */
 export function deleteRefusal(docstatus: DocStatus, o: { isSubmittable: boolean; doctype: string; name: string }): DocMessage | null {
   return o.isSubmittable && docstatus === 1 ? docMessage("subCannotDeleteSubmitted", o.doctype, o.name) : null;
+}
+
+/**
+ * `check_if_doc_is_linked` (delete_doc.py:330-400, 432-445) for Delete: a document still linked from one that is NOT
+ * cancelled (e.g. an amendment whose `amended_from` points at it) cannot be deleted — "Cannot delete or cancel because
+ * {doctype} {name} is linked with {ref doctype} {ref name}" (LinkExistsError). `links` = the documents linking to it.
+ */
+export function linkedDeleteRefusal(o: { doctype: string; name: string }, links: ReadonlyArray<{ doctype: string; name: string; docstatus: DocStatus }>): DocMessage | null {
+  const live = links.find((l) => l.docstatus !== 2);
+  return live ? docMessage("subLinkExists", o.doctype, o.name, live.doctype, live.name) : null;
 }
 
 /**

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DOCSTATUS_DESCRIPTION_KEY, DOCSTATUS_LABEL_KEY, SUBMIT_MESSAGE_TEXT, amendRefusal, amendedName, deleteRefusal, docstatusTransition, formatDocMessage,
-  hasMandatoryValue, isEditableAtDocstatus, missingMandatory, stateDocStatus, toDocStatus, updateAfterSubmitViolations, validateWorkflowDocstatus,
+  hasMandatoryValue, isEditableAtDocstatus, linkedDeleteRefusal, missingMandatory, stateDocStatus, toDocStatus, updateAfterSubmitViolations, validateWorkflowDocstatus,
   workflowDocAction, type DocstatusField,
 } from "../src/record";
 import * as root from "../src";
@@ -105,6 +105,10 @@ describe("P36E.submit — Core docstatus rules", () => {
     expect(deleteRefusal(0, { isSubmittable: true, doctype: "X", name: "1" })).toBeNull();
     expect(deleteRefusal(2, { isSubmittable: true, doctype: "X", name: "1" })).toBeNull();
     expect(deleteRefusal(1, { isSubmittable: false, doctype: "X", name: "1" })).toBeNull();
+    // check_if_doc_is_linked: a cancelled document still linked from a live amendment cannot be deleted; a cancelled link does not block
+    const o = { doctype: "Serve Fast Proposal", name: "PRP-1002" };
+    expect(linkedDeleteRefusal(o, [{ doctype: "Serve Fast Proposal", name: "PRP-1002-1", docstatus: 1 }])?.text).toBe("Cannot delete or cancel because Serve Fast Proposal PRP-1002 is linked with Serve Fast Proposal PRP-1002-1");
+    expect(linkedDeleteRefusal(o, [{ doctype: "Serve Fast Proposal", name: "PRP-1002-1", docstatus: 2 }])).toBeNull();
   });
 
   it("P36E.submit.8 amend: <name>-1, an amendment of an amendment increments (naming.py:526-543); only a cancelled document, only once", () => {

@@ -22,6 +22,8 @@ export const submitEn = {
   subCannotUpdateAfterSubmit: "Cannot Update After Submit",
   // delete_doc.py:254-262 (the help link around "Cancel" is dropped)
   subCannotDeleteSubmitted: "{0} {1}: Submitted Record cannot be deleted. You must Cancel it first.",
+  // delete_doc.py:432-445 raise_link_exists_exception (the trailing row part {4} is dropped)
+  subLinkExists: "Cannot delete or cancel because {0} {1} is linked with {2} {3}",
   // form.js:1025 (Frappe's spelling) / document.py:440-444
   subAlreadyAmended: "This document is already amended, you cannot ammend it again",
   subAmendNotCancelled: "{0} cannot be amended because it is not cancelled. Please cancel the document before creating an amendment.",
@@ -51,6 +53,7 @@ export const submitAr: { [K in keyof typeof submitEn]: string } = {
   subNotAllowedAfterSubmit: "غير مسموح بتغيير {0} بعد الإرسال من {1} إلى {2}",
   subCannotUpdateAfterSubmit: "لا يمكن التحديث بعد الإرسال",
   subCannotDeleteSubmitted: "{0} {1}: لا يمكن حذف السجل المقدم. يجب عليك إلغاؤه أولاً.",
+  subLinkExists: "لا يمكن حذف أو إلغاء لأن {0} {1} مرتبط مع {2} {3}",
   subAlreadyAmended: "تم تعديل هذا المستند بالفعل ، ولا يمكنك تعديله مرة أخرى",
   subAmendNotCancelled: "لا يمكن تعديل {0} لأنه غير ملغى. ألغِ المستند قبل إنشاء تعديل.",
   subDocDraft: "المستند في حالة مسودة",
