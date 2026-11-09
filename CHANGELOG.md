@@ -49,6 +49,21 @@ prepared real-site tests are still Pending.
 - `PRINT_PAGE_SIZES`, `NO_LETTERHEAD` and `MAX_PRINT_LIMIT` now live in Core and are still exported from
   `@solvfast/ui/frappe`.
 
+**Docstatus (submittable DocTypes, lifecycle-driven)**
+- New Core module `src/record/docstatus.ts`: Frappe's docstatus rules as pure functions. Messages are in
+  `messages-ws/submit.ts` (en / ar).
+  - Rules covered: check_docstatus_transition, the apply_workflow docstatus step, validate_docstatus, mandatory checks,
+    update after submit, delete and linked-delete, amend names.
+  - For hosts without a server (the CRM's submittable Proposals).
+- Changed: the `FrappeListView` indicator pill takes Desk's docstatus description as its title on submittable DocTypes.
+  Visible wherever the package is updated.
+- Fixed: `FrappeForm` Amend under a workflow starts in the docstatus-0 default state, as Desk's `set_default_state` does.
+  This affects every workflow DocType's Amend.
+- New SIMULATED `withSubmitRules(transport)`:
+  - update after submit is enforced on savedocs, save, set_value and bulk update;
+  - a new document gets the first workflow state on save;
+  - `delete_items` deletes item by item.
+
 **Simulator** (SIMULATED)
 - The fixture transport's save runs Frappe's `_validate_data_fields` (Data options Email / Name / Phone / URL / IBAN),
   `_validate_non_negative` and `_validate_length`, in document.py:624-646 order.
@@ -56,7 +71,7 @@ prepared real-site tests are still Pending.
 - Not reproduced: the Phone fieldtype's `phonenumbers` check.
 
 **Tests:** `trace-p36e` (P36E.trace.*), `ftypes-p36e` (P36E.ftypes.1-19), `mock-p36e` (P36E.mock.1-10),
-`print-p36e` (P36E.print.1-11), `sim-validate-p36e` (P36E.sim.1-9).
+`print-p36e` (P36E.print.1-11), `sim-validate-p36e` (P36E.sim.1-9), `submit-p36e` (P36E.submit.1-17).
 
 ## 0.7.0-dev.5 (unreleased) — P36d CRM Lead Details audit + Frappe field parity
 
