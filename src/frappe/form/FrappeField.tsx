@@ -18,9 +18,12 @@
  * (FrappeAttachField). Autocomplete (P35): a suggestion box over `df.options` (lines or a JSON list of strings /
  * `{label, value}`, autocomplete.js parse_options :147-166); a typed value not in the list is cleared unless
  * `ignore_validation` (autocomplete.js validate :132-145); an empty list accepts anything.
- * Fieldtypes without a control (`SUPPORTED_FIELDTYPES` — Signature, Geolocation, Barcode, Icon, custom types) render
- * their raw value READ-ONLY in every status (P35; before 0.7 they were an editable text box) and the form lists them
- * in its issues banner. Not implemented: Code editor (a monospace textarea), Phone country picker.
+ * Fieldtypes without a control (not in `SUPPORTED_FIELDTYPES` — an app's custom types) render their raw value READ-ONLY
+ * in every status (P35; before 0.7 they were an editable text box) and the form lists them in its issues banner.
+ * P36e ftypes: Signature (SignatureInput: canvas → PNG data URL, signature.js), Icon (FrappeIconField: a name from
+ * Frappe's sprite, icon.js), and the PARTIAL Barcode (BarcodeInput: the stored JsBarcode SVG, sanitized, plus Clear;
+ * no generator, barcode.js) and Geolocation (GeolocationInput: the GeoJSON features as a list; no map, geolocation.js).
+ * Not implemented: Code editor (a monospace textarea), Phone country picker.
  */
 import * as React from "react";
 import { useLocale } from "../../theme/ThemeProvider";
@@ -42,6 +45,10 @@ import { SUPPORTED_FIELDTYPES } from "./model/fieldtypes";
 import { ReadOnlyValue } from "../../fields/ReadOnlyValue";
 import { Rating } from "../../fields/Rating";
 import { ColorInput } from "../../fields/ColorInput";
+import { SignatureInput } from "../../fields/SignatureInput";
+import { BarcodeInput } from "../../fields/BarcodeInput";
+import { GeolocationInput } from "../../fields/GeolocationInput";
+import { FrappeIconField } from "./FrappeIconField";
 import { numberFormatInfo } from "../../fields/lib/number";
 import type { FieldDisplayStatus, FrappeDoc, FrappeDocField, MetaBundle, ValidateLinkResult } from "../contract";
 import { controlStatus, ladderStatus } from "./model/status";
@@ -249,6 +256,25 @@ export function FrappeField(props: FrappeFieldProps) {
       <FrappeTableMultiSelect id={id} df={df} bundle={bundle} parent={parent ?? rowDoc} rows={Array.isArray(value) ? (value as FrappeDoc[]) : []}
         onRowsChange={(rows) => onChange(rows)} controller={props.table} status={status} query={props.query} invalid={invalid} aria-describedby={error ? errId : undefined} {...aria} />,
     );
+  }
+
+  // ---- P36e ftypes: Signature, Icon, Barcode (partial), Geolocation (partial) — Read and Write ----
+  if (ft === "Signature" || ft === "Icon" || ft === "Barcode" || ft === "Geolocation") {
+    const named = onlyInput ? aria : { "aria-labelledby": `${id}-label` };
+    const described = error ? { "aria-describedby": errId } : {};
+    if (ft === "Signature") {
+      // signature.js:125-135: each stroke stores the PNG data URL, Reset stores ""
+      return shell(<SignatureInput id={id} value={str(value) || null} onChange={(v) => onChange(v)} readOnly={read} invalid={invalid} {...named} {...described} />, { noLabelFor: true });
+    }
+    if (ft === "Icon") {
+      // icon.js: a Data input + picker; read = icon and name (formatters.js:398-405)
+      return shell(<FrappeIconField id={id} value={str(value)} onChange={(v) => onChange(v)} readOnly={read} invalid={invalid}
+        placeholder={placeholder} {...(onlyInput || read ? aria : {})} {...(read && !onlyInput ? named : {})} {...described} />, { noLabelFor: read });
+    }
+    if (ft === "Barcode") {
+      return shell(<BarcodeInput id={id} value={str(value)} onChange={(v) => onChange(v)} readOnly={read} invalid={invalid} {...named} {...described} />, { noLabelFor: true });
+    }
+    return shell(<GeolocationInput id={id} value={value} readOnly={read} {...named} {...described} />, { noLabelFor: true });
   }
 
   // ---- read-only display ----

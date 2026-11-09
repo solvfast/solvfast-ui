@@ -30,9 +30,11 @@ export function randomString(n = 10): string {
 export const newLocalName = (doctype: string) => `new-${slug(doctype)}-${randomString(10)}`;
 
 /**
- * Fieldtypes FrappeField has a control (or display) for (P35). Anything else — Signature, Geolocation, Barcode, Icon,
- * an app's custom type — is reported (`analyzeFieldtypes`, the form's issues banner) and its value shown read-only,
- * never edited through a plain text box that could corrupt it (before 0.7 it silently fell back to one).
+ * Fieldtypes FrappeField has a control (or display) for (P35). Anything else — an app's custom type — is reported
+ * (`analyzeFieldtypes`, the form's issues banner) and its value shown read-only, never edited through a plain text box
+ * that could corrupt it (before 0.7 it silently fell back to one).
+ * P36e ftypes: Signature and Icon have full controls; Barcode and Geolocation have PARTIAL ones (`PARTIAL_FIELDTYPES`:
+ * a safe read-only display in every status, editing needs a generator / map library the package does not include).
  */
 export const SUPPORTED_FIELDTYPES = new Set([
   ...LAYOUT_TYPES, ...DISPLAY_TYPES, ...TABLE_TYPES,
@@ -40,7 +42,11 @@ export const SUPPORTED_FIELDTYPES = new Set([
   "Small Text", "Text", "Long Text", "Text Editor", "Code", "JSON", "HTML Editor", "Markdown Editor",
   "Int", "Long Int", "Float", "Currency", "Percent", "Check", "Rating", "Duration",
   "Date", "Datetime", "Time", "Color", "Attach", "Attach Image",
+  // P36e ftypes
+  "Signature", "Icon", "Barcode", "Geolocation",
 ]);
+/** P36e ftypes: supported types whose control only DISPLAYS the stored value (no editing yet; see FrappeField). */
+export const PARTIAL_FIELDTYPES = new Set(["Barcode", "Geolocation"]);
 
 export interface FieldtypeIssue { doctype: string; fieldname: string; fieldtype: string; label?: string }
 
