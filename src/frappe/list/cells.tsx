@@ -6,16 +6,22 @@ import { useListActions } from "../../list/ListActionsContext";
 import type { ColumnDef } from "../../list/model/columns";
 import { getIndicator, type IndicatorConfig } from "./indicator";
 import { commentCount, type ReportviewUser } from "./reportview";
+import { useLocale } from "../../theme/ThemeProvider";
+import { DOCSTATUS_DESCRIPTION_KEY, toDocStatus } from "../../record/docstatus";
 
 const parseList = (v: unknown): string[] => { try { const l = JSON.parse(String(v || "[]")) as unknown; return Array.isArray(l) ? l.map(String) : []; } catch { return []; } };
 const initials = (s: string) => s.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?";
 
 export function IndicatorCell({ row, config }: { row: Record<string, unknown>; config: IndicatorConfig }) {
   const actions = useListActions();
+  const { t } = useLocale();
   const ind = getIndicator(row, config);
   if (!ind) return <span className="text-muted-foreground">—</span>;
   const variant = ind.tone === "muted" ? "secondary" : ind.tone === "destructive" ? "destructive" : ind.tone;
-  const badge = <Badge variant={variant} className="font-normal" data-indicator={ind.color}>{ind.label}</Badge>;
+  // P36e submit: Desk's pill title tells the docstatus — with a workflow the pill shows the STATE (list_view.js:1105-1119).
+  // Shown for submittable DocTypes only (Desk sets it on every row; on a non-submittable one it always says "draft").
+  const ds = config.isSubmittable ? toDocStatus(row.docstatus) : undefined;
+  const badge = <Badge variant={variant} className="font-normal" data-indicator={ind.color} data-docstatus={ds} title={ds === undefined ? undefined : t(DOCSTATUS_DESCRIPTION_KEY[ds])}>{ind.label}</Badge>;
   if (!ind.filter || !actions) return badge;
   const [field, value] = ind.filter;
   // filter-on-click, as Desk's pill (it must not open the row)
