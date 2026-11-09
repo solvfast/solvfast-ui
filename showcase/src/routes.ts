@@ -262,3 +262,14 @@ const p36bSocial = () => import("./pages/p36b-social");
     PAGES.push({ ...page, group });
   }
 }
+
+// P36e ftypes — the Signature / Icon / Barcode (partial) / Geolocation (partial) controls through FrappeField.
+{
+  const p36eFtypes = () => import("./pages/p36e-ftypes");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = { id: "frappe-ftypes-p36e", title: l("Signature, Icon, Barcode, Geolocation", "التوقيع والأيقونة والباركود والموقع"), description: l("Frappe's Signature (Complete), Icon (Complete with Desk's sprite), Barcode and Geolocation (Partial: display only) through FrappeField from a DocField: write, read, empty, required — and unsafe / invalid stored values.", "حقول فرابيه: التوقيع (مكتمل) والأيقونة (مكتملة مع ملف رموز ديسك) والباركود والموقع الجغرافي (جزئي: عرض فقط) عبر FrappeField من DocField: كتابة وقراءة وفارغ وإلزامي — وقيم محفوظة غير آمنة أو غير صالحة."), Component: from(p36eFtypes, "FtypesP36ePage") };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+  // the Frappe group is no longer the last one: PAGES keeps the navigation order (rebuilt from GROUPS, as above)
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}

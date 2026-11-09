@@ -328,7 +328,8 @@ describe("P36D fieldtypes — negatives", () => {
   });
 
   it("P36D.fieldtypes.15 Signature / Barcode / Geolocation / Icon (Not implemented yet) stay read-only with write permission and never write", () => {
-    for (const r of FIELD_TYPES.filter((x) => x.status === "MISSING")) {
+    // P36e ftypes: only MISSING types that still have no control take the read-only fallback
+    for (const r of FIELD_TYPES.filter((x) => x.status === "MISSING" && !SUPPORTED_FIELDTYPES.has(x.fieldtype))) {
       const s = SAMPLES[r.id];
       const { log } = field({ ...(s.df as { fieldtype: string }), label: r.fieldtype }, s.filled, { status: "Write" });
       expect(screen.queryByRole("textbox"), r.fieldtype).toBeNull();
@@ -351,7 +352,8 @@ describe("P36D fieldtypes — showcase group", () => {
       render(<ThemeProvider defaultTheme="light" defaultLanguage={lang} storageKeys={null}><pages.FieldTypesInventoryPage /></ThemeProvider>);
       const table = screen.getByTestId("ft-inventory");
       expect(table.querySelectorAll("[data-ft-row]")).toHaveLength(FIELD_TYPES.length);
-      expect(screen.getByTestId("ft-missing").querySelectorAll("[data-unsupported-fieldtype]")).toHaveLength(4);
+      // P36e ftypes: Signature / Icon / Barcode / Geolocation have controls now; the fallback is only for types without one
+      expect(screen.getByTestId("ft-missing").querySelectorAll("[data-unsupported-fieldtype]")).toHaveLength(FIELD_TYPES.filter((r) => r.status === "MISSING" && !SUPPORTED_FIELDTYPES.has(r.fieldtype)).length);
       cleanup();
       render(<ThemeProvider defaultTheme="light" defaultLanguage={lang} storageKeys={null}><pages.FieldTypesInspectorPage /></ThemeProvider>);
       expect(screen.getAllByText(/SIMULATED|محاكاة/).length).toBeGreaterThan(0);

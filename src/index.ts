@@ -245,3 +245,11 @@ export type { AssignGroupSource } from "./record";
 // P36d history — Timeline: entry extras (avatars, communication cards), Desk relative times, absolute time (docs/components/record.md)
 export { deskRelativeTime, absoluteTime } from "./record";
 export type { TimelineEntry, TimelineItemExtras, TimelineTimeFormat } from "./record";
+
+// P36e ftypes — Core controls for Frappe's Signature, Icon, Barcode (display) and Geolocation (summary) field types
+// (also reached through `export * from "./fields"`; listed here so the block shows what P36e added)
+export { SignatureInput, isSignatureDataUrl, IconInput, BarcodeInput, parseBarcodeValue, GeolocationInput, parseGeolocation, sanitizeSvg } from "./fields";
+export type {
+  SignatureInputProps, SignatureInputLabels, IconInputProps, IconInputLabels, BarcodeInputProps, BarcodeInputLabels, ParsedBarcode,
+  GeolocationInputProps, GeoFeatureKind, GeoFeatureSummary, ParsedGeolocation,
+} from "./fields";

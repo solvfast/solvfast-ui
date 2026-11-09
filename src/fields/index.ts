@@ -42,3 +42,13 @@ export { ImageCropper, initialCropBox, clampCropBox } from "./ImageCropper";
 export type { ImageCropperProps, CropBox } from "./ImageCropper";
 export { CameraCapture, cameraSupported, captureFileName, dataUrlToFile } from "./CameraCapture";
 export type { CameraCaptureProps } from "./CameraCapture";
+// P36e ftypes — Signature (canvas → PNG data URL), Icon picker, Barcode display (sanitized SVG), Geolocation summary
+export { SignatureInput, isSignatureDataUrl } from "./SignatureInput";
+export type { SignatureInputProps, SignatureInputLabels } from "./SignatureInput";
+export { IconInput } from "./IconInput";
+export type { IconInputProps, IconInputLabels } from "./IconInput";
+export { BarcodeInput, parseBarcodeValue } from "./BarcodeInput";
+export type { BarcodeInputProps, BarcodeInputLabels, ParsedBarcode } from "./BarcodeInput";
+export { GeolocationInput, parseGeolocation } from "./GeolocationInput";
+export type { GeolocationInputProps, GeoFeatureKind, GeoFeatureSummary, ParsedGeolocation } from "./GeolocationInput";
+export { sanitizeSvg } from "./lib/svg";

@@ -37,3 +37,7 @@ export { FrappeFormImage } from "./FrappeFormImage";
 export type { FrappeFormImageProps } from "./FrappeFormImage";
 // P36d fields — Desk's split_emails (utils.js:839-853), used with dataOptionInvalid by apps that check addresses
 export { splitEmails } from "./FrappeField";
+// P36e ftypes — Desk's Icon control over Frappe's sprite (icon.js), and the supported-but-partial fieldtypes
+export { FrappeIconField, FrappeIconGlyph, FRAPPE_ICON_NAMES, deskIconNames, hasFrappeIcon } from "./FrappeIconField";
+export type { FrappeIconFieldProps } from "./FrappeIconField";
+export { PARTIAL_FIELDTYPES } from "./model/fieldtypes";
