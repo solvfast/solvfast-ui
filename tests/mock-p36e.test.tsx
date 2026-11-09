@@ -179,6 +179,9 @@ describe("P36E.mock local services adapter", () => {
     expect(outside).toEqual(SERVER_CAPABILITIES);
     await expect(noServerClient().call("frappe.desk.form.save.savedocs", {})).rejects.toMatchObject({ excType: "LocalModeError", kind: "unavailable" });
     await expect(noServerClient().getMeta("Org")).rejects.toMatchObject({ excType: "LocalModeError" });
+    // the refusal is final: React Query's frappeRetry does not retry it
+    const err = await noServerClient().call("x.y", {}).catch((e) => e);
+    expect(Frappe.frappeRetry(0, err)).toBe(false);
     const svc = createLocalFormServices(SOURCE);
     await expect(svc.searchLink!("Nope", "", { pageLength: 10 })).rejects.toMatchObject({ excType: "DoesNotExistError" });
     await expect(svc.validateLink!("Nope", "1")).rejects.toMatchObject({ excType: "DoesNotExistError" });

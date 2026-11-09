@@ -92,7 +92,8 @@ export function useFormCapabilities(): FormCapabilities {
 
 /** The refusal of anything that needs a server, in local mode. */
 export function localModeError(method: string): FrappeError {
-  return new FrappeError(`Not available without a Frappe server: ${method}`, 503, "LocalModeError", { kind: "unavailable" });
+  // a 4xx status: React Query's frappeRetry never retries it (the refusal is final, not a transient outage)
+  return new FrappeError(`Not available without a Frappe server: ${method}`, 400, "LocalModeError", { kind: "unavailable" });
 }
 const notFound = (doctype: string) => new FrappeError(`DocType ${doctype} not found`, 404, "DoesNotExistError");
 
