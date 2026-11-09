@@ -78,7 +78,7 @@ Owner clarifications applied in the same batch:
 | showcase smoke | 85 sections × 4 combinations + browsing + interactions + phone: PASS |
 | consumers a / b | tsc + build OK |
 | exports vs 0.7.0-dev.4 | 0 removed; added: core `TimelineEntry`, `TimelineItemExtras`, `TimelineTimeFormat`, `absoluteTime`, `deskRelativeTime`; frappe `deliveryStatusTone`, `splitEmails` |
-| validation matrix | current (94 real-site tests prepared, none run) |
+| validation matrix | current; 96 real-site tests prepared (+F-FIELD-1 data-option / non-negative refusals, +F-FIELD-2 get_link_title), none run |
 
 **CRM** (`crm/p36d-int` against the local dev.5 pack; mock data / in-browser simulator):
 
