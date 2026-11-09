@@ -9,22 +9,19 @@
  *    `task_complete:<task_id>` and offers the server's `file_url` ("Download PDF"), as Desk's msgprint does
  *    (`:126-141`); without it the dialog says the job is queued and stops there (NOT REPRODUCED: the contract's
  *    `RealtimePort` has no task events).
- * Callers run `checkPrintable` first (draft / cancelled / none / > 500), as Desk does before opening the dialog.
+ * P36e: the presentation is Core `PrintDocumentsDialog` (fields, validation, footer); this component keeps the server
+ * integration (letterheads, PDF, background job). Callers run `checkPrintable` first (draft / cancelled / none / > 500), as Desk does before opening the dialog.
  */
 import * as React from "react";
 import { Button } from "../../primitives/button";
-import { Checkbox } from "../../primitives/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../primitives/dialog";
-import { Input } from "../../primitives/input";
-import { Label } from "../../primitives/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
+import { PrintDocumentsDialog, type PrintDocumentsValue } from "../../record/PrintDocumentsDialog";
 import { useLocale } from "../../theme/ThemeProvider";
 import type { DownloadedFile, FrappeApi, FrappeClient } from "../client";
 import type { DocTypeMeta } from "../contract";
 import { FrappeErrorState } from "../feedback/FrappeErrorState";
 import { saveFile } from "./export";
 import {
-  BACKGROUND_PRINT_THRESHOLD, NO_LETTERHEAD, PRINT_PAGE_SIZES, PRINT_SETTINGS_DEFAULTS, downloadMultiPdf, downloadMultiPdfAsync, letterheadOptions,
+  BACKGROUND_PRINT_THRESHOLD, NO_LETTERHEAD, PRINT_SETTINGS_DEFAULTS, downloadMultiPdf, downloadMultiPdfAsync, letterheadOptions,
   pdfOptions, printFormatOptions, type PrintSettingsInput, type PrintTaskSubscriber,
 } from "./print";
 
@@ -54,43 +51,42 @@ export function FrappePrintDialog({ api, doctype, names, meta, settings, subscri
   const forced = names.length > BACKGROUND_PRINT_THRESHOLD;
   const [letterheads, setLetterheads] = React.useState<string[]>([NO_LETTERHEAD]);
   const [letterheadError, setLetterheadError] = React.useState<string>("");
-  const [letterhead, setLetterhead] = React.useState(NO_LETTERHEAD);
   const defaultFormat = typeof meta?.default_print_format === "string" && meta.default_print_format ? meta.default_print_format : formats[0];
-  const [format, setFormat] = React.useState(defaultFormat);
-  const [pageSize, setPageSize] = React.useState(s.pdf_page_size || "A4");
-  const [height, setHeight] = React.useState(settings?.pdf_page_height ? String(settings.pdf_page_height) : "");
-  const [width, setWidth] = React.useState(settings?.pdf_page_width ? String(settings.pdf_page_width) : "");
-  const [background, setBackground] = React.useState(forced);
+  const initial = (): PrintDocumentsValue => ({
+    letterhead: NO_LETTERHEAD, format: defaultFormat, pageSize: s.pdf_page_size || "A4",
+    pageHeight: settings?.pdf_page_height ? String(settings.pdf_page_height) : "", pageWidth: settings?.pdf_page_width ? String(settings.pdf_page_width) : "",
+    background: forced,
+  });
+  const [value, setValue] = React.useState<PrintDocumentsValue>(initial);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<unknown>(null);
-  const [sizeError, setSizeError] = React.useState(false);
   const [phase, setPhase] = React.useState<Phase>({ kind: "form" });
   const unsubscribe = React.useRef<(() => void) | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
-    setError(null); setSizeError(false); setPhase({ kind: "form" }); setBackground(forced); setFormat(defaultFormat); setLetterheadError("");
+    setError(null); setPhase({ kind: "form" }); setLetterheadError("");
+    setValue((v) => ({ ...v, background: forced, format: defaultFormat }));
     let live = true;
-    letterheadOptions(api).then((opts) => { if (live) { setLetterheads(opts); setLetterhead(opts[0]); } })
-      .catch((e: unknown) => { if (live) { setLetterheads([NO_LETTERHEAD]); setLetterhead(NO_LETTERHEAD); setLetterheadError(e instanceof Error ? e.message : String(e)); } });
+    letterheadOptions(api).then((opts) => { if (live) { setLetterheads(opts); setValue((v) => ({ ...v, letterhead: opts[0] })); } })
+      .catch((e: unknown) => { if (live) { setLetterheads([NO_LETTERHEAD]); setValue((v) => ({ ...v, letterhead: NO_LETTERHEAD })); setLetterheadError(e instanceof Error ? e.message : String(e)); } });
     return () => { live = false; };
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   // the task subscription ends with the dialog (Desk unsubscribes after the event, :139-140)
   React.useEffect(() => () => { unsubscribe.current?.(); unsubscribe.current = null; }, []);
-  const close = (o: boolean) => {
-    if (busy) return;
+  const change = (o: boolean) => {
     if (!o) { unsubscribe.current?.(); unsubscribe.current = null; }
     onOpenChange(o);
   };
 
-  const run = async () => {
-    setError(null); setSizeError(false);
-    let options: string;
-    try { options = pdfOptions(pageSize, Number(height), Number(width)); } catch { setSizeError(true); return; }
-    const args = { doctype, names, format: format || (typeof meta?.default_print_format === "string" ? meta.default_print_format : undefined), letterhead, options };
+  const run = async (v: PrintDocumentsValue) => {
+    setError(null);
+    // the Core dialog validated the page; pdfOptions builds Desk's `options` string (bulk_operations.js:103-114)
+    const options = pdfOptions(v.pageSize, Number(v.pageHeight), Number(v.pageWidth));
+    const args = { doctype, names, format: v.format || (typeof meta?.default_print_format === "string" ? meta.default_print_format : undefined), letterhead: v.letterhead, options };
     setBusy(true);
     try {
-      if (background) {
+      if (v.background) {
         const { taskId } = await downloadMultiPdfAsync(api, args);
         onDone?.({ taskId });
         if (subscribeTask) {
@@ -111,63 +107,22 @@ export function FrappePrintDialog({ api, doctype, names, meta, settings, subscri
     } finally { setBusy(false); }
   };
 
-  const label = (o: string) => (o === NO_LETTERHEAD ? t("listPrintNoLetterhead") : o);
+  const status = phase.kind === "queued"
+    ? <p role="status" className="text-sm">{phase.waiting ? t("listPrintQueued") : t("listPrintQueuedNoLink")}</p>
+    : phase.kind === "ready" ? (
+      <div role="status" className="space-y-2 text-sm">
+        <p>{t("listPrintReady")}</p>
+        {phase.fileUrl && <Button asChild size="sm"><a href={phase.fileUrl} target="_blank" rel="noopener noreferrer">{t("listPrintDownload")}</a></Button>}
+      </div>
+    ) : undefined;
   return (
-    <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("listPrintTitle")}</DialogTitle>
-          <DialogDescription>{doctype} · {names.length}</DialogDescription>
-        </DialogHeader>
-        {phase.kind === "form" ? (
-          <div className="space-y-3">
-            <label className="block space-y-1 text-sm"><span>{t("listPrintLetterhead")}</span>
-              <Select value={letterhead} onValueChange={setLetterhead}>
-                <SelectTrigger aria-label={t("listPrintLetterhead")}><SelectValue /></SelectTrigger>
-                <SelectContent>{letterheads.map((o) => <SelectItem key={o} value={o}>{label(o)}</SelectItem>)}</SelectContent>
-              </Select>
-            </label>
-            {letterheadError && <p className="text-xs text-muted-foreground">{t("listPrintLetterheadsFailed")} {letterheadError}</p>}
-            <label className="block space-y-1 text-sm"><span>{t("listPrintFormat")}</span>
-              <Select value={format} onValueChange={setFormat}>
-                <SelectTrigger aria-label={t("listPrintFormat")}><SelectValue /></SelectTrigger>
-                <SelectContent>{formats.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-              </Select>
-            </label>
-            <label className="block space-y-1 text-sm"><span>{t("listPrintPageSize")}</span>
-              <Select value={pageSize} onValueChange={setPageSize}>
-                <SelectTrigger aria-label={t("listPrintPageSize")}><SelectValue /></SelectTrigger>
-                <SelectContent>{PRINT_PAGE_SIZES.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-              </Select>
-            </label>
-            {pageSize === "Custom" && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block space-y-1 text-sm"><span>{t("listPrintPageHeight")}</span>
-                  <Input type="number" inputMode="decimal" aria-label={t("listPrintPageHeight")} value={height} onChange={(e) => setHeight(e.target.value)} /></label>
-                <label className="block space-y-1 text-sm"><span>{t("listPrintPageWidth")}</span>
-                  <Input type="number" inputMode="decimal" aria-label={t("listPrintPageWidth")} value={width} onChange={(e) => setWidth(e.target.value)} /></label>
-              </div>
-            )}
-            <div className="flex items-center gap-2 text-sm">
-              <Checkbox id="sf-print-background" checked={background} disabled={forced} onCheckedChange={(v) => setBackground(v === true)} aria-label={t("listPrintBackground")} />
-              <Label htmlFor="sf-print-background" className="font-normal">{t("listPrintBackground")}</Label>
-            </div>
-          </div>
-        ) : phase.kind === "queued" ? (
-          <p role="status" className="text-sm">{phase.waiting ? t("listPrintQueued") : t("listPrintQueuedNoLink")}</p>
-        ) : (
-          <div role="status" className="space-y-2 text-sm">
-            <p>{t("listPrintReady")}</p>
-            {phase.fileUrl && <Button asChild size="sm"><a href={phase.fileUrl} target="_blank" rel="noopener noreferrer">{t("listPrintDownload")}</a></Button>}
-          </div>
-        )}
-        {sizeError && <p role="alert" className="text-sm text-destructive">{t("listPrintSizeZero")}</p>}
-        {error ? <FrappeErrorState error={error} compact /> : null}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => close(false)} disabled={busy}>{phase.kind === "form" ? t("cancel") : t("close")}</Button>
-          {phase.kind === "form" && <Button type="button" onClick={() => void run()} disabled={busy} loading={busy}>{t("listBulkPrint")}</Button>}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <PrintDocumentsDialog
+      open={open} onOpenChange={change} description={<>{doctype} · {names.length}</>}
+      letterheads={letterheads} formats={formats} value={value} onValueChange={setValue}
+      letterheadNote={letterheadError ? <>{t("listPrintLetterheadsFailed")} {letterheadError}</> : undefined}
+      background={{ forced }} busy={busy} status={status}
+      error={error ? <FrappeErrorState error={error} compact /> : undefined}
+      onPrint={(v) => void run(v)}
+    />
   );
 }

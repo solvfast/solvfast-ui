@@ -9,14 +9,15 @@
  * cancelled rule (toolbar.js:345-355), and `canPrint === false`. A dirty form shows Desk's warning (form.js:1229-1237).
  * The server authorises and renders everything; the preview of a dirty form shows the local values (Desk sends the
  * whole document, print.js:686-694).
+ * P36e: the presentation is Core `PrintViewDialog` / `PrintView` (`variant="page"` renders Desk's print page in place,
+ * with `onBack` as Desk's "Form" button); this component keeps the server integration.
  */
 import * as React from "react";
-import { Download, ExternalLink, Printer, RefreshCw } from "lucide-react";
+import { Download, ExternalLink, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "../../primitives/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../primitives/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { fmt } from "../../record/format";
+import { PrintView, PrintViewDialog, type PrintViewProps } from "../../record/PrintView";
 import { useLocale } from "../../theme/ThemeProvider";
 import { frappeKeys, type DocTypeMeta, type FrappeDoc } from "../contract";
 import { useFrappeApi } from "../FrappeProvider";
@@ -45,9 +46,14 @@ export interface FrappeFormPrintProps {
   pdf?: "link" | "download";
   /** Direction of the printed document in the preview. */
   dir?: "ltr" | "rtl";
+  /** P36e: "dialog" (default) or "page" — Desk's print page in place (`open` still gates it). */
+  variant?: "dialog" | "page";
+  /** Page variant: Desk's "Form" button (back to the document). */
+  onBack?: () => void;
+  backLabel?: React.ReactNode;
 }
 
-export function FrappeFormPrint({ doc, meta, open, onOpenChange, settings, dirty, canPrint, baseUrl = "", pdf = "link", dir }: FrappeFormPrintProps) {
+export function FrappeFormPrint({ doc, meta, open, onOpenChange, settings, dirty, canPrint, baseUrl = "", pdf = "link", dir, variant = "dialog", onBack, backLabel }: FrappeFormPrintProps) {
   const { t } = useLocale();
   const api = useFrappeApi();
   const qc = useQueryClient();
@@ -79,51 +85,29 @@ export function FrappeFormPrint({ doc, meta, open, onOpenChange, settings, dirty
     catch (e) { setPdfError(e); }
     finally { setPdfBusy(false); }
   };
-  const lhLabel = (o: string) => (o === NO_LETTERHEAD ? t("r35NoLetterhead") : o);
   const reason = isNew ? t("r35PrintSaveFirst") : !statusOk ? t("r35PrintDraftCancelled") : canPrint === false ? t("r35PrintNoPermission") : "";
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>{fmt(t("r35PrintTitle"), `${doc.doctype} ${doc.name}`)}</DialogTitle>
-          <DialogDescription className="sr-only">{fmt(t("r35PrintTitle"), `${doc.doctype} ${doc.name}`)}</DialogDescription>
-        </DialogHeader>
-        {reason ? <p role="alert" className="text-sm text-destructive">{reason}</p> : (
-          <div className="space-y-3">
-            {dirty && <p role="note" className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs">{t("r35PrintDirty")}</p>}
-            <div className="flex flex-wrap items-end gap-3">
-              <label className="space-y-1 text-sm"><span className="block">{t("r35PrintFormat")}</span>
-                <Select value={format} onValueChange={setFormat}>
-                  <SelectTrigger className="w-52" aria-label={t("r35PrintFormat")}><SelectValue /></SelectTrigger>
-                  <SelectContent>{formats.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-                </Select>
-              </label>
-              <label className="space-y-1 text-sm"><span className="block">{t("r35Letterhead")}</span>
-                <Select value={letterhead} onValueChange={setLetterhead}>
-                  <SelectTrigger className="w-52" aria-label={t("r35Letterhead")}><SelectValue /></SelectTrigger>
-                  <SelectContent>{letterheads.map((o) => <SelectItem key={o} value={o}>{lhLabel(o)}</SelectItem>)}</SelectContent>
-                </Select>
-              </label>
-              <div className="ms-auto flex flex-wrap gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={refresh}><RefreshCw aria-hidden />{t("r35Refresh")}</Button>
-                <Button asChild size="sm" variant="outline">
-                  <a href={printViewUrl(doc.doctype, doc.name, choice, baseUrl, true)} target="_blank" rel="noopener noreferrer"><Printer aria-hidden />{t("r35Print")}</a>
-                </Button>
-                <Button asChild size="sm" variant="outline">
-                  <a href={printViewUrl(doc.doctype, doc.name, choice, baseUrl)} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden />{t("r35FullPage")}</a>
-                </Button>
-                {pdf === "download"
-                  ? <Button type="button" size="sm" onClick={() => void downloadPdf()} loading={pdfBusy}><Download aria-hidden />{t("r35Pdf")}</Button>
-                  : <Button asChild size="sm"><a href={downloadPdfUrl(doc.doctype, doc.name, choice, baseUrl)} target="_blank" rel="noopener noreferrer" data-pdf-link><Download aria-hidden />{t("r35Pdf")}</a></Button>}
-              </div>
-            </div>
-            {letterheadError && <p className="text-xs text-muted-foreground">{t("r35LetterheadsFailed")} {letterheadError}</p>}
-            {pdfError ? <FrappeErrorState error={pdfError} compact /> : null}
-            {open && <FrappePrintPreview doc={doc} format={format} letterhead={letterhead} dir={dir} height="60vh" />}
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+  const title = fmt(t("r35PrintTitle"), `${doc.doctype} ${doc.name}`);
+  const view: PrintViewProps = {
+    title, formats, format, onFormatChange: setFormat, letterheads, letterhead, onLetterheadChange: setLetterhead,
+    letterheadNote: letterheadError ? <>{t("r35LetterheadsFailed")} {letterheadError}</> : undefined,
+    printHref: printViewUrl(doc.doctype, doc.name, choice, baseUrl, true),
+    actions: (
+      <>
+        <Button type="button" size="sm" variant="outline" onClick={refresh}><RefreshCw aria-hidden />{t("r35Refresh")}</Button>
+        <Button asChild size="sm" variant="outline">
+          <a href={printViewUrl(doc.doctype, doc.name, choice, baseUrl)} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden />{t("r35FullPage")}</a>
+        </Button>
+        {pdf === "download"
+          ? <Button type="button" size="sm" variant="outline" onClick={() => void downloadPdf()} loading={pdfBusy}><Download aria-hidden />{t("r35Pdf")}</Button>
+          : <Button asChild size="sm" variant="outline"><a href={downloadPdfUrl(doc.doctype, doc.name, choice, baseUrl)} target="_blank" rel="noopener noreferrer" data-pdf-link><Download aria-hidden />{t("r35Pdf")}</a></Button>}
+      </>
+    ),
+    notice: dirty ? <p role="note" className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs">{t("r35PrintDirty")}</p> : undefined,
+    blocked: reason || undefined,
+    error: pdfError ? <FrappeErrorState error={pdfError} compact /> : undefined,
+    preview: open ? <FrappePrintPreview doc={doc} format={format} letterhead={letterhead} dir={dir} height="60vh" /> : undefined,
+    onBack, backLabel,
+  };
+  if (variant === "page") return open ? <PrintView {...view} /> : null;
+  return <PrintViewDialog open={open} onOpenChange={onOpenChange} {...view} />;
 }

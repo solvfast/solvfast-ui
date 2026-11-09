@@ -26,6 +26,9 @@ export interface PrintPreviewFrameProps {
   className?: string;
   /** Height of the frame (CSS). Default "70vh". */
   height?: string;
+  /** P36e: a complete, already composed document (`composePrintDocument`) shown instead of `html` / `style` — the SAME
+   *  string the browser prints (`printHtmlDocument`), so preview and printout cannot diverge. Still sandboxed. */
+  srcDoc?: string | null;
 }
 
 const CLOSE_STYLE = /<\/style/gi;
@@ -34,7 +37,7 @@ export function printSrcDoc(html: string, style = "", dir: "ltr" | "rtl" = "ltr"
   return `<!doctype html><html dir="${dir}"><head><meta charset="utf-8"><style>${style.replace(CLOSE_STYLE, "<\\/style")}</style></head><body>${html}</body></html>`;
 }
 
-export function PrintPreviewFrame({ html, style, loading, error, onRetry, title, dir = "ltr", className, height = "70vh" }: PrintPreviewFrameProps) {
+export function PrintPreviewFrame({ html, style, loading, error, onRetry, title, dir = "ltr", className, height = "70vh", srcDoc }: PrintPreviewFrameProps) {
   const { t } = useLocale();
   const box = cn("relative w-full overflow-hidden rounded-xl border border-border bg-white", className);
   if (error) {
@@ -53,12 +56,12 @@ export function PrintPreviewFrame({ html, style, loading, error, onRetry, title,
       </div>
     );
   }
-  if (!html) {
+  if (!html && !srcDoc) {
     return <div className={cn(box, "flex items-center justify-center bg-card text-sm text-muted-foreground")} style={{ height }}>{t("r35PreviewEmpty")}</div>;
   }
   return (
     <div className={box} style={{ height }}>
-      <iframe title={title} sandbox="" referrerPolicy="no-referrer" srcDoc={printSrcDoc(html, style ?? "", dir)} className="size-full border-0" />
+      <iframe title={title} sandbox="" referrerPolicy="no-referrer" srcDoc={srcDoc || printSrcDoc(html ?? "", style ?? "", dir)} className="size-full border-0" />
     </div>
   );
 }

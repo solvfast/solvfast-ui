@@ -25,17 +25,12 @@ export const PRINT_METHODS = {
   pdfAsync: "frappe.utils.print_format.download_multi_pdf_async",
 } as const;
 
-/** `bulk_operations.js:13-14`. */
-export const MAX_PRINT_LIMIT = 500;
+/** `bulk_operations.js:13-14`. MAX_PRINT_LIMIT, NO_LETTERHEAD (`:170, 98`; sent as `letterhead` with `no_letterhead: "1"`,
+ *  as Desk does) and PRINT_PAGE_SIZES (`frappe.meta.get_print_sizes()`, `model/meta.js:217-251`) are Core since P36e
+ *  (src/record/printDocument.ts — browser printing uses them too); re-exported here unchanged. */
+export { MAX_PRINT_LIMIT, NO_LETTERHEAD, PRINT_PAGE_SIZES } from "../../record/printDocument";
+import { MAX_PRINT_LIMIT, NO_LETTERHEAD } from "../../record/printDocument";
 export const BACKGROUND_PRINT_THRESHOLD = 25;
-/** The letterhead option meaning "none" (`bulk_operations.js:170, 98`); sent as `letterhead` with `no_letterhead: "1"`, as Desk does. */
-export const NO_LETTERHEAD = "No Letterhead";
-
-/** `frappe.meta.get_print_sizes()` (`model/meta.js:217-251`). */
-export const PRINT_PAGE_SIZES = [
-  "A0", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10",
-  "C5E", "Comm10E", "DLE", "Executive", "Folio", "Ledger", "Legal", "Letter", "Tabloid", "Custom",
-] as const;
 
 /**
  * The Print Settings Desk reads from boot (`boot.py:358-362` `load_print`: `frappe.db.get_singles_dict("Print Settings")`).

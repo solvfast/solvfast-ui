@@ -59,3 +59,15 @@ export type { AssignGroupSource } from "./AssignDialog";
 // P36d history — Timeline entry extras (avatar, cards), Desk relative times (pretty_date.js), absolute time
 export { deskRelativeTime, absoluteTime } from "./Timeline";
 export type { TimelineEntry, TimelineItemExtras, TimelineTimeFormat } from "./Timeline";
+// P36e print
+export {
+  PRINT_PAGE_SIZES, PRINT_PAGE_SIZE_MM, NO_LETTERHEAD, MAX_PRINT_LIMIT, PRINT_DOC_CLASS,
+  pageDimensionsMm, isValidPrintPage, pageCss, escapeHtml, composePrintDocument,
+} from "./printDocument";
+export type { PrintPageSpec, PrintOrientation, ComposePrintOptions } from "./printDocument";
+export { printHtmlDocument, PRINT_FRAME_ATTR } from "./browserPrint";
+export type { PrintHtmlOptions } from "./browserPrint";
+export { PrintDocumentsDialog, printPageOf, BACKGROUND_PRINT_ID } from "./PrintDocumentsDialog";
+export type { PrintDocumentsDialogProps, PrintDocumentsValue, PrintOption } from "./PrintDocumentsDialog";
+export { PrintView, PrintViewDialog } from "./PrintView";
+export type { PrintViewProps, PrintViewDialogProps } from "./PrintView";
