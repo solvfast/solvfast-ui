@@ -253,3 +253,15 @@ export type {
   SignatureInputProps, SignatureInputLabels, IconInputProps, IconInputLabels, BarcodeInputProps, BarcodeInputLabels, ParsedBarcode,
   GeolocationInputProps, GeoFeatureKind, GeoFeatureSummary, ParsedGeolocation,
 } from "./fields";
+
+// P36e print — Core print presentation and browser printing (docs in src/record/printDocument.ts): Desk's print page
+// (PrintView / PrintViewDialog) and list "Print Documents" dialog as Frappe-free components, plus the composer and the
+// helper that print a host-rendered document through the browser (preview and printout are the same document)
+export {
+  PRINT_PAGE_SIZES, PRINT_PAGE_SIZE_MM, NO_LETTERHEAD, MAX_PRINT_LIMIT, PRINT_DOC_CLASS, pageDimensionsMm, isValidPrintPage, pageCss, escapeHtml,
+  composePrintDocument, printHtmlDocument, PRINT_FRAME_ATTR, PrintDocumentsDialog, printPageOf, BACKGROUND_PRINT_ID, PrintView, PrintViewDialog,
+} from "./record";
+export type {
+  PrintPageSpec, PrintOrientation, ComposePrintOptions, PrintHtmlOptions, PrintDocumentsDialogProps, PrintDocumentsValue, PrintOption,
+  PrintViewProps, PrintViewDialogProps,
+} from "./record";
