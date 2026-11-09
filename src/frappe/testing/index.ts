@@ -9,3 +9,5 @@ export { KANBAN_BOARD_FIXTURE_META, VIEWS_DEMO_META, viewsDemoBackend } from "./
 /** P36b: SIMULATED Form Sidebar pieces (docinfo attachments / tags, uploads) and bulk / social demo backends. */
 export { withSimulatedSidebar } from "./handlers/sidebar";
 export { bulkUpdateHandler, bulkDemoBackend } from "./handlers/list";
+/** P36e submit: SIMULATED update-after-submit (savedocs Update / client.save / set_value / bulk update) and per-name delete_items. */
+export { withSubmitRules, updateAfterSubmitError } from "./handlers/submit";
