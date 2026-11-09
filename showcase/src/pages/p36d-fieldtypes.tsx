@@ -178,8 +178,8 @@ export function FieldTypesInventoryPage() {
           <div className="grid gap-4 md:grid-cols-2" data-testid="ft-missing">
             {FIELD_TYPES.some((r) => r.status === "MISSING") ? null : (
               <p className="text-sm text-muted-foreground md:col-span-2" data-ft-missing-empty="">
-                {l("None since P36e: every DocField type has a control. Several are PARTIAL (e.g. Barcode and Geolocation are display only) — see the inventory above for what each one lacks.",
-                  "لا شيء منذ P36e: لكل نوع حقل عنصر تحكم. عدد منها جزئي (مثل الباركود والموقع الجغرافي للعرض فقط) — راجع الجرد أعلاه لمعرفة ما ينقص كلاً منها.")}
+                {tr(l("None since P36e: every DocField type has a control. Several are PARTIAL (e.g. Barcode and Geolocation are display only) — see the inventory above for what each one lacks.",
+                  "لا شيء منذ P36e: لكل نوع حقل عنصر تحكم. عدد منها جزئي (مثل الباركود والموقع الجغرافي للعرض فقط) — راجع الجرد أعلاه لمعرفة ما ينقص كلاً منها."))}
               </p>
             )}
             {FIELD_TYPES.filter((r) => r.status === "MISSING").map((r) => {
