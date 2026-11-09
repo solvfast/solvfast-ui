@@ -6,6 +6,22 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+### Lifecycle — one shared rail + diagram look for CRM and Tickets (no version change)
+
+**Added (core entry, Frappe-free)**
+- `LifecycleRail` — the record lifecycle card: past states, the current state, what can happen next (one dashed row, or a
+  box of options with back-moves tagged; optional `disabled` options), End of lifecycle, View full lifecycle. View model
+  props only (`path`, `next`, `ended`, `onViewAll`, `labels`).
+- `LifecycleDiagramDialog`, `LifecycleStateCard`, `LifecycleEdgeLabel`, `LifecycleDiagramLegend`, `LIFECYCLE_DIAGRAM_COLORS`
+  — the full-lifecycle diagram look; the consumer keeps its graph engine (React Flow + dagre in the CRM) and layout.
+- `LifecycleStepDot` — the shared dot atom. `lc*` chrome strings (en / ar).
+
+**Changed (intentional visual change)**
+- `LifecycleBar`: past steps and their connectors are `success` (were `primary`); the current label is `primary`;
+  connectors to unreached steps are dashed. API and `data-step` markup unchanged.
+
+Tests: `tests/lifecycle.test.tsx`. Docs: `docs/components/record.md` §8. Showcase: Record status, lifecycle & feed.
+
 ## 0.7.0-dev.5 (unreleased) — P36d CRM Lead Details audit + Frappe field parity
 
 P36d: the CRM Lead Details page was audited as the first reference page for DS / Frappe parity. Evidence is jsdom tests,

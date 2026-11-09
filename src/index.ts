@@ -201,6 +201,12 @@ export type {
 // P35 core — generic capabilities the CRM audit found missing (docs/components/p35-core.md)
 export { STATUS_PALETTE, resolveStatusColor, statusColorStyles } from "./primitives/status-dot";
 export type { LifecycleStep } from "./record";
+// Lifecycle — the shared record lifecycle rail + diagram look (CRM, Tickets). docs/components/record.md §8
+export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
+export type {
+  LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels, LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels,
+  LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
+} from "./record";
 export { EmptyState } from "./primitives/empty-state";
 export type { EmptyStateProps } from "./primitives/empty-state";
 export type { RichTextEditorHandle } from "./primitives/rich-text-editor";

@@ -426,3 +426,7 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+
+.sf-theme {
+  --c-focus: hsl(var(--ring));
+}
