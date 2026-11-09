@@ -96,7 +96,7 @@ Classes:
 
 Totals:
 - 43 DocField types, plus Long Int and Page Break, plus 6 Data options: 51 rows.
-- Status of the 43 DocField types: **21 COMPLETE · 18 PARTIAL · 4 MISSING**.
+- Status of the 43 DocField types: **22 COMPLETE · 17 PARTIAL · 4 MISSING**.
 - Data options: Email and Phone are COMPLETE; Name, URL, Barcode and IBAN are PARTIAL.
 
 ## 2. Summary matrix
