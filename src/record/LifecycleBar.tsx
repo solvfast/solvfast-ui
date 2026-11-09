@@ -3,7 +3,7 @@ import { relativeTime } from "../lib/relative-time";
 import { useLocale } from "../theme/ThemeProvider";
 import { ActionBar, type ActionBarLabels } from "./ActionBar";
 import { StatusBadge } from "./StatusBadge";
-import { LifecycleStepDot } from "./lifecycle-parts";
+import { LifecycleStepDot, lifecycleConnectorClass } from "./lifecycle-parts";
 import type { LifecycleActionItem, LifecycleStateItem, LifecycleStep } from "./types";
 
 export interface LifecycleBarProps {
@@ -60,7 +60,7 @@ export function LifecycleBar({
             return (
               <li key={s.id} aria-current={isCur ? "step" : undefined} data-step={step}
                 className="relative flex gap-3 pb-3 last:pb-0">
-                {i < states.length - 1 ? <span aria-hidden className={cn("absolute bottom-0 top-5 w-0 start-[9px]", past ? "border-s-2 border-solid border-success" : "border-s-2 border-dashed border-border")} /> : null}
+                {i < states.length - 1 ? <span aria-hidden className={cn("absolute bottom-0 top-5 w-0 start-[9px]", lifecycleConnectorClass(past))} /> : null}
                 <LifecycleStepDot className={cn("mt-0.5", isCur && failed && "ring-4 ring-destructive/20")} step={isCur ? (failed ? "failed" : "current") : step} />
                 <div className="min-w-0 flex-1 pt-0.5 text-xs">
                   <p className={cn("leading-tight", failed ? "font-semibold text-destructive" : isCur ? "font-semibold text-primary" : past ? "font-medium text-foreground"

@@ -22,7 +22,7 @@ export function LifecycleStepDot({ step, className }: { step: LifecycleStep; cla
         step === "current" && "bg-primary text-primary-foreground ring-4 ring-primary/20",
         step === "failed" && "bg-destructive text-destructive-foreground",
         step === "skipped" && "border border-dashed border-muted-foreground/50 bg-background text-muted-foreground",
-        step === "future" && "border-2 border-border bg-background text-muted-foreground",
+        step === "future" && "border-2 border-muted-foreground/40 bg-background text-muted-foreground",
         className,
       )}
     >
@@ -37,4 +37,4 @@ export function LifecycleStepDot({ step, className }: { step: LifecycleStep; cla
 
 /** Connector colour for the segment that leads INTO a step (solid when that step was reached, dashed otherwise). */
 export const lifecycleConnectorClass = (reached: boolean) =>
-  reached ? "border-s-2 border-solid border-success" : "border-s-2 border-dashed border-border";
+  reached ? "border-s-2 border-solid border-success" : "border-s-2 border-dashed border-muted-foreground/35";

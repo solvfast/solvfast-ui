@@ -106,7 +106,7 @@ export function LifecycleRail({ path, next = [], ended, onViewAll, labels, class
 
       {next.length >= 2 ? (
         <div className="relative pb-0.5 ps-9 pt-2.5" data-next="box">
-          <span aria-hidden className="absolute -top-1.5 h-6 w-5 rounded-es-[10px] border-b-2 border-s-2 border-dashed border-border start-[17px]" />
+          <span aria-hidden className="absolute -top-1.5 h-6 w-5 rounded-es-[10px] border-b-2 border-s-2 border-dashed border-muted-foreground/35 start-[17px]" />
           <ul aria-label={L.next} className="rounded-xl border border-border bg-muted/40 px-1.5 py-1">
             {next.map((o) => (
               <li key={o.id} aria-disabled={o.disabled || undefined} title={o.disabled ? o.disabledReason : undefined}

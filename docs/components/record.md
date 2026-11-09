@@ -676,7 +676,8 @@ transitions, roles, logs) and the graph engine for the diagram.
 |---|---|
 | Past / done dot, connector, card, "path taken" edge | `success` (card: `border-success/70` + `success/10` tint over `card`) |
 | Current dot, row, card, "Current" badge, View-full link | `primary` (row / card: `primary/10` tint; halo `ring-primary/20`) |
-| Future dot, connectors, back tag, box | `border`, `background`, `muted`, `muted-foreground` |
+| Future dot, dashed connectors | `muted-foreground/40` stroke on `background` (`/35` dashed) |
+| Back tag, options box | `border`, `muted`, `muted-foreground` |
 | Labels / meta | `foreground` / `muted-foreground` |
 | Skipped / failed (LifecycleBar) | dashed `muted-foreground/50` / `destructive` |
 | Phase icon (diagram) | open `info`, on hold `warning`, closed `success` |
