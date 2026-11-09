@@ -1441,6 +1441,40 @@ export const TESTS = [
       ctx.check("delete_items [D, D] → 200 and D deleted", is(del, 200) && gone.status === 404, "200, then getdoc 404", { status: del.status, after: gone.status });
       ctx.record("delete_items repeat: the 'Failed to delete' msgprint is realtime (not in the HTTP answer)", { server_messages_in_answer: !!del.body?._server_messages });
     } },
+  // P36d — server behaviours the simulator cannot confirm (Lead Details field parity)
+  { id: "F-FIELD-1", area: "Form", feature: "P36d — Data options and non_negative are refused on save (_validate_data_fields / _validate_non_negative)", kind: "reject", automated: "api", users: ["writer"],
+    rows: ["FV.A1"],
+    pre: "seeded site; SFUI Test Parent has Data fields with options Email (email), Phone (phone), Name (person_name), URL (website) and an Int with non_negative (non_negative_qty)",
+    steps: ["writer: savedocs Save of a new Parent with email 'not-an-email'", "… with phone '05x-abc'", "… with person_name 'Bad<Name>'", "… with website 'not a url'", "… with non_negative_qty -5", "writer: a control Save with valid values (email 'a@example.com', phone '+966 50 000 0000', person_name 'Ana', website 'https://example.com', non_negative_qty 5)"],
+    expect: "each invalid value → 417 with InvalidEmailAddressError / InvalidPhoneNumberError / InvalidNameError / ValidationError (URL) / NonNegativeError and nothing inserted; the control save → 200. The package's FrappeField flags the same values client-side with Desk's patterns (P36D.fields.*), but only the server refuses them; the in-package simulator does NOT (known simulator gap, docs/audit/p36d/LEAD-FIELDS.md §4)",
+    cite: ["model/base_document.py:922-955 _validate_data_fields (validate_email_address / validate_name / validate_phone_number / validate_url / validate_iban, throw=True)", "model/document.py:656-676 _validate_non_negative (NonNegativeError, 'Negative Value')", "exceptions.py:120, 168-176"],
+    evidence: "status and exc_type per case",
+    async run(ctx) {
+      const bad = [["email", "not-an-email", "InvalidEmailAddressError"], ["phone", "05x-abc", "InvalidPhoneNumberError"], ["person_name", "Bad<Name>", "InvalidNameError"], ["website", "not a url", "ValidationError"], ["non_negative_qty", -5, "NonNegativeError"]];
+      for (const [field, value, exc] of bad) {
+        const r = await savedocs(ctx.as("writer"), parentDoc(ctx.X, { title: `${ctx.tag} field ${field}`, [field]: value }));
+        ctx.check(`${field} = ${JSON.stringify(value)} → 417 ${exc}`, r.status === 417 && (r.exc_type === exc || (exc === "ValidationError" && !!r.exc_type)), `417 ${exc}`, { status: r.status, exc_type: r.exc_type });
+      }
+      const ok = await savedocs(ctx.as("writer"), parentDoc(ctx.X, { title: `${ctx.tag} field ok`, email: "a@example.com", phone: "+966 50 000 0000", person_name: "Ana", website: "https://example.com", non_negative_qty: 5 }));
+      ctx.check("valid values → 200", is(ok, 200), 200, { status: ok.status, exc_type: ok.exc_type });
+    } },
+  { id: "F-FIELD-2", area: "Form", feature: "P36d — Link titles: frappe.desk.search.get_link_title (title of a later-set Link value)", kind: "read", automated: "api", users: ["manager", "restricted"],
+    rows: ["FV.F10"],
+    pre: "SFUI Test Contact has show_title_field_in_link = 1 and title_field contact_name; seeded contacts #1 (allowed for restricted) and #5 (not allowed)",
+    steps: ["manager: get_link_title('SFUI Test Contact', contact #1)", "manager: get_link_title('User', <reader>) — no show_title_field_in_link → the name back", "restricted: get_link_title('SFUI Test Contact', contact #5) (RECORDED: the method reads with frappe.db.get_value, no permission check)"],
+    expect: "manager: contact #1 → its contact_name; a DocType without show_title_field_in_link → the name unchanged. restricted on contact #5: recorded as-is (search.py:327-334 performs no permission check; the package only asks for titles of values the user already sees)",
+    cite: ["desk/search.py:327-334 get_link_title", "public/js/frappe/form/controls/link.js:117-132 set_link_title"],
+    evidence: "the returned titles, the restricted answer (status + whether a title came back)",
+    async run(ctx) {
+      const c1 = ctx.X.names.contacts[0], c5 = ctx.X.names.contacts[4];
+      const want = docOf(await getdoc(ctx.as("manager"), "SFUI Test Contact", c1))?.contact_name;
+      const t = await ctx.as("manager").call("frappe.desk.search.get_link_title", { doctype: "SFUI Test Contact", docname: c1 }, "GET");
+      ctx.check("contact #1 → its contact_name", is(t, 200) && t.message === want, want, t.message);
+      const u = await ctx.as("manager").call("frappe.desk.search.get_link_title", { doctype: "User", docname: ctx.X.accounts.reader }, "GET");
+      ctx.check("User (no show_title_field_in_link) → the name back", is(u, 200) && u.message === ctx.X.accounts.reader, ctx.X.accounts.reader, u.message);
+      const r = await ctx.as("restricted").call("frappe.desk.search.get_link_title", { doctype: "SFUI Test Contact", docname: c5 }, "GET");
+      ctx.record("restricted asks for the title of a contact it cannot read", { status: r.status, exc_type: r.exc_type, title_returned: typeof r.message === "string" && r.message.length > 0 });
+    } },
 ];
 
 // ------------------------------------------------------------------------------------------------------------------

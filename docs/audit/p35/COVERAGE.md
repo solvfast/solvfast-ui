@@ -160,7 +160,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 
 | id | Requirement | Baseline | Now | Layer | Location | Test evidence | Showcase | Evidence level | Known limitations |
 |---|---|---|---|---|---|---|---|---|---|
-| FV.A1 | Data | COMPLETE | COMPLETE | both | `FF` DebouncedText, soft Email/Phone/URL | ff "dispatches fieldtypes…"; ff "mandatory_depends_on is evaluated at save"; fft "FV.A19 … A1 Data honours the placeholder (A41)" | `#frappe-forms` | simulator (+real meta) | Name/IBAN options not validated |
+| FV.A1 | Data | COMPLETE | COMPLETE | both | `FF` DebouncedText, soft Email/Phone/URL | ff "dispatches fieldtypes…"; ff "mandatory_depends_on is evaluated at save"; fft "FV.A19 … A1 Data honours the placeholder (A41)" | `#frappe-forms` | simulator (+real meta) | IBAN option not validated (Email / Phone / Name / URL use Desk's patterns since 0.7.0-dev.5, P36D.fields.*; server refusal = F-FIELD-1) |
 | FV.A2 | Link | COMPLETE | COMPLETE | Frappe (+Core LinkInput) | `FLF` | ff "searches search_link 500 ms…"; sr "search_link", "validate_link" | `#frappe-forms` todo, `#frappe-form-p35` | simulator; recorded-real (API shape) | see §F |
 | FV.A3 | Select | PARTIAL | **COMPLETE** | both | `FF` Select branch | fft "FV.A3 Select: newline options, blank first option, translated labels, an unknown stored value is kept" | `#frappe-forms` travel | unit | — |
 | FV.A4 | Date | COMPLETE | COMPLETE | both | `FF` DateField (site `date_format`) | dd (6); fft "FV.A6 … A4 Date a date trigger" | `#frappe-forms` travel | unit | no TZ conversion needed |
@@ -272,7 +272,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.F7 | Dynamic Link | COMPLETE | COMPLETE | Frappe | `FLF` | ff "standalone Dynamic Link…" | — | simulator | in-form validation untested |
 | FV.F8 | Permission-aware results / open link | PARTIAL | **COMPLETE** | Frappe | `services.tsx` `defaultLinkHref` | ffp "FV.F8 the open-record link shows for a role with read on the target, not for one without (rule 9: no roles → none)" | — | simulator | search results filtered server-side only; **behaviour change**: open link hidden without target read |
 | FV.F9 | Loading / empty / error states | PARTIAL | **COMPLETE** | Core | `src/fields/autocomplete.tsx` | ffp "FV.F9 search states: 'Searching…' …, 'Search failed' …, 'No results' …" | — | simulator | — |
-| FV.F10 | Link titles (show_title_field_in_link) | PARTIAL | **COMPLETE** | Frappe | `client.ts` `getDoc` → `linkTitles`; `FFV` seeds `linkTitles.ts` | ffp "FV.F10 a saved form shows the title of its Link value without searching", "FV.F10 negative…", "FV.F10 the client keeps them…" | — | simulator (getdoc `_link_titles` shaped in the test per load.py) | read from getdoc only (not savedocs); titles of later-set values still need a search |
+| FV.F10 | Link titles (show_title_field_in_link) | PARTIAL | **COMPLETE** | Frappe | `client.ts` `getDoc` → `linkTitles`; `FFV` seeds `linkTitles.ts` | ffp "FV.F10 a saved form shows the title of its Link value without searching", "FV.F10 negative…", "FV.F10 the client keeps them…" | — | simulator (getdoc `_link_titles` shaped in the test per load.py) | read from getdoc only (not savedocs); later-set values fetch their title with `get_link_title` since 0.7.0-dev.5 (P36D.fields.*; real site = F-FIELD-2) |
 
 ### FV.G. Child tables
 
@@ -896,3 +896,16 @@ Real-site classification: the catalogue gained 3 P36c tests (`docs/audit/p36/VAL
 LV.F8, LV.F9), F-SB-ASSIGN-2 (LV.F3; needs the `sysmgr` account) and V-REPORT-3 (LV.F14, LV.H1, LV.F1, LV.F3, LV.F6,
 LV.F10). No row changed category; LinkInput and the Navbar are client-only (no real-site test). The real-site result of
 every row is still BLOCKED (not run).
+
+## 12. P36d changes (0.7.0-dev.5) — CRM Lead Details audit
+
+The denominator stays at **301** and the count at **258 / 301 COMPLETE**. P36d moved no row between categories:
+
+| Row | Status | What changed |
+|---|---|---|
+| FV.A1 | COMPLETE (unchanged) | The Data options Email / Phone / Name / URL use Desk's own patterns, with a text input. |
+| FV.F10 | COMPLETE (unchanged) | A Link value set later fetches its title through `get_link_title`. |
+| FV.A33 | PARTIAL (unchanged) | The Phone fieldtype still stores free text and has no country picker (FIELD-TYPES.md gap list). |
+
+Real-site tests prepared in `e2e/frappe-site/matrix/catalogue.mjs` (not run): F-FIELD-1 (FV.A1) and F-FIELD-2 (FV.F10).
+The matrix now has 96 tests. Real-site evidence: still 0 rows.

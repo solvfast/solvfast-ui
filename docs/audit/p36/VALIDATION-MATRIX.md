@@ -49,7 +49,7 @@ Frappe behaviour is cited from Frappe 15.110.0, apps/frappe commit ab7e5ae (sour
 | MISSING | 6 | 4 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 5 | 0 |
 
-Catalogue: **94 tests** — 80 API (run by `run-matrix.mjs`; 19 read, 61 write / server-rejection needing `--write`), 7 browser (`--browser`, harness), 7 manual (infrastructure).
+Catalogue: **96 tests** — 82 API (run by `run-matrix.mjs`; 20 read, 62 write / server-rejection needing `--write`), 7 browser (`--browser`, harness), 7 manual (infrastructure).
 
 ## 3. P36 areas → tests
 
@@ -136,7 +136,7 @@ Catalogue: **94 tests** — 80 API (run by `run-matrix.mjs`; 19 read, 61 write /
 
 | id | Requirement | P35 | P35 evidence | Category | Real-site tests | Real-site | Note |
 |---|---|---|---|---|---|---|---|
-| FV.A1 | Data | COMPLETE | simulator (+real meta) | (b) | F-META-1 | BLOCKED (not run) |  |
+| FV.A1 | Data | COMPLETE | simulator (+real meta) | (b) | F-META-1, F-FIELD-1 | BLOCKED (not run) |  |
 | FV.A2 | Link | COMPLETE | simulator; recorded-real (API shape) | (b) | — | — (not in real-site scope) |  |
 | FV.A3 | Select | COMPLETE | unit | (a) | F-META-1 | BLOCKED (not run) |  |
 | FV.A4 | Date | COMPLETE | unit | (a) | F-META-1 | BLOCKED (not run) |  |
@@ -248,7 +248,7 @@ Catalogue: **94 tests** — 80 API (run by `run-matrix.mjs`; 19 read, 61 write /
 | FV.F7 | Dynamic Link | COMPLETE | simulator | (c) W | F-LINK-1 | BLOCKED (not run) |  |
 | FV.F8 | Permission-aware results / open link | COMPLETE | simulator | (c) P | F-LINK-2 | BLOCKED (not run) |  |
 | FV.F9 | Loading / empty / error states | COMPLETE | simulator | (b) | — | — (not in real-site scope) |  |
-| FV.F10 | Link titles (show_title_field_in_link) | COMPLETE | simulator (getdoc `_link_titles` shaped in the test per load.py) | (e) | F-LINK-3 | BLOCKED (not run) | getdoc _link_titles shape |
+| FV.F10 | Link titles (show_title_field_in_link) | COMPLETE | simulator (getdoc `_link_titles` shaped in the test per load.py) | (e) | F-LINK-3, F-FIELD-2 | BLOCKED (not run) | getdoc _link_titles shape |
 
 ### FV.G. Child tables
 
@@ -1051,6 +1051,28 @@ SFUI Test Contacts, apply to all DocTypes) · **field** (SFUI Writer + SFUI Fiel
 - **Expected Frappe behaviour:** reader (Desk User has read on User Group) finds the group and reads its 5 members; limit 2 → 2 rows (limit becomes limit_page_length, so Desk expands a group to its first 20 members); no parent_doctype → 403 (check_read_permission falls back to the child itself as the parent, a table → '… is not a valid parent DocType'); a parent without a User Group Member table → 403 (same message); add on A → 200, one open ToDo per member; add on B with restricted → expected 403 and a rollback (the automatic share runs as writer, who holds no share right — as F-SB-ASSIGN-1; recorded); add_multiple → 200, B gets the members, A's repeats answer 'Already in the following Users ToDo list'. Not producible with the seed (not run): a site that removed Desk User's read on User Group (search and members read → 403)
 - **Frappe source:** public/js/frappe/form/sidebar/assign_to.js:142-160 user_group_list (set_value replaces the users; assign_to_me unticked); public/js/frappe/db.js:5-26 get_list (limit 20 when absent); desk/reportview.py:40-50 get_list → execute; model/db_query.py:566-586 check_read_permission (parent_doctype, else the queried DocType itself :582); permissions.py:763-846 has_child_permission (invalid parent — a table, or no table of the child — :792-805; read on the parent :839-846); core/doctype/user_group/user_group.json (autoname Prompt; System Manager all, Desk User read); desk/form/assign_to.py:43-139 add, :143-151 add_multiple
 - **Evidence to capture:** member rows (user ids), statuses / exc_type, docinfo.assignments owners per document, the cleanup status
+
+#### F-FIELD-1 — P36d — Data options and non_negative are refused on save (_validate_data_fields / _validate_non_negative)
+
+- **Kind / automation:** reject · api
+- **Rows:** FV.A1
+- **User / role:** writer
+- **Preconditions:** seeded site; SFUI Test Parent has Data fields with options Email (email), Phone (phone), Name (person_name), URL (website) and an Int with non_negative (non_negative_qty)
+- **Steps:** (1) writer: savedocs Save of a new Parent with email 'not-an-email' (2) … with phone '05x-abc' (3) … with person_name 'Bad<Name>' (4) … with website 'not a url' (5) … with non_negative_qty -5 (6) writer: a control Save with valid values (email 'a@example.com', phone '+966 50 000 0000', person_name 'Ana', website 'https://example.com', non_negative_qty 5)
+- **Expected Frappe behaviour:** each invalid value → 417 with InvalidEmailAddressError / InvalidPhoneNumberError / InvalidNameError / ValidationError (URL) / NonNegativeError and nothing inserted; the control save → 200. The package's FrappeField flags the same values client-side with Desk's patterns (P36D.fields.*), but only the server refuses them; the in-package simulator does NOT (known simulator gap, docs/audit/p36d/LEAD-FIELDS.md §4)
+- **Frappe source:** model/base_document.py:922-955 _validate_data_fields (validate_email_address / validate_name / validate_phone_number / validate_url / validate_iban, throw=True); model/document.py:656-676 _validate_non_negative (NonNegativeError, 'Negative Value'); exceptions.py:120, 168-176
+- **Evidence to capture:** status and exc_type per case
+
+#### F-FIELD-2 — P36d — Link titles: frappe.desk.search.get_link_title (title of a later-set Link value)
+
+- **Kind / automation:** read · api
+- **Rows:** FV.F10
+- **User / role:** manager, restricted
+- **Preconditions:** SFUI Test Contact has show_title_field_in_link = 1 and title_field contact_name; seeded contacts #1 (allowed for restricted) and #5 (not allowed)
+- **Steps:** (1) manager: get_link_title('SFUI Test Contact', contact #1) (2) manager: get_link_title('User', <reader>) — no show_title_field_in_link → the name back (3) restricted: get_link_title('SFUI Test Contact', contact #5) (RECORDED: the method reads with frappe.db.get_value, no permission check)
+- **Expected Frappe behaviour:** manager: contact #1 → its contact_name; a DocType without show_title_field_in_link → the name unchanged. restricted on contact #5: recorded as-is (search.py:327-334 performs no permission check; the package only asks for titles of values the user already sees)
+- **Frappe source:** desk/search.py:327-334 get_link_title; public/js/frappe/form/controls/link.js:117-132 set_link_title
+- **Evidence to capture:** the returned titles, the restricted answer (status + whether a title came back)
 
 ### 5.2 List
 
