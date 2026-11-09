@@ -37,3 +37,9 @@ export { FrappeFormImage } from "./FrappeFormImage";
 export type { FrappeFormImageProps } from "./FrappeFormImage";
 // P36d fields — Desk's split_emails (utils.js:839-853), used with dataOptionInvalid by apps that check addresses
 export { splitEmails } from "./FrappeField";
+// P36e mock — FrappeField without a Frappe server: local Link services over host rows, a no-server client, capabilities
+export {
+  FrappeLocalForm, createLocalFormServices, localSearchLink, localValidateLink, localLinkTitle, createNoServerClient, noServerClient,
+  localModeError, useFormCapabilities, SERVER_CAPABILITIES, LOCAL_CAPABILITIES,
+} from "./localServices";
+export type { FrappeLocalFormProps, LocalFormServicesOptions, LocalLinkSource, LocalLinkTarget, LocalRow, LocalTargetMeta, FormCapabilities } from "./localServices";
