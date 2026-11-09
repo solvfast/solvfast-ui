@@ -135,6 +135,14 @@ describe("P36d history — Core Timeline", () => {
     expect(await within(card).findByText("Copied to clipboard")).toBeTruthy();
   });
 
+  it("P36D.history.15 the edit box's button is Save (form_timeline.js:666) even when composerLabels.submit names the new-comment button", () => {
+    const items: TimelineEntry[] = [{ id: "k1", kind: "comment", at: ago(H), actor: "Ann", body: "<p>x</p>", canEdit: true }];
+    render(<ThemeProvider defaultLanguage="en" storageKeys={null}><Timeline items={items} now={NOW} onEditComment={() => {}} composerLabels={{ submit: "Comment" }} /></ThemeProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(within(document.getElementById("comment-k1")!).getByRole("button", { name: "Save" })).toBeTruthy();
+    expect(within(document.getElementById("comment-k1")!).queryByRole("button", { name: "Comment" })).toBeNull();
+  });
+
   it("P36D.history.4 loading, error and empty states (negative controls: no list while loading or failed)", () => {
     const { rerender } = render(<ThemeProvider defaultLanguage="en" storageKeys={null}><Timeline items={[]} loading /></ThemeProvider>);
     expect(screen.getByRole("status", { name: "Loading…" })).toBeTruthy();

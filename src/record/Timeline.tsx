@@ -242,7 +242,7 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
           ) : null}
         </div>
         {editing ? (
-          <CommentComposer initialHtml={item.body ?? ""} autoFocus searchMentions={searchMentions} labels={{ ...composerLabels, submit: composerLabels?.submit ?? L.save }}
+          <CommentComposer initialHtml={item.body ?? ""} autoFocus searchMentions={searchMentions} labels={{ ...composerLabels, submit: L.save }}
             onCancel={() => setEditing(false)} onSubmit={async (html) => { await onEdit?.(item, html); setEditing(false); }} className="border-0 p-0" />
         ) : body}
         {err ? <p role="alert" className="mt-1 text-xs text-destructive">{err}</p> : null}
