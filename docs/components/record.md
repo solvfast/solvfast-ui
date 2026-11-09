@@ -596,3 +596,51 @@ every write ends in `applyDocInfoChange` (docinfo + list invalidated). A slot th
 - An empty section shows a quiet "No attachments" / "No tags" line; at the attachment limit a line says so (Desk hides "+").
 - The `comments` slot sits in the sidebar (owner request); Desk's comment box is in the form footer.
 - Not reproduced: Reviews / energy points, Follow / Followed by, auto-repeat, page views, the sidebar image.
+
+## 7. P36d — Record Detail history (Desk timeline parity)
+
+The CRM Lead / Deal / Contact / Organization History tab is this layer's `Timeline` (mock data) or `FrappeTimeline`
+(Frappe data); no second timeline exists. P36d closed these gaps against Desk's form timeline
+(`form_timeline.js`, `base_timeline.js`, `version_timeline_content_builder.js`, `desk/form/load.py` getdocinfo):
+
+**`Timeline` (Core, additive):**
+- `timeFormat: "compact" | "desk"`: `"desk"` is Frappe's `comment_when` wording ("3 days ago", "yesterday"), in en and
+  ar. The default stays `"compact"`.
+- `showAvatars`: author image or initials (`TimelineItem.actorImage`).
+- `itemLink`: a Copy Link action.
+- Card entries (`TimelineItemExtras`: `card`, `subject`, `status`, `attachments`), used for communications.
+- The `<time>` title (absolute date) follows the app language.
+- The edit box always says **Save** (`form_timeline.js:666`), whatever `composerLabels.submit` says.
+- New exports: `deskRelativeTime`, `absoluteTime`, `TimelineEntry`, `TimelineItemExtras`, `TimelineTimeFormat`.
+
+**`FrappeTimeline`:**
+- Communications are cards: body, subject, a delivery-status pill (`deliveryStatusTone`) and attachments with a
+  private-file lock. Automated messages read "Notification sent to …".
+- Version lines get the `updater_reference` ("via …"), "created this document", "Impersonated by" and
+  "[Action taken by]" text.
+- `additional_timeline_content` entries that carry content are shown.
+- Author avatars come from `user_info`.
+- The "Published" marker shows whenever the server says a comment is published (not only with `allowPublish`).
+- A failed load renders `FrappeErrorState`, with Retry for server or network errors and no Retry on a permission error.
+- The document e-mail line ("Add to this activity by mailing to …").
+- New props: `timeFormat`, `showAvatars`, `copyLinks`, `communicationHref`, `showDocumentEmail`. `FrappeComments` also
+  takes `timeFormat` and `showAvatars`.
+
+**Defaults changed to match Desk:**
+- In `FrappeTimeline`: the Published marker, the e-mail cards and the error state.
+- In `Timeline`: the edit-box button.
+
+**Still not reproduced:**
+- the "commented" verb;
+- links to the user and Version forms;
+- e-mail medium icons;
+- Reply / Reply All;
+- New Email / New Event;
+- energy points;
+- the "Show all activity" switch (the All / Comments / Changes chips replace it).
+
+**Known gap:** `useCommunications` does not count automated messages when it computes the next "Load more" start, as
+Desk does.
+
+Tests: `tests/history-p36d.test.tsx` (P36D.history.1-15), against the SIMULATED transport. Real-site confirmation is
+pending (see `docs/audit/p36/VALIDATION-MATRIX.md`).

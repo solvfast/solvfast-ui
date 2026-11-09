@@ -6,6 +6,71 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.5 (unreleased) — P36d CRM Lead Details audit + Frappe field parity
+
+P36d: the CRM Lead Details page was audited as the first reference page for DS / Frappe parity. Evidence is jsdom tests,
+the in-package SIMULATOR and Playwright runs on local mock-data CRM builds. Nothing was validated on a real Frappe site.
+
+**Changed defaults (owner decisions)**
+- **LinkInput** (owner decision, P36c item 7). Three behaviours are now the default in every mode; before, they were
+  picker mode only:
+  - the highlighted row is scrolled into view;
+  - keys pressed during an IME composition (`isComposing` / keyCode 229) belong to the IME;
+  - Escape restores the previously shown value.
+
+  Two consequences:
+  - `SuggestionList` (used by LinkInput and TagInput) ignores the Escape that ends an IME composition.
+  - This differs from Desk, whose Link only closes the list on Escape. Typing, the arrows, Enter, the blur commit and
+    picker mode are unchanged.
+
+  Tests: `tests/linkinput-p36d.test.tsx` (P36D.linkinput.1-9).
+- **Focus colour**:
+  - Inside `.sf-theme`, the glass focus token `--c-focus` is the theme ring (violet in light, flame in dark). It used to
+    be Sky cyan (#25D0FE).
+  - DateField, TimeField, DateTimeField, MonthInput and EditableTitle show one focus ring instead of a ring stacked on a
+    browser outline.
+  - CRM Lead page audit: 223 of 490 focus stops were cyan before, 0 after.
+  - Tests: `tests/visual-p36d.test.tsx` (P36D.visual.1-7).
+
+**Frappe field parity (`FrappeField` / `FrappeLinkField`)**
+- Data fields with options Email / Phone / Name / URL:
+  - validate with Frappe's own patterns (`utils.js` validate_type), using `split_emails` for e-mail addresses;
+  - the input is always `type="text" autocomplete="off"`, as in Desk (`data.js`);
+  - new `splitEmails` export.
+- Desk's maxlength (`df.length || 140`) applies to Link and Dynamic Link, with the "Data Clipped" paste message.
+  Numeric inputs select their text on focus. Placeholders are translated and reach Link and Text inputs.
+- Link titles of `show_title_field_in_link` targets are fetched with `frappe.desk.search.get_link_title` (new optional
+  `FormServices.getLinkTitle`), with a SIMULATED handler.
+- `LinkInput` has typed `maxLength` and `onPaste` props.
+- Tests: `tests/fields-p36d.test.tsx` (P36D.fields.1-11).
+
+**Record Detail history (`Timeline` / `FrappeTimeline`)**
+- Timeline wording, avatars and links:
+  - Desk relative times (`timeFormat: "desk"`) and author avatars (`showAvatars`);
+  - Copy Link;
+  - the absolute date follows the app language.
+- Communications as cards, with delivery status and attachments. Automated messages read "Notification sent to …".
+- Version lines: "via …", "Impersonated by" and "[Action taken by]". `additional_timeline_content` entries that carry
+  content are shown.
+- Error, Published and edit-box behaviour:
+  - a failed load shows `FrappeErrorState` with Retry;
+  - the Published marker always shows;
+  - the edit box always says Save.
+- See `docs/components/record.md` §7. Tests: `tests/history-p36d.test.tsx` (P36D.history.1-15).
+
+**Frappe Field Types foundation**
+- `docs/audit/p36d/FIELD-TYPES.md`: the Frappe 15.110 inventory.
+  - Scope: 43 DocField types, Long Int, Page Break and the 6 Data options.
+  - For each: the native control, formatter and server validation with file:line, and DS coverage (22 complete,
+    17 partial, 4 missing: Signature, Barcode, Geolocation, Icon).
+  - The Core / Frappe / CRM strategy and a phased plan.
+- `docs/components/frappe-field-types.md`: the consumer guide.
+- Showcase: a new **Frappe Field Types** group with four pages: Inventory, Inspect a field type, Links & files
+  (SIMULATED), and Layout & display types.
+- Tests: `tests/fieldtypes-p36d.test.tsx` (P36D.fieldtypes.1-16).
+
+**Audit records:** `docs/audit/p36d/` (README, LEAD-FIELDS, FIELD-TYPES).
+
 ## 0.7.0-dev.4 (unreleased) — P36 owner decisions
 
 P36c — the owner's final decisions on the batch-2 open items: LinkInput picker keyboard reviewed against Desk, a small
