@@ -366,3 +366,21 @@ describe("P36e ftypes — permlevel and depends_on through FrappeFormView", () =
     expect(screen.queryByRole("textbox", { name: "Icon" })).toBeNull(); // depends_on false
   });
 });
+
+describe("P36e ftypes — showcase page", () => {
+  it("P36E.ftypes.19 the page is routed in the Frappe group and renders the four types in English and Arabic (statuses Complete / Partial)", async () => {
+    const { PAGES } = await import("../showcase/src/routes");
+    expect(PAGES.find((p) => p.id === "frappe-ftypes-p36e")?.group.id).toBe("frappe");
+    const { FtypesP36ePage } = await import("../showcase/src/pages/p36e-ftypes");
+    for (const lang of ["en", "ar"] as const) {
+      render(<ThemeProvider defaultTheme="light" defaultLanguage={lang} storageKeys={null}><FtypesP36ePage /></ThemeProvider>);
+      const page = screen.getByTestId("ftypes-p36e");
+      expect([...page.querySelectorAll("[data-ftypes-status]")].map((b) => b.getAttribute("data-ftypes-status"))).toEqual(["COMPLETE", "COMPLETE", "PARTIAL", "PARTIAL"]);
+      expect(page.querySelectorAll("canvas[data-signature-pad]").length).toBe(2);
+      expect(page.querySelector("script, foreignObject, [onload], [onerror]")).toBeNull();
+      expect(page.querySelector('[data-geolocation="invalid"]')).toBeTruthy();
+      expect(page.querySelector("[data-unsupported-fieldtype]")).toBeNull();
+      cleanup();
+    }
+  });
+});
