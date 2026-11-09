@@ -16,6 +16,7 @@
  * comments, `_assign`, `_comments`, list user settings. Errors are built as Frappe's error bodies and passed through
  * the client's own parser (`toFrappeError`), exactly like the HTTP transport.
  */
+import { validateDocumentFields } from "./validateDoc";
 import { toFrappeError, type DownloadedFile, type FrappeFilesTransport, type FrappeResponse, type FrappeTransport } from "../client";
 import type { DocTypeMeta, FixtureBackend, FrappeDoc, FrappeDocField, PermType, WorkflowInfo } from "../contract";
 import type { FrappeSession } from "../services/permissions";
@@ -723,8 +724,11 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       if (target !== 2) {
         const missing = missingMandatory(meta, doc);
         if (missing.length) throw toFrappeError(417, { exc_type: "MandatoryError", _server_messages: sm(...missing.map((message) => ({ message }))) });
+        // P36e: document.py:624-629 — _validate_data_fields, (_validate_selects), _validate_non_negative, _validate_length
+        validateDocumentFields(meta, doc, metaOf, "data");
       }
       if (options.strict && target !== 2) validateSelects(meta, doc);
+      if (target !== 2) validateDocumentFields(meta, doc, metaOf, "rest");
       if (isNew && table(meta.name).has(doc.name)) fail(409, "DuplicateEntryError", `${meta.name} ${doc.name} already exists`);
     } catch (e) { rollback(); throw e; }
     for (const k of ["_assign", "_comments", "_liked_by", "_user_tags"]) if (previous && previous[k] !== undefined && doc[k] === undefined) doc[k] = previous[k];
