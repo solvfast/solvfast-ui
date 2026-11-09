@@ -6,6 +6,58 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.6 (unreleased) — P36e FrappeField trace, field types, FrappeField without a server, Frappe-like print
+
+P36e follows up on the P36d Lead Details audit. Evidence comes from jsdom tests, the in-package SIMULATOR and Playwright
+runs on local CRM builds (mock data and simulated builds). **Nothing was validated on a real Frappe site**: the 96
+prepared real-site tests are still Pending.
+
+**FrappeField without a Frappe server**
+- New `FrappeLocalForm`, `createLocalFormServices`, `localSearchLink` / `localValidateLink` / `localLinkTitle`,
+  `createNoServerClient` / `noServerClient`, `localModeError` and `useFormCapabilities` (`SERVER_CAPABILITIES` /
+  `LOCAL_CAPABILITIES`).
+- `FrappeField` / `FrappeLinkField` / Dynamic Link run with no server. Link search, validate_link and get_link_title run
+  locally over rows the host supplies (desk/search.py, client.py semantics).
+- The client refuses every server call with a non-retried `LocalModeError`. Nothing reaches the network; tests assert
+  it.
+- `useFormCapabilities()` reports what local mode cannot do: permissions, custom queries, Create New, uploads and
+  server save validation.
+
+**Field types** (`docs/audit/p36d/FIELD-TYPES.md`: 43 DocField types now **16 Complete · 27 Partial · 0 Missing**)
+- Source trace and re-grade (`docs/audit/p36d/FRAPPEFIELD-TRACE.md`): locations, call chains, public API and FrappeField
+  without a provider. The 43 types were re-graded against `controls/*.js`, from 22 / 17 / 4 to 15 / 24 / 4 before the
+  new controls. The showcase data now matches the table, with a drift-guard test.
+- New Core `SignatureInput`: canvas → PNG data URL, as jSignature stores it. FrappeField Signature fields use it.
+  **Complete.**
+- New Core `IconInput` and Frappe `FrappeIconField`: a picker over Desk's icon names, with glyphs where the page carries
+  Desk's sprite. **Partial.**
+- New Core `BarcodeInput` with `sanitizeSvg`: shows a stored JsBarcode SVG (sanitised) and clears it. Generating a
+  barcode needs `jsbarcode` (not included; owner decision). **Partial.**
+- New Core `GeolocationInput` with `parseGeolocation`: a read-only list of GeoJSON features. Drawing needs Leaflet +
+  Leaflet.draw (not included; owner decision). **Partial.**
+- Signature, Icon, Barcode and Geolocation are no longer reported as unsupported. New `PARTIAL_FIELDTYPES`.
+
+**Print**
+- New Frappe-free Core components:
+  - `PrintView` / `PrintViewDialog`: Desk's print page;
+  - `PrintDocumentsDialog`: Desk's list "Print Documents";
+  - `composePrintDocument` + `printHtmlDocument`: one HTML document, one record per page, `@page` size in mm for every
+    Desk size and Custom, dir / lang, a no-script CSP, printed through a hidden iframe.
+- `PrintPreviewFrame` gains `srcDoc`.
+- `FrappeFormPrint` and `FrappePrintDialog` render the Core components, with unchanged behaviour. `FrappeFormPrint` gains
+  `variant="page"` with `onBack`.
+- `PRINT_PAGE_SIZES`, `NO_LETTERHEAD` and `MAX_PRINT_LIMIT` now live in Core and are still exported from
+  `@solvfast/ui/frappe`.
+
+**Simulator** (SIMULATED)
+- The fixture transport's save runs Frappe's `_validate_data_fields` (Data options Email / Name / Phone / URL / IBAN),
+  `_validate_non_negative` and `_validate_length`, in document.py:624-646 order.
+- Messages and exception types are verbatim.
+- Not reproduced: the Phone fieldtype's `phonenumbers` check.
+
+**Tests:** `trace-p36e` (P36E.trace.*), `ftypes-p36e` (P36E.ftypes.1-19), `mock-p36e` (P36E.mock.1-10),
+`print-p36e` (P36E.print.1-11), `sim-validate-p36e` (P36E.sim.1-9).
+
 ## 0.7.0-dev.5 (unreleased) — P36d CRM Lead Details audit + Frappe field parity
 
 P36d: the CRM Lead Details page was audited as the first reference page for DS / Frappe parity. Evidence is jsdom tests,

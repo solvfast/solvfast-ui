@@ -644,3 +644,26 @@ Desk does.
 
 Tests: `tests/history-p36d.test.tsx` (P36D.history.1-15), against the SIMULATED transport. Real-site confirmation is
 pending (see `docs/audit/p36/VALIDATION-MATRIX.md`).
+
+## 8. P36e — Print, split into Core presentation and Frappe integration
+
+**Core** (`@solvfast/ui`, no Frappe imports):
+- `PrintView` / `PrintViewDialog`: Desk's print page. Print Format, Letter Head, (Language), preview and actions are
+  props and callbacks; the host decides which options exist.
+- `PrintDocumentsDialog`: Desk's list "Print Documents" (Letter Head, Print Format, Page Size + Custom mm, an optional
+  Background Print). It validates a Custom size before `onPrint`.
+- `composePrintDocument(docs, { pageSize, height, width, dir, lang })`: one HTML document, one record per page,
+  `@page` in mm, and a Content-Security-Policy that blocks scripts.
+- `printHtmlDocument(html)`: prints it through a hidden same-origin iframe.
+- `PrintPreviewFrame srcDoc`: the preview is the exact string that prints.
+
+**Frappe layer:**
+- `FrappeFormPrint` (dialog, or `variant="page"` with `onBack`) and `FrappePrintDialog` render the Core components over
+  the server: `get_html_and_style`, `download_pdf`, `download_multi_pdf(_async)`, Letter Head / Print Format reads.
+- Behaviour is unchanged from 0.7.0-dev.5.
+
+**Hosts without a server** (the CRM mock adapter is the reference):
+- Supply Print Formats as a meta fragment, Letter Heads and a local renderer per format, then print through
+  `composePrintDocument` + `printHtmlDocument`.
+- Do not offer server-only actions: PDF download, Full Page, Background Print as a server job. The browser's "Save as
+  PDF" covers PDF.

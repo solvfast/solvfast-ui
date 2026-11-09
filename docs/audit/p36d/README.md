@@ -21,6 +21,7 @@ mock mode, so it sees none of this until the owner moves the pin and deploys.
 | `LEAD-FIELDS.md` | Every Lead Details field in mock and simulated mode against the native control (file:line), fixes with their level, remaining gaps |
 | `FIELD-TYPES.md` | The Frappe 15.110 field-type inventory (43 DocField types + Long Int + Page Break + 6 Data options), DS coverage, strategy and plan |
 | `docs/components/frappe-field-types.md` | Consumer guide |
+| `FRAPPEFIELD-TRACE.md` | P36e: source trace of FrappeField (locations, call chains, public API, no-server behaviour), 43-type re-grade, file map |
 | `docs/components/record.md` §7 | Record Detail history (Timeline / FrappeTimeline) |
 | `docs/components/forms.md` (LinkInput) | The new LinkInput defaults |
 

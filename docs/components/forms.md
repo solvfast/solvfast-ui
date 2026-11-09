@@ -638,3 +638,30 @@ does not produce: getdoc's `_link_titles` and a MandatoryError raised by the ser
 Needs a real site to verify: Link titles from a live getdoc, `apply_workflow` on a real Workflow (with the new pre-steps),
 the server messages' exact (translated) wording parsed by `fieldErrorsFromFrappeError`, user defaults / User Permissions
 in a real boot, Quick Entry against real `quick_entry` DocTypes.
+
+## P36e — `FrappeLocalForm`: FrappeField without a Frappe server
+
+`FrappeField` needs a provider. With no `FrappeProvider`, Link and Dynamic Link throw "No QueryClient set". With a bare
+QueryClient they call the page's own `/api/method/*`. For hosts that have metadata but no server (mock data, demos,
+offline previews), wrap the fields in `FrappeLocalForm`:
+
+```tsx
+import { FrappeField, FrappeLocalForm, type LocalLinkSource } from "@solvfast/ui/frappe";
+
+const source: LocalLinkSource = (doctype) =>
+  doctype === "Serve Fast Organization"
+    ? { rows: orgs.map((o) => ({ name: o.id, company_name: o.name })), meta: { title_field: "company_name", show_title_field_in_link: 1, search_fields: "company_name" } }
+    : undefined;
+
+<FrappeLocalForm source={source} translations={dict}>
+  <FrappeField df={df} value={doc[df.fieldname]} doc={doc} onChange={(v) => set(df.fieldname, v)} />
+</FrappeLocalForm>
+```
+
+- `searchLink`, `validateLink` and `getLinkTitle` run locally over `source` rows, with the semantics of `desk/search.py`
+  and `client.py`.
+- Every other server call is refused with a non-retried `LocalModeError`. Nothing reaches the network.
+- `useFormCapabilities()` returns `LOCAL_CAPABILITIES`: `server: false`; no permissions, custom queries, Create New,
+  uploads or server save validation. Hosts must not imply those exist.
+- FrappeField applies no defaults and does not evaluate `depends_on`; the caller does, as with a server. See
+  `docs/audit/p36d/FRAPPEFIELD-TRACE.md`.
