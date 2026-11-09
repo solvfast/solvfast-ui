@@ -114,7 +114,7 @@ this file are from 6ea5eb9 and are stale** (agent C's P36d changes moved them); 
 | FT-01b Data (Name) | PARTIAL | PARTIAL | Unchanged status, new reason: the Name soft check now exists (FF:90, 113); only FT-01's gaps remain. |
 | FT-14 Link | COMPLETE | PARTIAL | No Advanced Search (`controls/link.js:165-174, 347-360`), no filter description (`:309-320`), no translation of values of translated DocTypes (`:111-116`). |
 | FT-15 Dynamic Link | COMPLETE | PARTIAL | FT-14's gaps; a Single target is not refused (`controls/dynamic_link.js:26-28`). |
-| FT-19 Float | COMPLETE | PARTIAL | Float with `options` uses the currency's number format for input (`controls/float.js:128-133`), the gap already counted against Currency. |
+| FT-19 Float | COMPLETE | PARTIAL | Float with `options` uses the currency's number format for input (`controls/float.js:15-20`), the gap already counted against Currency. |
 | FT-36 Table | COMPLETE | PARTIAL | Paste from a spreadsheet (`controls/table.js:19-117`); P35 A-form §G lists drag reorder (G4) PARTIAL and grid Download / Upload (G9) MISSING. |
 | FT-37 Table MultiSelect | COMPLETE | PARTIAL | A ControlLink: its list has "Create a new" / Advanced Search (`controls/link.js:323-360`), missing here; the field's `link_filters` / `filters` are not applied (FTMS:306-316). |
 | FT-39 Column Break | COMPLETE | PARTIAL | `column.js:22-36` renders the column's label and description; FFV:741 renders neither. |
@@ -445,7 +445,7 @@ missing from the DS. "→ C" marks a gap in `src/fields` / `src/frappe/form` tha
 - Number format from the field currency only when `options` is set (:15-20).
 - `dt:1372-1378`: precision must be 1..6.
 - DS: `FF:246-249`. Read through `FMT:338-356`. Percent: COMPLETE. Float: PARTIAL (P36e) — with `options` Desk formats
-  the input in that currency's number format (`controls/float.js:128-133`); the DS always uses the system format.
+  the input in that currency's number format (`controls/float.js:15-20`); the DS always uses the system format.
 
 **FT-20 Currency.**
 - Precision: `df.precision`, else `currency_precision`, else the number format's (`controls/currency.js:2-14`).
