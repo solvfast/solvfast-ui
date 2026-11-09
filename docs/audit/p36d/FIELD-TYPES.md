@@ -96,7 +96,8 @@ Classes:
 
 Totals:
 - 43 DocField types, plus Long Int and Page Break, plus 6 Data options: 51 rows.
-- Status of the 43 DocField types: **15 COMPLETE · 24 PARTIAL · 4 MISSING**.
+- Status of the 43 DocField types: **16 COMPLETE · 27 PARTIAL · 0 MISSING**.
+- P36e agent F: Signature COMPLETE; Barcode, Geolocation, Icon PARTIAL (display only / sprite-dependent). Agent T's re-grade just before was 15 · 24 · 4.
 - Data options: 0 COMPLETE · 6 PARTIAL (Email, Name, Phone, URL, Barcode, IBAN).
 - P36e (agent T) re-graded every row against `controls/*.js`; the P36d counts were 22 · 17 · 4 and Email / Phone COMPLETE.
   See "P36e corrections" below and `docs/audit/p36d/FRAPPEFIELD-TRACE.md` §D.
@@ -164,10 +165,10 @@ FF shows a FrappeField dispatch line. The "Core" column is the framework-free co
 | FT-29 | A20 | Attach | integration | `controls/attach.js:1-151` (uploader :61-93, clear :36-55, reload :56-60) | `formatters.js:406, 410-413` (link) | not sanitized `bd:1117`; `text` column | `fields/AttachInput.tsx` + `record/AttachDialog` | `FAF`; `FF:256-264` | COMPLETE | `tests/attach.test.tsx` ×6; `tests/attach-image-p36b.test.tsx` P36B.attachimage.*; P36D.fieldtypes.10 |
 | FT-30 | A21 | Attach Image | integration | `controls/attach_image.js:1-24` (image/* only) | `formatters.js:407` | as Attach | AttachInput (`image`) | `FAF` | COMPLETE | same |
 | FT-31 | A38 | Image | display | `controls/image.js:1-23` (shows `doc[df.options]`) | — | no value | `<img>` | `FF:202` | COMPLETE | `t/ft` "FV.A36 … A38 Image reads doc[options]…"; P36D.fieldtypes.12 |
-| FT-32 | A29 | Signature | integration | `controls/signature.js:1-139` (jSignature; data URL) | Data fallback | `longtext` | — | `FF:193-196` read-only raw | MISSING | `t/ft` "FV.A44 Signature / Geolocation / Barcode / Icon…"; P36D.fieldtypes.15 |
-| FT-33 | A31 | Barcode | integration | `controls/barcode.js:1-79` (JsBarcode; STORES the `<svg data-barcode-value>` :14-42) | Data fallback | not sanitized `bd:1117`; `longtext` | — | `FF:193-196` | MISSING | same |
-| FT-34 | A30 | Geolocation | integration | `controls/geolocation.js:1-258` (Leaflet + draw; GeoJSON FeatureCollection) | Data fallback | `longtext` | — | `FF:193-196` | MISSING | same |
-| FT-35 | A35 | Icon | input | `controls/icon.js:1-101` (picker over the sprite's `icon-*` symbols) | `formatters.js:398-405` | — | — | `FF:193-196` | MISSING | same |
+| FT-32 | A29 | Signature | integration | `controls/signature.js:1-139` (jSignature; data URL) | Data fallback | `longtext` | — | `FF:193-196` read-only raw | COMPLETE | `t/ft` "FV.A44 Signature / Geolocation / Barcode / Icon…"; P36D.fieldtypes.15 |
+| FT-33 | A31 | Barcode | integration | `controls/barcode.js:1-79` (JsBarcode; STORES the `<svg data-barcode-value>` :14-42) | Data fallback | not sanitized `bd:1117`; `longtext` | — | `FF:193-196` | PARTIAL | same |
+| FT-34 | A30 | Geolocation | integration | `controls/geolocation.js:1-258` (Leaflet + draw; GeoJSON FeatureCollection) | Data fallback | `longtext` | — | `FF:193-196` | PARTIAL | same |
+| FT-35 | A35 | Icon | input | `controls/icon.js:1-101` (picker over the sprite's `icon-*` symbols) | `formatters.js:398-405` | — | — | `FF:193-196` | PARTIAL | same |
 | FT-36 | A23 | Table | composite | `controls/table.js:1-158` → `form/grid.js` (paste from a spreadsheet :19-117) | — (no value) | rows validated as child docs; mandatory "Data missing in table" `bd:742-745` | `fields/DataGrid.tsx` | `FCT`; `FF:205-211` | PARTIAL (P36e) | `t/ff` "Contact: Add Row…", "table events…"; P36D.fieldtypes.11 |
 | FT-37 | A24 | Table MultiSelect | composite | `controls/table_multiselect.js:1-179` (first Link field :148-157; validate :84-121) | `formatters.js:378-389` | as Table | (pills) | `FTMS`; `FF:212-217` | PARTIAL (P36e) | `t/ff` "adds rows for picked values…"; P36D.fieldtypes.11 |
 | FT-38 | — | Section Break | layout | `layout.js:182-184` (`make_section`), `form/section.js` | — | — | — | `LY:24, 31-60`; collapsible `FFV:735-760` | COMPLETE | `tests/frappe-form-model.test.tsx` "inserts a Details tab…", "collapsible sections…"; `tests/frappe-form-p35.test.tsx` "FV.B4…"; P36D.fieldtypes.12 |
@@ -510,29 +511,30 @@ missing from the DS. "→ C" marks a gap in `src/fields` / `src/frappe/form` tha
 **FT-32 Signature.**
 - jSignature pad. Stored as a base64 data URL (`controls/signature.js:29-57, 130-135`). Reset / Save; the image when
   Read.
-- Missing:
-  - a Core `SignaturePad` (canvas → PNG data URL, pointer events, RTL-neutral);
-  - the FrappeField dispatch.
-
-  → Phase 2.
+- **P36e: COMPLETE.** Core `SignatureInput` (canvas pointer drawing → `toDataURL()` PNG as jSignature stores it, Undo /
+  Clear → "", the image when read-only, not mirrored in RTL) through the FrappeField dispatch. Tests `P36E.ftypes.*`.
 
 **FT-33 Barcode.**
 - Text in; **the stored value is the JsBarcode `<svg …data-barcode-value>` markup** (`controls/barcode.js:14-42`).
 - `options` = the format (:59+).
 - Server: not sanitized (`bd:1117`).
-- Missing: needs JsBarcode, or an equivalent SVG generator (a peer dependency), and must store the SVG exactly as Desk
-  does. Showing only the raw text would break Desk round-trips. → Phase 3, with a dependency decision.
+- **P36e: PARTIAL (display only).** Core `BarcodeInput` shows the stored SVG (rebuilt through an allowlist,
+  `sanitizeSvg`) and its `data-barcode-value`, and clears it. Generating the SVG from typed text needs `jsbarcode`
+  3.11.x (MIT), which is not installed; an owner decision.
 
 **FT-34 Geolocation.**
 - A Leaflet map with draw / locate controls. GeoJSON FeatureCollection (`controls/geolocation.js:37-258`).
 - Shown even when empty and Read (`controls/base_control.js:127`, DS `FT:14`).
-- Missing: a map (Leaflet as an optional peer). A read-only GeoJSON summary would be a first step. → Phase 3, with a
-  dependency decision.
+- **P36e: PARTIAL (display only).** Core `GeolocationInput` + `parseGeolocation` list the stored features (circles =
+  Points with `point_type` / `radius`); invalid GeoJSON is reported, never thrown. Drawing needs Leaflet 1.2.0
+  (BSD-2-Clause) + Leaflet.draw 0.4.12 (MIT) + a locate control (MIT) and map tiles; an owner decision.
 
 **FT-35 Icon.**
 - A popover picker over the SVG sprite's `icon-*` symbols (`controls/icon.js:11-80`). Read shows the icon and its
   name (`formatters.js:398-405`).
-- Missing: an icon picker over the app's icon set (the DS uses lucide; Frappe names differ). → Phase 3, low priority.
+- **P36e: PARTIAL.** Core `IconInput` (search picker, free text) + Frappe `FrappeIconField` over Desk's 179 v15.110
+  icon names; glyphs render only where the page carries Desk's sprite (`#all-symbols`), with no substitute icons
+  elsewhere.
 
 ### Layout and display
 

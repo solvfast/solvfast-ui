@@ -176,6 +176,12 @@ export function FieldTypesInventoryPage() {
           "لا يوجد عنصر تحكم لهذه الأنواع. يعرض FrappeField القيمة المحفوظة للقراءة فقط في كل الحالات (ولا يقدّم مربع نص قد يفسدها)، ويذكر النموذج الحقل في شريط المشكلات. معروضة هنا كما تظهر اليوم — لا نموذجاً تخيّلياً لعنصر قادم.")}>
         <FtProvider site={site}>
           <div className="grid gap-4 md:grid-cols-2" data-testid="ft-missing">
+            {FIELD_TYPES.some((r) => r.status === "MISSING") ? null : (
+              <p className="text-sm text-muted-foreground md:col-span-2" data-ft-missing-empty="">
+                {l("None since P36e: every DocField type has a control. Several are PARTIAL (e.g. Barcode and Geolocation are display only) — see the inventory above for what each one lacks.",
+                  "لا شيء منذ P36e: لكل نوع حقل عنصر تحكم. عدد منها جزئي (مثل الباركود والموقع الجغرافي للعرض فقط) — راجع الجرد أعلاه لمعرفة ما ينقص كلاً منها.")}
+              </p>
+            )}
             {FIELD_TYPES.filter((r) => r.status === "MISSING").map((r) => {
               const s = SAMPLES[r.id];
               return (

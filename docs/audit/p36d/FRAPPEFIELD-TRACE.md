@@ -459,7 +459,7 @@ Grades are against the native control (`c/*.js`). The rules are those of FIELD-T
 
 A showcase entry, a placeholder, a type in `SUPPORTED_FIELDTYPES` or a shallow render test does not count.
 
-Totals for the 43 DocField types: **15 Complete · 24 Partial · 4 Missing**. P36d had 22 · 17 · 4. Data options:
+Totals for the 43 DocField types at the trace's commit: **15 Complete · 24 Partial · 4 Missing** (after agent F's P36e work: 16 · 27 · 0, see FIELD-TYPES.md). P36d had 22 · 17 · 4. Data options:
 **0 Complete · 6 Partial**; P36d had Email and Phone Complete.
 
 | Field Type | Status | Actual Renderer | Source File | Core/Frappe | Validation | Real Frappe Dependency | Tests | Native spec |
