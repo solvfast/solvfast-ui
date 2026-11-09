@@ -272,6 +272,19 @@ describe("P36E trace — what FrappeField does NOT do for its caller", () => {
   });
 });
 
+describe("P36E trace — Table MultiSelect without a provider", () => {
+  it("P36E.trace.14 (c1) Table MultiSelect renders with NO FrappeProvider and NO QueryClientProvider (it never reaches useMetaBundle); typing demands search_link from the same-origin client", async () => {
+    const child: DocTypeMeta = { name: "T Tag", istable: 1, fields: [{ fieldname: "user", fieldtype: "Link", label: "User", options: "User", in_list_view: 1 }] };
+    const tms: FrappeDocField = { fieldname: "members", fieldtype: "Table MultiSelect", label: "Members", options: "T Tag" };
+    const bundle: MetaBundle = { doctype: "T", meta: { name: "T", fields: [tms] }, children: { "T Tag": child } };
+    const m = mountIn("c1", <FrappeField df={tms} value={[]} onChange={() => {}} bundle={bundle} />);
+    const box = screen.getByRole("combobox", { name: "Members" });
+    act(() => (box as HTMLInputElement).focus());
+    fireEvent.change(box, { target: { value: "ann" } });
+    await waitFor(() => expect(m.demanded()).toContain("frappe.desk.search.search_link"), { timeout: 2000 });
+  });
+});
+
 describe("P36E trace — a Link with NO server at all, through today's public override API", () => {
   it("P36E.trace.13 FrappeFormServices overrides (searchLink / validateLink / getLinkTitle) + a bare QueryClientProvider: the Link searches, validates and titles from local data and fetches nothing", async () => {
     const { FrappeFormServices } = await import("../src/frappe/form");

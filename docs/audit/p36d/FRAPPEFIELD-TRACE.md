@@ -142,7 +142,7 @@ The groups that decide the layout and the status live in `FT`:
 | `frappe.desk.search.search_link` | `FLF:165-170` (Link / Dynamic Link), `FTMS:306-316` | `SVC:83` → `CL:520-537` | client |
 | `frappe.client.validate_link` | `FLF:180`, `FTMS:317`, `FFV:287` (default link values of a new document) | `SVC:84` → `CL:436-440` | client |
 | `frappe.desk.search.get_link_title` | `FLF:216-227` | `SVC:98-101` | client |
-| `frappe.desk.form.load.getdoctype` (target meta, for rights / quick entry) | `FLF:208` (only for a non-Administrator session with roles, or for Quick Entry) | `useMetaBundle` → `CL:400` | client **and** a React Query `QueryClient` |
+| `frappe.desk.form.load.getdoctype` (target meta, for rights / quick entry) | `FLF:208` (only for a non-Administrator session with roles, or for Quick Entry) | `useMetaBundle` → `CL:400` | client **and** a React Query `QueryClient`. The hook runs on every render, so a Link throws without a QueryClient even when nothing is fetched (trace.4). |
 | `upload_file` (multipart) | `FAF:125-130` | `api.uploadFile` → `CL:539` → files transport (`CL:316`, `/api/method/upload_file`) | client with a FILE transport |
 | `upload_file` (Library: `library_file_name`; Link: `file_url`) | `FAF:131-132` | `api.call` | client |
 | `frappe.core.api.file.get_max_file_size` | `FAF:137` (when the uploader opens) | `api.call` | client (a failure means "no limit") |
@@ -362,6 +362,7 @@ row says otherwise.
 | Link | Renders. <br>• Typing → `search_link`. <br>• Blur with text → `validate_link`; an unknown name is **cleared**. <br>• A value → `get_link_title`. (trace.2) | Renders. <br>• Search → "Search failed". <br>• Typed text → `validate_link` rejected; the value is **kept** and the error dialog shows. <br>• `get_link_title` fails silently; the name stays shown. (trace.3) | **THROWS** "No QueryClient set" (`useMetaBundle` → `useQuery`, FLF:208 runs on every render). (trace.4) | Renders. <br>• It talks to the **same-origin** `/api/method/*` through the default client (PROV:26). <br>• Search fails; the typed value is kept. <br>• The error is only `console.warn`-ed: there is no messages host (`messages.tsx:29-31`). (trace.5) |
 | Attach | Renders "Attach". Opening the uploader → `get_max_file_size`. A file upload needs a file transport: the base simulator refuses it (417), and `withSimulatedSidebar` stores it. (trace.6, trace.7) | Renders. `get_max_file_size` is rejected; there is no limit and the dialog still opens. An upload fails with "no file transport" (CL:488-490). (trace.6, trace.7) | Renders. The fetch is rejected, as in (b). (trace.6) | Same as (c1). (trace.6) |
 | Table (extra) | — | — | Renders from a hand-built bundle. Add Row writes `{doctype, parentfield, idx: 1, __islocal: 1}`. Demands nothing. (trace.12) | — |
+| Table MultiSelect (extra) | — | — | Renders: FTMS never reaches `useMetaBundle`. Typing demands `search_link` from the same-origin client. (trace.14) | — |
 | Link via `FrappeFormServices` overrides (extra) | — | — | — | Searches, validates and shows the title from **local** data. **Zero fetches.** (trace.13) |
 
 Answers:
@@ -371,10 +372,13 @@ Answers:
   - Image has no source;
   - Attach uploads unattached (trace.7).
 - **Without a FrappeProvider:**
-  - Data, Select, Date, Check, Attach and Table render and work. ThemeProvider is optional too (`useLocale` has a fallback,
-    `ThemeProvider.tsx:196-198`).
-  - **Link, Dynamic Link and Table MultiSelect need a React Query `QueryClientProvider`.** Without a provider they
-    silently use the page's same-origin Frappe client (PROV:26).
+  - Data, Select, Date, Check, Attach, Table and Table MultiSelect render and work (trace.1, 6, 12, 14).
+  - ThemeProvider is optional too (`useLocale` has a fallback, `ThemeProvider.tsx:196-198`). This is source-backed but
+    not exercised: every test case keeps a ThemeProvider.
+  - **Link and Dynamic Link need a React Query `QueryClientProvider`** (trace.4; Dynamic Link renders FrappeLinkField,
+    FLF:283). Table MultiSelect does not (trace.14).
+  - Without a provider, Link, Dynamic Link and Table MultiSelect silently use the page's same-origin Frappe client
+    (PROV:26).
   - With `FrappeFormServices` overrides for `searchLink`, `validateLink` and `getLinkTitle`, a Link needs no server at
     all (trace.13). Two things still touch the client: `useLinkTitles`, and `useMetaBundle` for a session with roles that
     is not the Administrator. With no session, neither ever fetches.
