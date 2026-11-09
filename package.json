@@ -28,7 +28,8 @@
     "docs/components/record.md",
     "docs/components/views.md",
     "docs/components/p35-core.md",
-    "docs/components/search.md"
+    "docs/components/search.md",
+    "docs/components/frappe-field-types.md"
   ],
   "exports": {
     ".": {

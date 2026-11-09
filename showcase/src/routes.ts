@@ -244,3 +244,21 @@ const p36bSocial = () => import("./pages/p36b-social");
   group.pages.push(page);
   PAGES.push({ ...page, group });
 }
+
+// P36d fieldtypes — the "Frappe Field Types" group: inventory, per-type inspector, links & files (SIMULATED backend
+// operations), layout & display types. Reference: docs/audit/p36d/FIELD-TYPES.md.
+{
+  const p36dFieldTypes = () => import("./pages/p36d-fieldtypes");
+  const group: Group = { id: "frappe-field-types", title: l("Frappe Field Types", "أنواع حقول فرابيه"), icon: Shapes, pages: [] };
+  GROUPS.push(group);
+  const pages: Page[] = [
+    { id: "fieldtypes-inventory", title: l("Inventory", "الجرد"), description: l("Every Frappe 15.110 field type (DocField.fieldtype, Long Int, Page Break, the six Data options): its native control, the DS component and what is Complete, Partial or Not implemented yet.", "كل أنواع حقول فرابيه 15.110 (DocField.fieldtype و Long Int و Page Break وخيارات Data الستة): عنصرها الأصلي ومكوّن نظام التصميم وما هو مكتمل أو جزئي أو غير منفَّذ بعد."), Component: from(p36dFieldTypes, "FieldTypesInventoryPage") },
+    { id: "fieldtypes-inspector", title: l("Inspect a field type", "فحص نوع حقل"), description: l("One type at a time through FrappeField from a DocField: default, filled, required, read-only, read by permission, validation error, loading, with the stored value — in Arabic / English and light / dark.", "نوع واحد في كل مرة عبر FrappeField من DocField: افتراضي وممتلئ وإلزامي وللقراءة فقط وقراءة بالصلاحية وخطأ تحقّق وتحميل، مع القيمة المحفوظة — بالعربية / الإنجليزية والفاتح / الداكن."), Component: from(p36dFieldTypes, "FieldTypesInspectorPage") },
+    { id: "fieldtypes-links", title: l("Links & files (SIMULATED)", "الروابط والملفات (محاكاة)"), description: l("Link, Dynamic Link, Table MultiSelect, Attach and Attach Image on the in-page simulator: search_link, validate_link, upload_file, a slow-server loading state and the request log.", "Link و Dynamic Link و Table MultiSelect و Attach و Attach Image على المحاكي: search_link و validate_link و upload_file وحالة تحميل مع خادم بطيء وسجل الطلبات."), Component: from(p36dFieldTypes, "FieldTypesLinksPage") },
+    { id: "fieldtypes-layout", title: l("Layout & display types", "أنواع التخطيط والعرض"), description: l("Tab, Section and Column Breaks, Fold, Heading, HTML, Button, Image and Table in one FrappeFormView built from a DocType's fields.", "فواصل التبويب والقسم والعمود و Fold والعنوان و HTML والزر والصورة والجدول في FrappeFormView واحد مبني من حقول نوع مستند."), Component: from(p36dFieldTypes, "FieldTypesLayoutPage") },
+  ];
+  for (const page of pages) {
+    group.pages.push(page);
+    PAGES.push({ ...page, group });
+  }
+}
