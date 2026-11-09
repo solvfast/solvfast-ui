@@ -13,7 +13,7 @@
  *  - `frappe.desk.reportview.delete_items` without simulated permissions: `delete_bulk` (desk/reportview.py:588-616)
  *    deletes each name on its own (> 10 enqueued: SIMULATED as run at once) and reports the failures (e.g. "Submitted Record cannot be deleted", delete_doc.py:
  *    252-262) by a realtime msgprint — the base handler, permissions off, stopped at the first refused name.
- *  - `validate_workflow` (model/workflow.py:172-174) on save: an empty workflow state becomes the first state (an
+ *  - `validate_workflow` (model/workflow.py:179-181) on save: an empty workflow state becomes the first state (an
  *    amendment's state field is no_copy, workflow.py:55-56).
  * Uses the rule of the Core `updateAfterSubmitViolations` (src/record/docstatus.ts), so the mock path and the simulator
  * agree. Nothing here is evidence of Frappe behaviour.
@@ -66,7 +66,7 @@ export function withSubmitRules(base: FixtureTransport): FixtureTransport {
   const store = base.store;
   const record = (method: string, args: Record<string, unknown>) => store.calls.push({ method, args: JSON.parse(JSON.stringify(args)) as Record<string, unknown> });
   const t = (async (method: string, args: Record<string, unknown>): Promise<FrappeResponse> => {
-    // validate_workflow (workflow.py:172-174): a document saved without a workflow state gets the FIRST state — e.g. an
+    // validate_workflow (workflow.py:179-181): a document saved without a workflow state gets the FIRST state — e.g. an
     // amendment, whose state field is no_copy (workflow.py:55-56) and so arrives empty
     if (method === "frappe.desk.form.save.savedocs" || method === "frappe.client.insert" || method === "frappe.client.save") {
       const posted = parse(args.doc) as FrappeDoc | undefined;

@@ -11,7 +11,8 @@ export const submitEn = {
   subCannotEditCancelled: "Cannot edit cancelled document",
   // workflow.py:145-146 apply_workflow
   subIllegalDocStatus: "Illegal Document Status for {0}",
-  subNotValidWorkflowAction: "Not a valid Workflow Action",
+  // the DS says "Lifecycle", never "Workflow" (P36b lifecycle terminology; Frappe: "Not a valid Workflow Action")
+  subNotValidWorkflowAction: "Not a valid Lifecycle Action",
   // workflow/doctype/workflow/workflow.py:84-109 validate_docstatus
   subWfCancelledRow: "Cannot change state of Cancelled Document. Transition row {0}",
   subWfSubmittedToDraftRow: "Submitted Document cannot be converted back to draft. Transition row {0}",
@@ -34,8 +35,8 @@ export const submitEn = {
   // meta.js:199 / model.js:137
   subDocumentStatus: "Document Status",
   subAmendedFrom: "Amended From",
-  // workflow.py:300-328 print_workflow_log
-  subWorkflowStatus: "Workflow Status",
+  // workflow.py:309-328 print_workflow_log (Frappe: "Workflow Status"; DS terminology: Lifecycle)
+  subWorkflowStatus: "Lifecycle Status",
   subFailedTransactions: "Failed Transactions",
   subSuccessfulTransactions: "Successful Transactions",
 };
@@ -45,7 +46,7 @@ export const submitAr: { [K in keyof typeof submitEn]: string } = {
   subCannotEditCancelled: "لا يمكنك التعديل على وثيقة ملغية",
   // ar.po: "حالة المستند غير القانوني لـ {0}" (ungrammatical) — reworded
   subIllegalDocStatus: "حالة المستند غير مسموح بها لـ {0}",
-  subNotValidWorkflowAction: "ليس إجراء سير عمل صالح",
+  subNotValidWorkflowAction: "ليس إجراء دورة حياة صالحًا",
   subWfCancelledRow: "لا يمكن تغيير حالة المستند الملغى. صف الانتقال {0}",
   subWfSubmittedToDraftRow: "لا يمكن إعادة المستند المعتمد إلى مسودة. صف الانتقال {0}",
   subWfCancelBeforeSubmitRow: "لا يمكن الإلغاء قبل الاعتماد. راجع الانتقال {0}",
@@ -61,7 +62,7 @@ export const submitAr: { [K in keyof typeof submitEn]: string } = {
   subDocCancelled: "تم إلغاء المستند",
   subDocumentStatus: "حالة المستند",
   subAmendedFrom: "معدل من",
-  subWorkflowStatus: "حالة سير العمل",
+  subWorkflowStatus: "حالة دورة الحياة",
   subFailedTransactions: "المعاملات الفاشلة",
   subSuccessfulTransactions: "المعاملات الناجحة",
 };

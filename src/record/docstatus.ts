@@ -4,7 +4,7 @@
  * Workflow. Every rule cites Frappe 15.110:
  *  - `check_docstatus_transition` (model/document.py:880-915): 0→0 save, 0→1 submit, 1→1 update after submit,
  *    1→2 cancel; 1→0 and 0→2 refused; a cancelled document can never be saved again.
- *  - `apply_workflow` (model/workflow.py:131-146): the next state's `doc_status` decides save / submit / update / cancel;
+ *  - `apply_workflow` (model/workflow.py:129-146): the next state's `doc_status` decides save / submit / update / cancel;
  *    anything else is "Illegal Document Status for {0}".
  *  - `Workflow.validate_docstatus` (workflow/doctype/workflow/workflow.py:84-109): no transition out of a docstatus-2
  *    state, never 1→0, never 0→2 (design time).
@@ -49,7 +49,8 @@ export const SUBMIT_MESSAGE_TEXT: Record<SubmitMessageKey, string> = {
   subCannotDeleteSubmitted: "{0} {1}: Submitted Record cannot be deleted. You must Cancel it first.",
   subAlreadyAmended: "This document is already amended, you cannot ammend it again",
   subAmendNotCancelled: "{0} cannot be amended because it is not cancelled. Please cancel the document before creating an amendment.",
-  subNotValidWorkflowAction: "Not a valid Workflow Action",
+  /** Frappe: "Not a valid Workflow Action" — the DS's terminology says Lifecycle (P36b). */
+  subNotValidWorkflowAction: "Not a valid Lifecycle Action",
   subLinkExists: "Cannot delete or cancel because {0} {1} is linked with {2} {3}",
 };
 
@@ -95,12 +96,12 @@ export function docstatusTransition(from: DocStatus | undefined, to: DocStatus):
   return { ok: false, error: docMessage("subCannotSubmittedToDraft") };
 }
 
-/** What `apply_workflow` does for a transition into a state of docstatus `to` (workflow.py:131-146). */
+/** What `apply_workflow` does for a transition into a state of docstatus `to` (workflow.py:129-146). */
 export type WorkflowDocAction = "save" | "submit" | "update" | "cancel";
 export type WorkflowDocResult = { ok: true; action: WorkflowDocAction } | { ok: false; error: DocMessage };
 
 /**
- * `apply_workflow` (workflow.py:131-146): 0→0 `doc.save()` · 0→1 `doc.submit()` (mandatory fields checked) · 1→1
+ * `apply_workflow` (workflow.py:129-146): 0→0 `doc.save()` · 0→1 `doc.submit()` (mandatory fields checked) · 1→1
  * `doc.save()` (an update after submit: the state field is allow_on_submit, workflow.py:55-56) · 1→2 `doc.cancel()` ·
  * anything else → "Illegal Document Status for {next state}" (:145-146): 1→0, 0→2 and every move out of a cancelled doc.
  */
@@ -135,7 +136,7 @@ export function validateWorkflowDocstatus(states: readonly WorkflowStateDoc[], t
   return { errors, unknownStates };
 }
 
-/** The docstatus a Workflow state carries (`doc_status or 0`, workflow.py:131). */
+/** The docstatus a Workflow state carries (`doc_status or 0`, workflow.py:129). */
 export function stateDocStatus(states: readonly WorkflowStateDoc[], state: string): DocStatus {
   return asDocStatus(states.find((s) => s.state === state)?.docStatus);
 }
