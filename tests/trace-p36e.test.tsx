@@ -272,6 +272,32 @@ describe("P36E trace — what FrappeField does NOT do for its caller", () => {
   });
 });
 
+describe("P36E trace — a Link with NO server at all, through today's public override API", () => {
+  it("P36E.trace.13 FrappeFormServices overrides (searchLink / validateLink / getLinkTitle) + a bare QueryClientProvider: the Link searches, validates and titles from local data and fetches nothing", async () => {
+    const { FrappeFormServices } = await import("../src/frappe/form");
+    const people = [{ value: "ann@x.com", label: "Ann Xu" }, { value: "bob@x.com", label: "Bob Yo" }];
+    const local = {
+      searchLink: async (_dt: string, txt: string) => people.filter((p) => p.value.includes(txt) || p.label.toLowerCase().includes(txt.toLowerCase())),
+      validateLink: async (_dt: string, v: string) => ({ name: people.find((p) => p.value.toLowerCase() === v.toLowerCase())?.value ?? null, values: {} }),
+      getLinkTitle: async (_dt: string, name: string) => people.find((p) => p.value === name)?.label ?? null,
+      linkHref: () => undefined,
+    };
+    const log: unknown[] = [];
+    function L() {
+      const [v, setV] = React.useState<unknown>(null);
+      return <FrappeFormServices value={local}><FrappeField df={DF.Link} value={v} onChange={(x) => { log.push(x); setV(x); }} /></FrappeFormServices>;
+    }
+    const m = mountIn("c2", <L />);
+    const box = screen.getByRole("combobox", { name: "Owner" });
+    act(() => (box as HTMLInputElement).focus());
+    fireEvent.change(box, { target: { value: "bob" } });
+    fireEvent.click(await screen.findByRole("option", { name: /Bob Yo/ }, { timeout: 2000 }));
+    await waitFor(() => expect(log.at(-1)).toBe("bob@x.com"));
+    expect((screen.getByRole("combobox", { name: "Owner" }) as HTMLInputElement).value).toBe("Bob Yo");
+    expect(m.demanded()).toEqual([]);
+  });
+});
+
 // ---- showcase honesty: the inventory data equals FIELD-TYPES.md -------------------------------------------------------
 
 const FIELD_TYPES_MD = path.resolve(__dirname, "../docs/audit/p36d/FIELD-TYPES.md");
