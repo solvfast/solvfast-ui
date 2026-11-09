@@ -59,3 +59,15 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+
+/* P36d visual — focus colour. The glass engine's focus token is Sky (`--c-focus: var(--c-sky)`, upstream
+ * glass-ds/tokens.css:22) and paints the 2px outline of `.sf-glass:focus-visible`, `.sf-glass-elevated:focus-visible` and
+ * every native control in the scope (`:where(.sf-theme) :where(button, a, input, textarea, select, summary,
+ * [tabindex]):focus-visible`) — a cyan outline next to the primitives' `ring-ring` (violet in light, flame in dark), and
+ * often on top of it (glass Buttons got both). Inside the DS scope the focus token is the theme ring, so every keyboard
+ * focus indicator is the one Solvfast colour; the outline itself (2px, offset 2px) is kept. Links keep `--c-link`.
+ * Consumers that also load the upstream engine globally (its `:root` token + `:where(button…)` rule) inherit this
+ * value inside `.sf-theme` only; pages outside the scope are unchanged. */
+.sf-theme {
+  --c-focus: hsl(var(--ring));
+}

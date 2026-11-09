@@ -102,7 +102,7 @@ export function MonthInput({
             aria-labelledby={aria["aria-labelledby"]} aria-describedby={aria["aria-describedby"]}
             aria-invalid={invalid || undefined} aria-haspopup="dialog" data-value={sel ? toMonthValue(sel.y, sel.m) : undefined}
             className={cn(
-              "sf-field-fill flex h-9 w-full items-center justify-between gap-2 rounded-md px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+              "sf-field-fill flex h-9 w-full items-center justify-between gap-2 rounded-md px-3 text-sm outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
               clearable && sel && !disabled && "pe-9", invalid && FIELD_INVALID,
             )}
           >
