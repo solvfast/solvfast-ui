@@ -265,3 +265,17 @@ export type {
   PrintPageSpec, PrintOrientation, ComposePrintOptions, PrintHtmlOptions, PrintDocumentsDialogProps, PrintDocumentsValue, PrintOption,
   PrintViewProps, PrintViewDialogProps,
 } from "./record";
+
+// P36e submit — Frappe's docstatus rules as Frappe-free pure functions (src/record/docstatus.ts): check_docstatus_transition,
+// apply_workflow's docstatus step, Workflow.validate_docstatus, mandatory / update-after-submit checks, delete refusal,
+// amended names, and the indicator tooltip keys — for hosts that keep their own records (mock stores)
+export {
+  DOCSTATUS, SUBMIT_MESSAGE_TEXT, DOCSTATUS_LABEL_KEY, DOCSTATUS_TONE, DOCSTATUS_DESCRIPTION_KEY,
+  fillArgs, docMessage, formatDocMessage, toDocStatus, docstatusTransition, workflowDocAction, validateWorkflowDocstatus,
+  stateDocStatus, hasMandatoryValue, missingMandatory, isEditableAtDocstatus, updateAfterSubmitViolations, deleteRefusal,
+  amendedName, amendRefusal,
+} from "./record";
+export type {
+  DocStatus, DocMessage, SubmitMessageKey, DocstatusAction, DocstatusResult, WorkflowDocAction, WorkflowDocResult,
+  WorkflowStateDoc, WorkflowTransitionDoc, DocstatusField,
+} from "./record";

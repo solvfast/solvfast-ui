@@ -71,3 +71,14 @@ export { PrintDocumentsDialog, printPageOf, BACKGROUND_PRINT_ID } from "./PrintD
 export type { PrintDocumentsDialogProps, PrintDocumentsValue, PrintOption } from "./PrintDocumentsDialog";
 export { PrintView, PrintViewDialog } from "./PrintView";
 export type { PrintViewProps, PrintViewDialogProps } from "./PrintView";
+// P36e submit — Frappe's docstatus rules (submit / cancel / amend / update after submit / delete) as pure functions
+export {
+  DOCSTATUS, SUBMIT_MESSAGE_TEXT, DOCSTATUS_LABEL_KEY, DOCSTATUS_TONE, DOCSTATUS_DESCRIPTION_KEY,
+  fillArgs, docMessage, formatDocMessage, toDocStatus, docstatusTransition, workflowDocAction, validateWorkflowDocstatus,
+  stateDocStatus, hasMandatoryValue, missingMandatory, isEditableAtDocstatus, updateAfterSubmitViolations, deleteRefusal,
+  amendedName, amendRefusal,
+} from "./docstatus";
+export type {
+  DocStatus, DocMessage, SubmitMessageKey, DocstatusAction, DocstatusResult, WorkflowDocAction, WorkflowDocResult,
+  WorkflowStateDoc, WorkflowTransitionDoc, DocstatusField,
+} from "./docstatus";
