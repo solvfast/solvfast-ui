@@ -273,3 +273,13 @@ const p36bSocial = () => import("./pages/p36b-social");
   // the Frappe group is no longer the last one: PAGES keeps the navigation order (rebuilt from GROUPS, as above)
   PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
 }
+
+// P36e print — the Core print page and "Print Documents" dialog with a local renderer and browser printing (no server).
+{
+  const p36ePrint = () => import("./pages/p36e-print");
+  const group = GROUPS.find((g) => g.id === "components")!;
+  const page: Page = { id: "print-p36e", title: l("Print (browser)", "الطباعة (المتصفح)"), description: l("PrintView and PrintDocumentsDialog: Desk's print page and list Print Documents dialog for a host that renders locally; the preview is the exact document the browser prints (Save as PDF there).", "PrintView و PrintDocumentsDialog: صفحة الطباعة ونافذة «طباعة المستندات» في ديسك لمضيف يعرض محليًا؛ المعاينة هي المستند نفسه الذي يطبعه المتصفح (حفظ PDF هناك)."), Component: from(p36ePrint, "PrintP36ePage") };
+  group.pages.push(page);
+  PAGES.push({ ...page, group });
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}
