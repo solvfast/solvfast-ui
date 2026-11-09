@@ -192,9 +192,11 @@ describe("A34 Autocomplete (autocomplete.js)", () => {
   });
 });
 
+// P36e ftypes: Signature / Icon / Barcode / Geolocation now have controls (tests/ftypes-p36e.test.tsx); the raw read-only
+// fallback and the banner are exercised with app-defined custom fieldtypes.
 describe("A29-A31, A35, A44 fieldtypes without a control: reported, shown read-only", () => {
-  it("FV.A44 Signature / Geolocation / Barcode / Icon show the raw value read-only — no text box", () => {
-    for (const [ft, v] of [["Signature", "data:image/png;base64,AAA"], ["Geolocation", { type: "FeatureCollection", features: [] }], ["Barcode", "123"], ["Icon", "home"]] as const) {
+  it("FV.A44 a custom fieldtype shows the raw value read-only — no text box", () => {
+    for (const [ft, v] of [["My Signature", "data:image/png;base64,AAA"], ["My Map", { type: "FeatureCollection", features: [] }], ["My Code", "123"]] as const) {
       field({ fieldtype: ft, label: ft }, v);
       expect(screen.queryByRole("textbox"), ft).toBeNull();
       const el = document.querySelector(`[data-unsupported-fieldtype="${ft}"]`);
@@ -204,20 +206,21 @@ describe("A29-A31, A35, A44 fieldtypes without a control: reported, shown read-o
   });
   it("FV.A44 the form's banner lists them (parent and child DocTypes); supported types are not listed", () => {
     const bundle: MetaBundle = {
-      doctype: "Sig", children: { "Sig Row": { name: "Sig Row", istable: 1, fields: [{ fieldname: "geo", fieldtype: "Geolocation", label: "Where" }] } },
-      meta: { name: "Sig", fields: [{ fieldname: "title", fieldtype: "Data", label: "Title" }, { fieldname: "sign", fieldtype: "Signature", label: "Sign" }, { fieldname: "rows", fieldtype: "Table", options: "Sig Row", label: "Rows" }] },
+      doctype: "Sig", children: { "Sig Row": { name: "Sig Row", istable: 1, fields: [{ fieldname: "geo", fieldtype: "My Map", label: "Where" }] } },
+      meta: { name: "Sig", fields: [{ fieldname: "title", fieldtype: "Data", label: "Title" }, { fieldname: "sign", fieldtype: "My Signature", label: "Sign" }, { fieldname: "real_sign", fieldtype: "Signature", label: "Real" }, { fieldname: "rows", fieldtype: "Table", options: "Sig Row", label: "Rows" }] },
     };
     expect(analyzeFieldtypes(bundle)).toEqual([
-      { doctype: "Sig", fieldname: "sign", fieldtype: "Signature", label: "Sign" },
-      { doctype: "Sig Row", fieldname: "geo", fieldtype: "Geolocation", label: "Where" },
+      { doctype: "Sig", fieldname: "sign", fieldtype: "My Signature", label: "Sign" },
+      { doctype: "Sig Row", fieldname: "geo", fieldtype: "My Map", label: "Where" },
     ]);
     mount(<FrappeFormView bundle={bundle} doc={{ doctype: "Sig", name: "S-1", title: "x", sign: "data:x", rows: [] }} onSave={async (d) => d} guardUnload={false} />);
     const items = [...document.querySelectorAll("[data-fieldtype-issue]")].map((li) => li.getAttribute("data-fieldtype-issue"));
-    expect(items).toEqual(["Signature", "Geolocation"]);
-    expect(screen.getByRole("note").textContent).toContain('Sig.sign: the field type "Signature" has no control here');
+    expect(items).toEqual(["My Signature", "My Map"]);
+    expect(screen.getByRole("note").textContent).toContain('Sig.sign: the field type "My Signature" has no control here');
   });
   it("FV.A45 SUPPORTED_FIELDTYPES covers every type FrappeField dispatches", () => {
     for (const ft of ["Data", "Link", "Dynamic Link", "Select", "Autocomplete", "Table", "Table MultiSelect", "Attach Image", "Duration", "Rating", "Text Editor", "Read Only", "Button", "Fold"]) expect(SUPPORTED_FIELDTYPES.has(ft), ft).toBe(true);
-    for (const ft of ["Signature", "Geolocation", "Barcode", "Icon"]) expect(SUPPORTED_FIELDTYPES.has(ft), ft).toBe(false);
+    for (const ft of ["Signature", "Geolocation", "Barcode", "Icon"]) expect(SUPPORTED_FIELDTYPES.has(ft), ft).toBe(true); // P36e ftypes
+    for (const ft of ["My Signature", "My Map"]) expect(SUPPORTED_FIELDTYPES.has(ft), ft).toBe(false);
   });
 });
