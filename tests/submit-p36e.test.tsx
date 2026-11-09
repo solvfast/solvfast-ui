@@ -238,7 +238,6 @@ describe("P36E.submit — SIMULATED submit / cancel / amend / update after submi
 });
 
 // ---- the list indicator pill (FrappeListView): workflow state shown, docstatus in the title ------------------------------
-import * as React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { ThemeProvider } from "../src";
@@ -261,5 +260,21 @@ describe("P36E.submit — list indicator", () => {
     expect(screen.getByText("Rejected").getAttribute("title")).toBe("تم إلغاء المستند");
     rerender(<ThemeProvider language="en"><IndicatorCell row={{ name: "P-5", docstatus: 0, workflow_state: "Sent" }} config={cfg(false)} /></ThemeProvider>);
     expect(screen.getByText("Sent").getAttribute("title")).toBeNull();
+  });
+});
+
+// ---- Amend under a workflow (the package's FrappeForm amend): the local copy starts in the default draft state --------
+import { amendDoc } from "../src/frappe/form/model/copy";
+describe("P36E.submit — amend under a workflow", () => {
+  it("P36E.submit.17 amendDoc: amended_from set, the copied workflow state reset to the docstatus-0 default (form/workflow.js:58-62); without a workflow the copy keeps its values", () => {
+    const wfDocs = [
+      { doctype: "Workflow", name: "WF", document_type: "Sim Proposal", workflow_state_field: "workflow_state", is_active: 1,
+        states: [{ state: "Draft", doc_status: "0" }, { state: "Sent", doc_status: "1" }, { state: "Rejected", doc_status: "2" }], transitions: [] },
+    ];
+    const src = pdoc("P-4", 2, "Rejected");
+    const withWf = amendDoc({ meta: { ...PROPOSAL, __workflow_docs: wfDocs } as never, children: {} } as never, src);
+    expect(withWf).toMatchObject({ amended_from: "P-4", workflow_state: "Draft", docstatus: 0, client_name: "C P-4" });
+    const noWf = amendDoc({ meta: PROPOSAL, children: {} } as never, src);
+    expect(noWf.workflow_state).toBe("Rejected"); // copy_doc copies no_copy fields on amend (create_new.js:281-292)
   });
 });

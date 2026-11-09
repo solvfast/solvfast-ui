@@ -17,6 +17,7 @@
 import type { DocTypeMeta, FrappeDoc, MetaBundle } from "../../contract";
 import { TABLE_TYPES, newLocalName } from "./fieldtypes";
 import { applyDefaults, newChildRow, todayString, type DefaultsContext } from "./defaults";
+import { defaultState, workflowFromMeta } from "../../record/workflow";
 
 // lft / rgt: create_new.js:316-317 resets them (tree DocTypes), so they are never copied
 const SKIP = new Set(["name", "amended_from", "amendment_date", "cancel_reason", "docstatus", "owner", "creation", "modified", "modified_by", "idx", "lft", "rgt"]);
@@ -77,5 +78,11 @@ export const canAmend = (meta: DocTypeMeta) => (meta.fields ?? []).some((f) => f
 export function amendDoc(bundle: MetaBundle, doc: FrappeDoc, opts: { user?: string; defaults?: DefaultsContext } = {}): FrappeDoc {
   if (!canAmend(bundle.meta)) throw new Error(`${bundle.meta.name} has no "amended_from" field`);
   const hasDate = (bundle.meta.fields ?? []).some((f) => f.fieldname === "amendment_date");
-  return { ...copyDoc(bundle, doc, { fromAmend: true, user: opts.user, defaults: opts.defaults }), amended_from: doc.name, ...(hasDate ? { amendment_date: todayString() } : {}) };
+  const copy: FrappeDoc = { ...copyDoc(bundle, doc, { fromAmend: true, user: opts.user, defaults: opts.defaults }), amended_from: doc.name, ...(hasDate ? { amendment_date: todayString() } : {}) };
+  // P36e submit: copy_doc copies no_copy fields when amending (create_new.js:281-292) — the workflow state too ("Rejected");
+  // Desk's form then sets the default state of docstatus 0 on the local document (form/workflow.js:58-62 → 143-151,
+  // frappe.workflow.get_default_state). Without it the amendment would be saved as a draft in a cancelled state.
+  const wf = workflowFromMeta(bundle.meta as DocTypeMeta & { __workflow_docs?: unknown });
+  const state = wf ? defaultState(wf, 0) : undefined;
+  return wf && state ? { ...copy, [wf.workflow_state_field]: state } : copy;
 }
