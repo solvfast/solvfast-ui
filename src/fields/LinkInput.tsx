@@ -20,6 +20,15 @@
  *  - Height: the box is the DS field height (`sf-field-fill` + `h-9`, 36 px), like Input / Select / DateField.
  *  - `selectedIndicator`: the current value's row carries a check mark and `aria-selected="true"`.
  *  - `selectedValue`, `emptyText`, `searchPlaceholder`, `keepValueWhenEmptied`: see the props.
+ *
+ * P36d — owner decision (P36c item 7): three keyboard improvements are the DEFAULT in every mode (before: picker mode only):
+ *  - the highlighted row is kept scrolled into view (`block: "nearest"`) while arrowing through a long list;
+ *  - while an input method editor (IME) is composing (`isComposing`, or keyCode 229 on Safari's final Enter), every key
+ *    belongs to the IME: Enter does not pick or commit, arrows do not move the highlight;
+ *  - Escape restores the previously shown value (drops what was typed) and closes the list — also in a browser, where the
+ *    popover's document-level Escape listener closes the list before the input sees the key, and when the list is already
+ *    closed. Difference from Desk: Desk's Link (Awesomplete) only closes the list on Escape and keeps the typed text for
+ *    blur validation; the owner chose the restore.
  */
 import * as React from "react";
 import { ArrowUpRight, ChevronDown, X } from "lucide-react";
@@ -142,9 +151,10 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
     <SuggestionList
       selectedValue={selectedIndicator ? (selectedValue !== undefined ? selectedValue : (value ?? null)) : undefined}
       emptyText={emptyText}
-      scrollActiveIntoView={selectLike || selectedIndicator}
-      // Escape restores the shown value (the popover's own Escape listener closes the list first in a browser)
-      onEscape={selectLike ? () => setDraft(null) : undefined}
+      // P36d default: keep the highlighted row in view (was picker mode / selectedIndicator only)
+      scrollActiveIntoView
+      // P36d default: Escape restores the shown value (the popover's own Escape listener closes the list first in a browser)
+      onEscape={() => setDraft(null)}
       open={sugg.open && editable}
       onDismiss={sugg.close}
       listId={listId}
@@ -184,9 +194,12 @@ export const LinkInput = React.forwardRef<HTMLInputElement, LinkInputProps>(func
             onBlur={() => { sugg.close(); if (editable) commitText(); onBlur?.(); }}
             onKeyDown={(e) => {
               if (!editable) return;
+              // P36d default: an IME composition's keys (Enter / arrows / Escape) belong to the IME, in every mode
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+              // P36d default: Escape on a CLOSED list with typed text restores the shown value (an open list's Escape is
+              // handled below / by the popover). Not prevented, so an enclosing dialog still gets its Escape.
+              if (e.key === "Escape" && !sugg.open && draft != null) { setDraft(null); return; }
               if (selectLike) {
-                // an IME composition's Enter / arrows belong to the IME
-                if (e.nativeEvent.isComposing) return;
                 // P36c: every keyboard open (Enter / ArrowDown / Space) selects the shown text, like a click, so typing
                 // replaces it and searches afresh (the SearchableSelect it replaces reopened into an empty search box);
                 // before, Enter / ArrowDown left the caret after the label and typing appended to it ("Enterprise dealsSMB").

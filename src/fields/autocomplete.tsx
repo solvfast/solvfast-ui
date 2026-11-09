@@ -190,7 +190,11 @@ export function SuggestionList({
         className="w-[--radix-popover-trigger-width] min-w-[14rem] max-w-[90vw] p-1"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
-        onEscapeKeyDown={onEscape ? () => onEscape() : undefined}
+        // P36d: Escape that ends an IME composition belongs to the IME — the list stays open and nothing is restored
+        onEscapeKeyDown={(e) => {
+          if (e.isComposing || e.keyCode === 229) { e.preventDefault(); return; }
+          onEscape?.();
+        }}
         onInteractOutside={(e) => { if (anchorRef.current?.contains(e.target as Node)) e.preventDefault(); }}
       >
         <div id={listId} role="listbox" className="max-h-72 overflow-y-auto" aria-busy={status === "loading" || undefined}>
