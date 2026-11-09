@@ -650,7 +650,7 @@ import { FrappeField, FrappeLocalForm, type LocalLinkSource } from "@solvfast/ui
 
 const source: LocalLinkSource = (doctype) =>
   doctype === "Serve Fast Organization"
-    ? { rows: orgs.map((o) => ({ name: o.id, company_name: o.name })), meta: { title_field: "company_name", show_title_field_in_link: 1, search_fields: "company_name" } }
+    ? { rows: () => orgs.map((o) => ({ name: o.id, company_name: o.name })), meta: { title_field: "company_name", show_title_field_in_link: 1, search_fields: "company_name" } }
     : undefined;
 
 <FrappeLocalForm source={source} translations={dict}>
