@@ -96,8 +96,29 @@ Classes:
 
 Totals:
 - 43 DocField types, plus Long Int and Page Break, plus 6 Data options: 51 rows.
-- Status of the 43 DocField types: **22 COMPLETE · 17 PARTIAL · 4 MISSING**.
-- Data options: Email and Phone are COMPLETE; Name, URL, Barcode and IBAN are PARTIAL.
+- Status of the 43 DocField types: **15 COMPLETE · 24 PARTIAL · 4 MISSING**.
+- Data options: 0 COMPLETE · 6 PARTIAL (Email, Name, Phone, URL, Barcode, IBAN).
+- P36e (agent T) re-graded every row against `controls/*.js`; the P36d counts were 22 · 17 · 4 and Email / Phone COMPLETE.
+  See "P36e corrections" below and `docs/audit/p36d/FRAPPEFIELD-TRACE.md` §D.
+
+## P36e corrections (agent T, 0.7.0-dev.5 @ 844cd2e)
+
+Status corrections only; the per-row text below is otherwise P36d's. The full re-grade, with the native file:line for
+each row and every gap of every PARTIAL row, is `docs/audit/p36d/FRAPPEFIELD-TRACE.md` §D. **The `FF:N` line numbers in
+this file are from 6ea5eb9 and are stale** (agent C's P36d changes moved them); the trace cites 844cd2e.
+
+| Row | Was | Now | Why (native) |
+|---|---|---|---|
+| FT-01 Data | COMPLETE | PARTIAL | No duplicate-name check on the `autoname: field:` / `__newname` input (`controls/data.js:189-227`, a validation message); no `with_copy_button` (`:130-144`). The paste warning and `maxlength` now exist (FF:212-218 at 844cd2e). |
+| FT-01a Data (Email), FT-01c Data (Phone) | COMPLETE | PARTIAL | The option's own check is Desk's verbatim (FF:88-116), but a Data option is still `ControlData`: FT-01's gaps apply. The DS input is `type="text"` (FF:355), not `email` / `tel` as this file's matrix says. |
+| FT-01b Data (Name) | PARTIAL | PARTIAL | Unchanged status, new reason: the Name soft check now exists (FF:90, 113); only FT-01's gaps remain. |
+| FT-14 Link | COMPLETE | PARTIAL | No Advanced Search (`controls/link.js:165-174, 347-360`), no filter description (`:309-320`), no translation of values of translated DocTypes (`:111-116`). |
+| FT-15 Dynamic Link | COMPLETE | PARTIAL | FT-14's gaps; a Single target is not refused (`controls/dynamic_link.js:26-28`). |
+| FT-19 Float | COMPLETE | PARTIAL | Float with `options` uses the currency's number format for input (`controls/float.js:15-20`), the gap already counted against Currency. |
+| FT-36 Table | COMPLETE | PARTIAL | Paste from a spreadsheet (`controls/table.js:19-117`); P35 A-form §G lists drag reorder (G4) PARTIAL and grid Download / Upload (G9) MISSING. |
+| FT-37 Table MultiSelect | COMPLETE | PARTIAL | A ControlLink: its list has "Create a new" / Advanced Search (`controls/link.js:323-360`), missing here; the field's `link_filters` / `filters` are not applied (FTMS:306-316). |
+| FT-39 Column Break | COMPLETE | PARTIAL | `column.js:22-36` renders the column's label and description; FFV:741 renders neither. |
+| FT-24 Date / FT-25 Datetime | PARTIAL | PARTIAL | New gaps (844cd2e, `primitives/date-time-field.tsx:122-170`): no typed entry (a calendar button) and **a value cannot be cleared** (native: a text input, `''` → null, `controls/date.js:156-179`). |
 
 ## 2. Summary matrix
 
@@ -106,10 +127,10 @@ FF shows a FrappeField dispatch line. The "Core" column is the framework-free co
 
 | FT | P35 | Type | Class | Native control | Formatter | Server validation | DS Core | DS Frappe | Status | Proof (tests) |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FT-01 | A1 | Data | input | `controls/data.js:3-321` | `formatters.js:36` | length `bd:981-1014`; options `bd:922-955` | `<input>` + `FIELD_INPUT` (`fields/FieldShell.tsx`) | `FF:315-324` (DebouncedText `FF:96-118`) | COMPLETE | `t/ft` "FV.A19 … A1 Data honours the placeholder"; `t/p36d` P36D.fieldtypes.2 |
-| FT-01a | — | Data (Email) | input | `controls/data.js:293-306` → `datatype.js:41` | `formatters.js:36` (plain) | `bd:936-940` → `utils:166` (`split_emails` `utils:209`) | `type=email` | `FF:86-89` soft check, `FF:316` | COMPLETE | `t/ff` "dispatches fieldtypes; Read shows formatted text…" (Email `aria-invalid`); P36D.fieldtypes.2 |
+| FT-01 | A1 | Data | input | `controls/data.js:3-321` | `formatters.js:36` | length `bd:981-1014`; options `bd:922-955` | `<input>` + `FIELD_INPUT` (`fields/FieldShell.tsx`) | `FF:315-324` (DebouncedText `FF:96-118`) | PARTIAL (P36e) | `t/ft` "FV.A19 … A1 Data honours the placeholder"; `t/p36d` P36D.fieldtypes.2 |
+| FT-01a | — | Data (Email) | input | `controls/data.js:293-306` → `datatype.js:41` | `formatters.js:36` (plain) | `bd:936-940` → `utils:166` (`split_emails` `utils:209`) | `type=email` | `FF:86-89` soft check, `FF:316` | PARTIAL (P36e) | `t/ff` "dispatches fieldtypes; Read shows formatted text…" (Email `aria-invalid`); P36D.fieldtypes.2 |
 | FT-01b | — | Data (Name) | input | `controls/data.js:290-292` → `datatype.js:49` | `formatters.js:36` | `bd:942-943` → `utils:147` (`PERSON_NAME_PATTERN` `utils:38`) | text | `FF:315-324` (no soft check) | PARTIAL | P36D.fieldtypes.2 (round-trip only) |
-| FT-01c | — | Data (Phone) | input | `controls/data.js:287-289` → `datatype.js:45` | `formatters.js:36` | `bd:945-946` → `utils:128` (`PHONE_NUMBER_PATTERN` `utils:37`) | `type=tel` | `FF:90` (the same pattern), `FF:316` | COMPLETE | P36D.fieldtypes.2 |
+| FT-01c | — | Data (Phone) | input | `controls/data.js:287-289` → `datatype.js:45` | `formatters.js:36` | `bd:945-946` → `utils:128` (`PHONE_NUMBER_PATTERN` `utils:37`) | `type=tel` | `FF:90` (the same pattern), `FF:316` | PARTIAL (P36e) | P36D.fieldtypes.2 |
 | FT-01d | — | Data (URL) | input | `controls/data.js:70-72, 81-122, 307-309` → `datatype.js:53` | `formatters.js:37-40` (a link) | `bd:948-952` → `utils:222` | `type=url` | `FF:91` soft check | PARTIAL | P36D.fieldtypes.2 |
 | FT-01e | — | Data (Barcode) | input | `controls/data.js:73-75, 146-173` (scan button) | `formatters.js:36` | none | text | `FF:315-324` | PARTIAL | P36D.fieldtypes.2 |
 | FT-01f | — | Data (IBAN) | input | `controls/data.js:76-78, 124-128, 268-278` | `formatters.js:41-44` | `bd:954-955` → `utils:252` | text | `FMT:388-391` (display only) | PARTIAL | P36D.fieldtypes.2 |
@@ -125,12 +146,12 @@ FF shows a FrappeField dispatch line. The "Core" column is the framework-free co
 | FT-11 | A22 | Read Only | input (read) | `controls/data.js:323`; Read by `perm.js:258` / `controls/base_control.js:68` | Data | cast to str `bd:406-407` | `fields/ReadOnlyValue.tsx` | `ST:22`, `FF:220-228` | COMPLETE | `t/ft` "FV.A22 Read Only shows the formatted value…"; P36D.fieldtypes.13 |
 | FT-12 | A3 | Select | input | `controls/select.js:1-110` (`set_options` :61-89, `sort_options` :81, `add_options` :111) | `formatters.js:52` (translated) | value ∈ options `bd:892-920` | `primitives/select.tsx` (Radix) | `FF:268-281` | PARTIAL | `t/ft` "FV.A3 Select: newline options…"; P36D.fieldtypes.4 |
 | FT-13 | A34 | Autocomplete | input | `controls/autocomplete.js:1-244` (`parse_options` :147-166, `validate` :132-145, `get_query` :169-232) | `formatters.js:49` | none (varchar) | `fields/LinkInput.tsx` + `autocomplete.tsx` | `FF:123-158, 303-304` | PARTIAL | `t/ft` "FV.A34 …" ×3; P36D.fieldtypes.4 |
-| FT-14 | A2 | Link | integration | `controls/link.js:10-853` (search :206-475, validate + fetch :701-765, new :175-205 / :323-336, advanced search :165-174) | `formatters.js:167-219` | `get_invalid_links` `bd:787-867`; fetch `bd:869-890` | `fields/LinkInput.tsx` | `FLF`; `FF:233-241` | COMPLETE | `t/ff` "searches search_link 500 ms…", "R1-F11…"; `tests/linkinput-p36b/p36c` P36B/P36C.linkinput.*; P36D.fieldtypes.8 |
-| FT-15 | A25 | Dynamic Link | integration | `controls/dynamic_link.js:1-32` (`get_options` → `doc[df.options]`) | as Link (`formatters.js:424-428`) | `bd:806-810` (DocType must be set) | LinkInput | `FLF` (FrappeDynamicLinkField); `FF:240` | COMPLETE | `t/ff` "standalone Dynamic Link searches the DocType in the sibling field…"; P36D.fieldtypes.9 |
+| FT-14 | A2 | Link | integration | `controls/link.js:10-853` (search :206-475, validate + fetch :701-765, new :175-205 / :323-336, advanced search :165-174) | `formatters.js:167-219` | `get_invalid_links` `bd:787-867`; fetch `bd:869-890` | `fields/LinkInput.tsx` | `FLF`; `FF:233-241` | PARTIAL (P36e) | `t/ff` "searches search_link 500 ms…", "R1-F11…"; `tests/linkinput-p36b/p36c` P36B/P36C.linkinput.*; P36D.fieldtypes.8 |
+| FT-15 | A25 | Dynamic Link | integration | `controls/dynamic_link.js:1-32` (`get_options` → `doc[df.options]`) | as Link (`formatters.js:424-428`) | `bd:806-810` (DocType must be set) | LinkInput | `FLF` (FrappeDynamicLinkField); `FF:240` | PARTIAL (P36e) | `t/ff` "standalone Dynamic Link searches the DocType in the sibling field…"; P36D.fieldtypes.9 |
 | FT-16 | A7 | Check | input | `controls/check.js:1-45` | `formatters.js:163` | `cint` → 0/1 `bd:394-395, 725-726` | `primitives/checkbox.tsx` | `FF:221, 266-267` | COMPLETE | `t/ft` "FV.A28 … A7 Check writes 0/1"; P36D.fieldtypes.4 |
 | FT-17 | A8 | Int | input | `controls/int.js:1-43` (expressions :17-39, select on focus :9-12) | `formatters.js:83` | `cint` `bd:397-398`; int range `bd:1004-1012`; `non_negative` `doc:656-676` | `fields/NumberInput.tsx` (kind int) | `FF:83, 244-254` | COMPLETE | `t/ft` "FV.A8 / A9 / A10 / A11 numbers…"; `t/fld` "evaluates arithmetic…"; P36D.fieldtypes.3 |
 | FT-18 | A8 | Long Int | input | `controls/int.js:45` | Int | bigint `mariadb:176`, `bd:1004-1012` | NumberInput | `FF:83` | COMPLETE (not a DocField option) | P36D.fieldtypes.3 |
-| FT-19 | A9 | Float | input | `controls/float.js:1-27` (precision :22-26, number format :15-20) | `formatters.js:55-82` | `flt` `bd:403-404, 732-733`; precision 1-6 `dt:1372-1378` | NumberInput (kind float) | `FF:244-254` | COMPLETE | `t/ft` FV.A8-A11; P36D.fieldtypes.3 |
+| FT-19 | A9 | Float | input | `controls/float.js:1-27` (precision :22-26, number format :15-20) | `formatters.js:55-82` | `flt` `bd:403-404, 732-733`; precision 1-6 `dt:1372-1378` | NumberInput (kind float) | `FF:244-254` | PARTIAL (P36e) | `t/ft` FV.A8-A11; P36D.fieldtypes.3 |
 | FT-20 | A10 | Currency | input | `controls/currency.js:1-15` (currency precision) | `formatters.js:123-162` | `flt`; `non_negative` | NumberInput (kind currency) | `FF:244-254`; display `FMT:357-361` | PARTIAL | `t/ft` FV.A8-A11; P36D.fieldtypes.3 |
 | FT-21 | A11 | Percent | input | `controls/float.js:28` | `formatters.js:93-103` | `flt` | NumberInput (kind percent) | `FF:83` | COMPLETE | `t/ft` FV.A8-A11; P36D.fieldtypes.3 |
 | FT-22 | A27 | Rating | input | `controls/rating.js:1-117` (half stars :45-94, display :98-113) | `formatters.js:104-122` | clamped 0..1 `doc:678-685`; options 3..10 `dt:1635-1638`; `decimal(3,2)` | `fields/Rating.tsx` (`allowHalf` default true :28) | `FF:223, 294-298` (stored fraction) | COMPLETE | `t/ft` "FV.A27 Rating stores a 0…1 fraction…"; `t/fld` "Rating: click sets…"; P36D.fieldtypes.6 |
@@ -147,10 +168,10 @@ FF shows a FrappeField dispatch line. The "Core" column is the framework-free co
 | FT-33 | A31 | Barcode | integration | `controls/barcode.js:1-79` (JsBarcode; STORES the `<svg data-barcode-value>` :14-42) | Data fallback | not sanitized `bd:1117`; `longtext` | — | `FF:193-196` | MISSING | same |
 | FT-34 | A30 | Geolocation | integration | `controls/geolocation.js:1-258` (Leaflet + draw; GeoJSON FeatureCollection) | Data fallback | `longtext` | — | `FF:193-196` | MISSING | same |
 | FT-35 | A35 | Icon | input | `controls/icon.js:1-101` (picker over the sprite's `icon-*` symbols) | `formatters.js:398-405` | — | — | `FF:193-196` | MISSING | same |
-| FT-36 | A23 | Table | composite | `controls/table.js:1-158` → `form/grid.js` (paste from a spreadsheet :19-117) | — (no value) | rows validated as child docs; mandatory "Data missing in table" `bd:742-745` | `fields/DataGrid.tsx` | `FCT`; `FF:205-211` | COMPLETE (grid gaps: P35 §G) | `t/ff` "Contact: Add Row…", "table events…"; P36D.fieldtypes.11 |
-| FT-37 | A24 | Table MultiSelect | composite | `controls/table_multiselect.js:1-179` (first Link field :148-157; validate :84-121) | `formatters.js:378-389` | as Table | (pills) | `FTMS`; `FF:212-217` | COMPLETE | `t/ff` "adds rows for picked values…"; P36D.fieldtypes.11 |
+| FT-36 | A23 | Table | composite | `controls/table.js:1-158` → `form/grid.js` (paste from a spreadsheet :19-117) | — (no value) | rows validated as child docs; mandatory "Data missing in table" `bd:742-745` | `fields/DataGrid.tsx` | `FCT`; `FF:205-211` | PARTIAL (P36e) | `t/ff` "Contact: Add Row…", "table events…"; P36D.fieldtypes.11 |
+| FT-37 | A24 | Table MultiSelect | composite | `controls/table_multiselect.js:1-179` (first Link field :148-157; validate :84-121) | `formatters.js:378-389` | as Table | (pills) | `FTMS`; `FF:212-217` | PARTIAL (P36e) | `t/ff` "adds rows for picked values…"; P36D.fieldtypes.11 |
 | FT-38 | — | Section Break | layout | `layout.js:182-184` (`make_section`), `form/section.js` | — | — | — | `LY:24, 31-60`; collapsible `FFV:735-760` | COMPLETE | `tests/frappe-form-model.test.tsx` "inserts a Details tab…", "collapsible sections…"; `tests/frappe-form-p35.test.tsx` "FV.B4…"; P36D.fieldtypes.12 |
-| FT-39 | — | Column Break | layout | `layout.js:185-187` (`make_column`) | — | — | — | `LY:31-60` | COMPLETE | same |
+| FT-39 | — | Column Break | layout | `layout.js:185-187` (`make_column`) | — | — | — | `LY:31-60` | PARTIAL (P36e) | same |
 | FT-40 | — | Tab Break | layout | `layout.js:188-190` (`make_tab`), a "Details" tab first :150-170 | — | — | — | `LY:31-60` | COMPLETE | `t/ff` "Event: a Details tab first…"; P36D.fieldtypes.12 |
 | FT-41 | A40 | Fold | layout | `layout.js:175-177, 270-295` ("Show more details" / "Hide details") | — | one Fold, before a Section Break `dt:1416-1427` | — | treated as a Section Break `LY:24` | PARTIAL | P36D.fieldtypes.12 |
 | FT-42 | A39 | Heading | display | `controls/heading.js:1-5` (ControlHTML with the label) | — | — | `<h4>` | `FF:200` | COMPLETE | `t/ft` "FV.A36 … A39 Heading is a heading"; P36D.fieldtypes.12 |
@@ -395,13 +416,15 @@ missing from the DS. "→ C" marks a gap in `src/fields` / `src/frappe/form` tha
 **FT-15 Dynamic Link.**
 - `options` = the fieldname of the sibling DocType field (`controls/dynamic_link.js:2-30`). It searches that DocType.
 - Server: `"{0} must be set first"` (`bd:806-810`).
-- DS: `FrappeDynamicLinkField`; no search while the DocType is empty. Complete.
+- DS: `FrappeDynamicLinkField`; no search while the DocType is empty. PARTIAL (P36e): the Link gaps of FT-14, and a
+  Single DocType target is not refused (`controls/dynamic_link.js:26-28`).
 
 **FT-37 Table MultiSelect.**
 - The child DocType's first Link field (`controls/table_multiselect.js:148-157`).
 - Validation (:84-121): drop an empty or duplicate last value, and `validate_link` the new one.
 - Formatter `formatters.js:378-389`.
-- DS: `FTMS` (`FF:212-217`). Complete. `<table>_add` does not fire, as in Desk.
+- DS: `FTMS` (`FF:212-217`). PARTIAL (P36e): no "Create a new" / Advanced Search entries (TMS is a ControlLink,
+  `controls/link.js:323-360`); the field's `link_filters` / `filters` are not applied. `<table>_add` does not fire, as in Desk.
 
 ### Numbers
 
@@ -421,7 +444,8 @@ missing from the DS. "→ C" marks a gap in `src/fields` / `src/frappe/form` tha
 - `flt(value, precision)`, with precision from `df.precision`, else `float_precision` (`controls/float.js:22-26`).
 - Number format from the field currency only when `options` is set (:15-20).
 - `dt:1372-1378`: precision must be 1..6.
-- DS: `FF:246-249`. Read through `FMT:338-356`. Complete.
+- DS: `FF:246-249`. Read through `FMT:338-356`. Percent: COMPLETE. Float: PARTIAL (P36e) — with `options` Desk formats
+  the input in that currency's number format (`controls/float.js:15-20`); the DS always uses the system format.
 
 **FT-20 Currency.**
 - Precision: `df.precision`, else `currency_precision`, else the number format's (`controls/currency.js:2-14`).
@@ -527,7 +551,9 @@ missing from the DS. "→ C" marks a gap in `src/fields` / `src/frappe/form` tha
   - a label and a description;
   - `hide_border`.
 - A "Details" tab is inserted when the first field is not a Tab Break (`layout.js:150-170`).
-- DS: `LY:31-60`; `FFV:735-760` (collapsible, forced open by a missing mandatory field). Complete.
+- DS: `LY:31-60`; `FFV:735-760` (collapsible, forced open by a missing mandatory field). Section and Tab Break COMPLETE
+  (cosmetic gaps: `hide_border`, the remembered collapse state `section.js:13-19`, Tab Break `show_dashboard`). Column
+  Break PARTIAL (P36e): its `label` and `description` are not rendered (`column.js:22-36`).
 
 **FT-41 Fold.**
 - Everything after it sits behind "Show more details" / "Hide details" (`layout.js:270-295`).
