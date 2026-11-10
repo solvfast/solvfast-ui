@@ -6,6 +6,31 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+Additive: nothing changes for a consumer that does not use the new components. jsdom tests only; no real-site run.
+
+**Families** (Sayr's inheritance: a parent, a type registry, one DocType per type) — docs/components/family.md
+- Core `FamilyTabs`: the Records | Types tabs above a family's pages; `records={false}` shows Types alone.
+- Frappe `FrappeNewFamilyRecord`: the type first (enabled types with a DocType, both names), then that type's form in one
+  list (Tab Breaks left out), Cancel / Create; changing the type after filling fields asks first.
+- Frappe `FrappeFamilyRecord`: a record opened from its parent row, in its type's DocType.
+- Frappe `FrappeTypeForm`: the registry's form, Configuration (Linked Lifecycle, SLA Policy, Assignment Profile) shown
+  by default or hidden with `configuration={false}`; a `designer` slot under a saved type.
+- `FamilyDescriptor` (field names per family, Sayr's by default), `useFamilyTypes`, `useFamilyRecord`,
+  `fetchFamilyTypes`, `fetchFamilyRecord`, `SAYR_CONFIGURATION_FIELDS`. Stock methods only (`getdoctype`, `get_list`).
+- Messages `famRecords` … `famNotFound` (en + ar).
+
+**A type's Form section** (placement only) — docs/components/family.md §7–8
+- Core `FieldDesigner` over a `FieldDesignerAdapter`: tabs → sections → columns; standard fields locked, shared ones
+  movable, a field set's fields movable and removable; Add fields (from a published set, as a new section or into one),
+  Add tab, remove an added section or tab; moves by drag or by the up / down buttons (keyboard); Save form asks before
+  removing fields that hold values and before withdrawing every added field. Layout model ported from Sayr's Field Library
+  canvas (`toLayout`, `fromLayout`, `moveItem`, `stepItem`, `insertSectionAfter`, `appendTab`, `removeSection`,
+  `removeTab`, `previousId`, `kindOfFieldtype`). Messages `fdTitle` … `fdRecords` (en + ar).
+- **New entry `@solvfast/ui/sayr`** — the only one that calls Sayr's own methods: `SayrFieldDesigner`,
+  `createSayrFieldDesignerAdapter` (Sayr's `doctype_deployment`, `Sear Field Deployment` save, `save_field_order`,
+  `withdraw_deployment`, `deployment_removal_impact`), `sayrToken`. `check-boundaries` keeps core, `./frappe` and the
+  other entries from reaching it.
+
 ## 0.7.0-dev.7 — Sayr's Appearance and First Day of the Week
 
 Additive: nothing changes for a consumer that does not pass the new props. Ported from Sayr (sear_product), where these

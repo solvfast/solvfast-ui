@@ -4,6 +4,9 @@ An optional entry point that renders Frappe DocTypes — list, form, record pane
 whitelisted methods only** (no app-specific backend). The core package (`@solvfast/ui`) never imports it;
 `scripts/check-boundaries.mjs` enforces that on the source and on the built files.
 
+Sayr's own methods (sear_product) are called only from the separate entry `@solvfast/ui/sayr` (0.7.0-dev.8), which
+this layer never imports: see `docs/components/family.md` §8.
+
 ```tsx
 import { FrappeListView, FrappeForm } from "@solvfast/ui/frappe";
 

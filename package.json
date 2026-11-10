@@ -29,7 +29,8 @@
     "docs/components/views.md",
     "docs/components/p35-core.md",
     "docs/components/search.md",
-    "docs/components/frappe-field-types.md"
+    "docs/components/frappe-field-types.md",
+    "docs/components/family.md"
   ],
   "exports": {
     ".": {
@@ -55,6 +56,10 @@
     "./form": {
       "types": "./dist/form/index.d.ts",
       "import": "./dist/form/index.js"
+    },
+    "./sayr": {
+      "types": "./dist/sayr/index.d.ts",
+      "import": "./dist/sayr/index.js"
     },
     "./tailwind-preset": {
       "types": "./dist/tailwind-preset.d.cts",

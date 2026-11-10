@@ -155,3 +155,7 @@ export * from "./search";
 
 // P36d history — `deliveryStatusTone` and the FrappeTimeline / FrappeComments additions are exported through
 // `export * from "./record"` above (src/frappe/record/index.ts, `// P36d history` block).
+
+// Families — a family's screens over stock methods: new record of a type, a record from its parent row, a type's form
+// (docs/components/family.md)
+export * from "./family";

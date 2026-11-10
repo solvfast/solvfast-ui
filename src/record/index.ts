@@ -15,6 +15,14 @@ export type {
   LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels, LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
 } from "./LifecycleDiagram";
 export { LifecycleStepDot } from "./lifecycle-parts";
+// Families — the Records | Types tabs. docs/components/family.md
+export { FamilyTabs } from "./FamilyTabs";
+export type { FamilyTabsProps, FamilyTab, FamilyTabProps } from "./FamilyTabs";
+// Families — a type's Form section (placement only). docs/components/family.md §7
+export { FieldDesigner } from "./FieldDesigner";
+export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval } from "./FieldDesigner";
+export { toLayout, fromLayout, insertItem, moveItem, stepItem, locateField, insertSectionAfter, appendTab, removeSection, removeTab, previousId, kindOfFieldtype } from "./fieldLayout";
+export type { DesignerItem, DesignerKind, DropSlot, LayoutTab, LayoutSection, LayoutColumn } from "./fieldLayout";
 export { ActionBar } from "./ActionBar";
 export type { ActionBarProps, ActionBarLabels } from "./ActionBar";
 export { StatusBadge } from "./StatusBadge";

@@ -223,6 +223,11 @@ export type {
   LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels, LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels,
   LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
 } from "./record";
+// Families — the Records | Types tabs; the Frappe screens are in ./frappe. docs/components/family.md
+export { FamilyTabs } from "./record";
+export type { FamilyTabsProps, FamilyTab, FamilyTabProps } from "./record";
+export { FieldDesigner, toLayout as designerLayout, fromLayout as designerItems, previousId as designerPreviousId, kindOfFieldtype } from "./record";
+export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval, DesignerItem, DesignerKind } from "./record";
 export { EmptyState } from "./primitives/empty-state";
 export type { EmptyStateProps } from "./primitives/empty-state";
 export type { RichTextEditorHandle } from "./primitives/rich-text-editor";

@@ -1,0 +1,30 @@
+/** Chrome strings of the family screens (FamilyTabs, FrappeNewFamilyRecord, FrappeFamilyRecord, FrappeTypeForm). en + ar;
+ *  the ar object must have every en key. Each component also takes `labels` to word them for its family. */
+export const familyEn = {
+  famRecords: "Records",
+  famTypes: "Types",
+  famType: "Type",
+  famChooseType: "Choose a type",
+  famChooseTypeFirst: "Choose a type to see its fields",
+  famNoTypes: "There are no types yet. Add one under Types first.",
+  famSwitchWarn: "Changing the type removes the fields you filled. Change anyway?",
+  famSwitchConfirm: "Change",
+  famSwitchKeep: "Keep current type",
+  famCancel: "Cancel",
+  famCreate: "Create",
+  famNotFound: "This record was not found.",
+};
+export const familyAr: { [K in keyof typeof familyEn]: string } = {
+  famRecords: "السجلات",
+  famTypes: "الأنواع",
+  famType: "النوع",
+  famChooseType: "اختر النوع",
+  famChooseTypeFirst: "اختر النوع لعرض حقوله",
+  famNoTypes: "لا توجد أنواع بعد. أضف نوعًا من الأنواع أولًا.",
+  famSwitchWarn: "سيؤدي تغيير النوع إلى إزالة الحقول التي عبّأتها. هل تريد التغيير؟",
+  famSwitchConfirm: "تغيير",
+  famSwitchKeep: "إبقاء النوع الحالي",
+  famCancel: "إلغاء",
+  famCreate: "إنشاء",
+  famNotFound: "لم يُعثر على هذا السجل.",
+};

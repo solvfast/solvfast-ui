@@ -35,8 +35,12 @@ const RULES = {
   // 0.4.0: generic, Frappe-free controls and record pieces (core entry). They may use primitives, theme and lib only.
   fields: { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^recharts/, /^react-hook-form/, /^\.\.\/(shell|list|frappe|toast|chart|form|cards|record)/] },
   record: { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^recharts/, /^react-hook-form/, /^\.\.\/(shell|list|frappe|toast|chart|form|cards)/] },
+  // @solvfast/ui/sayr (0.7.0-dev.8): Sayr's own methods, over the Frappe client — never the shell or the List View
+  sayr: { deny: [/^@tanstack/, /react-router/, /^\.\.\/(shell|list|cards|toast|chart|form)/] },
   "index.ts": { deny: [/^@tanstack/, /^\.\/(frappe|toast|chart|form)/, /^sonner/, /^recharts/, /^react-hook-form/] },
 };
+// Nothing outside src/sayr may import it: core, ./frappe and the other entries stay free of Sayr's methods.
+for (const [a, rule] of Object.entries(RULES)) if (a !== "sayr") rule.deny.push(/^(\.\.\/)+sayr/, /^\.\/sayr/);
 for (const file of walk(path.join(root, "src")).filter((f) => /\.(ts|tsx)$/.test(f))) {
   const a = area(file);
   const rule = RULES[a];
@@ -63,7 +67,7 @@ if (fs.existsSync(path.join(dist, "index.js"))) {
       else if (/^(@tanstack\/|sonner|recharts|react-hook-form)/.test(spec)) problems.push(`dist: ${path.relative(dist, f)} imports ${spec}`);
     }
     if (path.relative(dist, f).split(path.sep)[0] === "frappe") problems.push(`dist: core entry reaches the Frappe layer (${path.relative(dist, f)})`);
-    for (const entry of ["toast", "chart", "form"]) if (path.relative(dist, f).split(path.sep)[0] === entry) problems.push(`dist: core entry reaches the ${entry} entry (${path.relative(dist, f)})`);
+    for (const entry of ["toast", "chart", "form", "sayr"]) if (path.relative(dist, f).split(path.sep)[0] === entry) problems.push(`dist: core entry reaches the ${entry} entry (${path.relative(dist, f)})`);
     if (/\/api\/(method|resource)|csrf/i.test(src)) problems.push(`dist: ${path.relative(dist, f)} references Frappe endpoints`);
   }
   console.log(`  core entry reaches ${seen.size} modules — none import @tanstack/*, sonner, recharts, react-hook-form, the Frappe layer or the toast / chart / form entries` + (problems.length ? " (see problems)" : ""));
@@ -104,7 +108,7 @@ if (fs.existsSync(path.join(dist, "index.js"))) {
         if (spec.startsWith(".")) eq.push(path.resolve(path.dirname(f), spec)); else npm.add(spec.split("/").slice(0, spec.startsWith("@") ? 2 : 1).join("/"));
       }
       const top = path.relative(dist, f).split(path.sep)[0];
-      if (["frappe", "shell", "list", "cards", "toast", "chart", "form"].filter((t) => t !== name).includes(top)) problems.push(`dist: the ${name} entry reaches ${top}/ (${path.relative(dist, f)})`);
+      if (["frappe", "shell", "list", "cards", "toast", "chart", "form", "sayr"].filter((t) => t !== name).includes(top)) problems.push(`dist: the ${name} entry reaches ${top}/ (${path.relative(dist, f)})`);
     }
     for (const o of others) if (npm.has(o)) problems.push(`dist: the ${name} entry imports ${o}`);
     if (!npm.has(peer)) problems.push(`dist: the ${name} entry does not import ${peer} (expected)`);
@@ -125,11 +129,14 @@ if (fs.existsSync(path.join(dist, "index.js"))) {
           if (spec.startsWith(".")) fq.push(path.resolve(path.dirname(f), spec)); else npm.add(spec.split("/").slice(0, spec.startsWith("@") ? 2 : 1).join("/"));
         }
         if (path.relative(dist, f).split(path.sep)[0] === "shell") problems.push(`dist: the Frappe entry reaches the shell (${path.relative(dist, f)})`);
+        if (path.relative(dist, f).split(path.sep)[0] === "sayr") problems.push(`dist: the Frappe entry reaches the Sayr entry (${path.relative(dist, f)})`);
         if (path.relative(dist, f).split(path.sep).slice(0, 2).join("/") === "frappe/testing") problems.push(`dist: the Frappe entry reaches the simulated backend (${path.relative(dist, f)}) — it ships only as @solvfast/ui/frappe/testing`);
       }
       console.log(`  frappe entry reaches ${fseen.size} modules; npm imports: ${[...npm].sort().join(", ")}`);
     }
   }
+  // the Sayr entry: built whenever src/sayr exists; never the shell or the List View
+  if (fs.existsSync(path.join(root, "src/sayr/index.ts")) && !fs.existsSync(path.join(dist, "sayr/index.js"))) problems.push("dist: src/sayr exists but dist/sayr/index.js was not built");
 } else {
   console.log("  (dist/ not built yet — source rules only)");
 }
