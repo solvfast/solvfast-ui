@@ -667,3 +667,43 @@ pending (see `docs/audit/p36/VALIDATION-MATRIX.md`).
   `composePrintDocument` + `printHtmlDocument`.
 - Do not offer server-only actions: PDF download, Full Page, Background Print as a server job. The browser's "Save as
   PDF" covers PDF.
+
+## 9. Lifecycle — the shared rail and diagram (CRM + Tickets)
+
+One lifecycle look for every record page. The package owns the visuals; the consumer owns its lifecycle model (states,
+transitions, roles, logs) and the graph engine for the diagram.
+
+### 8.1 `LifecycleRail` (`src/record/LifecycleRail.tsx`)
+
+| Prop | Type | Meaning |
+|---|---|---|
+| `path` | `LifecycleRailStep[]` (`{ id, label, meta?, metaTitle? }`) | States the record went through, oldest first; the **last** entry is the current state. Empty → renders nothing. |
+| `next` | `LifecycleRailNext[]` (`{ id, label, back?, disabled?, disabledReason? }`) | Ways forward from the current state. 1 → a dashed row on the line; ≥ 2 → one box under the current row. `back` = a move to a state already on the path (undo icon + "back" tag). `disabled` = shown, not available (`aria-disabled`, reason as tooltip). |
+| `ended` | `boolean` | No way forward: "End of lifecycle" (only when `next` is empty). |
+| `onViewAll` | `() => void` | Shows "View full lifecycle". |
+| `labels` | `{ back?, end?, viewAll?, current?, next? }` | Chrome strings. Default: the ThemeProvider's language (`lc*` messages, en / ar). **Pass them when rendering outside a ThemeProvider.** |
+
+### 8.2 Diagram pieces (`src/record/LifecycleDiagram.tsx`)
+
+- `LifecycleDiagramDialog` — `open`, `onOpenChange`, `title`, `subtitle?`, `children` (the canvas), `legendLabels?`, `closeLabel?`,
+  `dir?`. Solid themed surface (`bg-popover`), portalled into the ThemeProvider's element scope.
+- `LifecycleStateCard` — `label`, `meta?`, `kind: "done" | "current" | "future"`, `phase?: "open" | "on_hold" | "closed"`,
+  `currentLabel?`, `title?`, `style?`. A diagram node body (58 px high; the consumer sets the width).
+- `LifecycleEdgeLabel` — `label`, `taken?`. `LifecycleDiagramLegend` — `labels?`.
+- `LIFECYCLE_DIAGRAM_COLORS` — `{ taken, edge, grid }` as token-based CSS colours for SVG edges / markers / grid.
+- The graph engine and layout (e.g. React Flow + dagre) stay in the consumer: they are not package dependencies.
+
+### 8.3 One colour mapping, both themes (semantic tokens only)
+
+| Element | Token |
+|---|---|
+| Past / done dot, connector, card, "path taken" edge | `success` (card: `border-success/70` + `success/10` tint over `card`) |
+| Current dot, row, card, "Current" badge, View-full link | `primary` (row / card: `primary/10` tint; halo `ring-primary/20`) |
+| Future dot, dashed connectors | `muted-foreground/40` stroke on `background` (`/35` dashed) |
+| Back tag, options box | `border`, `muted`, `muted-foreground` |
+| Labels / meta | `foreground` / `muted-foreground` |
+| Skipped / failed (LifecycleBar) | dashed `muted-foreground/50` / `destructive` |
+| Phase icon (diagram) | open `info`, on hold `warning`, closed `success` |
+
+`LifecycleBar` (§2.5) uses the same dot and connector atoms (`LifecycleStepDot`): past states are `success` (was `primary`),
+the current label is `primary`, future connectors are dashed. Its API and `data-step` markup are unchanged.

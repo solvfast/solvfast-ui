@@ -6,7 +6,7 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-## 0.7.0-dev.6 (unreleased) — P36e FrappeField trace, field types, FrappeField without a server, Frappe-like print
+## 0.7.0-dev.6 — P36e FrappeField trace, field types, FrappeField without a server, Frappe-like print, docstatus, Lifecycle rail
 
 P36e follows up on the P36d Lead Details audit. Evidence comes from jsdom tests, the in-package SIMULATOR and Playwright
 runs on local CRM builds (mock data and simulated builds). **Nothing was validated on a real Frappe site**: the 96
@@ -72,6 +72,23 @@ prepared real-site tests are still Pending.
 
 **Tests:** `trace-p36e` (P36E.trace.*), `ftypes-p36e` (P36E.ftypes.1-19), `mock-p36e` (P36E.mock.1-10),
 `print-p36e` (P36E.print.1-11), `sim-validate-p36e` (P36E.sim.1-9), `submit-p36e` (P36E.submit.1-17).
+
+**Lifecycle — one shared rail + diagram look for CRM and Tickets** (another session's `feat/0.7.x/lifecycle-ds`, 954b084; first
+shipped to the CRM inside the vendored `0.7.0-dev.5-954b084` tarball, published here)
+
+**Added (core entry, Frappe-free)**
+- `LifecycleRail` — the record lifecycle card: past states, the current state, what can happen next (one dashed row, or a
+  box of options with back-moves tagged; optional `disabled` options), End of lifecycle, View full lifecycle. View model
+  props only (`path`, `next`, `ended`, `onViewAll`, `labels`).
+- `LifecycleDiagramDialog`, `LifecycleStateCard`, `LifecycleEdgeLabel`, `LifecycleDiagramLegend`, `LIFECYCLE_DIAGRAM_COLORS`
+  — the full-lifecycle diagram look; the consumer keeps its graph engine (React Flow + dagre in the CRM) and layout.
+- `LifecycleStepDot` — the shared dot atom. `lc*` chrome strings (en / ar).
+
+**Changed (intentional visual change)**
+- `LifecycleBar`: past steps and their connectors are `success` (were `primary`); the current label is `primary`;
+  connectors to unreached steps are dashed. API and `data-step` markup unchanged.
+
+Tests: `tests/lifecycle.test.tsx`. Docs: `docs/components/record.md` §9. Showcase: Record status, lifecycle & feed.
 
 ## 0.7.0-dev.5 (unreleased) — P36d CRM Lead Details audit + Frappe field parity
 

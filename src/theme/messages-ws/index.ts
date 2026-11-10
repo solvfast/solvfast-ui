@@ -16,6 +16,8 @@ import { ftypesEn, ftypesAr } from "./ftypes";
 import { printEn, printAr } from "./print";
 // P36e submit
 import { submitEn, submitAr } from "./submit";
+// Lifecycle (LifecycleRail / LifecycleDiagramDialog)
+import { lifecycleEn, lifecycleAr } from "./lifecycle";
 
-export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn };
-export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr };
+export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn };
+export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr };

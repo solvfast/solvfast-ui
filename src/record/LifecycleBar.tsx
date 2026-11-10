@@ -1,9 +1,9 @@
-import { Check, Minus, X } from "lucide-react";
 import { cn } from "../lib/cn";
 import { relativeTime } from "../lib/relative-time";
 import { useLocale } from "../theme/ThemeProvider";
 import { ActionBar, type ActionBarLabels } from "./ActionBar";
 import { StatusBadge } from "./StatusBadge";
+import { LifecycleStepDot, lifecycleConnectorClass } from "./lifecycle-parts";
 import type { LifecycleActionItem, LifecycleStateItem, LifecycleStep } from "./types";
 
 export interface LifecycleBarProps {
@@ -60,18 +60,10 @@ export function LifecycleBar({
             return (
               <li key={s.id} aria-current={isCur ? "step" : undefined} data-step={step}
                 className="relative flex gap-3 pb-3 last:pb-0">
-                {i < states.length - 1 ? <span aria-hidden className={cn("absolute bottom-0 top-5 w-px start-[9px]", past ? "bg-primary/40" : "bg-border")} /> : null}
-                <span className={cn("relative z-10 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-                  past && "bg-primary text-primary-foreground",
-                  failed && "bg-destructive text-destructive-foreground",
-                  isCur && (failed ? "ring-4 ring-destructive/20" : "bg-primary text-primary-foreground ring-4 ring-primary/20"),
-                  skipped && "border border-dashed border-border bg-background text-muted-foreground",
-                  !past && !isCur && !failed && !skipped && "border border-border bg-muted text-muted-foreground")}>
-                  {past ? <Check className="h-3 w-3" aria-hidden /> : failed ? <X className="h-3 w-3" aria-hidden />
-                    : skipped ? <Minus className="h-3 w-3" aria-hidden /> : <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />}
-                </span>
+                {i < states.length - 1 ? <span aria-hidden className={cn("absolute bottom-0 top-5 w-0 start-[9px]", lifecycleConnectorClass(past))} /> : null}
+                <LifecycleStepDot className={cn("mt-0.5", isCur && failed && "ring-4 ring-destructive/20")} step={isCur ? (failed ? "failed" : "current") : step} />
                 <div className="min-w-0 flex-1 pt-0.5 text-xs">
-                  <p className={cn("leading-tight", failed ? "font-semibold text-destructive" : isCur ? "font-semibold text-foreground" : past ? "font-medium text-foreground"
+                  <p className={cn("leading-tight", failed ? "font-semibold text-destructive" : isCur ? "font-semibold text-primary" : past ? "font-medium text-foreground"
                     : skipped ? "text-muted-foreground line-through decoration-muted-foreground/60" : "text-muted-foreground")}>
                     {s.label}{srStep[step] ? <span className="sr-only"> — {srStep[step]}</span> : null}
                   </p>

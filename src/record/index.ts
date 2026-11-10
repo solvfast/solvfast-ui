@@ -8,6 +8,13 @@ export type { AssignDialogProps, AssignDialogLabels } from "./AssignDialog";
 export type { AssigneeGroupProps, AssignPickerProps, AssignLabels } from "./AssigneeGroup";
 export { LifecycleBar } from "./LifecycleBar";
 export type { LifecycleBarProps } from "./LifecycleBar";
+export { LifecycleRail } from "./LifecycleRail";
+export type { LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels } from "./LifecycleRail";
+export { LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LIFECYCLE_DIAGRAM_COLORS } from "./LifecycleDiagram";
+export type {
+  LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels, LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
+} from "./LifecycleDiagram";
+export { LifecycleStepDot } from "./lifecycle-parts";
 export { ActionBar } from "./ActionBar";
 export type { ActionBarProps, ActionBarLabels } from "./ActionBar";
 export { StatusBadge } from "./StatusBadge";
