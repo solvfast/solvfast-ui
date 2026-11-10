@@ -6,6 +6,17 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.10 — Families: the Appearance section
+
+Additive. jsdom tests only; no real-site run.
+
+- Core `IconColorPicker` (+ `APPEARANCE_ICONS`, `APPEARANCE_ICON_NAMES`, `APPEARANCE_COLORS`): Sayr Studio's icon +
+  colour picker with a preview; icons imported by name. Messages `icIcon`, `icColor`, `icNoIcon`, `icNoIconSelected`,
+  `icPreview`.
+- `FrappeTypeForm` draws the icon field with it (`appearancePicker`, default on); the colour field and
+  `appearance_column` leave the form.
+- `FrappeFormView` / `FrappeForm` `renderField(df, {value, doc, setValue})`.
+
 ## 0.7.0-dev.9 — Families: Wizard mode and a new type's defaults
 
 Additive. jsdom tests only; no real-site run.

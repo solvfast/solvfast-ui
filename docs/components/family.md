@@ -178,3 +178,14 @@ redeploy it from the Field Library.
 
 `FrappeFormView` / `FrappeForm` gained what the steps need: `activeTab` (the tab shown, by key), `hideTabBar` and
 `onTabsChange(tabs)` (the visible tabs, key + label).
+
+## 10. The Appearance section (0.7.0-dev.10)
+
+`FrappeTypeForm` draws the registry's icon field as **`IconColorPicker`** (Core): a preview, the icon grid (Lucide names,
+stored as text, "No icon" first) and the colour swatches, the same picker Sayr Studio uses for teams, units and skills.
+The colour field and Sayr's `appearance_column` leave the form; picking an icon with no colour yet also picks the first
+colour. `appearancePicker={false}` keeps the plain fields. `APPEARANCE_ICONS` / `APPEARANCE_ICON_NAMES` /
+`APPEARANCE_COLORS` are the choices; each icon is imported by name, so an app bundles only these.
+
+`FrappeFormView` / `FrappeForm` `renderField(df, {value, doc, setValue})` lets a host draw any field its own way
+(return `undefined` for the form's own control).

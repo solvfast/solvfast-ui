@@ -64,9 +64,9 @@ const typeDoctype = (name: string): DocTypeMeta => ({
 const row = (doctype: string, name: string, extra: Record<string, unknown>) => ({ doctype, name, owner: "Administrator", creation: T, modified: T, docstatus: 0, ...extra }) as FrappeDoc;
 const FAMILY: FamilyDescriptor = { parent: "Ticket", registry: "Ticket Type", labelField: "type_name", labelArField: "type_name_ar" };
 
-function site() {
+function site(registry: DocTypeMeta = REGISTRY) {
   const t = createFixtureTransport({
-    meta: { "Ticket Type": [REGISTRY], Ticket: [PARENT], "Ticket Refund Request": [typeDoctype("Ticket Refund Request")], "Ticket Complaint": [typeDoctype("Ticket Complaint")] },
+    meta: { "Ticket Type": [registry], Ticket: [PARENT], "Ticket Refund Request": [typeDoctype("Ticket Refund Request")], "Ticket Complaint": [typeDoctype("Ticket Complaint")] },
     docs: {
       "Ticket Type": [
         row("Ticket Type", "Refund Request", { type_name: "Refund Request", type_name_ar: "طلب استرداد", type_doctype: "Ticket Refund Request", enabled: 1, description: "Money back" }),
@@ -169,6 +169,7 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     const onCreated = vi.fn();
     mount(s, <FrappeNewFamilyRecord family={FAMILY} defaultType="Complaint" onCreated={onCreated} />);
     const title = await screen.findByRole("textbox", { name: /Title/ }, { timeout: 3000 });
+    await waitFor(() => expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(false));
     expect(screen.queryByRole("textbox", { name: /Booking Reference/ })).toBeNull();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByRole("button", { name: "Create" })).toBeNull();
@@ -195,6 +196,28 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     first.unmount();
     mount(site(), <FrappeTypeForm family={FAMILY} defaults={{ description: "Starts here" }} />);
     expect(await screen.findByDisplayValue("Starts here", {}, { timeout: 3000 })).toBeTruthy();
+  });
+
+  it("FAM.screens.9 the Appearance section is one icon + colour picker; picking an icon also picks the first colour", async () => {
+    const withLook: DocTypeMeta = { ...REGISTRY, fields: [
+      { fieldname: "appearance_section", fieldtype: "Section Break", label: "Appearance" },
+      { fieldname: "icon", fieldtype: "Data", label: "Icon" },
+      { fieldname: "appearance_column", fieldtype: "Column Break" },
+      { fieldname: "color", fieldtype: "Color", label: "Color" },
+      ...REGISTRY.fields,
+    ] };
+    const s = site(withLook);
+    const onSaved = vi.fn();
+    mount(s, <FrappeTypeForm family={FAMILY} onSaved={onSaved} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "Users" }, { timeout: 3000 }));
+    expect(screen.getByText("Icon & color preview")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "#F26B1D" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("radio", { name: "#22c55e" }));
+    const name = screen.getByRole("textbox", { name: /^Name/ });
+    fireEvent.focus(name); fireEvent.change(name, { target: { value: "Looks" } }); fireEvent.blur(name);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(onSaved.mock.calls[0][0]).toMatchObject({ icon: "Users", color: "#22c55e" });
   });
 
   it("FAM.screens.5 FrappeTypeForm shows Configuration by default and hides it with configuration={false}", async () => {

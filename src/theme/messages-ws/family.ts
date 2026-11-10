@@ -16,6 +16,11 @@ export const familyEn = {
   famBack: "Back",
   famNext: "Next",
   famSteps: "Steps",
+  icIcon: "Icon",
+  icColor: "Color",
+  icNoIcon: "No icon",
+  icNoIconSelected: "No icon selected",
+  icPreview: "Icon & color preview",
 };
 export const familyAr: { [K in keyof typeof familyEn]: string } = {
   famRecords: "السجلات",
@@ -33,4 +38,9 @@ export const familyAr: { [K in keyof typeof familyEn]: string } = {
   famBack: "السابق",
   famNext: "التالي",
   famSteps: "الخطوات",
+  icIcon: "الأيقونة",
+  icColor: "اللون",
+  icNoIcon: "بدون أيقونة",
+  icNoIconSelected: "بدون أيقونة",
+  icPreview: "معاينة الأيقونة واللون",
 };

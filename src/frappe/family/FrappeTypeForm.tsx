@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FrappeDocField } from "../contract";
 import { useFrappeApi } from "../FrappeProvider";
 import { FrappeForm, type FrappeFormProps } from "../form/FrappeForm";
+import { APPEARANCE_COLORS, IconColorPicker } from "../../fields/IconColorPicker";
 import { familyField, type FamilyDescriptor } from "./family";
 
 /** What the `designer` slot gets besides the type's DocType. */
@@ -20,6 +21,9 @@ export interface FrappeTypeFormProps extends Omit<FrappeFormProps, "doctype"> {
   designer?: (typeDoctype: string, context: TypeDesignerContext) => React.ReactNode;
   /** Values a NEW type starts with (e.g. the app's default lifecycle, SLA policy and assignment profile). */
   defaults?: Record<string, unknown>;
+  /** The registry's icon field drawn as an icon + colour picker (the colour field and Sayr's `appearance_column` then
+   *  leave the form). Default on. */
+  appearancePicker?: boolean;
 }
 
 /**
@@ -27,14 +31,37 @@ export interface FrappeTypeFormProps extends Omit<FrappeFormProps, "doctype"> {
  * Saving a new type creates its DocType on the server; `designer` appears after that. The registry's Wizard mode field
  * is not on the form: it is the designer's switch (`context.wizard`), saved on its own.
  */
-export function FrappeTypeForm({ family, configuration = true, designer, defaults, fieldFilter, onSaved, newDocDefaults, ...form }: FrappeTypeFormProps) {
+export function FrappeTypeForm({ family, configuration = true, designer, defaults, appearancePicker = true, fieldFilter, renderField, onSaved, newDocDefaults, ...form }: FrappeTypeFormProps) {
   const api = useFrappeApi();
   const queryClient = useQueryClient();
   const wizardField = familyField.wizard(family);
+  const iconField = family.iconField === null ? undefined : family.iconField ?? "icon";
+  const colorField = family.colorField === null ? undefined : family.colorField ?? "color";
+  const picker = appearancePicker && !!iconField && !!colorField;
   const hidden = React.useMemo(
-    () => new Set([...(configuration ? [] : familyField.configuration(family)), ...(wizardField ? [wizardField] : [])]),
-    [configuration, family, wizardField],
+    () => new Set([
+      ...(configuration ? [] : familyField.configuration(family)),
+      ...(wizardField ? [wizardField] : []),
+      ...(picker ? [colorField!, "appearance_column"] : []),
+    ]),
+    [configuration, family, wizardField, picker, colorField],
   );
+  const drawField = React.useCallback<NonNullable<FrappeFormProps["renderField"]>>((df, ctx) => {
+    if (picker && df.fieldname === iconField) {
+      return (
+        <IconColorPicker
+          icon={(ctx.value as string) || null}
+          color={(ctx.doc[colorField!] as string) || null}
+          onIconChange={(icon) => {
+            ctx.setValue(iconField, icon);
+            if (icon && !ctx.doc[colorField!]) ctx.setValue(colorField!, APPEARANCE_COLORS[0]);
+          }}
+          onColorChange={(c) => ctx.setValue(colorField!, c)}
+        />
+      );
+    }
+    return renderField?.(df, ctx);
+  }, [picker, iconField, colorField, renderField]);
   const filter = React.useCallback(
     (df: FrappeDocField) => !hidden.has(df.fieldname) && (fieldFilter ? fieldFilter(df) : true),
     [hidden, fieldFilter],
@@ -74,6 +101,7 @@ export function FrappeTypeForm({ family, configuration = true, designer, default
         doctype={family.registry}
         newDocDefaults={startWith}
         fieldFilter={hidden.size || fieldFilter ? filter : undefined}
+        renderField={picker || renderField ? drawField : undefined}
         onSaved={(doc, action) => {
           refresh();
           onSaved?.(doc, action);

@@ -225,6 +225,8 @@ export type {
 } from "./record";
 // Families — the Records | Types tabs; the Frappe screens are in ./frappe. docs/components/family.md
 export { FamilyTabs } from "./record";
+export { IconColorPicker, APPEARANCE_ICONS, APPEARANCE_ICON_NAMES, APPEARANCE_COLORS } from "./fields";
+export type { IconColorPickerProps } from "./fields";
 export type { FamilyTabsProps, FamilyTab, FamilyTabProps } from "./record";
 export { FieldDesigner, toLayout as designerLayout, fromLayout as designerItems, previousId as designerPreviousId, kindOfFieldtype } from "./record";
 export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval, DesignerItem, DesignerKind } from "./record";

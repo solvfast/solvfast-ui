@@ -67,7 +67,8 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
   const type = types.data?.find((x) => x.name === typeName);
   // A wizard type walks its form's tabs as ordered steps; otherwise its fields are one list.
   const wizard = !!type?.wizard;
-  const last = !wizard || step >= steps.length - 1;
+  // Until the form has reported its tabs the steps are unknown: Next waits rather than Create showing early.
+  const last = !wizard || (steps.length > 0 && step >= steps.length - 1);
   const icon = (x: FamilyType) => (renderTypeIcon ? renderTypeIcon(x) : <Dot color={x.color} />);
 
   const commitType = (name: string) => {
@@ -174,7 +175,7 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
           {last ? (
             <Button onClick={create} disabled={!type || saving} className={createClassName}>{L("create", "famCreate")}</Button>
           ) : (
-            <Button onClick={() => setStep(step + 1)} className={createClassName}>{L("next", "famNext")}</Button>
+            <Button onClick={() => setStep(step + 1)} disabled={steps.length === 0} className={createClassName}>{L("next", "famNext")}</Button>
           )}
         </div>
       </div>

@@ -155,6 +155,9 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   hideTabBar?: boolean;
   /** The form's visible tabs in order (key + label), whenever they change. */
   onTabsChange?: (tabs: { key: string; label: string }[]) => void;
+  /** Draw a field the host's way (e.g. an icon and its colour as one picker): return a node, or `undefined` for the
+   *  form's own control. `setValue` writes any field of the document, as the form's controls do. */
+  renderField?: (df: FrappeDocField, context: { value: unknown; doc: FrappeDoc; setValue: (fieldname: string, value: unknown) => void }) => React.ReactNode | undefined;
   /** Desk's keyboard shortcuts while this form is the topmost one mounted: Ctrl/⌘+S runs the visible primary action
    *  (desk.js `trigger_primary_action`), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo (outside text inputs).
    *  Default true; false registers nothing. */
@@ -720,6 +723,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     const e = df.fieldname === "__newname" ? df : eff.get(df.fieldname) ?? df;
     const st = fieldStatus(df);
     if (st === "None") return null;
+    const custom = props.renderField?.(e, { value: doc[df.fieldname], doc, setValue: (f, v) => store.setValue(f, v, undefined, { record: true }) });
+    if (custom !== undefined) return <React.Fragment key={df.fieldname}>{custom}</React.Fragment>;
     const isTable = TABLE_TYPES.has(df.fieldtype);
     return (
       <FrappeField
