@@ -6,6 +6,8 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.8 — Families: the family screens, a type's Form section and @solvfast/ui/sayr
+
 Additive: nothing changes for a consumer that does not use the new components. jsdom tests only; no real-site run.
 
 **Families** (Sayr's inheritance: a parent, a type registry, one DocType per type) — docs/components/family.md
