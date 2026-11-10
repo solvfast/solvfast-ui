@@ -5,51 +5,85 @@ import { useFrappeApi } from "../FrappeProvider";
 import { FrappeForm, type FrappeFormProps } from "../form/FrappeForm";
 import { familyField, type FamilyDescriptor } from "./family";
 
+/** What the `designer` slot gets besides the type's DocType. */
+export interface TypeDesignerContext {
+  /** The type's Wizard mode (its form's tabs are a new record's steps); `undefined` when the registry has no such field. */
+  wizard?: { on: boolean; onChange: (on: boolean) => Promise<void> };
+}
+
 export interface FrappeTypeFormProps extends Omit<FrappeFormProps, "doctype"> {
   family: FamilyDescriptor;
   /** The Configuration section (Linked Lifecycle, SLA Policy, Assignment Profile). Default shown; `false` hides it for a
    *  family whose types are not configured this way. */
   configuration?: boolean;
   /** Rendered under the form once the type has its DocType (a saved type): e.g. a field designer for that DocType. */
-  designer?: (typeDoctype: string) => React.ReactNode;
+  designer?: (typeDoctype: string, context: TypeDesignerContext) => React.ReactNode;
+  /** Values a NEW type starts with (e.g. the app's default lifecycle, SLA policy and assignment profile). */
+  defaults?: Record<string, unknown>;
 }
 
 /**
  * A type of a family: the registry's own form, so every field the registry has is shown (an app's Category included).
- * Saving a new type creates its DocType on the server; `designer` appears after that.
+ * Saving a new type creates its DocType on the server; `designer` appears after that. The registry's Wizard mode field
+ * is not on the form: it is the designer's switch (`context.wizard`), saved on its own.
  */
-export function FrappeTypeForm({ family, configuration = true, designer, fieldFilter, onSaved, ...form }: FrappeTypeFormProps) {
+export function FrappeTypeForm({ family, configuration = true, designer, defaults, fieldFilter, onSaved, newDocDefaults, ...form }: FrappeTypeFormProps) {
   const api = useFrappeApi();
   const queryClient = useQueryClient();
-  const hidden = React.useMemo(() => new Set(configuration ? [] : familyField.configuration(family)), [configuration, family]);
+  const wizardField = familyField.wizard(family);
+  const hidden = React.useMemo(
+    () => new Set([...(configuration ? [] : familyField.configuration(family)), ...(wizardField ? [wizardField] : [])]),
+    [configuration, family, wizardField],
+  );
   const filter = React.useCallback(
     (df: FrappeDocField) => !hidden.has(df.fieldname) && (fieldFilter ? fieldFilter(df) : true),
     [hidden, fieldFilter],
   );
   const name = form.name && !form.name.startsWith("new-") ? form.name : undefined;
   const link = familyField.typeDoctype(family);
-  const typeDoctype = useQuery({
-    queryKey: ["sf-frappe", "family-type-doctype", family.registry, name],
+  const key = ["sf-frappe", "family-type-doctype", family.registry, name];
+  const typeRow = useQuery({
+    queryKey: key,
     queryFn: async () => {
-      const rows = await api.getList<Record<string, unknown>>(family.registry, { fields: [link], filters: [["name", "=", name]], limit_page_length: 1 });
-      return rows[0]?.[link] ? String(rows[0][link]) : null;
+      const meta = await api.getMeta(family.registry);
+      const hasWizard = !!wizardField && meta.fields.some((df) => df.fieldname === wizardField);
+      const rows = await api.getList<Record<string, unknown>>(family.registry, {
+        fields: [link, ...(hasWizard ? [wizardField!] : [])], filters: [["name", "=", name]], limit_page_length: 1,
+      });
+      const row = rows[0];
+      return { doctype: row?.[link] ? String(row[link]) : null, wizard: hasWizard ? !!Number(row?.[wizardField!]) : undefined };
     },
     enabled: !!designer && !!name,
   });
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ["sf-frappe", "family-type-doctype", family.registry] });
+    void queryClient.invalidateQueries({ queryKey: ["sf-frappe", "family-types", family.registry] });
+  };
+  const setWizard = async (on: boolean) => {
+    await api.call("frappe.client.set_value", { doctype: family.registry, name, fieldname: wizardField, value: on ? 1 : 0 });
+    refresh();
+  };
+  const startWith = defaults
+    ? { ...newDocDefaults, routeOptions: { ...newDocDefaults?.routeOptions, ...defaults } }
+    : newDocDefaults;
 
   return (
     <div className="space-y-6">
       <FrappeForm
         {...form}
         doctype={family.registry}
-        fieldFilter={configuration && !fieldFilter ? undefined : filter}
+        newDocDefaults={startWith}
+        fieldFilter={hidden.size || fieldFilter ? filter : undefined}
         onSaved={(doc, action) => {
-          void queryClient.invalidateQueries({ queryKey: ["sf-frappe", "family-type-doctype", family.registry] });
-          void queryClient.invalidateQueries({ queryKey: ["sf-frappe", "family-types", family.registry] });
+          refresh();
           onSaved?.(doc, action);
         }}
       />
-      {designer && typeDoctype.data ? designer(typeDoctype.data) : null}
+      {designer && typeRow.data?.doctype
+        ? designer(typeRow.data.doctype, {
+          wizard: typeRow.data.wizard === undefined ? undefined : { on: typeRow.data.wizard, onChange: setWizard },
+        })
+        : null}
     </div>
   );
 }

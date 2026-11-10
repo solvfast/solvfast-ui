@@ -6,6 +6,21 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.9 — Families: Wizard mode and a new type's defaults
+
+Additive. jsdom tests only; no real-site run.
+
+**Wizard mode** — docs/components/family.md §9
+- `FamilyType.wizard` (registry `wizardField`, default `wizard_mode`); `FrappeNewFamilyRecord` walks a wizard type's tabs
+  as steps (`Stepper`, Back / Next, Create on the last step).
+- `FrappeTypeForm` `designer(typeDoctype, context)`: `context.wizard = { on, onChange }`, saved with
+  `frappe.client.set_value`; the field is kept off the type's form. `FieldDesigner` `wizard` prop: the switch, and tabs
+  labelled "Step N · …". Messages `famBack`, `famNext`, `famSteps`, `fdWizard`, `fdWizardHint`, `fdStep`.
+- `FrappeFormView` / `FrappeForm`: `activeTab`, `hideTabBar`, `onTabsChange`.
+
+**A new type's defaults**
+- `FrappeTypeForm` `defaults`: values a new type starts with (through `newDocDefaults.routeOptions`).
+
 ## 0.7.0-dev.8 — Families: the family screens, a type's Form section and @solvfast/ui/sayr
 
 Additive: nothing changes for a consumer that does not use the new components. jsdom tests only; no real-site run.

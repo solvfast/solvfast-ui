@@ -148,6 +148,13 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   /** Only the meta fields (breaks included) it accepts take part in the layout (Quick Entry uses it). Hidden / permission
    *  statuses still apply; the mandatory check still covers every required field — keep required fields in. */
   fieldFilter?: (df: FrappeDocField) => boolean;
+  /** The tab shown, by its key (`onTabsChange` lists them): the host drives the tabs (a wizard's steps). Absent, the
+   *  form keeps its own. */
+  activeTab?: string;
+  /** No tab bar: the host shows the tabs its own way (a stepper) through `activeTab`. */
+  hideTabBar?: boolean;
+  /** The form's visible tabs in order (key + label), whenever they change. */
+  onTabsChange?: (tabs: { key: string; label: string }[]) => void;
   /** Desk's keyboard shortcuts while this form is the topmost one mounted: Ctrl/⌘+S runs the visible primary action
    *  (desk.js `trigger_primary_action`), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo (outside text inputs).
    *  Default true; false registers nothing. */
@@ -414,8 +421,9 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   };
   const visibleTabs = layout.tabs.filter(tabVisible);
   const extraTabs = (props.extraTabs ?? []).map((x) => ({ ...x, tabKey: `extra:${x.key}` }));
-  const activeExtra = extraTabs.find((x) => x.tabKey === activeTab);
-  const currentTab = activeExtra ? undefined : visibleTabs.find((tb) => tb.key === activeTab) ?? visibleTabs[0];
+  const shownTab = props.activeTab ?? activeTab;
+  const activeExtra = extraTabs.find((x) => x.tabKey === shownTab);
+  const currentTab = activeExtra ? undefined : visibleTabs.find((tb) => tb.key === shownTab) ?? visibleTabs[0];
   const tabCount = visibleTabs.length + extraTabs.length;
 
   React.useEffect(() => {
@@ -757,6 +765,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   };
 
   const tabLabel = (tab: LayoutTab) => (tab.details || !tab.df ? t("formDetails") : s.translate(bundle, tab.df.label || tab.df.fieldname));
+  const tabsSignature = visibleTabs.map((tab) => `${tab.key}\u0001${tabLabel(tab)}`).join("\u0002");
+  React.useEffect(() => {
+    props.onTabsChange?.(visibleTabs.map((tab) => ({ key: tab.key, label: tabLabel(tab) })));
+  }, [tabsSignature]); // eslint-disable-line react-hooks/exhaustive-deps
   const lineText = (l: MandatoryLine) => {
     switch (l.kind) {
       case "field": return interpolate(t("formFieldRequired"), { label: l.label });
@@ -844,7 +856,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </div>
       )}
 
-      {tabCount > 1 && (
+      {tabCount > 1 && !props.hideTabBar && (
         <Tabs value={activeExtra?.tabKey ?? currentTab?.key} onValueChange={(v) => setActiveTab(v)}>
           <TabsList className="max-w-full overflow-x-auto">
             {visibleTabs.map((tab) => <TabsTrigger key={tab.key} value={tab.key}>{tabLabel(tab)}</TabsTrigger>)}

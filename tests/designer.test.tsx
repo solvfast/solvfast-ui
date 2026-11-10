@@ -149,6 +149,17 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     expect(within(alert).getByText("Remove every added field?")).toBeTruthy();
   });
 
+  it("FD.ui.7 the Wizard mode switch asks the host to save it; with it on, tabs read as steps", async () => {
+    const onChange = vi.fn(async () => {});
+    const items = [...LOADED, brk("@tab::Extra", "tab_break", { label: "Extra" })];
+    const { rerender } = render(<ThemeProvider storageKeys={null}><FieldDesigner adapter={memoryAdapter({ items })} wizard={{ on: false, onChange }} /></ThemeProvider>);
+    fireEvent.click(await screen.findByRole("switch", { name: "Wizard mode" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(true));
+    expect(screen.getByRole("tab", { name: "Extra" })).toBeTruthy();
+    rerender(<ThemeProvider storageKeys={null}><FieldDesigner adapter={memoryAdapter({ items })} wizard={{ on: true, onChange }} /></ThemeProvider>);
+    expect(await screen.findByRole("tab", { name: "Step 2 · Extra" })).toBeTruthy();
+  });
+
   it("FD.ui.6 a refusal replaces the tools; Arabic", async () => {
     mount(memoryAdapter({ items: [], refusal: "لا يمكن" }), "ar");
     expect(await screen.findByText("النموذج")).toBeTruthy();

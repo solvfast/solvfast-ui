@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, GripVertical, Lock, Plus, X } from "lucide-react";
 import { Badge } from "../primitives/badge";
 import { Button } from "../primitives/button";
 import { Checkbox } from "../primitives/checkbox";
+import { Switch } from "../primitives/switch";
 import { Input } from "../primitives/input";
 import { Label } from "../primitives/label";
 import { Skeleton } from "../primitives/skeleton";
@@ -65,6 +66,8 @@ export interface FieldDesignerProps {
   /** Replace any string (keys of the `fd…` message block). */
   labels?: Partial<Record<Key, Localized>>;
   onSaved?: (state: DesignerState) => void;
+  /** Wizard mode: the form's tabs are a new record's ordered steps. Shown as a switch; saved by the host. */
+  wizard?: { on: boolean; onChange: (on: boolean) => void | Promise<void> };
   className?: string;
 }
 
@@ -74,7 +77,7 @@ const canMove = (i: DesignerItem) => !i.native || !!i.movable;
 
 /** The Form section of a type: its fields as tabs → sections → columns. Placement only — a field's own settings stay
  *  where the field set is edited. */
-export function FieldDesigner({ adapter, labels, onSaved, className }: FieldDesignerProps) {
+export function FieldDesigner({ adapter, labels, onSaved, wizard, className }: FieldDesignerProps) {
   const { t, language } = useLocale();
   const L = (key: Key) => loc(labels?.[key], language) || t(key);
   const [state, setState] = React.useState<DesignerState | null>(null);
@@ -86,6 +89,12 @@ export function FieldDesigner({ adapter, labels, onSaved, className }: FieldDesi
   const [adding, setAdding] = React.useState<{ tab: number; section: number } | null>(null);
   const [newTab, setNewTab] = React.useState<string | null>(null);
   const [confirm, setConfirm] = React.useState<null | { kind: "removal"; removals: DesignerRemoval[] } | { kind: "empty" }>(null);
+  const [wizardBusy, setWizardBusy] = React.useState(false);
+  const toggleWizard = async (on: boolean) => {
+    if (!wizard) return;
+    setWizardBusy(true);
+    try { await wizard.onChange(on); } catch (e) { setError(errorText(e)); } finally { setWizardBusy(false); }
+  };
   const dragging = React.useRef<string | null>(null);
 
   const apply = (next: DesignerState) => { setState(next); setItems(next.items); setError(null); };
@@ -171,7 +180,7 @@ export function FieldDesigner({ adapter, labels, onSaved, className }: FieldDesi
   }
 
   const tab = tabs[tabIndex];
-  const showTabs = tabs.some((x) => x.breakItem);
+  const showTabs = tabs.some((x) => x.breakItem) || !!wizard?.on;
   const lastSection = (ti: number) => ({ tab: ti, section: tabs[ti].sections.length - 1 });
 
   return (
@@ -196,6 +205,16 @@ export function FieldDesigner({ adapter, labels, onSaved, className }: FieldDesi
         </div>
       </div>
 
+      {wizard && (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-border p-3">
+          <div className="space-y-0.5">
+            <Label htmlFor="sf-designer-wizard" className="text-sm">{L("fdWizard")}</Label>
+            <p id="sf-designer-wizard-hint" className="text-xs text-muted-foreground">{L("fdWizardHint")}</p>
+          </div>
+          <Switch id="sf-designer-wizard" aria-describedby="sf-designer-wizard-hint" checked={wizard.on} disabled={wizardBusy}
+            onCheckedChange={(on) => void toggleWizard(on)} />
+        </div>
+      )}
       {state.notice && <p className="text-sm text-muted-foreground">{state.notice}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
@@ -208,7 +227,7 @@ export function FieldDesigner({ adapter, labels, onSaved, className }: FieldDesi
               <button type="button" role="tab" aria-selected={ti === tabIndex} onClick={() => setActiveTab(ti)}
                 className={cn("rounded-full px-3 py-1 text-sm border transition-colors",
                   ti === tabIndex ? "bg-primary text-primary-foreground border-transparent" : "border-border hover:bg-accent")}>
-                {x.breakItem?.label || L("fdUntitledTab")}
+                {wizard?.on ? `${L("fdStep")} ${ti + 1} · ` : ""}{x.breakItem?.label || L("fdUntitledTab")}
               </button>
               {x.breakItem && !x.breakItem.native && (
                 <Button type="button" size="icon" variant="ghost" className="h-6 w-6" aria-label={`${L("fdRemoveTab")}: ${x.breakItem.label ?? ""}`}

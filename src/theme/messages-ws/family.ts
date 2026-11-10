@@ -13,6 +13,9 @@ export const familyEn = {
   famCancel: "Cancel",
   famCreate: "Create",
   famNotFound: "This record was not found.",
+  famBack: "Back",
+  famNext: "Next",
+  famSteps: "Steps",
 };
 export const familyAr: { [K in keyof typeof familyEn]: string } = {
   famRecords: "السجلات",
@@ -27,4 +30,7 @@ export const familyAr: { [K in keyof typeof familyEn]: string } = {
   famCancel: "إلغاء",
   famCreate: "إنشاء",
   famNotFound: "لم يُعثر على هذا السجل.",
+  famBack: "السابق",
+  famNext: "التالي",
+  famSteps: "الخطوات",
 };

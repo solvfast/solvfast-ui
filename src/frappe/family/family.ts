@@ -25,6 +25,8 @@ export interface FamilyDescriptor {
   colorField?: string | null;
   /** Registry: only rows with this ticked are offered for new records. Default "enabled"; `null` offers every row. */
   enabledField?: string | null;
+  /** Registry: a new record of the type walks its form's tabs as steps. Default Sayr's "wizard_mode"; `null` never. */
+  wizardField?: string | null;
   /** Parent: the Link to DocType and the Dynamic Link naming each row's record. Default Sayr's "inheritance_doctype" /
    *  "inheritance_record". */
   recordDoctypeField?: string;
@@ -50,6 +52,8 @@ export interface FamilyType {
   doctype: string;
   icon?: string;
   color?: string;
+  /** A new record walks the type's tabs as ordered steps. */
+  wizard: boolean;
   /** The registry row as read. */
   row: Record<string, unknown>;
 }
@@ -68,6 +72,7 @@ export const familyField = {
   record: (f: FamilyDescriptor) => f.recordField ?? "inheritance_record",
   type: (f: FamilyDescriptor) => f.typeField ?? "inheritance_type",
   configuration: (f: FamilyDescriptor) => f.configurationFields ?? SAYR_CONFIGURATION_FIELDS,
+  wizard: (f: FamilyDescriptor) => (f.wizardField === null ? undefined : f.wizardField ?? "wizard_mode"),
 };
 
 const opt = (value: string | null | undefined, fallback: string) => (value === null ? undefined : value ?? fallback);
@@ -84,7 +89,8 @@ export async function fetchFamilyTypes(api: Pick<FrappeApi, "getMeta" | "getList
   const iconField = pick(opt(family.iconField, "icon"));
   const colorField = pick(opt(family.colorField, "color"));
   const enabledField = pick(opt(family.enabledField, "enabled"));
-  const fields = [...new Set(["name", link, labelField, arField, descField, iconField, colorField].filter(Boolean) as string[])];
+  const wizardField = pick(familyField.wizard(family));
+  const fields = [...new Set(["name", link, labelField, arField, descField, iconField, colorField, wizardField].filter(Boolean) as string[])];
   const rows = await api.getList<Record<string, unknown>>(family.registry, {
     fields,
     filters: [[link, "is", "set"], ...(enabledField ? [[enabledField, "=", 1] as [string, string, unknown]] : [])],
@@ -101,6 +107,7 @@ export async function fetchFamilyTypes(api: Pick<FrappeApi, "getMeta" | "getList
       doctype: String(row[link]),
       icon: iconField && row[iconField] ? String(row[iconField]) : undefined,
       color: colorField && row[colorField] ? String(row[colorField]) : undefined,
+      wizard: !!(wizardField && Number(row[wizardField])),
       row,
     };
   });

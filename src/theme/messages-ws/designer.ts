@@ -33,6 +33,9 @@ export const designerEn = {
   fdConfirmEmptyBody: "Nothing added from a field set is left on the form, so the field set is withdrawn from this type. Values stay in the database.",
   fdConfirm: "Save anyway",
   fdRecords: "records",
+  fdWizard: "Wizard mode",
+  fdWizardHint: "Split the form into ordered steps: each tab becomes a step when a record is created.",
+  fdStep: "Step",
 };
 export const designerAr: { [K in keyof typeof designerEn]: string } = {
   fdTitle: "النموذج",
@@ -68,4 +71,7 @@ export const designerAr: { [K in keyof typeof designerEn]: string } = {
   fdConfirmEmptyBody: "لم يبقَ في النموذج أي حقل من مجموعة حقول، لذا تُسحب مجموعة الحقول من هذا النوع. تبقى القيم في قاعدة البيانات.",
   fdConfirm: "احفظ على أي حال",
   fdRecords: "سجلات",
+  fdWizard: "وضع المعالج",
+  fdWizardHint: "قسّم النموذج إلى خطوات مرتبة: يصبح كل تبويب خطوة عند إنشاء سجل.",
+  fdStep: "الخطوة",
 };

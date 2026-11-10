@@ -41,6 +41,7 @@ const REGISTRY: DocTypeMeta = {
     { fieldname: "sla_policy", fieldtype: "Link", label: "SLA Policy", options: "Sear SLA Policy" },
     { fieldname: "configuration_column", fieldtype: "Column Break" },
     { fieldname: "assignment_profile", fieldtype: "Link", label: "Assignment Profile", options: "Sear Assignment Profile" },
+    { fieldname: "wizard_mode", fieldtype: "Check", label: "Wizard Mode" },
   ],
 };
 const PARENT: DocTypeMeta = {
@@ -69,7 +70,7 @@ function site() {
     docs: {
       "Ticket Type": [
         row("Ticket Type", "Refund Request", { type_name: "Refund Request", type_name_ar: "طلب استرداد", type_doctype: "Ticket Refund Request", enabled: 1, description: "Money back" }),
-        row("Ticket Type", "Complaint", { type_name: "Complaint", type_doctype: "Ticket Complaint", enabled: 1 }),
+        row("Ticket Type", "Complaint", { type_name: "Complaint", type_doctype: "Ticket Complaint", enabled: 1, wizard_mode: 1 }),
         row("Ticket Type", "Retired", { type_name: "Retired", type_doctype: "Ticket Complaint", enabled: 0 }),
         row("Ticket Type", "Unmade", { type_name: "Unmade", enabled: 1 }),
       ],
@@ -116,6 +117,7 @@ describe("FAM.data — fetchFamilyTypes / fetchFamilyRecord (SIMULATED)", () => 
     expect(types.map((x) => x.name)).toEqual(["Complaint", "Refund Request"]);
     expect(types[1]).toMatchObject({ doctype: "Ticket Refund Request", label: { en: "Refund Request", ar: "طلب استرداد" }, description: "Money back" });
     expect(types[0].label).toEqual({ en: "Complaint", ar: "Complaint" });
+    expect(types.map((x) => x.wizard)).toEqual([true, false]);
     const asked = s.t.store.calls.find((c) => c.method === "frappe.client.get_list")!.args.fields as string;
     expect(asked).not.toContain("color");
   });
@@ -160,6 +162,39 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     expect(await screen.findByText("Choose a type to see its fields")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Create" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+  });
+
+  it("FAM.screens.7 a wizard type walks its tabs as steps: Next, Back, and Create on the last step", async () => {
+    const s = site();
+    const onCreated = vi.fn();
+    mount(s, <FrappeNewFamilyRecord family={FAMILY} defaultType="Complaint" onCreated={onCreated} />);
+    const title = await screen.findByRole("textbox", { name: /Title/ }, { timeout: 3000 });
+    expect(screen.queryByRole("textbox", { name: /Booking Reference/ })).toBeNull();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create" })).toBeNull();
+    fireEvent.focus(title); fireEvent.change(title, { target: { value: "Late reply" } }); fireEvent.blur(title);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    const booking = await screen.findByRole("textbox", { name: /Booking Reference/ });
+    fireEvent.focus(booking); fireEvent.change(booking, { target: { value: "BK-1" } }); fireEvent.blur(booking);
+    expect(screen.getByRole("button", { name: "Back" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(onCreated.mock.calls[0][0]).toMatchObject({ doctype: "Ticket Complaint", title: "Late reply", booking: "BK-1" });
+  });
+
+  it("FAM.screens.8 the Wizard mode field is the designer's switch, saved on its own; a new type starts with the defaults", async () => {
+    const s = site();
+    let ctx: { wizard?: { on: boolean; onChange: (on: boolean) => Promise<void> } } = {};
+    const first = mount(s, <FrappeTypeForm family={FAMILY} name="Refund Request" designer={(_dt, c) => { ctx = c; return <p>designer</p>; }} />);
+    await screen.findByText("designer");
+    expect(screen.queryByText("Wizard Mode")).toBeNull();
+    expect(ctx.wizard?.on).toBe(false);
+    await ctx.wizard!.onChange(true);
+    const sent = s.t.store.calls.find((c) => c.method === "frappe.client.set_value")!.args;
+    expect(sent).toMatchObject({ doctype: "Ticket Type", name: "Refund Request", fieldname: "wizard_mode", value: 1 });
+    first.unmount();
+    mount(site(), <FrappeTypeForm family={FAMILY} defaults={{ description: "Starts here" }} />);
+    expect(await screen.findByDisplayValue("Starts here", {}, { timeout: 3000 })).toBeTruthy();
   });
 
   it("FAM.screens.5 FrappeTypeForm shows Configuration by default and hides it with configuration={false}", async () => {

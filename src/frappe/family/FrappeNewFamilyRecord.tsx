@@ -4,6 +4,7 @@ import { Button } from "../../primitives/button";
 import { Label } from "../../primitives/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { Skeleton } from "../../primitives/skeleton";
+import { Stepper } from "../../primitives/stepper";
 import { useLocale } from "../../theme/ThemeProvider";
 import { loc, type Localized } from "../../lib/localized";
 import type { familyEn } from "../../theme/messages-ws/family";
@@ -23,6 +24,9 @@ export interface FrappeNewFamilyRecordLabels {
   switchKeep: Localized;
   cancel: Localized;
   create: Localized;
+  back: Localized;
+  next: Localized;
+  steps: Localized;
 }
 
 export interface FrappeNewFamilyRecordProps {
@@ -57,14 +61,21 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
   const [pending, setPending] = React.useState<string | null>(null);
   const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [steps, setSteps] = React.useState<{ key: string; label: string }[]>([]);
+  const [step, setStep] = React.useState(0);
   const form = React.useRef<FormController | null>(null);
   const type = types.data?.find((x) => x.name === typeName);
+  // A wizard type walks its form's tabs as ordered steps; otherwise its fields are one list.
+  const wizard = !!type?.wizard;
+  const last = !wizard || step >= steps.length - 1;
   const icon = (x: FamilyType) => (renderTypeIcon ? renderTypeIcon(x) : <Dot color={x.color} />);
 
   const commitType = (name: string) => {
     setTypeName(name);
     setPending(null);
     setDirty(false);
+    setSteps([]);
+    setStep(0);
   };
   const chooseType = (name: string) => {
     if (name === typeName) return;
@@ -130,23 +141,42 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
       {!type ? (
         <p className="text-sm text-muted-foreground">{L("chooseTypeFirst", "famChooseTypeFirst")}</p>
       ) : (
-        <FrappeForm
-          key={type.doctype}
-          doctype={type.doctype}
-          hideToolbar
-          menu={false}
-          fieldFilter={flat}
-          controllerRef={form}
-          onDirtyChange={setDirty}
-          onSaved={(doc) => onCreated(doc, type)}
-        />
+        <div className="space-y-6">
+          {wizard && steps.length > 1 && (
+            <Stepper
+              ariaLabel={L("steps", "famSteps")}
+              steps={steps.map((s, i) => ({ label: s.label, state: i < step ? "done" : i === step ? "current" : "upcoming", clickable: i < step }))}
+              onJump={(i) => i < step && setStep(i)}
+              followCurrent
+            />
+          )}
+          <FrappeForm
+            key={type.doctype}
+            doctype={type.doctype}
+            hideToolbar
+            menu={false}
+            connections={false}
+            fieldFilter={wizard ? undefined : flat}
+            hideTabBar={wizard}
+            activeTab={wizard ? steps[step]?.key : undefined}
+            onTabsChange={wizard ? setSteps : undefined}
+            controllerRef={form}
+            onDirtyChange={setDirty}
+            onSaved={(doc) => onCreated(doc, type)}
+          />
+        </div>
       )}
 
       <div className="flex items-center justify-between gap-2 pt-5 border-t border-border">
         {onCancel ? <Button variant="outline" onClick={onCancel}>{L("cancel", "famCancel")}</Button> : <span />}
-        <Button onClick={create} disabled={!type || saving} className={createClassName}>
-          {L("create", "famCreate")}
-        </Button>
+        <div className="flex items-center gap-2">
+          {wizard && step > 0 && <Button variant="outline" onClick={() => setStep(step - 1)}>{L("back", "famBack")}</Button>}
+          {last ? (
+            <Button onClick={create} disabled={!type || saving} className={createClassName}>{L("create", "famCreate")}</Button>
+          ) : (
+            <Button onClick={() => setStep(step + 1)} className={createClassName}>{L("next", "famNext")}</Button>
+          )}
+        </div>
       </div>
     </div>
   );

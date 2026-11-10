@@ -157,3 +157,24 @@ Ids are Sayr's: a deployed row's column (`fieldname`), else a token — `@<set>:
 `@tab::<label>` (`sayrToken`). Needs the Sear Platform Administrator role; without it, and for a DocType Sayr cannot
 deploy on, the section shows why instead of the tools. A field set that changed since it was saved shows a note to
 redeploy it from the Field Library.
+
+## 9. Wizard mode and a new type's defaults (0.7.0-dev.9)
+
+- **Wizard mode** is a Check on the registry (`wizardField`, default Sayr's `wizard_mode`). `FamilyType.wizard` reads
+  it. `FrappeNewFamilyRecord` then walks the type's tabs as ordered steps: a `Stepper`, Back / Next, Create on the last
+  step (the form's tab bar is hidden; the mandatory check still covers every step on Create). The steps are the type's
+  tabs in its form's order, so moving fields and tabs in the Form section reorders the steps. Off, the fields are one
+  list as before.
+- `FrappeTypeForm` keeps the Wizard mode field off the type's form and hands it to `designer` as
+  `context.wizard = { on, onChange }`; `onChange` saves it on its own (`frappe.client.set_value` on the registry row).
+  `FieldDesigner`'s `wizard` prop shows it as a switch and labels the tabs "Step N · …".
+- `FrappeTypeForm` `defaults`: the values a **new** type starts with (`newDocDefaults.routeOptions`), e.g. an app's
+  default lifecycle, SLA policy and assignment profile. Nothing is applied to a saved type.
+
+```tsx
+<FrappeTypeForm family={TICKETS} name={name} defaults={defaults}
+  designer={(doctype, { wizard }) => <SayrFieldDesigner doctype={doctype} wizard={wizard} />} />
+```
+
+`FrappeFormView` / `FrappeForm` gained what the steps need: `activeTab` (the tab shown, by key), `hideTabBar` and
+`onTabsChange(tabs)` (the visible tabs, key + label).
