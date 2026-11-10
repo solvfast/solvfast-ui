@@ -58,6 +58,9 @@ export interface FormatContext {
   hideCurrencySymbol?: boolean;
   /** sysdefaults.use_number_format_from_currency. */
   useNumberFormatFromCurrency?: boolean;
+  /** sysdefaults.first_day_of_the_week as 0 (Sunday) … 6 (Saturday), for date pickers (0.7.0-dev.7). Unset: the
+   *  picker's own default (its locale's). */
+  firstDayOfWeek?: number;
   /** sysdefaults.rounding_method. Default "Banker's Rounding (legacy)". */
   roundingMethod?: RoundingMethod;
   /** frappe.boot.time_zone: Datetime values are stored in `system` and shown in `user`. No conversion when either is missing. */
@@ -73,7 +76,7 @@ export interface FormatContext {
   durationUnits?: { d: string; h: string; m: string; s: string };
 }
 
-export const defaultFormatContext: Required<Omit<FormatContext, "floatPrecision" | "currencyPrecision" | "timeZone" | "linkTitles" | "translate" | "currencies">> = {
+export const defaultFormatContext: Required<Omit<FormatContext, "floatPrecision" | "currencyPrecision" | "timeZone" | "linkTitles" | "translate" | "currencies" | "firstDayOfWeek">> = {
   dateFormat: "yyyy-mm-dd",
   timeFormat: "HH:mm:ss",
   numberFormat: "#,###.##",

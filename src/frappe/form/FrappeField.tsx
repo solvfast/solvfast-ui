@@ -101,6 +101,10 @@ const EMAIL_RE =
 const URL_RE = /^((([A-Za-z0-9.+-]+:(?:\/\/)?)(?:[-;:&=\+\,\w]@)?[A-Za-z0-9.-]+(:[0-9]+)?|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)$/i;
 
 /** `frappe.utils.split_emails` (utils.js:839-853): comma / newline separated, a separator inside "quotes" kept. */
+/** FormatContext.firstDayOfWeek as a picker's `weekStartsOn` (unset or out of range: the picker's default). */
+const weekStartsOn = (day: number | undefined) =>
+  day !== undefined && Number.isInteger(day) && day >= 0 && day <= 6 ? (day as 0 | 1 | 2 | 3 | 4 | 5 | 6) : undefined;
+
 export function splitEmails(txt: string): string[] {
   if (!txt) return [];
   return txt.split(/[,\n](?=(?:[^"]|"[^"]*")*$)/g).map((e) => e.trim()).filter(Boolean);
@@ -345,9 +349,9 @@ export function FrappeField(props: FrappeFieldProps) {
       // the editable field shows the site's date format, like its read-only display (Desk: both through the user's
       // date_format); the value stays "YYYY-MM-DD" (no Date/timezone conversion on the way in or out)
       return shell(<DateField {...common} value={str(value).slice(0, 10)} onChange={(v) => onChange(v || null)} error={undefined}
-        formatDisplay={(v) => s.formatValue(v, df, rowDoc)} />);
+        formatDisplay={(v) => s.formatValue(v, df, rowDoc)} weekStartsOn={weekStartsOn(fc.firstDayOfWeek)} />);
     case "Datetime":
-      return shell(<DateTimeField {...common} value={toDsDatetime(value)} onChange={(v) => onChange(fromDsDatetime(v))} />);
+      return shell(<DateTimeField {...common} value={toDsDatetime(value)} onChange={(v) => onChange(fromDsDatetime(v))} weekStartsOn={weekStartsOn(fc.firstDayOfWeek)} />);
     case "Time":
       return shell(<TimeInput {...common} value={str(value) || null} onChange={(v) => onChange(v)} onUnparsable="clear" hour12={/a/i.test(str(fc.timeFormat))} invalid={invalid} />);
     case "Duration":

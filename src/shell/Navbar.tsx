@@ -16,6 +16,8 @@ import { Button } from "../primitives/button";
 import { Input } from "../primitives/input";
 import { useLocale, useTheme } from "../theme/ThemeProvider";
 import { NotificationPanel, type NotificationPanelProps } from "./NotificationPanel";
+import { CompanyLogo, type CompanyLogoProps } from "./CompanyLogo";
+import { UserMenu, type ShellUser } from "./UserMenu";
 
 export interface NavbarSearch {
   value?: string;
@@ -51,6 +53,10 @@ export interface NavbarProps {
   showThemeToggle?: boolean;
   /** Extra controls after the built-in ones. */
   actions?: React.ReactNode;
+  /** 0.7.0-dev.7: the customer's logo before the title, desktop only (phones show the app logo). */
+  companyLogo?: CompanyLogoProps & { onClick?: () => void };
+  /** 0.7.0-dev.7: the signed-in user's menu (photo, My Profile, Log out), last in the bar. */
+  user?: ShellUser;
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
@@ -58,6 +64,7 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
 
 export function Navbar({
   title, help, logo, search, notifications = false, showLanguageToggle = true, showThemeToggle = true, actions,
+  companyLogo, user,
 }: NavbarProps) {
   const { t, toggleLanguage } = useLocale();
   const { isDark, toggleTheme } = useTheme();
@@ -101,6 +108,13 @@ export function Navbar({
             <img src={logo.src} alt={logo.alt} className="h-8 w-8 object-contain" />
           </button>
         )}
+        {companyLogo && (companyLogo.onClick ? (
+          <button type="button" onClick={companyLogo.onClick} aria-label={companyLogo.alt || undefined} className="hidden md:block shrink-0 hover:opacity-80 transition-opacity">
+            <CompanyLogo {...companyLogo} className={companyLogo.className ?? "h-7 max-w-[120px] me-1"} />
+          </button>
+        ) : (
+          <CompanyLogo {...companyLogo} className={["hidden md:block shrink-0", companyLogo.className ?? "h-7 max-w-[120px] me-1"].join(" ")} />
+        ))}
         <h1 className="text-lg font-medium text-foreground truncate">{title}</h1>
         {help}
       </div>
@@ -118,6 +132,7 @@ export function Navbar({
           </Button>
         )}
         {actions}
+        {user && <UserMenu user={user} />}
       </div>
     </div>
   );

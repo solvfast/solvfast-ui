@@ -84,6 +84,9 @@ const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : undefined);
 /** Frappe defaults are strings ("3", "", "1"); an empty or non-numeric value means "not set". */
 const num = (v: unknown) => { if (v === null || v === undefined || v === "") return undefined; const n = Number(v); return Number.isFinite(n) ? n : undefined; };
 
+// System Settings' First Day of the Week, by name; the index is the date pickers' `weekStartsOn`.
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 /** The FormatContext of a boot (only the keys the boot carried; formatValue's defaults fill the rest). */
 export function formatContextFromBoot(p: Pick<FrappeBootPayload, "sysdefaults" | "time_zone" | "currencies" | "translations">): FormatContext {
   const d = p.sysdefaults ?? {};
@@ -97,6 +100,8 @@ export function formatContextFromBoot(p: Pick<FrappeBootPayload, "sysdefaults" |
   if (d.hide_currency_symbol !== undefined) ctx.hideCurrencySymbol = d.hide_currency_symbol === "Yes";
   if (d.use_number_format_from_currency !== undefined) ctx.useNumberFormatFromCurrency = Number(d.use_number_format_from_currency) === 1;
   if (ROUNDING.includes(d.rounding_method as RoundingMethod)) ctx.roundingMethod = d.rounding_method as RoundingMethod;
+  const weekday = WEEKDAYS.indexOf(str(d.first_day_of_the_week) ?? "");
+  if (weekday >= 0) ctx.firstDayOfWeek = weekday;
   if (p.time_zone && (str(p.time_zone.system) || str(p.time_zone.user))) ctx.timeZone = { system: str(p.time_zone.system), user: str(p.time_zone.user) ?? str(p.time_zone.system) };
   if (p.currencies && typeof p.currencies === "object") ctx.currencies = p.currencies;
   const dict = p.translations;

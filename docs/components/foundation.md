@@ -179,6 +179,7 @@ user time zone, Intl only), Time (no zone), Duration (`1d 2h 3m 4s`, `0s`, hide_
 | `currency`, `currencies` | `sysdefaults.currency`, `:Currency` boot docs | `USD`, none |
 | `hideCurrencySymbol`, `useNumberFormatFromCurrency`, `roundingMethod` | `sysdefaults` | No, No, Banker's Rounding (legacy) |
 | `timeZone {system, user}` | `boot.time_zone` | no conversion |
+| `firstDayOfWeek` (0 Sunday … 6 Saturday; date pickers only, 0.7.0-dev.7) | `sysdefaults.first_day_of_the_week` | the calendar locale's |
 | `linkTitles`, `translate`, `checkLabels`, `durationUnits` | `_link_titles`, `__`, — | none, identity, Yes/No, d h m s |
 
 Limitations: `Company:link:field` currency options fall back to the default currency (the record is not loaded);

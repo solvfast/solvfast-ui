@@ -8,6 +8,18 @@ export { ThemeProvider, useTheme, useLocale, usePortalContainer } from "./theme/
 export type { Theme, Direction, StorageKeys, ThemeProviderProps } from "./theme/ThemeProvider";
 export { defaultMessages } from "./theme/messages";
 export type { Language, Messages } from "./theme/messages";
+// Brand colours and the workspace background (0.7.0-dev.7)
+export { applyBrandTheme, brandTokens, hexToHsl, DEFAULT_BRAND_COLORS } from "./theme/brand";
+export type { BrandColors } from "./theme/brand";
+export { BrandTheme } from "./theme/BrandTheme";
+export type { BrandThemeProps } from "./theme/BrandTheme";
+export {
+  colorBackground, imageLayerStyle, imageOverlayStyle, isImageBackground, presetBackground,
+  BACKGROUND_PRESETS, BACKGROUND_INTENSITY_CAP, BACKGROUND_MAX_COLORS, DEFAULT_WORKSPACE_BACKGROUND,
+} from "./theme/workspaceBackground";
+export type { WorkspaceBackground, WorkspaceBackgroundMode, WorkspaceBackgroundStyle, BackgroundPreset } from "./theme/workspaceBackground";
+export { WorkspaceBackdrop } from "./theme/WorkspaceBackdrop";
+export type { WorkspaceBackdropProps } from "./theme/WorkspaceBackdrop";
 
 // Utilities
 export { cn } from "./lib/cn";
@@ -121,6 +133,10 @@ export { AppSwitcher } from "./shell/AppSwitcher";
 export type { AppSwitcherProps, SwitcherApp, SwitcherSection } from "./shell/AppSwitcher";
 export { NotificationPanel } from "./shell/NotificationPanel";
 export type { NotificationPanelProps, NotificationItem } from "./shell/NotificationPanel";
+export { UserMenu, userInitials } from "./shell/UserMenu";
+export type { UserMenuProps, ShellUser } from "./shell/UserMenu";
+export { CompanyLogo } from "./shell/CompanyLogo";
+export type { CompanyLogoProps } from "./shell/CompanyLogo";
 export { defaultIsActive, pathMatches, deepestActive, loc } from "./shell/nav";
 export type { NavItem, Localized, IsActive } from "./shell/nav";
 export { relativeTime, timeGroup } from "./lib/relative-time";

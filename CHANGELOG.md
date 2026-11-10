@@ -6,6 +6,39 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.7 — Sayr's Appearance and First Day of the Week
+
+Additive: nothing changes for a consumer that does not pass the new props. Ported from Sayr (sear_product), where these
+pieces lived in the app; Sayr and ServeFast now take them from the package. jsdom tests only; no real-site run.
+
+**Brand colours** (Sayr: System Settings › Appearance)
+- New `applyBrandTheme(brand, isDark, defaults?)`, `brandTokens`, `hexToHsl`, `DEFAULT_BRAND_COLORS` and the
+  `<BrandTheme brand />` component. The primary sets `--primary`, `--ring`, `--brand-violet`, `--primary-foreground`,
+  `--btn-primary-bg` / `-fg`; the secondary `--brand-sky`, `--brand-cyan`, inline on `<html>`. At the default colours
+  nothing is set. In dark mode a dark primary is lifted to 60% lightness with dark text on it. Needs the
+  ThemeProvider's default `scope="document"`.
+
+**Workspace background**
+- New `WorkspaceBackground` type, `colorBackground`, `imageLayerStyle`, `imageOverlayStyle`, `isImageBackground`,
+  `BACKGROUND_PRESETS`, `presetBackground`, `DEFAULT_WORKSPACE_BACKGROUND`, `BACKGROUND_INTENSITY_CAP` (35),
+  `BACKGROUND_MAX_COLORS` (6) and `<WorkspaceBackdrop bg isDark? base? />`. A photo's URL is quoted, so file names with
+  spaces or brackets (Frappe's `logo (3).png`) work.
+- `AppShell` `background`: the backdrop behind the sidebar and pages, in the shell's own stacking context (`relative
+  isolate`, backdrop `-z-10`): over the shell's background and the dark aurora, under everything else.
+
+**Header**
+- New `UserMenu` (`ShellUser`: `name`, `fullName`, `image?`, `onProfile`, `onLogout`) and `userInitials`: the photo or
+  Frappe's initials; the menu shows the name and email, My Profile and Log out (en/ar strings `account`, `myProfile`,
+  `logOut`).
+- New `CompanyLogo` (`src`, `darkSrc?`, `alt?`).
+- `Navbar` / `AppShell` `companyLogo` (before the title, desktop only; optional `onClick`) and `user` (last in the bar).
+
+**First Day of the Week**
+- `FormatContext.firstDayOfWeek` (0 Sunday … 6 Saturday), read by `formatContextFromBoot` from
+  `sysdefaults.first_day_of_the_week`.
+- `DateField` / `DateTimeField` `weekStartsOn`; `FrappeField` Date and Datetime pass the FormatContext's. Unset: the
+  calendar locale's (Saturday in Arabic, Sunday in English), as before.
+
 ## 0.7.0-dev.6 — P36e FrappeField trace, field types, FrappeField without a server, Frappe-like print, docstatus, Lifecycle rail
 
 P36e follows up on the P36d Lead Details audit. Evidence comes from jsdom tests, the in-package SIMULATOR and Playwright

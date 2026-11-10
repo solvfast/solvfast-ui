@@ -117,10 +117,15 @@ type CalendarOptions = {
   captionLayout?: "label" | "dropdown" | "dropdown-months" | "dropdown-years";
   startMonth?: Date;
   endMonth?: Date;
+  /** The week's first day, 0 (Sunday) … 6 (Saturday), e.g. Frappe's First Day of the Week (0.7.0-dev.7). Default: the
+   *  calendar locale's (Saturday in Arabic, Sunday in English). */
+  weekStartsOn?: WeekDay;
 };
 
+type WeekDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
 export function DateField({
-  value, onChange, placeholder, disabled, error, className, id, captionLayout, startMonth, endMonth, formatDisplay, ...rest
+  value, onChange, placeholder, disabled, error, className, id, captionLayout, startMonth, endMonth, weekStartsOn, formatDisplay, ...rest
 }: BaseProps & CalendarOptions & {
   value: string; onChange: (v: string) => void; placeholder?: string;
   /** The text shown for a selected value ("YYYY-MM-DD" in), e.g. a site's date format so the field reads the same as its
@@ -159,6 +164,7 @@ export function DateField({
             captionLayout={captionLayout}
             startMonth={startMonth}
             endMonth={endMonth}
+            weekStartsOn={weekStartsOn}
           />
         </PopoverContent>
       </Popover>
@@ -254,8 +260,8 @@ export function DateTimeFieldPreview({ defaultValue = "", ...rest }: { defaultVa
 /* ---- DateTimeField — replaces <input type="datetime-local"> ------------------------------ */
 
 export function DateTimeField({
-  value, onChange, interval = 15, disabled, error, className, id, ...rest
-}: BaseProps & { value: string; onChange: (v: string) => void; interval?: number }) {
+  value, onChange, interval = 15, disabled, error, className, id, weekStartsOn, ...rest
+}: BaseProps & Pick<CalendarOptions, "weekStartsOn"> & { value: string; onChange: (v: string) => void; interval?: number }) {
   const { isRTL } = useLocale();
   const [open, setOpen] = React.useState(false);
   const committed = parseDateTimeValue(value);
@@ -299,7 +305,7 @@ export function DateTimeField({
           </div>
           <CalendarUI
             mode="single" selected={tDate} onSelect={setTDate}
-            locale={isRTL ? arSA : undefined} dir={isRTL ? "rtl" : "ltr"}
+            locale={isRTL ? arSA : undefined} dir={isRTL ? "rtl" : "ltr"} weekStartsOn={weekStartsOn}
           />
           <div className="space-y-2 border-t border-border p-3">
             <Label className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">

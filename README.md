@@ -32,8 +32,11 @@ Everything PMO's `components/ui` has (0.3.0), in Sear's look:
   Accordion, Collapsible, AspectRatio, StatCard, IconStatCard, Stepper, Chart (`@solvfast/ui/chart`).
 - **Overlays and menus:** Dialog, AlertDialog, Sheet, Popover, Tooltip, HoverCard, DropdownMenu, ContextMenu, Menubar,
   Command, Toaster (`@solvfast/ui/toast`).
-- **Navigation and layout:** AppShell (Sidebar, Navbar, MobileNav, AppSwitcher, NotificationPanel), PageHeader,
+- **Navigation and layout:** AppShell (Sidebar, Navbar, MobileNav, AppSwitcher, NotificationPanel, UserMenu,
+  CompanyLogo, WorkspaceBackdrop), PageHeader,
   EditableTitle, Breadcrumb, Pagination, NavigationMenu, Tabs; ListView.
+- **Brand:** BrandTheme / `applyBrandTheme` (a customer's colours as theme tokens), the workspace background
+  (`colorBackground`, presets) — docs/CONSUMING.md §3.
 - **Not shipped:** drawer, carousel, input-otp, resizable — keep your shadcn copies (docs/CONSUMING.md §7).
 
 ## Quick start (app with Tailwind 3)

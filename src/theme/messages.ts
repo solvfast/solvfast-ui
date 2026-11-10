@@ -30,6 +30,10 @@ const en = {
   openMenu: "Open menu",
   myWorkspace: "My Workspace",
   backToWorkspace: "Back to My Workspace",
+  // user menu (0.7.0-dev.7)
+  account: "Account",
+  myProfile: "My Profile",
+  logOut: "Log out",
   // list — Sear's DataGrid strings (sear_product lib/i18n.ts) + PMO's for the features it adds
   listSearch: "Search…",
   noData: "No data yet",
@@ -485,6 +489,9 @@ const ar: Messages = {
   openMenu: "فتح القائمة",
   myWorkspace: "مساحة العمل",
   backToWorkspace: "العودة إلى مساحة العمل",
+  account: "الحساب",
+  myProfile: "ملفي الشخصي",
+  logOut: "تسجيل الخروج",
   listSearch: "بحث…",
   noData: "لا توجد بيانات بعد",
   total: "الإجمالي",

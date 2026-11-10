@@ -152,6 +152,24 @@ const location = useLocation(); const navigate = useNavigate();      // e.g. rea
     …
   </AppShell>
   ```
+- **Brand, background, company logo and user menu (0.7.0-dev.7).** For apps that follow a customer's brand (Sayr:
+  System Settings › Appearance). All optional; without them the shell is unchanged.
+  ```tsx
+  <BrandTheme brand={{ primaryColor: brand.primary_color, secondaryColor: brand.secondary_color }} />  {/* inside ThemeProvider */}
+  <AppShell …
+    companyLogo={{ src: brand.logo, darkSrc: isDefaultLogo ? defaultLogoDark : undefined }}   // before the title, desktop
+    user={{ name: "sara@example.com", fullName: "Sara Ahmed", image: userImage,               // photo or initials
+            onProfile: () => navigate("/my-profile"), onLogout: signOut }}                    // My Profile, Log out
+    background={brand.background}                                                             // WorkspaceBackground
+  >
+  ```
+  - `BrandTheme` / `applyBrandTheme` set the tokens inline on `<html>` (`--primary`, `--ring`, `--brand-violet`,
+    `--primary-foreground`, `--btn-primary-*`, `--brand-sky`, `--brand-cyan`), so use the ThemeProvider's default
+    `scope="document"`. At the default colours (`DEFAULT_BRAND_COLORS`, Sayr's `#512195` / `#25D0FE`) nothing is set.
+  - `background` draws `WorkspaceBackdrop` behind the sidebar and pages. Page roots must not paint an opaque
+    background of their own, or they hide it; cards, tables and forms keep theirs. `WorkspaceBackdrop` also works on
+    its own: first child of a `relative` container, content after it `relative`.
+  - The package fetches nothing: the app passes the brand, background and user (Sayr: from its page boot).
 - **Mobile bar items (0.3.0).** By default the mobile bar shows the first top-level *leaves* and "More" holds the rest,
   as in Sear. If your navigation is mostly groups (PMO: Home + module groups), choose the bar's items:
   `mobile={{ primary: [home, projects, tasks, more], maxItems: 4 }}`. "More" then lists the whole navigation tree

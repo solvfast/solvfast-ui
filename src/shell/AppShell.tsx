@@ -10,15 +10,17 @@
  * picks the mobile bar's items. Neither changes anything when unused.
  */
 import * as React from "react";
-import { useLocale } from "../theme/ThemeProvider";
+import { useLocale, useTheme } from "../theme/ThemeProvider";
 import { ShellTitleContext, useShellTitleHost } from "../primitives/page-header";
 import { MobileNav, type MobileNavProps } from "./MobileNav";
 import { Navbar, type NavbarProps } from "./Navbar";
+import { WorkspaceBackdrop } from "../theme/WorkspaceBackdrop";
+import type { WorkspaceBackground } from "../theme/workspaceBackground";
 import { Sidebar, type ShellBrand, type SidebarProps } from "./Sidebar";
 import { deepestActive, loc, type IsActive, type Localized, type NavItem } from "./nav";
 
 export interface AppShellProps
-  extends Pick<NavbarProps, "help" | "search" | "notifications" | "showLanguageToggle" | "showThemeToggle" | "actions"> {
+  extends Pick<NavbarProps, "help" | "search" | "notifications" | "showLanguageToggle" | "showThemeToggle" | "actions" | "companyLogo" | "user"> {
   brand: ShellBrand;
   items: NavItem[];
   currentPath: string;
@@ -38,6 +40,8 @@ export interface AppShellProps
   collapsedStorageKey?: string | null;
   /** Mobile bottom-nav options (`primary`: the bar's items — see MobileNavProps). */
   mobile?: Pick<MobileNavProps, "maxItems" | "exit" | "primary">;
+  /** 0.7.0-dev.7: a workspace background behind the sidebar and pages (over the dark aurora). Page roots stay clear. */
+  background?: WorkspaceBackground;
   children: React.ReactNode;
 }
 
@@ -54,9 +58,10 @@ function readBool(key: string | null | undefined): boolean | undefined {
 export function AppShell({
   brand, items, currentPath, onNavigate, isActive, title, switcher, sidebarBody,
   collapsed: collapsedProp, defaultCollapsed = false, onCollapsedChange, collapsedStorageKey = "sf-sidebar-collapsed",
-  mobile, help, search, notifications, showLanguageToggle, showThemeToggle, actions, children,
+  mobile, help, search, notifications, showLanguageToggle, showThemeToggle, actions, companyLogo, user, background, children,
 }: AppShellProps) {
   const { language, isRTL } = useLocale();
+  const { isDark } = useTheme();
   const [collapsedState, setCollapsedState] = React.useState<boolean>(() => readBool(collapsedStorageKey) ?? defaultCollapsed);
   const collapsed = collapsedProp ?? collapsedState;
   const setCollapsed = (next: boolean) => {
@@ -75,7 +80,10 @@ export function AppShell({
     : active ? loc(active.label, language) : brandName;
 
   return (
-    <div className="sf-app flex h-dvh w-full overflow-hidden bg-background text-foreground" dir={isRTL ? "rtl" : "ltr"}>
+    <div className={`sf-app flex h-dvh w-full overflow-hidden bg-background text-foreground${background ? " relative isolate" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
+      {/* Behind everything in the shell's own stacking context: above its background (and the dark aurora), below the
+          sidebar and pages. In dark the colours sit on the aurora instead of their own base, as on Sayr's home page. */}
+      {background && <WorkspaceBackdrop bg={background} isDark={isDark} base={isDark ? "transparent" : undefined} className="-z-10" />}
       <Sidebar
         brand={brand} items={items} body={sidebarBody} currentPath={currentPath} onNavigate={onNavigate}
         isActive={isActive} collapsed={collapsed} onCollapsedChange={setCollapsed} switcher={switcher}
@@ -88,6 +96,7 @@ export function AppShell({
           <Navbar
             title={pageTitle} help={help} search={search} notifications={notifications}
             showLanguageToggle={showLanguageToggle} showThemeToggle={showThemeToggle} actions={actions}
+            companyLogo={companyLogo} user={user}
             logo={brand.logoSrc ? { src: brand.logoSrc, alt: brandName, onClick: brand.href ? () => onNavigate(brand.href!) : undefined } : undefined}
           />
         </div>
