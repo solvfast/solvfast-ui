@@ -218,8 +218,8 @@ export type {
 export { STATUS_PALETTE, resolveStatusColor, statusColorStyles } from "./primitives/status-dot";
 export type { LifecycleStep } from "./record";
 // Lifecycle — the shared record lifecycle rail + diagram look (CRM, Tickets). docs/components/record.md §9
-export { RecordHeaderCard } from "./record";
-export type { RecordHeaderCardProps, RecordHeaderFact } from "./record";
+export { RecordHeaderCard, FieldPreview, previewKind } from "./record";
+export type { RecordHeaderCardProps, RecordHeaderFact, FieldPreviewProps } from "./record";
 export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
 export type {
   LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels, LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels,

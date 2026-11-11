@@ -301,3 +301,10 @@ Turning wizard mode off removes the steps added on the type (the type's Save sav
 before, in the same order. Steps that belong to the DocType itself (Sayr's own tab, marked `native`) stay, and are just
 not shown as tabs. A host passes `oneForm` from the type's `wizard_mode`.
 
+## 15. Field cards show their control (0.7.0-dev.16)
+
+In the Form section (`FieldDesigner`), every field's card draws its control as it will look on the form, from its
+Frappe fieldtype or its Field Library type (`FieldPreview`, also exported on its own): a text box, a checkbox beside the
+label, an editor, a dropdown, a link search, a drop zone, a map, a table grid, rating stars, a date or number box. The
+preview is decorative: select and drag the card as before.
+

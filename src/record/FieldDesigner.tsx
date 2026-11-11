@@ -20,6 +20,7 @@ import { useLocale } from "../theme/ThemeProvider";
 import type { designerEn } from "../theme/messages-ws/designer";
 import { loc, type Localized } from "../lib/localized";
 import { cn } from "../lib/cn";
+import { CheckboxMark, FieldPreview, previewKind } from "./FieldPreview";
 import {
   appendTab, insertItem, insertSectionAfter, moveItem, removeSection, removeTab, stepItem, toLayout,
   type DesignerItem, type DesignerKind, type DropSlot,
@@ -110,7 +111,7 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   web_address: Link2, file_upload: Upload, image_upload: ImageIcon, signature: PenLine, image_preview: ImageIcon,
   record_link: Link2, dynamic_link: Link2, child_table: Table, map_location: MapPin, barcode: Hash, json_data: Database,
 };
-const iconOf = (type?: string): LucideIcon => (type && TYPE_ICONS[type]) || Type;
+const iconOf = (type?: string): LucideIcon => (type && TYPE_ICONS[previewKind(type)]) || Type;
 
 /** The Form section of a type: its fields as tabs → sections → columns, with a properties panel beside it. Standard
  *  fields are placed only; shared fields move; a field set's fields move and are removed; fields defined here are
@@ -568,6 +569,7 @@ function FieldCard({ field, L, typeLabel, selected, onSelect, onDragStart, onDra
   const note = field.native ? (field.movable ? L("fdShared") : L("fdLocked")) : undefined;
   const label = field.label || (field.definition ? L("fdUntitledField") : field.id);
   const Icon = iconOf(field.definition?.type ?? field.fieldtype);
+  const isCheck = previewKind(field.definition?.type ?? field.fieldtype) === "checkbox";
   return (
     <div onDragOver={onDragOver} onDrop={onDrop} title={note} data-field={field.id}
       className={cn("group relative min-w-0 rounded-lg border bg-card p-2.5 transition-colors", selected ? "border-primary ring-1 ring-primary/30" : "border-border hover:border-primary/40")}>
@@ -581,10 +583,12 @@ function FieldCard({ field, L, typeLabel, selected, onSelect, onDragStart, onDra
         ) : <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-label={note} />}
         <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-start" aria-label={`${L("fdEditField")}: ${label}`}>
           <span className="flex items-center gap-1.5 text-sm">
+            {isCheck && <CheckboxMark />}
             <span className={cn("truncate", !field.label && field.definition && "italic text-muted-foreground")}>{label}</span>
             {field.definition?.required && <span className="text-destructive">*</span>}
+            <span className="ms-auto inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground"><Icon className="h-3 w-3" />{typeLabel}</span>
           </span>
-          <span className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground"><Icon className="h-3 w-3" />{typeLabel}</span>
+          {!isCheck && <FieldPreview type={field.fieldtype} definition={field.definition} className="mt-2" />}
         </button>
         {field.native && field.movable && <Share2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-label={L("fdShared")} />}
         {field.source && <Badge variant="brand" className="shrink-0">{field.source}</Badge>}

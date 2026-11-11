@@ -240,6 +240,29 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     expect(ids.indexOf("custom_amount")).toBeGreaterThan(ids.indexOf("@tab::Extra"));
   });
 
+  it("FD.ui.7d each field's card shows its control: a text box, a checkbox, an editor, a dropdown, a link search, a map, a table", async () => {
+    const items = [
+      f("title", { label: "Title", native: true, movable: true, fieldtype: "Data" }),
+      f("vip", { label: "VIP", native: true, fieldtype: "Check" }),
+      f("description", { label: "Description", native: true, fieldtype: "Text Editor" }),
+      f("custom_tier", { label: "Tier", own: true, fieldtype: "dropdown", definition: { type: "dropdown", label: "Tier", choices: [{ en: "Gold" }] } }),
+      f("customer", { label: "Customer", native: true, fieldtype: "Link" }),
+      f("site", { label: "Site", native: true, fieldtype: "Geolocation" }),
+      f("lines", { label: "Lines", native: true, fieldtype: "Table" }),
+    ];
+    mount(memoryAdapter({ items }));
+    await screen.findByText("VIP");
+    const kind = (label: string) => card(label).querySelector("[data-field-preview]")?.getAttribute("data-field-preview");
+    expect(kind("Title")).toBe("text");
+    expect(kind("VIP")).toBe("checkbox");
+    expect(kind("Description")).toBe("rich_text");
+    expect(kind("Tier")).toBe("dropdown");
+    expect(within(card("Tier")).getByText("Gold")).toBeTruthy();
+    expect(kind("Customer")).toBe("record_link");
+    expect(kind("Site")).toBe("map_location");
+    expect(kind("Lines")).toBe("child_table");
+  });
+
   it("FD.ui.8 a field added on the form: a type from the registry, then every property it takes, saved with its key", async () => {
     const adapter = memoryAdapter();
     mount(adapter);

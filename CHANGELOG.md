@@ -6,6 +6,19 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.16 — Field cards show their control
+
+Visual change in `FieldDesigner`. jsdom tests only.
+
+- Each field's card draws its control under the label: a text box for text, a checkbox beside the label for a check, a
+  toolbar and an area for an editor, a dropdown (its first choice) for a choice, a search box for a link, a drop zone for
+  a file or image, a pad for a signature, a map for a location, a grid for a table, stars for a rating, a date or number
+  box… The type's name stays at the card's end. Decorative only (`aria-hidden`, no focus): the card is what is selected
+  and dragged.
+- Core `FieldPreview` / `previewKind` (+ `FieldPreviewProps`): the preview for a Frappe fieldtype ("Check") or a Field
+  Library type key ("checkbox"). Type icons now also follow Frappe fieldtypes.
+- Messages: the `fp…` block.
+
 ## 0.7.0-dev.15 — Wizard mode decides the form's shape
 
 Intentional visual change for hosts that pass `FieldDesigner`'s `wizard` / show family records. jsdom tests only.
