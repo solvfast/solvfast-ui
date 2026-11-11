@@ -136,6 +136,12 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   hideToolbar?: boolean;
   /** Title override (default: "New {DocType}" / title field / name). */
   title?: React.ReactNode;
+  /** A record header shown under the toolbar instead of the toolbar's title block (image, title, name, web link). */
+  header?: React.ReactNode;
+  /** With `header`: what the toolbar shows where the title was (e.g. a Back button). */
+  toolbarStart?: React.ReactNode;
+  /** "record": the tab bar spans the width, each tab an equal share (record pages). Default "default". */
+  tabBar?: "default" | "record";
   /** Ask before leaving the page with unsaved changes (default true). */
   guardUnload?: boolean;
   /** The form's controller (`frm`) for code outside the events. */
@@ -795,6 +801,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     <div className={cn("min-w-0 space-y-5", className)} data-doctype={meta.name}>
       {!props.hideToolbar && (
         <div className="flex flex-wrap items-center gap-3">
+          {props.header !== undefined ? <div className="min-w-0 flex-1">{props.toolbarStart}</div> : <>
           {imageField !== undefined && (
             <FrappeFormImage bundle={bundle} doc={doc} df={eff.get(imageField) ?? fieldsByName.get(imageField)} canWrite={!permissionsUnknown && can("write")}
               initials={initials(htmlToText(String(titleField || "")) || doc.name)} getDocInfo={() => latestProps.current.docinfo}
@@ -809,6 +816,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
               </a>
             )}
           </div>
+          </>}
           {indicator && <Badge variant={indicator.variant}>{indicator.text}</Badge>}
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
           {!notice && permissionsUnknown && <span role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</span>}
@@ -868,11 +876,13 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </div>
       )}
 
+      {props.header}
+
       {tabCount > 1 && !props.hideTabBar && (
         <Tabs value={activeExtra?.tabKey ?? currentTab?.key} onValueChange={(v) => setActiveTab(v)}>
-          <TabsList className="max-w-full overflow-x-auto">
-            {visibleTabs.map((tab) => <TabsTrigger key={tab.key} value={tab.key}>{tabLabel(tab)}</TabsTrigger>)}
-            {extraTabs.map((x) => <TabsTrigger key={x.tabKey} value={x.tabKey} data-extra-tab={x.key}>{x.label}</TabsTrigger>)}
+          <TabsList className={props.tabBar === "record" ? "flex w-full max-w-full overflow-x-auto" : "max-w-full overflow-x-auto"} data-tab-bar={props.tabBar ?? "default"}>
+            {visibleTabs.map((tab) => <TabsTrigger key={tab.key} value={tab.key} className={props.tabBar === "record" ? "min-w-0 flex-1" : undefined}>{tabLabel(tab)}</TabsTrigger>)}
+            {extraTabs.map((x) => <TabsTrigger key={x.tabKey} value={x.tabKey} data-extra-tab={x.key} className={props.tabBar === "record" ? "min-w-0 flex-1" : undefined}>{x.label}</TabsTrigger>)}
           </TabsList>
         </Tabs>
       )}

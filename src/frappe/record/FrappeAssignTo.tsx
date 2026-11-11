@@ -39,13 +39,17 @@ export interface FrappeAssignToProps extends Pick<AssigneeGroupProps, "variant" 
   /** P36c: Desk's "Assign To User Group" in the sidebar's "Add to ToDo" dialog (assign_to.js:142-160, 191-197): a User Group
    *  Link whose members replace the users to assign. Default on in the sidebar layout (as Desk); `false` hides it. */
   userGroups?: boolean;
+  /** Sidebar layout: the dialog's Comment when it opens, instead of the title field (e.g. the deployment's ToDo text). */
+  comment?: string;
+  /** Sidebar layout: Priority offers only Low / Medium / High, Medium preselected (`AssignDialog.threePriorities`). */
+  threePriorities?: boolean;
 }
 
 /**
  * ToDo-based assignment. List from `docinfo.assignments` (uncapped); after add / remove the docinfo is re-fetched — the
  * 5-row list `assign_to.add` returns is never used as the source of truth (docs 14 A2). Unsaved documents cannot be assigned.
  */
-export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = true, canWrite = false, searchUsers, onChanged, layout = "group", allowComplete, bundle, userGroups = true, ...rest }: FrappeAssignToProps) {
+export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = true, canWrite = false, searchUsers, onChanged, layout = "group", allowComplete, bundle, userGroups = true, comment, threePriorities, ...rest }: FrappeAssignToProps) {
   const { t } = useLocale();
   const c = useRecordApi();
   const actions = useDocAction();
@@ -91,7 +95,7 @@ export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = t
         {canAssign ? (
           <AssignDialog open={dialog} onOpenChange={setDialog} searchUsers={search} onAssign={assign} me={{ id: user, label: userFullName ?? user }}
             existing={assignees} details={rest.withDetails ?? true} labels={{ title: t("sbAssignAdd") }}
-            defaultDetails={title ? { description: title } : undefined} groups={groups} />
+            defaultDetails={comment || title ? { description: comment || title } : undefined} threePriorities={threePriorities} groups={groups} />
         ) : null}
       </SidebarSection>
     );

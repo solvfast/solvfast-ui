@@ -3,3 +3,7 @@ export { createSayrFieldDesignerAdapter, sayrToken } from "./fieldDesignerAdapte
 export type { SayrApi, SayrFieldDesignerOptions } from "./fieldDesignerAdapter";
 export { SayrFieldDesigner } from "./SayrFieldDesigner";
 export type { SayrFieldDesignerProps } from "./SayrFieldDesigner";
+export { SayrRecordPage, RECORD_RAIL_CARDS } from "./SayrRecordPage";
+export type { SayrRecordPageProps, RecordRailCard } from "./SayrRecordPage";
+export { RECORD_PAGE_METHOD, TRANSITION_METHOD, defaultLifecycleHref } from "./recordPage";
+export type { RecordPageData, ChecklistData } from "./recordPage";

@@ -224,3 +224,49 @@ The Form section works like Customize Form: fields are added on the type itself 
 set's field (§7), field sets are deployed onto it as in Sayr Studio (§8), and the type's one Save saves everything
 (§5). `FrappeFormView` / `FrappeForm` gained `alsoSave: { dirty, save }` for this: changes kept outside the document
 that count as unsaved and are saved after it.
+
+## 12. `SayrRecordPage` — a record opened as a page (0.7.0-dev.13)
+
+`@solvfast/ui/sayr` · `src/sayr/SayrRecordPage.tsx`. A Sayr record (a family record in its type's DocType, or any
+DocType Sayr governs) as a page: a header card, the record's form, and a side rail.
+
+```tsx
+import { SayrRecordPage } from "@solvfast/ui/sayr";
+
+<SayrRecordPage doctype={record.doctype} name={record.name} typeLabel={record.type}
+  onBack={() => navigate("/tickets/tickets")} backLabel="Tickets"
+  menu={{ onDeleted: () => navigate("/tickets/tickets", { replace: true }) }} />
+```
+
+Every other prop is `FrappeForm`'s and goes to the form.
+
+- **Header card**: the title (title field, else the name), `#name`, the status (the lifecycle state, coloured by its
+  phase), the creator's full name (never the user id) and when it was created, and `typeLabel` as a chip. Save, the
+  workflow buttons and the "⋯" menu stay in the form's toolbar, with the Back button (`onBack`, `backLabel`) at its start.
+- **Tabs**: the type DocType's own Tab Breaks, as a full-width bar (`tabBar="record"`); whatever tabs the DocType has.
+- **Rail**, in this order:
+  1. **Lifecycle** (always shown): the states the record went through (Frappe's workflow log and versions), the current
+     one, and every next action of `record_state`. A next action runs `execute_transition`; it is disabled while the
+     form has unsaved changes, and the form is read again afterwards (the result or the refusal shows under the rail). "View full lifecycle" opens `lifecycleHref(key)`
+     in a new tab (default: Sayr Studio's builder, `/sayr-framework/workspace/build/sear_studio/life_cycles/<key>`).
+     No lifecycle: "No lifecycle on this type", or, when the type has one but the record predates it, says so.
+  2. **Assignment**: `FrappeAssignTo` (Frappe's ToDo assignment). The dialog's Comment starts as the assignment
+     deployment's ToDo description when it has one (else the title field), and Priority offers Low / Medium / High.
+  3. **SLA** (read only): the policy, its level, the clock's status (Running, Paused, Fulfilled, or Breached when a
+     target was missed), the first response and resolution due (or met) times, the priority and the working hours.
+     "No SLA deployed", or "No SLA clock on this record" when the record has no priority or predates the deployment.
+  4. **Playbook**: the checklist of the current status (`open_checklist`; it is created on first open), ticked with
+     `tick_step`. "No playbook for this status" otherwise.
+  5. **Tasks**: the record's ToDos (assignee, status, priority, date); more than five scroll.
+  6. **Pinned Notes**: the record's comments (`FrappeComments`).
+  7. **Attachments**: `FrappeAttachments`.
+  
+  Then Created by / Last edited by. **Customize sections** hides or shows cards 2–7, per DocType, in this browser
+  (`localStorage`, key `sf-record-rail:<doctype>`, or `railStorageKey`).
+- **Data**: one call to Sayr's `sear_product.apis.tickets.tickets.record_page` (header, lifecycle, SLA, the assign
+  comment, ToDos); assignment, comments and attachments read Frappe's docinfo.
+
+What it added elsewhere (additive, defaults unchanged): `FrappeFormView` / `FrappeForm` `header`, `toolbarStart` and
+`tabBar: "record"`; `LifecycleRail` `onSelectNext`; `useRefreshDoc` (Frappe layer); `AssignDialog` `threePriorities`; `FrappeAssignTo` `comment` and
+`threePriorities`. Messages: the `rp…` block (`theme/messages-ws/recordPage.ts`).
+

@@ -58,6 +58,9 @@ export interface AssignDialogProps {
   /** P36b: the detail fields' values when the dialog opens (Desk fills "Comment" with the document's title field,
    *  assign_to.js:161-167). */
   defaultDetails?: AssignDetails;
+  /** Priority offers only the ToDo's own Low / Medium / High (no "Default" row), Medium unless `defaultDetails` says
+   *  otherwise. */
+  threePriorities?: boolean;
   /** P36c: offer Desk's "Assign To User Group" (hidden with `single`). Frappe-free: the host searches its groups and expands
    *  one into its members. */
   groups?: AssignGroupSource;
@@ -105,7 +108,7 @@ function UserAvatar({ name, image, className }: { name: string; image?: string |
   );
 }
 
-export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, single, count, existing, details, labels, note, defaultDetails, groups }: AssignDialogProps) {
+export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, single, count, existing, details, labels, note, defaultDetails, threePriorities, groups }: AssignDialogProps) {
   const { t } = useLocale();
   const L = {
     title: labels?.title ?? t("recAssignTitle"), forCount: labels?.forCount ?? t("recAssignForCount"), toMe: labels?.toMe ?? t("recAssignToMe"),
@@ -253,10 +256,10 @@ export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, si
               {show.priority ? (
                 <div className="min-w-0 space-y-1">
                   <Label htmlFor={`${id}-priority`}>{L.priority}</Label>
-                  <Select value={d.priority ?? DEFAULT_PRIORITY} onValueChange={(v) => setD((x) => ({ ...x, priority: v === DEFAULT_PRIORITY ? undefined : (v as AssignDetails["priority"]) }))}>
+                  <Select value={d.priority ?? (threePriorities ? "Medium" : DEFAULT_PRIORITY)} onValueChange={(v) => setD((x) => ({ ...x, priority: v === DEFAULT_PRIORITY ? undefined : (v as AssignDetails["priority"]) }))}>
                     <SelectTrigger id={`${id}-priority`} className="h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={DEFAULT_PRIORITY}>{L.priorityDefault}</SelectItem>
+                      {threePriorities ? null : <SelectItem value={DEFAULT_PRIORITY}>{L.priorityDefault}</SelectItem>}
                       <SelectItem value="Low">{L.low}</SelectItem>
                       <SelectItem value="Medium">{L.medium}</SelectItem>
                       <SelectItem value="High">{L.high}</SelectItem>

@@ -6,6 +6,24 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.13 — SayrRecordPage: a record opened as a page
+
+Additive. jsdom tests only; checked on a real site (servefast-dev) before vendoring.
+
+- `@solvfast/ui/sayr`: `SayrRecordPage` — header card (title, name, status, creator's name, created on, type chip),
+  the record's own tabs as a full-width bar, and a rail: Lifecycle (current status, next actions that run
+  `execute_transition`, "View full lifecycle" to the builder), Assignment, SLA (read only), Playbook, Tasks (scroll past
+  five), Pinned Notes (comments), Attachments, Created by / Last edited by; "Customize sections" per DocType
+  (localStorage). Reads `sear_product.apis.tickets.tickets.record_page` (needs Sayr with that endpoint). Also exports
+  `RECORD_RAIL_CARDS`, `RECORD_PAGE_METHOD`, `TRANSITION_METHOD`, `defaultLifecycleHref`.
+- `@solvfast/ui/frappe`: `useRefreshDoc()` — read a document and its docinfo again after an outside change.
+- `FrappeFormView` / `FrappeForm`: `header` (shown under the toolbar instead of its title block), `toolbarStart`, and
+  `tabBar: "record"` (full-width tabs).
+- `LifecycleRail`: `onSelectNext` makes the next options buttons.
+- `AssignDialog`: `threePriorities` (Low / Medium / High only, Medium preselected). `FrappeAssignTo`: `comment` (the
+  dialog's Comment instead of the title field) and `threePriorities`.
+- Messages: the `rp…` block.
+
 ## 0.7.0-dev.12 — Families: the field set picker is a searchable link field
 
 jsdom tests only. Deploy a field set: the published sets are a `SearchCombobox` (description and field count under

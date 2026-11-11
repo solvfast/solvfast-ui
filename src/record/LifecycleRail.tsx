@@ -43,6 +43,8 @@ export interface LifecycleRailProps {
   ended?: boolean;
   /** Shows the "View full lifecycle" link (e.g. to open a LifecycleDiagramDialog). */
   onViewAll?: () => void;
+  /** Makes each next option a button (e.g. run that transition). A disabled option stays plain text. */
+  onSelectNext?: (next: LifecycleRailNext) => void;
   /** Chrome strings; default from the ThemeProvider's language. Pass them when rendering outside a ThemeProvider. */
   labels?: LifecycleRailLabels;
   className?: string;
@@ -53,7 +55,7 @@ export interface LifecycleRailProps {
  * (primary, tinted row), what can happen next (dashed / a box, back-moves tagged) or the end of the lifecycle, and a
  * link to the full diagram. Purely presentational: the consumer walks its own lifecycle graph and passes the view model.
  */
-export function LifecycleRail({ path, next = [], ended, onViewAll, labels, className }: LifecycleRailProps) {
+export function LifecycleRail({ path, next = [], ended, onViewAll, onSelectNext, labels, className }: LifecycleRailProps) {
   const { t } = useLocale();
   if (path.length === 0) return null;
   const L = {
@@ -64,6 +66,11 @@ export function LifecycleRail({ path, next = [], ended, onViewAll, labels, class
     next: labels?.next ?? t("lcNext"),
   };
   const cur = path.length - 1;
+
+  const optionLabel = (o: LifecycleRailNext, cls: string) => onSelectNext && !o.disabled ? (
+    <button type="button" title={o.label} onClick={() => onSelectNext(o)} data-next-option={o.id}
+      className={cn(cls, "rounded-sm text-start hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}>{o.label}</button>
+  ) : <span title={o.label} className={cls}>{o.label}</span>;
 
   const BackTag = () => (
     <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
@@ -99,7 +106,7 @@ export function LifecycleRail({ path, next = [], ended, onViewAll, labels, class
           <span aria-hidden className={cn("absolute -top-1/2 h-full w-0 start-[17px]", lifecycleConnectorClass(false))} />
           <span className="flex w-9 shrink-0 justify-center"><LifecycleStepDot step="future" /></span>
           {next[0].back ? <Undo2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
-          <span title={next[0].label} className={cn("min-w-0 flex-1 truncate text-sm text-muted-foreground", next[0].disabled && "opacity-60")}>{next[0].label}</span>
+          {optionLabel(next[0], cn("min-w-0 flex-1 truncate text-sm text-muted-foreground", next[0].disabled && "opacity-60"))}
           {next[0].back ? <BackTag /> : null}
         </div>
       ) : null}
@@ -113,7 +120,7 @@ export function LifecycleRail({ path, next = [], ended, onViewAll, labels, class
                 className={cn("flex h-8 items-center gap-2 px-1", o.disabled && "opacity-60")}>
                 {o.back ? <Undo2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   : <CornerDownRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground rtl:-scale-x-100" />}
-                <span title={o.label} className="min-w-0 flex-1 truncate text-[13px] text-foreground">{o.label}</span>
+                {optionLabel(o, "min-w-0 flex-1 truncate text-[13px] text-foreground")}
                 {o.back ? <BackTag /> : null}
               </li>
             ))}

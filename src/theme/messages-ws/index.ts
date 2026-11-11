@@ -22,6 +22,8 @@ import { lifecycleEn, lifecycleAr } from "./lifecycle";
 import { familyEn, familyAr } from "./family";
 // FieldDesigner (a type's Form section)
 import { designerEn, designerAr } from "./designer";
+// SayrRecordPage (record header and side cards)
+import { recordPageEn, recordPageAr } from "./recordPage";
 
-export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn };
-export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr };
+export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn };
+export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr };
