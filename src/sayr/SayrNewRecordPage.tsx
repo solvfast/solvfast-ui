@@ -13,20 +13,26 @@ import type { FamilyType } from "../frappe/family/family";
 import { FrappeNewFamilyRecord, type FrappeNewFamilyRecordProps } from "../frappe/family/FrappeNewFamilyRecord";
 import { TYPE_PREVIEW_METHOD, defaultLifecycleHref, type TypePreviewData } from "./recordPage";
 import { useSayrCall } from "./SayrRecordPage";
+import { SayrTypeFinder } from "./SayrTypeFinder";
 import {
   CustomizeSections, Empty, PHASE_VARIANT, RECORD_RAIL_CARDS, RailCard, duration, railStorageKeyOf, useHiddenCards,
   type RecordRailCard, type T,
 } from "./rail";
 import { Skeleton } from "../primitives/skeleton";
 
-export interface SayrNewRecordPageProps extends Omit<FrappeNewFamilyRecordProps, "layout" | "aside"> {
+export interface SayrNewRecordPageProps extends Omit<FrappeNewFamilyRecordProps, "layout" | "aside" | "typeHelp"> {
   /** Where "View full lifecycle" opens (a new tab). Default: Sayr Studio's lifecycle builder. */
   lifecycleHref?: (lifecycle: string) => string;
+  /** A decision tree (Sayr Studio › Routing) behind "Not sure? Find the right type" under the type picker. None: no link. */
+  decisionTree?: string | null;
 }
 
-export function SayrNewRecordPage({ lifecycleHref = defaultLifecycleHref, ...props }: SayrNewRecordPageProps) {
+export function SayrNewRecordPage({ lifecycleHref = defaultLifecycleHref, decisionTree, ...props }: SayrNewRecordPageProps) {
   return (
     <FrappeNewFamilyRecord {...props} layout="record"
+      typeHelp={decisionTree ? ({ types, choose }) => (
+        <SayrTypeFinder tree={decisionTree} registry={props.family.registry} types={types} onChoose={choose} />
+      ) : undefined}
       aside={(type) => <TypePreviewRail key={type?.doctype ?? ""} type={type} lifecycleHref={lifecycleHref} />} />
   );
 }

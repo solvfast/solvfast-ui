@@ -308,3 +308,12 @@ Frappe fieldtype or its Field Library type (`FieldPreview`, also exported on its
 label, an editor, a dropdown, a link search, a drop zone, a map, a table grid, rating stars, a date or number box. The
 preview is decorative: select and drag the card as before.
 
+## 16. "Not sure? Find the right type" (0.7.0-dev.18)
+
+`SayrNewRecordPage decisionTree="SEAR-DT-00001"` shows the link under the type picker (none: hidden). It opens
+`SayrTypeFinder`, which walks the tree (Sayr Studio › Routing) through `decision_tree_walk`: a question with its answers,
+Back and Start over. The walk ends on an outcome (a registry and a type): when that is this family's registry and one of
+the offered types, "Use this type" picks it (asking first if fields were filled, as the picker does); otherwise a warning
+says the answers lead to a type that is not here, and the type stays empty. The host decides which tree applies (e.g. a
+Configuration default). `FrappeNewFamilyRecord`'s `typeHelp` is the slot it uses.
+

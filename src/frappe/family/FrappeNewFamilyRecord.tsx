@@ -55,6 +55,9 @@ export interface FrappeNewFamilyRecordProps {
   aside?: (type: FamilyType | undefined) => React.ReactNode;
   /** `record` layout: the Back button's label (it calls `onCancel`). */
   backLabel?: string;
+  /** Under the type picker (both layouts), e.g. a "Find the right type" guide. `choose` picks a type by its name, asking
+   *  first when fields were filled, as the picker does. */
+  typeHelp?: (ctx: { types: FamilyType[]; choose: (name: string) => void }) => React.ReactNode;
 }
 
 // A type's own fields sit on a tab Sayr adds; a new record shows them in one list, so tab breaks are left out.
@@ -65,7 +68,7 @@ function Dot({ color }: { color?: string }) {
 }
 
 /** A new record of a family: the type first, then that type's form. Changing the type after filling fields asks first. */
-export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType, renderTypeIcon, createClassName, labels, className, layout = "default", aside, backLabel }: FrappeNewFamilyRecordProps) {
+export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType, renderTypeIcon, createClassName, labels, className, layout = "default", aside, backLabel, typeHelp }: FrappeNewFamilyRecordProps) {
   const { t, language, isRTL } = useLocale();
   const { session } = useFrappeSettings();
   const L = (key: keyof FrappeNewFamilyRecordLabels, fallback: keyof typeof familyEn) => loc(labels?.[key], language) || t(fallback);
@@ -141,6 +144,7 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
         </Select>
       )}
       {types.isError && <p className="text-sm text-destructive">{(types.error as Error).message}</p>}
+    {typeHelp && types.data ? typeHelp({ types: types.data, choose: chooseType }) : null}
       {types.data?.length === 0 && <p className="text-sm text-muted-foreground">{L("noTypes", "famNoTypes")}</p>}
 
       {pending && (

@@ -6,6 +6,19 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.18 — "Not sure? Find the right type" on a new record
+
+Additive. jsdom tests only.
+
+- `@solvfast/ui/sayr` `SayrTypeFinder`: walks a Sayr decision tree (`sear_product.apis.routing.routing.decision_tree_walk`)
+  in a dialog, one answer at a time, with Back and Start over. An outcome that is one of the types offered gets "Use this
+  type", which picks it; an outcome in another registry, or a type not offered, shows a warning and the type stays empty;
+  a walk error is shown as the server words it. Exports `WALK_TREE_METHOD`, `TreeStep`.
+- `SayrNewRecordPage` `decisionTree`: the tree behind the "Not sure? Find the right type" link under the type picker;
+  none, no link.
+- `FrappeNewFamilyRecord` `typeHelp({ types, choose })`: content under the type picker (both layouts).
+- Messages: the `tf…` block.
+
 ## 0.7.0-dev.17 — rowMeta can show single columns by default
 
 Additive. jsdom tests only.

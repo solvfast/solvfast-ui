@@ -13,3 +13,7 @@ export { SayrNewRecordPage } from "./SayrNewRecordPage";
 export type { SayrNewRecordPageProps } from "./SayrNewRecordPage";
 export { TYPE_PREVIEW_METHOD } from "./recordPage";
 export type { TypePreviewData } from "./recordPage";
+export { SayrTypeFinder } from "./SayrTypeFinder";
+export type { SayrTypeFinderProps } from "./SayrTypeFinder";
+export { WALK_TREE_METHOD } from "./recordPage";
+export type { TreeStep } from "./recordPage";

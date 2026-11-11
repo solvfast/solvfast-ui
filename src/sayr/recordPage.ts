@@ -54,3 +54,11 @@ export interface TypePreviewData {
   };
   assignment: { profile: string; profile_name: string; strategy: string }[];
 }
+
+export const WALK_TREE_METHOD = "sear_product.apis.routing.routing.decision_tree_walk";
+
+/** One step of a decision-tree walk (Sayr's `decision_tree_walk`): a question, the outcome, or why it stopped. */
+export type TreeStep =
+  | { kind: "question"; question_en?: string | null; question_ar?: string | null; options: { option_id: string; label_en?: string | null; label_ar?: string | null }[] }
+  | { kind: "outcome"; registry_doctype: string; type: string; description?: string | null }
+  | { kind: "error"; code: string; message: string };

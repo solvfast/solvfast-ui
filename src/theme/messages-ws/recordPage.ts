@@ -53,6 +53,14 @@ export const recordPageEn = {
   rpPrHigh: "High",
   rpPrMedium: "Medium",
   rpPrLow: "Low",
+  tfNotSure: "Not sure? Find the right type",
+  tfTitle: "Find the right type",
+  tfIntro: "Answer a few questions and we'll suggest the type.",
+  tfFound: "The right type is {0}.",
+  tfUse: "Use this type",
+  tfNotHere: "The answers lead to {0}, which isn't one of the types here. Choose a type yourself.",
+  tfBack: "Back",
+  tfRestart: "Start over",
 };
 export const recordPageAr: { [K in keyof typeof recordPageEn]: string } = {
   rpCustomize: "تخصيص الأقسام",
@@ -107,4 +115,12 @@ export const recordPageAr: { [K in keyof typeof recordPageEn]: string } = {
   rpPrHigh: "عالية",
   rpPrMedium: "متوسطة",
   rpPrLow: "منخفضة",
+  tfNotSure: "غير متأكد؟ اعثر على النوع المناسب",
+  tfTitle: "اعثر على النوع المناسب",
+  tfIntro: "أجب عن بعض الأسئلة وسنقترح النوع.",
+  tfFound: "النوع المناسب هو {0}.",
+  tfUse: "استخدم هذا النوع",
+  tfNotHere: "تقود الإجابات إلى {0}، وهو ليس من الأنواع المتاحة هنا. اختر النوع بنفسك.",
+  tfBack: "رجوع",
+  tfRestart: "البدء من جديد",
 };

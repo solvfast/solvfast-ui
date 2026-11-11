@@ -11,7 +11,7 @@ import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
 import { createFixtureTransport } from "../src/frappe/testing";
 import { AssignDialog } from "../src/record/AssignDialog";
-import { RECORD_PAGE_METHOD, SayrNewRecordPage, SayrRecordPage, TRANSITION_METHOD, TYPE_PREVIEW_METHOD, type RecordPageData, type TypePreviewData } from "../src/sayr";
+import { RECORD_PAGE_METHOD, SayrNewRecordPage, SayrRecordPage, TRANSITION_METHOD, TYPE_PREVIEW_METHOD, WALK_TREE_METHOD, type RecordPageData, type TypePreviewData } from "../src/sayr";
 import type { FamilyDescriptor } from "../src/frappe";
 
 beforeAll(() => {
@@ -203,18 +203,26 @@ const PREVIEW: TypePreviewData = {
   assignment: [{ profile: "SEAR-AP-00001", profile_name: "Test Support Assignment", strategy: "Round Robin" }],
 };
 
-function mountNew(defaultType?: string) {
+function mountNew(defaultType?: string, decisionTree?: string, ends: "Bug" | "Elsewhere" = "Bug") {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const t = createFixtureTransport(
     { meta: { "Ticket Type": [REGISTRY], "Ticket Bug": [BUG] },
       docs: { "Ticket Type": [{ doctype: "Ticket Type", name: "Bug", type_name: "Bug", type_doctype: "Ticket Bug", enabled: 1, owner: "Administrator", creation: T, modified: T, docstatus: 0 } as FrappeDoc] } },
-    { handlers: { [TYPE_PREVIEW_METHOD]: () => ({ message: PREVIEW }) } },
+    { handlers: {
+      [TYPE_PREVIEW_METHOD]: () => ({ message: PREVIEW }),
+      [WALK_TREE_METHOD]: (args) => {
+        const answers = JSON.parse(String(args.answers ?? "[]")) as string[];
+        if (!answers.length) return { message: { kind: "question", question_en: "Is something broken?", options: [{ option_id: "o_yes", label_en: "Yes" }] } };
+        return { message: ends === "Bug" ? { kind: "outcome", registry_doctype: "Ticket Type", type: "Bug" }
+          : { kind: "outcome", registry_doctype: "Sear Organization Unit Types", type: "Section" } };
+      },
+    } },
   );
   return render(
     <QueryClientProvider client={qc}>
       <FrappeProvider client={createFrappeClient({ transport: t })} queryClient={qc} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
         <ThemeProvider storageKeys={null}>
-          <SayrNewRecordPage family={FAMILY} defaultType={defaultType} onCreated={() => {}} onCancel={() => {}} backLabel="Tickets"
+          <SayrNewRecordPage family={FAMILY} defaultType={defaultType} decisionTree={decisionTree} onCreated={() => {}} onCancel={() => {}} backLabel="Tickets"
             labels={{ title: { en: "New Ticket", ar: "تذكرة جديدة" } }} />
         </ThemeProvider>
       </FrappeProvider>
@@ -259,6 +267,35 @@ describe("RP.oneForm — the record page follows the type's wizard mode", () => 
     );
     await waitFor(() => expect(screen.getByText("Booking Reference")).toBeTruthy());
     expect(screen.queryByRole("tab", { name: "Booking Change Request" })).toBeNull();
+  });
+});
+
+describe("RP.finder — Not sure? Find the right type", () => {
+  it("RP.finder.1 no decision tree, no link", async () => {
+    const { container } = mountNew();
+    await waitFor(() => expect(container.querySelector("[data-new-record-page]")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText(/Type/)).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Not sure? Find the right type" })).toBeNull();
+  });
+
+  it("RP.finder.2 the walk ends on a type offered here: Use this type picks it", async () => {
+    mountNew(undefined, "SEAR-DT-00001");
+    fireEvent.click(await screen.findByRole("button", { name: "Not sure? Find the right type" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Yes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Use this type" }));
+    // The type is chosen: the rail previews what it brings.
+    await waitFor(() => expect(screen.getByText("Test Support SLA")).toBeTruthy());
+  });
+
+  it("RP.finder.3 the walk ends elsewhere: a warning, and the type stays empty; Back goes to the question", async () => {
+    mountNew(undefined, "SEAR-DT-00001", "Elsewhere");
+    fireEvent.click(await screen.findByRole("button", { name: "Not sure? Find the right type" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Yes" }));
+    await waitFor(() => expect(document.querySelector("[data-type-finder-warning]")?.textContent).toContain("Section"));
+    expect(screen.queryByRole("button", { name: "Use this type" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByText("Is something broken?")).toBeTruthy();
+    expect(screen.getAllByText("Choose a type to see what it brings.").length).toBeGreaterThan(0);
   });
 });
 
