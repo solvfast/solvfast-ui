@@ -6,6 +6,17 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.19 — the type on a new record is a searchable link field
+
+Visual change (the type picker). jsdom tests only.
+
+- `FrappeNewFamilyRecord` (and so `SayrNewRecordPage`): the type picker is a `LinkInput` instead of a `Select`: typing
+  searches the loaded types by their English or Arabic name or their name, a click opens the whole list, × clears it
+  back to empty (no type: the form waits). The id `sf-family-type` and the label are unchanged.
+- Changing or clearing the type warns only after the user has changed a field (`FormController.canUndo`); before, a new
+  record counted as changed as soon as it opened, so every switch warned.
+- Labels `searchTypes`, `noMatchingTypes`; messages `famSearchTypes`, `famNoMatchingTypes`.
+
 ## 0.7.0-dev.18 — "Not sure? Find the right type" on a new record
 
 Additive. jsdom tests only.

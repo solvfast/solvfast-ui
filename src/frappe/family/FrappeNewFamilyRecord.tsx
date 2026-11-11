@@ -2,9 +2,10 @@ import * as React from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, Calendar, FileText, User } from "lucide-react";
 import { Button } from "../../primitives/button";
 import { Label } from "../../primitives/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { Skeleton } from "../../primitives/skeleton";
 import { Stepper } from "../../primitives/stepper";
+import { LinkInput } from "../../fields/LinkInput";
+import type { Suggestion } from "../../fields/autocomplete";
 import { RecordHeaderCard } from "../../record/RecordHeaderCard";
 import { useLocale } from "../../theme/ThemeProvider";
 import { loc, type Localized } from "../../lib/localized";
@@ -19,6 +20,8 @@ import { useFamilyTypes, type FamilyDescriptor, type FamilyType } from "./family
 export interface FrappeNewFamilyRecordLabels {
   type: Localized;
   chooseType: Localized;
+  searchTypes: Localized;
+  noMatchingTypes: Localized;
   chooseTypeFirst: Localized;
   noTypes: Localized;
   switchWarn: Localized;
@@ -75,7 +78,6 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
   const types = useFamilyTypes(family);
   const [typeName, setTypeName] = React.useState(defaultType ?? "");
   const [pending, setPending] = React.useState<string | null>(null);
-  const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [steps, setSteps] = React.useState<{ key: string; label: string }[]>([]);
   const [step, setStep] = React.useState(0);
@@ -86,17 +88,24 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
   // Until the form has reported its tabs the steps are unknown: Next waits rather than Create showing early.
   const last = !wizard || (steps.length > 0 && step >= steps.length - 1);
   const icon = (x: FamilyType) => (renderTypeIcon ? renderTypeIcon(x) : <Dot color={x.color} />);
+  // The types are already loaded: the search filters them here, on either language's name or the type's name.
+  const searchTypes = async (text: string): Promise<Suggestion[]> => {
+    const q = text.trim().toLowerCase();
+    return (types.data ?? [])
+      .filter((x) => !q || [x.name, loc(x.label, "en"), loc(x.label, "ar")].some((s) => s.toLowerCase().includes(q)))
+      .map((x) => ({ value: x.name, label: loc(x.label, language), icon: icon(x) }));
+  };
 
   const commitType = (name: string) => {
     setTypeName(name);
     setPending(null);
-    setDirty(false);
     setSteps([]);
     setStep(0);
   };
   const chooseType = (name: string) => {
     if (name === typeName) return;
-    if (dirty) setPending(name);
+    // A new record is always unsaved; only the user's own field changes are worth a warning.
+    if (form.current?.canUndo) setPending(name);
     else commitType(name);
   };
   const create = async () => {
@@ -128,26 +137,16 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
       {types.isPending ? (
         <Skeleton className="h-10 rounded-md" />
       ) : (
-        <Select value={typeName} onValueChange={chooseType}>
-          <SelectTrigger id="sf-family-type" className="h-10">
-            <SelectValue placeholder={L("chooseType", "famChooseType")}>
-              {type && <span className="inline-flex items-center gap-2">{icon(type)}<span>{loc(type.label, language)}</span></span>}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {(types.data ?? []).map((x) => (
-              <SelectItem key={x.name} value={x.name}>
-                <span className="inline-flex items-center gap-2">{icon(x)}<span>{loc(x.label, language)}</span></span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <LinkInput id="sf-family-type" value={typeName || null} displayValue={type ? loc(type.label, language) : null}
+          onChange={(v) => chooseType(v ?? "")} search={searchTypes} debounceMs={0} clearable openOnClickWhenFilled
+          selectedIndicator keepValueWhenEmptied placeholder={L("chooseType", "famChooseType")}
+          searchPlaceholder={L("searchTypes", "famSearchTypes")} emptyText={L("noMatchingTypes", "famNoMatchingTypes")} />
       )}
       {types.isError && <p className="text-sm text-destructive">{(types.error as Error).message}</p>}
     {typeHelp && types.data ? typeHelp({ types: types.data, choose: chooseType }) : null}
       {types.data?.length === 0 && <p className="text-sm text-muted-foreground">{L("noTypes", "famNoTypes")}</p>}
 
-      {pending && (
+      {pending !== null && (
         <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 flex items-start gap-2.5">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0 space-y-2">
@@ -190,7 +189,6 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
         activeTab={wizard ? steps[step]?.key : undefined}
         onTabsChange={wizard ? setSteps : undefined}
         controllerRef={form}
-        onDirtyChange={setDirty}
         onSaved={(doc) => onCreated(doc, type)}
       />
     </div>

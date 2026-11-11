@@ -165,6 +165,30 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
   });
 
+  it("FAM.screens.10 the type is a link field: typing searches the types (either language), picking chooses, clearing empties", async () => {
+    mount(site(), <FrappeNewFamilyRecord family={FAMILY} onCreated={() => {}} />);
+    const box = await screen.findByRole("combobox", { name: /Type/ }, { timeout: 3000 });
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: "استرداد" } });
+    await waitFor(() => expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Refund Request"]));
+    fireEvent.click(screen.getByRole("option", { name: "Refund Request" }));
+    await screen.findByRole("textbox", { name: /Booking Reference/ }, { timeout: 3000 });
+    expect((box as HTMLInputElement).value).toBe("Refund Request");
+    fireEvent.click(screen.getByRole("button", { name: /Clear/ }));
+    expect(await screen.findByText("Choose a type to see its fields")).toBeTruthy();
+    expect((box as HTMLInputElement).value).toBe("");
+    expect((screen.getByRole("button", { name: "Create" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("FAM.screens.11 clearing the type after filling fields asks first; Keep keeps the type", async () => {
+    mount(site(), <FrappeNewFamilyRecord family={FAMILY} defaultType="Refund Request" onCreated={() => {}} />);
+    const booking = await screen.findByRole("textbox", { name: /Booking Reference/ }, { timeout: 3000 });
+    fireEvent.focus(booking); fireEvent.change(booking, { target: { value: "BK-1" } }); fireEvent.blur(booking);
+    await waitFor(() => fireEvent.click(screen.getByRole("button", { name: /Clear/ })));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: /Booking Reference/ })).toBeTruthy();
+  });
+
   it("FAM.screens.7 a wizard type walks its tabs as steps: Next, Back, and Create on the last step", async () => {
     const s = site();
     const onCreated = vi.fn();
