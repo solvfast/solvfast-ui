@@ -47,8 +47,9 @@ export interface FrappeNewFamilyRecordProps {
   createClassName?: string;
   labels?: Partial<FrappeNewFamilyRecordLabels>;
   className?: string;
-  /** "record": laid out as a record page — Back and Create on top, a header card holding the type picker, the type's
-   *  tabs as a full-width bar, and `aside` as a side rail. Default "default" (one column, fields in one list). */
+  /** "record": laid out as a record page — Back and Create on top, a header card holding the type picker, and `aside` as
+   *  a side rail. Default "default" (one column). In both, a wizard type walks its steps (Back / Next), any other type
+   *  is one form. */
   layout?: "default" | "record";
   /** `record` layout: the side rail for the chosen type (undefined until one is chosen). */
   aside?: (type: FamilyType | undefined) => React.ReactNode;
@@ -180,9 +181,8 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
         hideToolbar
         menu={false}
         connections={false}
-        fieldFilter={wizard || record ? undefined : flat}
+        fieldFilter={wizard ? undefined : flat}
         hideTabBar={wizard}
-        tabBar={record ? "record" : undefined}
         activeTab={wizard ? steps[step]?.key : undefined}
         onTabsChange={wizard ? setSteps : undefined}
         controllerRef={form}

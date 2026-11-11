@@ -129,6 +129,9 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
   const [confirm, setConfirm] = React.useState<null | { kind: "removal"; removals: DesignerRemoval[] } | { kind: "empty" }>(null);
   const confirmAnswer = React.useRef<((ok: boolean) => void) | null>(null);
   const dragging = React.useRef<string | null>(null);
+  const [dropTab, setDropTab] = React.useState<number | null>(null);
+  // With wizard mode offered and off, the form is one list: no tabs to show or add.
+  const oneForm = !!wizard && !wizard.on;
 
   const apply = (next: DesignerState) => { setState(next); setItems(next.items); setError(null); };
   React.useEffect(() => {
@@ -196,6 +199,7 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
     e.stopPropagation();
     const id = dragging.current;
     dragging.current = null;
+    setDropTab(null);
     if (id) edit(moveItem(items, id, slot));
   };
   const allowDrop = (e: React.DragEvent) => { if (dragging.current) e.preventDefault(); };
@@ -217,7 +221,8 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
   const addSection = () => {
     if (!adapter.makeSection) return;
     const item = adapter.makeSection(uniqueLabel(L("fdNewSection")));
-    edit(insertSectionAfter(items, { tab: tabIndex, section: tabs[tabIndex].sections.length - 1 }, item));
+    const at = oneForm ? tabs.length - 1 : tabIndex;
+    edit(insertSectionAfter(items, { tab: at, section: tabs[at].sections.length - 1 }, item));
     setSelection({ kind: "section", id: item.id });
   };
   const addTab = () => {
@@ -260,7 +265,11 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
   }
 
   const tab = tabs[tabIndex];
-  const showTabs = tabs.some((x) => x.breakItem) || !!wizard?.on || !!adapter.makeTab;
+  const showTabs = !oneForm && (tabs.some((x) => x.breakItem) || !!wizard?.on || !!adapter.makeTab);
+  // Wizard off: every step's sections in one list, in order; on (or no wizard): the shown tab's.
+  const shown = oneForm
+    ? tabs.flatMap((t, ti) => t.sections.map((section, si) => ({ section, ti, si })))
+    : tab.sections.map((section, si) => ({ section, ti: tabIndex, si }));
   const typeLabel = (type?: string) => (type && registry ? loc(registry.types.find((x) => x.key === type)?.label ?? type, language) : type ?? "");
   const selectedItem = selection.kind === "field" || selection.kind === "section" ? items.find((i) => i.id === selection.id) : undefined;
   const whereOf = (id: string) => {
@@ -367,19 +376,19 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
           <div className="space-y-3">
             {brk?.own ? (
               <div className="space-y-1.5">
-                <Label htmlFor="sf-designer-tab-name" className="text-xs">{L("fdTabName")}</Label>
+                <Label htmlFor="sf-designer-tab-name" className="text-xs">{wizard?.on ? L("fdStepName") : L("fdTabName")}</Label>
                 <Input id="sf-designer-tab-name" value={brk.label ?? ""} onChange={(e) => renameBreak(brk.id, e.target.value)} />
               </div>
             ) : (
               <>
                 <p className="text-sm font-medium">{brk?.label || L("fdUntitledTab")}</p>
-                <Note icon={Lock}>{L("fdTabLocked")}</Note>
+                <Note icon={Lock}>{wizard?.on ? L("fdStepLocked") : L("fdTabLocked")}</Note>
               </>
             )}
             {brk && !brk.native && (
               <Button type="button" size="sm" variant="outline" className="w-full gap-1.5 text-destructive"
                 onClick={() => { edit(removeTab(items, selection.index)); setActiveTab(Math.max(0, selection.index - 1)); setSelection({ kind: "none" }); }}>
-                <Trash2 className="h-3.5 w-3.5" />{L("fdRemoveTab")}
+                <Trash2 className="h-3.5 w-3.5" />{wizard?.on ? L("fdRemoveStep") : L("fdRemoveTab")}
               </Button>
             )}
           </div>
@@ -413,24 +422,36 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
             <p id="sf-designer-wizard-hint" className="text-[11px] text-muted-foreground">{L("fdWizardHint")}</p>
           </div>
           <Switch id="sf-designer-wizard" aria-describedby="sf-designer-wizard-hint" checked={wizard.on}
-            onCheckedChange={(on) => { Promise.resolve(wizard.onChange(on)).catch((e) => setError(errorText(e))); }} />
+            onCheckedChange={(on) => {
+              // Off: the steps added on the type go, so their fields join the step before, in the same order.
+              if (!on) {
+                edit(items.filter((i) => !(i.kind === "tab_break" && !i.native)));
+                setActiveTab(0);
+                setSelection({ kind: "none" });
+              }
+              Promise.resolve(wizard.onChange(on)).catch((e) => setError(errorText(e)));
+            }} />
         </div>
       )}
       {state.notice && <p className="text-sm text-muted-foreground">{state.notice}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0 space-y-3">
+        <div className="min-w-0 space-y-3" onDragEnd={() => { dragging.current = null; setDropTab(null); }}>
           {showTabs && (
             <div className="rounded-xl border border-border bg-card p-2.5">
               <div className="flex items-center gap-2 overflow-x-auto pb-0.5" role="tablist">
                 {tabs.map((x, ti) => (
                   <button key={x.breakItem?.id ?? `tab-${ti}`} type="button" role="tab" aria-selected={ti === tabIndex}
                     onDragOver={allowDrop}
+                    onDragEnter={() => dragging.current && setDropTab(ti)}
+                    onDragLeave={() => setDropTab((d) => (d === ti ? null : d))}
                     onDrop={drop({ tab: ti, section: x.sections.length - 1, column: x.sections[x.sections.length - 1].columns.length - 1 })}
                     onClick={() => { setActiveTab(ti); setSelection({ kind: "tab", index: ti }); }}
+                    data-drop-target={dropTab === ti || undefined}
                     className={cn("inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors",
-                      ti === tabIndex ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
+                      ti === tabIndex ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted",
+                      dropTab === ti && "border-primary ring-2 ring-primary/40")}>
                     {wizard?.on ? `${L("fdStep")} ${ti + 1} · ` : ""}{x.breakItem?.label || L("fdUntitledTab")}
                     {x.breakItem?.native && <Lock className="h-3 w-3 opacity-60" />}
                   </button>
@@ -445,11 +466,11 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
             </div>
           )}
 
-          {tab.sections.map((section, si) => {
+          {shown.map(({ section, ti, si }) => {
             const brk = section.breakItem;
             const selected = !!brk && selection.kind === "section" && selection.id === brk.id;
             return (
-              <div key={brk?.id ?? `section-${si}`} className={cn("overflow-hidden rounded-xl border bg-card/60", selected ? "border-primary ring-1 ring-primary/30" : "border-border")}>
+              <div key={brk?.id ?? `section-${ti}-${si}`} className={cn("overflow-hidden rounded-xl border bg-card/60", selected ? "border-primary ring-1 ring-primary/30" : "border-border")}>
                 {brk && (
                   <button type="button" onClick={() => setSelection({ kind: "section", id: brk.id })} aria-label={`${L("fdSection")}: ${brk.label || L("fdUntitledSection")}`}
                     className="flex w-full items-center gap-2 border-b border-border bg-muted/30 px-3 py-2 text-start">
@@ -461,7 +482,7 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
                 )}
                 <div className="grid gap-3 p-3" style={{ gridTemplateColumns: `repeat(${section.columns.length}, minmax(0, 1fr))` }}>
                   {section.columns.map((column, ci) => {
-                    const slot: DropSlot = { tab: tabIndex, section: si, column: ci };
+                    const slot: DropSlot = { tab: ti, section: si, column: ci };
                     return (
                       <div key={column.breakItem?.id ?? `column-${ci}`} className="min-w-0 space-y-2">
                         {column.fields.map((field) => (

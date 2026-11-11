@@ -6,6 +6,21 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.15 — Wizard mode decides the form's shape
+
+Intentional visual change for hosts that pass `FieldDesigner`'s `wizard` / show family records. jsdom tests only.
+
+- `FieldDesigner` with `wizard` offered and **off**: the form is one list — every tab's sections in order, no tab bar,
+  no Add tab (Add section adds at the end). Turning wizard mode **off** removes the tabs added on the type (`own`,
+  not `native`), so their fields join the step before, in the same order. **On**: the tabs are steps ("Step N ·",
+  Add step, Step name, Remove step, a locked step's note), and a field dragged onto a step is highlighted there
+  (`data-drop-target`) and moves to it. Hosts without `wizard` are unchanged.
+- `FrappeNewFamilyRecord` `layout="record"`: a type without wizard mode is one form again (no tab bar); a wizard type
+  walks its steps with Back / Next (unchanged).
+- `SayrRecordPage` `oneForm`: every field in one form, no tab bar (for a type without wizard mode). Default unchanged:
+  the DocType's tabs as the full-width bar.
+- Messages: `fdStepName`, `fdRemoveStep`, `fdStepLocked`; `fdWizardHint` reworded.
+
 ## 0.7.0-dev.14 — SayrNewRecordPage: a new record laid out like the record page
 
 Additive. jsdom tests only; the record page (dev.13) was checked on a real site.

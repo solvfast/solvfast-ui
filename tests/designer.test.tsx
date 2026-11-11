@@ -191,16 +191,53 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("FD.ui.7 the Wizard mode switch tells the host; with it on, tabs read as steps", async () => {
+  it("FD.ui.7 wizard mode off: one form (no tabs, no Add tab); the switch tells the host; on: steps and Add step", async () => {
     const onChange = vi.fn();
-    const items = [...LOADED, brk("@tab::Extra", "tab_break", { label: "Extra", own: true })];
+    const items = [...LOADED, brk("@tab::Extra", "tab_break", { label: "Extra", own: true }), f("custom_extra", { label: "Extra Field", own: true, fieldtype: "Data" })];
     const { rerender } = render(<ThemeProvider storageKeys={null}><FieldDesigner adapter={memoryAdapter({ items })} wizard={{ on: false, onChange }} /></ThemeProvider>);
-    fireEvent.click(await screen.findByRole("switch", { name: "Wizard mode" }));
+    await screen.findByText("Amount");
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add tab|Add step/ })).toBeNull();
+    expect(screen.getByText("Extra Field")).toBeTruthy();
+    fireEvent.click(screen.getByRole("switch", { name: "Wizard mode" }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(true));
-    expect(screen.getByRole("tab", { name: "Extra" })).toBeTruthy();
     rerender(<ThemeProvider storageKeys={null}><FieldDesigner adapter={memoryAdapter({ items })} wizard={{ on: true, onChange }} /></ThemeProvider>);
     expect(await screen.findByRole("tab", { name: "Step 2 · Extra" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add step" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Step 2 · Extra" }));
+    expect(within(panel()).getByRole("textbox", { name: "Step name" })).toBeTruthy();
+    expect(within(panel()).getByRole("button", { name: "Remove step" })).toBeTruthy();
+  });
+
+  it("FD.ui.7b turning wizard mode off merges the steps into one form, every field kept in order", async () => {
+    const adapter = memoryAdapter({ items: [...LOADED, brk("@tab::Extra", "tab_break", { label: "Extra", own: true }), f("custom_extra", { label: "Extra Field", own: true, fieldtype: "Data" })] });
+    const onChange = vi.fn();
+    mount(adapter, "en", { wizard: { on: true, onChange } });
+    await screen.findByRole("tab", { name: "Step 2 · Extra" });
+    fireEvent.click(screen.getByRole("switch", { name: "Wizard mode" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(false));
+    fireEvent.click(screen.getByRole("button", { name: "Save form" }));
+    await waitFor(() => expect(adapter.save).toHaveBeenCalled());
+    const saved = adapter.save.mock.calls[0][0] as DesignerItem[];
+    expect(saved.some((i) => i.kind === "tab_break")).toBe(false);
+    expect(saved.map((i) => i.id)).toEqual([...LOADED.map((i) => i.id), "custom_extra"]);
+  });
+
+  it("FD.ui.7c with wizard mode on, a field dropped on another step moves there", async () => {
+    const adapter = memoryAdapter({ items: [...LOADED, brk("@tab::Extra", "tab_break", { label: "Extra", own: true }), f("custom_extra", { label: "Extra Field", own: true, fieldtype: "Data" })] });
+    mount(adapter, "en", { wizard: { on: true, onChange: vi.fn() } });
+    await screen.findByText("Amount");
+    fireEvent.dragStart(within(card("Amount")).getByRole("button", { name: "Reorder field: Amount" }), { dataTransfer: { setData: () => {}, effectAllowed: "" } });
+    const step = screen.getByRole("tab", { name: "Step 2 · Extra" });
+    fireEvent.dragEnter(step);
+    expect(step.getAttribute("data-drop-target")).toBe("true");
+    fireEvent.drop(step);
+    fireEvent.click(step);
+    expect(screen.getByText("Amount")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save form" }));
+    await waitFor(() => expect(adapter.save).toHaveBeenCalled());
+    const ids = (adapter.save.mock.calls[0][0] as DesignerItem[]).map((i) => i.id);
+    expect(ids.indexOf("custom_amount")).toBeGreaterThan(ids.indexOf("@tab::Extra"));
   });
 
   it("FD.ui.8 a field added on the form: a type from the registry, then every property it takes, saved with its key", async () => {

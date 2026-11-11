@@ -56,7 +56,12 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   lifecycleHref?: (lifecycle: string) => string;
   /** Where the hidden cards are kept (localStorage). Default `sf-record-rail:<doctype>`. */
   railStorageKey?: string;
+  /** All fields as one form, no tabs (a family type without wizard mode). Default: the DocType's tabs as a
+   *  full-width bar (a wizard type's steps). */
+  oneForm?: boolean;
 }
+
+const noTabBreaks = (df: { fieldtype: string }) => df.fieldtype !== "Tab Break";
 
 /** One Sayr method's answer, read again when `key` changes or on `reload`. */
 export function useSayrCall<D>(method: string, args: Record<string, unknown>, key: string, enabled = true) {
@@ -79,7 +84,7 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 }
 
 export function SayrRecordPage({
-  doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, onDirtyChange, onSaved, ...form
+  doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, oneForm, onDirtyChange, onSaved, ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
   const api = useFrappeApi();
@@ -244,6 +249,7 @@ export function SayrRecordPage({
           header={header}
           toolbarStart={back}
           tabBar="record"
+          fieldFilter={oneForm ? noTabBreaks : form.fieldFilter}
           onDirtyChange={(d) => { setDirty(d); onDirtyChange?.(d); }}
           onSaved={(saved, action) => { void refresh(); onSaved?.(saved, action); }}
         />

@@ -241,6 +241,24 @@ describe("RP.new — a new record laid out like the record page", () => {
     expect(container.querySelector("[data-sla-preview='SEAR-SLA-00001']")?.textContent).toContain("30 min");
     expect(screen.getByRole("button", { name: "View full lifecycle" })).toBeTruthy();
     expect(screen.getAllByText("Available after the record is created.").length).toBe(4);
-    await waitFor(() => expect(screen.getByRole("tab", { name: "Booking Change Request" })).toBeTruthy());
+    // Not a wizard type: one form, no tabs; the type's own fields follow the shared ones.
+    await waitFor(() => expect(screen.getByText("Booking Reference")).toBeTruthy());
+    expect(screen.queryByRole("tab", { name: "Booking Change Request" })).toBeNull();
   });
 });
+
+describe("RP.oneForm — the record page follows the type's wizard mode", () => {
+  it("RP.oneForm.1 oneForm: every field in one form, no tab bar", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <FrappeProvider client={site(PAGE())} queryClient={qc} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
+          <ThemeProvider storageKeys={null}><SayrRecordPage doctype="Ticket Bug" name="TKT-00008" oneForm /></ThemeProvider>
+        </FrappeProvider>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("Booking Reference")).toBeTruthy());
+    expect(screen.queryByRole("tab", { name: "Booking Change Request" })).toBeNull();
+  });
+});
+

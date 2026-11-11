@@ -244,6 +244,7 @@ Every other prop is `FrappeForm`'s and goes to the form.
   phase), the creator's full name (never the user id) and when it was created, and `typeLabel` as a chip. Save, the
   workflow buttons and the "⋯" menu stay in the form's toolbar, with the Back button (`onBack`, `backLabel`) at its start.
 - **Tabs**: the type DocType's own Tab Breaks, as a full-width bar (`tabBar="record"`); whatever tabs the DocType has.
+  `oneForm` (0.7.0-dev.15) shows every field in one form instead, for a type without wizard mode.
 - **Rail**, in this order:
   1. **Lifecycle** (always shown): the states the record went through (Frappe's workflow log and versions), the current
      one, and every next action of `record_state`. A next action runs `execute_transition`; it is disabled while the
@@ -282,11 +283,21 @@ What it added elsewhere (additive, defaults unchanged): `FrappeFormView` / `Frap
 - **Top row**: Back (`onCancel`, `backLabel`) and Create / Next / Back (a wizard type's steps).
 - **Header card** (`RecordHeaderCard`): `labels.title`, "Not Saved", the signed-in user and today, and the type picker.
   Changing the type after filling fields still asks first.
-- **Form**: the type DocType's tabs as the full-width bar (a wizard type keeps its stepper). The `default` layout still
-  shows the fields in one list.
+- **Form** (0.7.0-dev.15): a type without wizard mode is one form; a wizard type walks its steps with Back / Next.
 - **Rail** (`aside(type)`), after a type is chosen, from Sayr's `type_preview(doctype)`: Lifecycle (its title, the status a
   record starts in, how many statuses, "View full lifecycle"), Assignment (the deployed profiles and their strategy),
   SLA (the policy, its level, first response and resolution per priority, the working hours). Playbook, Tasks, Pinned
   Notes and Attachments say "Available after the record is created". Before a type is chosen every card asks for one.
   "Customize sections" uses the record page's storage key, so a hidden card stays hidden on both pages.
+
+## 14. Wizard mode decides the form's shape (0.7.0-dev.15)
+
+| Wizard mode | Type's Form section (`FieldDesigner` with `wizard`) | New record | Record page |
+|---|---|---|---|
+| Off | One list: every section in order, no tabs, no Add tab | One form | `SayrRecordPage oneForm`: one form |
+| On | Steps: "Step N · name", Add step, rename / remove a step the type added; drop a field on a step to move it there | Steps with Back / Next | The steps as the full-width tab bar |
+
+Turning wizard mode off removes the steps added on the type (the type's Save saves it): their fields join the step
+before, in the same order. Steps that belong to the DocType itself (Sayr's own tab, marked `native`) stay, and are just
+not shown as tabs. A host passes `oneForm` from the type's `wizard_mode`.
 
