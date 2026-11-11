@@ -9,8 +9,9 @@ export interface SayrFieldDesignerProps extends Omit<FieldDesignerProps, "adapte
   doctype: string;
 }
 
-/** FieldDesigner over Sayr's Field Library, for one DocType — e.g. `FrappeTypeForm`'s `designer`:
- *  `designer={(doctype) => <SayrFieldDesigner doctype={doctype} />}`. Needs a FrappeProvider. */
+/** FieldDesigner over Sayr's Field Library, for one DocType — e.g. `FrappeTypeForm`'s `designer`, saved by the type's
+ *  Save: `designer={(doctype, ctx) => <SayrFieldDesigner doctype={doctype} wizard={ctx.wizard} onPendingChange={ctx.onPendingChange} />}`.
+ *  Needs a FrappeProvider. */
 export function SayrFieldDesigner({ doctype, ...props }: SayrFieldDesignerProps) {
   const api = useFrappeApi();
   const { language } = useLocale();

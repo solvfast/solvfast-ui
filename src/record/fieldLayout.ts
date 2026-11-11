@@ -4,6 +4,8 @@
 // fields are laid out the same way. An implicit first tab, section and column exist whenever the list does not
 // begin with a break.
 
+import type { FieldDefinition } from "./fieldDefinition";
+
 export type DesignerKind = "field" | "section_break" | "column_break" | "tab_break";
 
 export interface DesignerItem {
@@ -19,6 +21,10 @@ export interface DesignerItem {
   movable?: boolean;
   /** Where an added field comes from (a field set's name), shown on the card. */
   source?: string;
+  /** Defined on this form itself (a field with `definition`, or a section / tab it added): edited here. */
+  own?: boolean;
+  /** An own field's definition (every property a field set's field has). */
+  definition?: FieldDefinition;
 }
 
 export interface LayoutColumn { breakItem?: DesignerItem; fields: DesignerItem[] }

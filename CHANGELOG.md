@@ -6,6 +6,27 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.11 — Families: fields added on a type's form, one Save
+
+jsdom tests only; no real-site run. **BREAKING** for `FieldDesigner` hosts: fields are removed from the properties
+panel (no Remove button on the cards), the Add fields dialog is now the "Deploy a field set" panel, and
+`context.wizard.onChange` no longer saves on its own.
+
+**The Form section** — docs/components/family.md §7, §8, §11
+- `FieldDesigner`: a canvas with a properties panel beside it. Add field (per column) from the adapter's field types,
+  edited in the new `FieldInspector` with every property a field set's field has; Add section / Add tab (Add step);
+  Deploy a field set in the panel. `onPendingChange` hands its changes to a host's Save (no Save form button then).
+- New adapter methods (optional): `makeSection`, `fieldTypes`, `linkTargets`, `linkTargetFields`. `DesignerItem`
+  gains `own` and `definition`. New core exports: `FieldInspector`, `INSPECTED_PROPERTIES`, `designerKeys`,
+  `FieldDefinition`, `FieldTypeRegistry` (+ related types); `src/record` adds `keyFromLabel`, `deriveKey`, `ownKeys`,
+  `retype`, `definitionProblem`.
+- `@solvfast/ui/sayr`: the form's own fields live in the deployment's `own_fields` (needs Sayr with that table);
+  rows are anchored by tokens (`@own::<key>`, `@section::<label>` added); `definitionOfRow` / `rowOfDefinition`.
+- `FrappeTypeForm`: `context.onPendingChange`; Wizard mode is set on the type and saved with it.
+- `FrappeFormView` / `FrappeForm`: `alsoSave: { dirty, save }` — outside changes that count as unsaved and are
+  saved after the document (alone when only they changed).
+- Messages: the `fd…` block rewritten; new `fi…` block (the inspector).
+
 ## 0.7.0-dev.10 — Families: the Appearance section
 
 Additive. jsdom tests only; no real-site run.

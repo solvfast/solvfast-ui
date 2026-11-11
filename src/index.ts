@@ -229,7 +229,9 @@ export { IconColorPicker, APPEARANCE_ICONS, APPEARANCE_ICON_NAMES, APPEARANCE_CO
 export type { IconColorPickerProps } from "./fields";
 export type { FamilyTabsProps, FamilyTab, FamilyTabProps } from "./record";
 export { FieldDesigner, toLayout as designerLayout, fromLayout as designerItems, previousId as designerPreviousId, kindOfFieldtype } from "./record";
-export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval, DesignerItem, DesignerKind } from "./record";
+export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval, DesignerPending, DesignerItem, DesignerKind } from "./record";
+export { FieldInspector, INSPECTED_PROPERTIES, ownKeys as designerKeys } from "./record";
+export type { FieldInspectorProps, FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./record";
 export { EmptyState } from "./primitives/empty-state";
 export type { EmptyStateProps } from "./primitives/empty-state";
 export type { RichTextEditorHandle } from "./primitives/rich-text-editor";

@@ -103,7 +103,12 @@ A type: the registry's own form, so every field the registry has is shown (an ap
 - **Configuration** (Linked Lifecycle, SLA Policy, Assignment Profile) is shown by default; the server deploys what they
   name onto the type's DocType when the type is saved. `configuration={false}` hides it.
 - **`designer`** renders under the form once the type has its DocType (a saved type; a new type has none until it is
-  saved): `designer={(typeDoctype) => <MyDesigner doctype={typeDoctype} />}`.
+  saved, so a new type has no Form section until its first Save): `designer={(typeDoctype, ctx) => <MyDesigner …/>}`.
+- **One Save.** `ctx.onPendingChange` hands the designer's unsaved changes to the type's form (`FrappeForm` `alsoSave`):
+  the type shows "Not Saved" while they are pending, and its Save saves the type first, then the designer. With only
+  designer changes, the type's own validate / before_save events and mandatory check still run, but nothing is sent
+  for the type. A failed designer save shows as the form's error after the type itself has saved; the designer keeps
+  its state (a saved type is not remounted).
 
 ## 6. Data helpers
 
@@ -113,50 +118,72 @@ doctype, icon, color, row}` — for a picker of the app's own. `fetchFamilyRecor
 
 ## 7. `FieldDesigner` (Core) — a type's Form section
 
-The fields of a type's form as tabs → sections → columns, **placement only**: a field's own settings (label, required,
-options, conditions) stay where its field set is edited (Sayr Studio's Field Library).
+The fields of a type's form as tabs → sections → columns, with a properties panel beside it (the reference's layout):
+click a field, section or tab to see it in the panel.
 
 | Card | What it can do |
 |---|---|
-| Standard field (lock) | Stays where it is. |
-| Shared field (from the family parent) | Moves (drag, or the up / down buttons); never removed. |
-| A field set's field | Moves and is removed. |
+| Standard field (lock) | Placed anywhere; never removed or edited. |
+| Shared field (from the family parent) | Moves (drag, the grip's arrow keys, or the up / down buttons); never removed or edited. |
+| A field set's field | Moves and is removed; its settings stay in the Field Library (the set's own deploy, linked to the set). |
+| A field added on the form | Moves, is removed, and is edited in the panel with every property a field set's field has. |
 
-- **Add fields** (toolbar, or "Add fields here" on a section): a published field set, then its fields not yet on the
-  form (all ticked), added as a new section under that section (default) or into it.
-- **Add tab** / remove a tab or section the type added: what it held moves to the one before.
-- **Save form** writes the form as arranged. Removing fields that hold values asks first (how many records); removing
-  every added field asks before the field set is withdrawn. Values always stay in the database.
+- **Add field** (each column): the field types the adapter's registry offers (`fieldTypes`), then the inspector
+  (`FieldInspector`): type, title (in the current language), description, placeholder, required, default, choices,
+  link target and its filters, the field deciding a dynamic link / image, data kind, rating scale, decimals, unique,
+  max length, min / max, refuse negatives, conditions (show / required / read-only when — they may name any field of
+  the form), auto-fill from a record link on the form, and display (list view, filter, global search, bold, hidden,
+  read only, translatable). Only what the type takes is shown (the registry's `props` per type); changing the type
+  keeps the title, help text, conditions and display and drops the rest. Its name in conditions (`key`) comes from
+  the English title until the field is saved, then stays.
+- **Deploy a field set** (toolbar): a published set in the panel, then its fields not yet on the form (all ticked),
+  added as a new section at the end of the tab (default) or into the last section.
+- **Add section** / **Add tab** (Add step in wizard mode): named in the panel. Removing one the type added moves what
+  it held to the one before.
+- **Saving.** Standalone, the designer has a Save form button. With `onPendingChange` (a host such as `FrappeTypeForm`)
+  it has none: the host's Save calls the designer's `save()`. Unfinished fields (no title, no choices, no target)
+  select the first one and refuse; removing fields that hold values asks first (how many records); removing every
+  added field asks before everything added is withdrawn. Values always stay in the database.
 
-It reads and writes through an adapter (`FieldDesignerAdapter`: `load`, `listFieldSets`, `fieldsOf`, `save`, optional
-`sectionOf`, `makeTab`, `removalImpact`), so it knows no backend. Keep the adapter stable (`useMemo`).
+It reads and writes through an adapter (`FieldDesignerAdapter`: `load`, `listFieldSets`, `fieldsOf`, `save`; optional
+`sectionOf`, `makeTab`, `makeSection`, `fieldTypes`, `linkTargets`, `linkTargetFields`, `removalImpact`), so it knows
+no backend. Keep the adapter stable (`useMemo`). An item the form defined carries `own: true` and, for a field, its
+`definition` (`FieldDefinition`).
 
 ```tsx
 <FieldDesigner adapter={adapter} labels={{ fdTitle: { en: "Ticket form", ar: "نموذج التذكرة" } }} />
+<FieldDesigner adapter={adapter} onPendingChange={ctx.onPendingChange} wizard={ctx.wizard} />
 ```
 
 The layout model is exported for adapters and tests: `designerLayout` / `designerItems` (core names of `toLayout` /
-`fromLayout`), `designerPreviousId`, `kindOfFieldtype`; `src/record` also exports `moveItem`, `stepItem`,
-`insertSectionAfter`, `appendTab`, `removeSection`, `removeTab`.
+`fromLayout`), `designerPreviousId`, `designerKeys` (`ownKeys`: every added field's key, as the adapter will save it),
+`kindOfFieldtype`; `src/record` also exports `moveItem`, `stepItem`, `insertSectionAfter`, `appendTab`,
+`removeSection`, `removeTab`, `FieldInspector`, `INSPECTED_PROPERTIES` (the registry properties the inspector has a
+control for).
 
 ## 8. `@solvfast/ui/sayr` — the Field Library adapter
 
-`SayrFieldDesigner doctype` is `FieldDesigner` over `createSayrFieldDesignerAdapter(api, doctype, {language})`. It does
-what Sayr Studio's field set editor does, for one DocType:
+`SayrFieldDesigner doctype` is `FieldDesigner` over `createSayrFieldDesignerAdapter(api, doctype, {language})`. A type's
+form is the `Sear Field Deployment` named after its DocType: its rows place a field set's fields (linked to the set)
+and the form's own fields, whose definitions it keeps in `own_fields` (a field set's field schema; no field set is
+created). Saving it deploys it.
 
 | Step | Sayr method |
 |---|---|
-| Load the form (its fields in order, the family's shared ones, the deployed rows) | `sear_product.apis.field_library.deployments.doctype_deployment` |
+| Load the form (its fields in order, the family's shared ones, the deployed rows, the own definitions) | `sear_product.apis.field_library.deployments.doctype_deployment` |
+| Field types for added fields | `sear_product.apis.field_library.field_sets.field_type_registry` |
+| Link targets / a target's fields | `…field_sets.link_target_doctypes` / `…field_sets.link_target_fields` |
 | Published field sets / one set's fields | `frappe.client.get_list` / `frappe.client.get` on `Sear Field Preset` |
-| Save the added fields (saving deploys them; skipped when no row's place changed) | `frappe.client.insert` / `save` on `Sear Field Deployment` |
+| Save the form (skipped when no row and no definition changed) | `frappe.client.insert` / `save` on `Sear Field Deployment` (`fields` + `own_fields`) |
 | Keep a family type's whole order, shared fields included | `…deployments.save_field_order` (after the deployment, so new rows resolve) |
-| Every added field removed | `…deployments.withdraw_deployment` |
+| Everything added removed | `…deployments.withdraw_deployment` |
 | Records holding values in removed fields | `…deployments.deployment_removal_impact` |
 
-Ids are Sayr's: a deployed row's column (`fieldname`), else a token — `@<set>::<key>`, `@<set>::__section`,
-`@tab::<label>` (`sayrToken`). Needs the Sear Platform Administrator role; without it, and for a DocType Sayr cannot
-deploy on, the section shows why instead of the tools. A field set that changed since it was saved shows a note to
-redeploy it from the Field Library.
+Every added row is anchored by Sayr's tokens, which the server resolves: `@<set>::<key>`, `@<set>::__section`,
+`@own::<key>`, `@section::<label>`, `@tab::<label>` (`sayrToken`). `definitionOfRow` / `rowOfDefinition` map Sayr's row
+to `FieldDefinition` and back (only the properties the type takes are sent). Needs the Sear Platform Administrator
+role; without it, and for a DocType Sayr cannot deploy on, the section shows why instead of the tools. A field set
+that changed since it was saved shows a note to redeploy it from the Field Library.
 
 ## 9. Wizard mode and a new type's defaults (0.7.0-dev.9)
 
@@ -166,14 +193,14 @@ redeploy it from the Field Library.
   tabs in its form's order, so moving fields and tabs in the Form section reorders the steps. Off, the fields are one
   list as before.
 - `FrappeTypeForm` keeps the Wizard mode field off the type's form and hands it to `designer` as
-  `context.wizard = { on, onChange }`; `onChange` saves it on its own (`frappe.client.set_value` on the registry row).
+  `context.wizard = { on, onChange }`; `onChange` sets it on the type, saved with the type's Save.
   `FieldDesigner`'s `wizard` prop shows it as a switch and labels the tabs "Step N · …".
 - `FrappeTypeForm` `defaults`: the values a **new** type starts with (`newDocDefaults.routeOptions`), e.g. an app's
   default lifecycle, SLA policy and assignment profile. Nothing is applied to a saved type.
 
 ```tsx
 <FrappeTypeForm family={TICKETS} name={name} defaults={defaults}
-  designer={(doctype, { wizard }) => <SayrFieldDesigner doctype={doctype} wizard={wizard} />} />
+  designer={(doctype, { wizard, onPendingChange }) => <SayrFieldDesigner doctype={doctype} wizard={wizard} onPendingChange={onPendingChange} />} />
 ```
 
 `FrappeFormView` / `FrappeForm` gained what the steps need: `activeTab` (the tab shown, by key), `hideTabBar` and
@@ -189,3 +216,10 @@ colour. `appearancePicker={false}` keeps the plain fields. `APPEARANCE_ICONS` / 
 
 `FrappeFormView` / `FrappeForm` `renderField(df, {value, doc, setValue})` lets a host draw any field its own way
 (return `undefined` for the form's own control).
+
+## 11. Fields added on a type's form (0.7.0-dev.11)
+
+The Form section works like Customize Form: fields are added on the type itself with every property of a field
+set's field (§7), field sets are deployed onto it as in Sayr Studio (§8), and the type's one Save saves everything
+(§5). `FrappeFormView` / `FrappeForm` gained `alsoSave: { dirty, save }` for this: changes kept outside the document
+that count as unsaved and are saved after it.

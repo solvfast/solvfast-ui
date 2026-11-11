@@ -7,7 +7,9 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import * as core from "../src";
-import { FieldDesigner, type DesignerItem, type DesignerState, type FieldDesignerAdapter } from "../src/record";
+import * as React from "react";
+import { FieldDesigner, type DesignerItem, type DesignerPending, type DesignerState, type FieldDesignerAdapter } from "../src/record";
+import { INSPECTED_PROPERTIES, ownKeys, type FieldTypeRegistry } from "../src/record/fieldDefinition";
 import {
   appendTab, fromLayout, insertItem, insertSectionAfter, removeSection, removeTab, stepItem, toLayout,
 } from "../src/record/fieldLayout";
@@ -67,33 +69,56 @@ const LOADED: DesignerItem[] = [
   f("custom_note", { label: "Note", fieldtype: "Small Text", source: "Refund Set" }),
 ];
 
+const REGISTRY: FieldTypeRegistry = {
+  types: [
+    { key: "text", label: { en: "Data", ar: "البيانات" }, group: "Text", props: ["max_length", "default", "placeholder", "unique", "autofill", "data_subtype"] },
+    { key: "dropdown", label: { en: "Select", ar: "اختر" }, group: "Choice", props: ["choices", "default", "autofill"] },
+    { key: "number", label: { en: "Int", ar: "رقم" }, group: "Numbers", props: ["bounds", "non_negative", "default", "placeholder", "unique", "autofill"] },
+    { key: "record_link", label: { en: "Link", ar: "رابط" }, group: "Relational", props: ["doctype_target", "default", "placeholder", "unique", "autofill"] },
+  ],
+  groups: [{ group: "Text", types: ["text"] }, { group: "Choice", types: ["dropdown"] }, { group: "Numbers", types: ["number"] }, { group: "Relational", types: ["record_link"] }],
+  dataSubtypes: ["Email", "Phone"],
+};
+
 function memoryAdapter(initial: DesignerState = { items: LOADED }) {
   let current = initial;
   const adapter: FieldDesignerAdapter & { save: ReturnType<typeof vi.fn> } = {
     load: vi.fn(async () => current),
-    listFieldSets: vi.fn(async () => [{ name: "SET-2", label: { en: "Contact Set", ar: "بيانات الاتصال" } }]),
+    listFieldSets: vi.fn(async () => [{ name: "SET-2", label: { en: "Contact Set", ar: "بيانات الاتصال" }, fieldCount: 1 }]),
     fieldsOf: vi.fn(async () => [{ id: "@SET-2::phone", label: { en: "Phone", ar: "الهاتف" }, kind: "field" as const, fieldtype: "phone" }]),
     sectionOf: (set: string, label: string) => ({ id: `@${set}::__section`, kind: "section_break", label, source: label }),
-    makeTab: (label: string) => ({ id: `@tab::${label}`, kind: "tab_break", label }),
+    makeTab: (label: string) => ({ id: `@tab::${label}`, kind: "tab_break", label, own: true }),
+    makeSection: (label: string) => ({ id: `@section::${label}`, kind: "section_break", label, own: true }),
+    fieldTypes: vi.fn(async () => REGISTRY),
     removalImpact: vi.fn(async (gone: string[]) => gone.map((id) => ({ id, label: id === "custom_amount" ? "Amount" : id, rowsWithData: id === "custom_amount" ? 3 : 0 }))),
     save: vi.fn(async (items: DesignerItem[]) => { current = { items }; return current; }),
   };
   return adapter;
 }
-function mount(adapter: FieldDesignerAdapter, language: "en" | "ar" = "en") {
-  return render(<ThemeProvider defaultLanguage={language} storageKeys={null}><FieldDesigner adapter={adapter} /></ThemeProvider>);
+function mount(adapter: FieldDesignerAdapter, language: "en" | "ar" = "en", extra: Partial<React.ComponentProps<typeof FieldDesigner>> = {}) {
+  return render(<ThemeProvider defaultLanguage={language} storageKeys={null}><FieldDesigner adapter={adapter} {...extra} /></ThemeProvider>);
 }
 const card = (label: string) => screen.getByText(label).closest("[data-field]") as HTMLElement;
+const panel = () => screen.getByRole("complementary", { name: "Properties" });
+const select = (label: string) => fireEvent.click(screen.getByRole("button", { name: `Edit field: ${label}` }));
 
 describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
-  it("FD.ui.1 is the core entry's export; a locked field stays put, a shared one moves, an added one moves and goes", async () => {
+  it("FD.ui.1 is the core entry's export; a locked field stays put, a shared one moves, a set's field moves; the panel says which", async () => {
     expect(core.FieldDesigner).toBe(FieldDesigner);
     mount(memoryAdapter());
     await screen.findByText("Amount");
-    expect(within(card("Status")).queryByRole("button")).toBeNull();
+    expect(within(card("Status")).queryByRole("button", { name: /Move|Reorder/ })).toBeNull();
     expect(within(card("Title")).getByRole("button", { name: "Move down: Title" })).toBeTruthy();
-    expect(within(card("Title")).queryByRole("button", { name: /Remove/ })).toBeNull();
-    expect(within(card("Amount")).getByRole("button", { name: "Remove: Amount" })).toBeTruthy();
+    expect(within(card("Amount")).getByRole("button", { name: "Reorder field: Amount" })).toBeTruthy();
+    expect(within(panel()).getByText("Select an element to edit its properties.")).toBeTruthy();
+    select("Status");
+    expect(within(panel()).getByText(/Standard field/)).toBeTruthy();
+    expect(within(panel()).queryByRole("button", { name: /Remove/ })).toBeNull();
+    select("Title");
+    expect(within(panel()).getByText(/Shared with every type/)).toBeTruthy();
+    select("Amount");
+    expect(within(panel()).getByText(/Field Library/)).toBeTruthy();
+    expect(within(panel()).getByRole("button", { name: "Remove: Amount" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Save form" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -108,28 +133,29 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     expect(await screen.findByText("Form saved")).toBeTruthy();
   });
 
-  it("FD.ui.3 fields of a field set are added as a new section under the one asked for", async () => {
+  it("FD.ui.3 Deploy a field set: its fields are added, linked to the set, as a new section", async () => {
     const adapter = memoryAdapter();
     mount(adapter);
     await screen.findByText("Amount");
-    fireEvent.click(screen.getAllByRole("button", { name: "Add fields here" })[1]);
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.keyDown(within(dialog).getByRole("combobox"), { key: "Enter" });
-    fireEvent.click(await screen.findByRole("option", { name: "Contact Set" }));
-    expect(await within(dialog).findByLabelText("Phone")).toBeTruthy();
-    expect((within(dialog).getByRole("checkbox", { name: "Add them as a new section" }) as HTMLElement).getAttribute("data-state")).toBe("checked");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Add" }));
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Deploy a field set" }));
+    fireEvent.click(await within(panel()).findByRole("button", { name: /Contact Set/ }));
+    expect(await within(panel()).findByLabelText("Phone")).toBeTruthy();
+    expect(within(panel()).getByRole("checkbox", { name: "Add them as a new section" }).getAttribute("data-state")).toBe("checked");
+    fireEvent.click(within(panel()).getByRole("button", { name: "Add to the form" }));
     expect(screen.getByText("Phone")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Save form" }));
     await waitFor(() => expect(adapter.save).toHaveBeenCalled());
-    expect(ids(adapter.save.mock.calls[0][0]).slice(-2)).toEqual(["@SET-2::__section", "@SET-2::phone"]);
+    const saved = adapter.save.mock.calls[0][0] as DesignerItem[];
+    expect(ids(saved).slice(-2)).toEqual(["@SET-2::__section", "@SET-2::phone"]);
+    expect(saved.at(-1)!.source).toBe("Contact Set");
   });
 
   it("FD.ui.4 removing a field that holds values asks first, naming how many records", async () => {
     const adapter = memoryAdapter();
     mount(adapter);
-    fireEvent.click(await screen.findByRole("button", { name: "Remove: Amount" }));
+    await screen.findByText("Amount");
+    select("Amount");
+    fireEvent.click(within(panel()).getByRole("button", { name: "Remove: Amount" }));
     fireEvent.click(screen.getByRole("button", { name: "Save form" }));
     const alert = await screen.findByRole("alertdialog");
     expect(within(alert).getByText("Amount: 3 records")).toBeTruthy();
@@ -139,25 +165,21 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     expect(ids(adapter.save.mock.calls[0][0])).not.toContain("custom_amount");
   });
 
-  it("FD.ui.5 removing every added field asks before withdrawing", async () => {
+  it("FD.ui.5 removing every added field asks before withdrawing; Cancel keeps the form unsaved", async () => {
     const adapter = memoryAdapter();
     mount(adapter);
-    fireEvent.click(await screen.findByRole("button", { name: "Remove: Amount" }));
-    fireEvent.click(screen.getByRole("button", { name: "Remove: Note" }));
+    await screen.findByText("Amount");
+    for (const label of ["Amount", "Note"]) {
+      select(label);
+      fireEvent.click(within(panel()).getByRole("button", { name: `Remove: ${label}` }));
+    }
     fireEvent.click(screen.getByRole("button", { name: "Save form" }));
     const alert = await screen.findByRole("alertdialog");
     expect(within(alert).getByText("Remove every added field?")).toBeTruthy();
-  });
-
-  it("FD.ui.7 the Wizard mode switch asks the host to save it; with it on, tabs read as steps", async () => {
-    const onChange = vi.fn(async () => {});
-    const items = [...LOADED, brk("@tab::Extra", "tab_break", { label: "Extra" })];
-    const { rerender } = render(<ThemeProvider storageKeys={null}><FieldDesigner adapter={memoryAdapter({ items })} wizard={{ on: false, onChange }} /></ThemeProvider>);
-    fireEvent.click(await screen.findByRole("switch", { name: "Wizard mode" }));
-    await waitFor(() => expect(onChange).toHaveBeenCalledWith(true));
-    expect(screen.getByRole("tab", { name: "Extra" })).toBeTruthy();
-    rerender(<ThemeProvider storageKeys={null}><FieldDesigner adapter={memoryAdapter({ items })} wizard={{ on: true, onChange }} /></ThemeProvider>);
-    expect(await screen.findByRole("tab", { name: "Step 2 · Extra" })).toBeTruthy();
+    fireEvent.click(within(alert).getByRole("button", { name: "Cancel" }));
+    expect(await screen.findByText("The form's changes were not saved.")).toBeTruthy();
+    expect(adapter.save).not.toHaveBeenCalled();
+    expect(screen.getByText("Unsaved changes")).toBeTruthy();
   });
 
   it("FD.ui.6 a refusal replaces the tools; Arabic", async () => {
@@ -165,6 +187,87 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     expect(await screen.findByText("النموذج")).toBeTruthy();
     expect(screen.getByText("لا يمكن")).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("FD.ui.7 the Wizard mode switch tells the host; with it on, tabs read as steps", async () => {
+    const onChange = vi.fn();
+    const items = [...LOADED, brk("@tab::Extra", "tab_break", { label: "Extra", own: true })];
+    const { rerender } = render(<ThemeProvider storageKeys={null}><FieldDesigner adapter={memoryAdapter({ items })} wizard={{ on: false, onChange }} /></ThemeProvider>);
+    fireEvent.click(await screen.findByRole("switch", { name: "Wizard mode" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(true));
+    expect(screen.getByRole("tab", { name: "Extra" })).toBeTruthy();
+    rerender(<ThemeProvider storageKeys={null}><FieldDesigner adapter={memoryAdapter({ items })} wizard={{ on: true, onChange }} /></ThemeProvider>);
+    expect(await screen.findByRole("tab", { name: "Step 2 · Extra" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add step" })).toBeTruthy();
+  });
+
+  it("FD.ui.8 a field added on the form: a type from the registry, then every property it takes, saved with its key", async () => {
+    const adapter = memoryAdapter();
+    mount(adapter);
+    await screen.findByText("Amount");
+    fireEvent.click(screen.getAllByRole("button", { name: "Add field" })[1]);
+    fireEvent.click(within(panel()).getByRole("button", { name: "Select" }));
+    expect(within(panel()).getByText("Choices")).toBeTruthy();
+    fireEvent.change(within(panel()).getByRole("textbox", { name: "Field title" }), { target: { value: "Passport Number" } });
+    expect(within(panel()).getByText("passport_number")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Edit field: Passport Number" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save form" }));
+    expect(await screen.findByText(/not finished/)).toBeTruthy();
+    expect(adapter.save).not.toHaveBeenCalled();
+    fireEvent.click(within(panel()).getByRole("button", { name: "Option" }));
+    fireEvent.change(within(panel()).getByRole("textbox", { name: "Option 1" }), { target: { value: "Saudi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save form" }));
+    await waitFor(() => expect(adapter.save).toHaveBeenCalled());
+    const added = (adapter.save.mock.calls[0][0] as DesignerItem[]).find((i) => i.definition)!;
+    expect(added).toMatchObject({ own: true, definition: { type: "dropdown", label: "Passport Number", choices: [{ en: "Saudi" }] } });
+  });
+
+  it("FD.ui.9 a changed type keeps the label and drops what the old type alone took", async () => {
+    const adapter = memoryAdapter({ items: [...LOADED, f("custom_field_set_score", { own: true, label: "Score", fieldtype: "number",
+      definition: { key: "score", type: "number", label: "Score", minValue: 1, maxValue: 9 } })] });
+    mount(adapter);
+    await screen.findByText("Score");
+    select("Score");
+    fireEvent.click(within(panel()).getByText("Validation"));
+    expect((within(panel()).getByRole("spinbutton", { name: "Max value" }) as HTMLInputElement).value).toBe("9");
+    expect(within(panel()).getByText("score")).toBeTruthy();
+    fireEvent.keyDown(within(panel()).getByRole("combobox", { name: "Type" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("option", { name: "Data" }));
+    expect(within(panel()).queryByText("Validation")).toBeTruthy();
+    expect(within(panel()).queryByRole("spinbutton", { name: "Max value" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save form" }));
+    await waitFor(() => expect(adapter.save).toHaveBeenCalled());
+    const def = (adapter.save.mock.calls[0][0] as DesignerItem[]).find((i) => i.definition)!.definition!;
+    expect(def).toMatchObject({ key: "score", type: "text", label: "Score" });
+    expect(def.maxValue).toBeUndefined();
+  });
+
+  it("FD.ui.10 sections and tabs the form adds are named in the panel; a host's Save saves the form (no Save button)", async () => {
+    const adapter = memoryAdapter();
+    const pending: DesignerPending[] = [];
+    mount(adapter, "en", { onPendingChange: (p) => pending.push(p) });
+    await screen.findByText("Amount");
+    expect(screen.queryByRole("button", { name: "Save form" })).toBeNull();
+    expect(pending.at(-1)!.dirty).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Add section" }));
+    fireEvent.change(within(panel()).getByRole("textbox", { name: "Section title" }), { target: { value: "Extra Details" } });
+    expect(screen.getByRole("button", { name: "Section: Extra Details" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add tab" }));
+    expect(screen.getByRole("tab", { name: "New tab" })).toBeTruthy();
+    await waitFor(() => expect(pending.at(-1)!.dirty).toBe(true));
+    await act(() => pending.at(-1)!.save());
+    const saved = adapter.save.mock.calls[0][0] as DesignerItem[];
+    expect(saved.filter((i) => i.own).map((i) => [i.kind, i.label])).toEqual([["section_break", "Extra Details"], ["tab_break", "New tab"]]);
+    await waitFor(() => expect(pending.at(-1)!.dirty).toBe(false));
+  });
+
+  it("FD.ui.11 the inspector has a control for every property Sayr's registry declares", () => {
+    const sayrProperties = ["choices", "doctype_target", "child_target", "sibling_field", "data_subtype", "max_rating", "precision",
+      "non_negative", "max_length", "bounds", "default", "placeholder", "unique", "autofill", "collapsible"];
+    expect([...INSPECTED_PROPERTIES].sort()).toEqual([...sayrProperties].sort());
+    expect(ownKeys([{ id: "a", definition: { type: "text", label: "Name" } }, { id: "b", definition: { type: "text", label: "Name" } },
+      { id: "c", definition: { key: "name_2", type: "text", label: "Other" } }, { id: "d", definition: { type: "text", label: "اسم" } }]))
+      .toEqual(new Map([["a", "name"], ["b", "name_3"], ["c", "name_2"], ["d", "field"]]));
   });
 });
 
@@ -179,6 +282,7 @@ const SCREEN = {
       { field_preset: "SET-1", field_key: "__section", row_kind: "section", label: null, insert_after: "sear_state", fieldname: "sear_set_1__section" },
       { field_preset: "SET-1", field_key: "amount", row_kind: "field", label: null, insert_after: "sear_set_1__section", fieldname: "custom_field_set_amount" },
     ],
+    own_fields: [] as Record<string, unknown>[],
   },
   target_fields: [
     { fieldname: "title", label: "Title", fieldtype: "Data" },
@@ -187,11 +291,40 @@ const SCREEN = {
     { fieldname: "custom_field_set_amount", label: "Amount", fieldtype: "Currency" },
   ],
 };
+/** An own section and field after the set's, as Sayr answers once they are deployed. */
+const WITH_OWN = {
+  ...SCREEN,
+  deployment: {
+    ...SCREEN.deployment,
+    fields: [
+      ...SCREEN.deployment.fields,
+      { field_preset: null, field_key: null, row_kind: "section", label: "Extra", insert_after: "custom_field_set_amount", fieldname: "sear_section_extra" },
+      { field_preset: null, field_key: "notes", row_kind: "field", label: null, insert_after: "sear_section_extra", fieldname: "custom_field_set_notes" },
+    ],
+    own_fields: [{ field_key: "notes", field_type: "text", label_en: "Notes", label_ar: "ملاحظات", reqd: 1, max_length: 200, show_when_source: "is_not_empty(title)" }],
+  },
+  target_fields: [
+    ...SCREEN.target_fields,
+    { fieldname: "sear_section_extra", label: "Extra", fieldtype: "Section Break" },
+    { fieldname: "custom_field_set_notes", label: "Notes", fieldtype: "Data" },
+  ],
+};
+const SAYR_REGISTRY = {
+  types: [
+    { key: "text", label_en: "Data", label_ar: "البيانات", group: "Text", props: ["max_length", "default", "placeholder", "unique", "autofill", "data_subtype"] },
+    { key: "dropdown", label_en: "Select", label_ar: "اختر", group: "Choice", props: ["choices", "default", "autofill"] },
+    { key: "section_break", label_en: "Section Break", label_ar: "فاصل قسم", group: "Layout", props: ["collapsible"] },
+  ],
+  groups: [{ group: "Text", types: ["text"] }, { group: "Choice", types: ["dropdown"] }, { group: "Layout", types: ["section_break"] }],
+  data_subtypes: ["Email"],
+  properties: [], excluded: [],
+};
 
 function recordingApi(over: Partial<Record<string, (args: Record<string, unknown>) => unknown>> = {}) {
   const calls: { method: string; args: Record<string, unknown> }[] = [];
   const answers: Record<string, (args: Record<string, unknown>) => unknown> = {
     "sear_product.apis.field_library.deployments.doctype_deployment": () => SCREEN,
+    "sear_product.apis.field_library.field_sets.field_type_registry": () => SAYR_REGISTRY,
     "frappe.client.get": (a) => a.doctype === "Sear Field Preset"
       ? { name: a.name, fields: [{ field_key: "amount", field_type: "currency", label_en: "Amount" }, { field_key: "brk", field_type: "section_break" }, { field_key: "iban", field_type: "text", label_en: "IBAN", label_ar: "آيبان" }] }
       : { doctype: "Sear Field Deployment", name: a.name, target_doctype: "SRF Ticket Refund Request", modified: "2026-11-10 09:00:00", fields: SCREEN.deployment.fields },
@@ -211,6 +344,8 @@ function recordingApi(over: Partial<Record<string, (args: Record<string, unknown
   };
   return { api, calls };
 }
+const savedDoc = (calls: { method: string; args: Record<string, unknown> }[]) =>
+  JSON.parse(calls.find((c) => c.method === "frappe.client.save")!.args.doc as string);
 
 describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
   it("FD.sayr.1 the type's form in order: shared fields movable, standard ones locked, a set's fields its own", async () => {
@@ -219,7 +354,7 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     expect(state.items).toEqual([
       { id: "title", kind: "field", label: "Title", fieldtype: "Data", native: true, movable: true },
       { id: "sear_state", kind: "field", label: "Status", fieldtype: "Data", native: true, movable: false },
-      { id: "sear_set_1__section", kind: "section_break", label: "Refund Set", fieldtype: undefined, source: "Refund Set" },
+      { id: "sear_set_1__section", kind: "section_break", label: "Refund Set", source: "Refund Set" },
       { id: "custom_field_set_amount", kind: "field", label: "Amount", fieldtype: "Currency", source: "Refund Set" },
     ]);
   });
@@ -231,24 +366,22 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     expect(await adapter.fieldsOf("SET-1")).toEqual([{ id: "@SET-1::iban", kind: "field", label: { en: "IBAN", ar: "آيبان" }, fieldtype: "text" }]);
   });
 
-  it("FD.sayr.3 save writes the rows anchored on what precedes them, then the type's whole order", async () => {
+  it("FD.sayr.3 save writes the rows anchored by Sayr's tokens on what precedes them, then the type's whole order", async () => {
     const { api, calls } = recordingApi();
     const adapter = createSayrFieldDesignerAdapter(api, "SRF Ticket Refund Request");
     const { items } = await adapter.load();
-    const next = [...items, { id: "@SET-1::iban", kind: "field" as const, label: "IBAN" }];
-    await adapter.save(next);
-    const saved = JSON.parse(calls.find((c) => c.method === "frappe.client.save")!.args.doc as string);
-    expect(saved.fields.map((r: { row_kind: string; field_key: string; insert_after: string }) => [r.row_kind, r.field_key, r.insert_after])).toEqual([
-      ["section", "__section", "sear_state"],
-      ["field", "amount", "sear_set_1__section"],
-      ["field", "iban", "custom_field_set_amount"],
+    await adapter.save([...items, { id: "@SET-1::iban", kind: "field" as const, label: "IBAN" }]);
+    expect(savedDoc(calls).fields.map((r: { row_kind: string; field_key: string; insert_after: string }) => [r.row_kind, r.field_key, r.insert_after])).toEqual([
+      ["section", null, "sear_state"],
+      ["field", "amount", "@SET-1::__section"],
+      ["field", "iban", "@SET-1::amount"],
     ]);
     const order = calls.find((c) => c.method.endsWith("save_field_order"))!;
-    expect(JSON.parse(order.args.order as string)).toEqual(["title", "sear_state", "sear_set_1__section", "custom_field_set_amount", "@SET-1::iban"]);
+    expect(JSON.parse(order.args.order as string)).toEqual(["title", "sear_state", "@SET-1::__section", "@SET-1::amount", "@SET-1::iban"]);
     expect(calls.findIndex((c) => c.method === "frappe.client.save")).toBeLessThan(calls.findIndex((c) => c.method.endsWith("save_field_order")));
   });
 
-  it("FD.sayr.4 rows whose places did not change are not redeployed (no DDL); a move that re-anchors a row is", async () => {
+  it("FD.sayr.4 a form whose rows did not change is not redeployed (no DDL); a move that re-anchors a row is", async () => {
     const { api, calls } = recordingApi();
     const adapter = createSayrFieldDesignerAdapter(api, "SRF Ticket Refund Request");
     const { items } = await adapter.load();
@@ -257,8 +390,7 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     expect(calls.some((c) => c.method.endsWith("save_field_order"))).toBe(true);
     calls.length = 0;
     await adapter.save(stepItem(items, "title", 1));
-    const saved = JSON.parse(calls.find((c) => c.method === "frappe.client.save")!.args.doc as string);
-    expect(saved.fields[0]).toMatchObject({ row_kind: "section", insert_after: "title" });
+    expect(savedDoc(calls).fields[0]).toMatchObject({ row_kind: "section", insert_after: "title" });
     expect(JSON.parse(calls.find((c) => c.method.endsWith("save_field_order"))!.args.order as string).slice(0, 2)).toEqual(["sear_state", "title"]);
   });
 
@@ -271,11 +403,41 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     expect(await adapter.removalImpact!(["custom_field_set_amount"])).toEqual([{ id: "custom_field_set_amount", label: "Amount", rowsWithData: 4 }]);
   });
 
-  it("FD.sayr.6 tokens are Sayr's: a tab by its label, a set's section, a set's field; the core entry has no Sayr code", () => {
-    expect(sayrToken({ row_kind: "tab", label: " Details ", field_preset: "", field_key: "" })).toBe("@tab::Details");
+  it("FD.sayr.6 tokens are Sayr's: a tab by its label, an own section by its label, an own field by its key, a set's section and field; the core entry has no Sayr code", () => {
+    expect(sayrToken({ row_kind: "tab", label: " Details ", field_preset: null, field_key: null })).toBe("@tab::Details");
+    expect(sayrToken({ row_kind: "section", label: "Extra", field_preset: null, field_key: null })).toBe("@section::Extra");
+    expect(sayrToken({ row_kind: "field", label: null, field_preset: null, field_key: "notes" })).toBe("@own::notes");
     expect(sayrToken({ row_kind: "section", field_preset: "SET-1", field_key: "", label: null })).toBe("@SET-1::__section");
     expect(sayrToken({ row_kind: "field", field_preset: "SET-1", field_key: "iban", label: null })).toBe("@SET-1::iban");
     expect("createSayrFieldDesignerAdapter" in core).toBe(false);
+  });
+
+  it("FD.sayr.7 the form's own fields load with their definitions and save in own_fields, placed by rows with no field set", async () => {
+    const { api, calls } = recordingApi({ "sear_product.apis.field_library.deployments.doctype_deployment": () => WITH_OWN });
+    const adapter = createSayrFieldDesignerAdapter(api, "SRF Ticket Refund Request", { language: "ar" });
+    const { items } = await adapter.load();
+    expect(items.find((i) => i.id === "sear_section_extra")).toMatchObject({ kind: "section_break", label: "Extra", own: true });
+    const notes = items.find((i) => i.id === "custom_field_set_notes")!;
+    expect(notes).toMatchObject({ own: true, label: "ملاحظات", definition: { key: "notes", type: "text", label: "Notes", required: true, maxLength: 200, showWhen: "is_not_empty(title)" } });
+    expect((await adapter.fieldTypes!()).groups.map((g) => g.group)).toEqual(["Text", "Choice"]);
+
+    await adapter.save(items);
+    expect(calls.some((c) => c.method === "frappe.client.save")).toBe(false);
+
+    const renamed = items.map((i) => (i.id === "sear_section_extra" ? { ...i, label: "More" } : i));
+    const channel: DesignerItem = { id: "new:1", kind: "field", own: true, label: "Channel", definition: { type: "dropdown", label: "Channel", choices: [{ en: "Email" }, { en: "" }], maxLength: 9 } };
+    await adapter.save([...renamed, channel]);
+    const doc = savedDoc(calls);
+    expect(doc.fields.slice(2).map((r: Record<string, unknown>) => [r.row_kind, r.field_preset, r.field_key, r.label, r.insert_after])).toEqual([
+      ["section", null, null, "More", "@SET-1::amount"],
+      ["field", null, "notes", null, "@section::More"],
+      ["field", null, "channel", null, "@own::notes"],
+    ]);
+    expect(doc.own_fields.map((r: Record<string, unknown>) => r.field_key)).toEqual(["notes", "channel"]);
+    const sent = doc.own_fields[1];
+    expect(sent).toMatchObject({ field_type: "dropdown", label_en: "Channel", choices: [{ value_en: "Email" }] });
+    expect("max_length" in sent).toBe(false);
+    expect(doc.own_fields[0]).toMatchObject({ label_ar: "ملاحظات", reqd: 1, max_length: 200, show_when_source: "is_not_empty(title)" });
   });
 });
 

@@ -119,6 +119,10 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   canCancelAllLinked?: (docs: LinkedDoc[]) => Promise<boolean | undefined> | boolean | undefined;
   onSaved?: (doc: FrappeDoc, action: SaveAction | "Cancel") => void;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Changes the host keeps outside this document that the form's Save also saves (e.g. a type's Form section): while
+   *  `dirty` the form counts as not saved, and Save runs `save()` after the document's own save — alone when only they
+   *  changed. A failed `save()` shows its error like a failed save. */
+  alsoSave?: { dirty: boolean; save: () => Promise<void> };
   /** Defaults for new child rows (session user, user defaults). */
   defaults?: DefaultsContext;
   saveDisabled?: boolean;
@@ -247,13 +251,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     if (docProp === cur) return;
     if (docProp.name !== cur.name || (docProp.modified !== cur.modified && !store.isDirty())) { store.replace(docProp); setVersion((v) => v + 1); }
   }, [docProp, store]);
-  React.useEffect(() => { props.onDirtyChange?.(!!doc.__unsaved); }, [doc.__unsaved]); // eslint-disable-line react-hooks/exhaustive-deps
+  const unsaved = !!doc.__unsaved || !!props.alsoSave?.dirty;
+  React.useEffect(() => { props.onDirtyChange?.(unsaved); }, [unsaved]); // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
-    if (props.guardUnload === false || !doc.__unsaved || typeof window === "undefined") return;
+    if (props.guardUnload === false || !unsaved || typeof window === "undefined") return;
     const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
     window.addEventListener("beforeunload", h);
     return () => window.removeEventListener("beforeunload", h);
-  }, [doc.__unsaved, props.guardUnload]);
+  }, [unsaved, props.guardUnload]);
 
   // ---- effective fields and statuses ----
   const childFields = React.useCallback((childDoctype: string) => bundle.children[childDoctype]?.fields ?? [], [bundle]);
@@ -506,7 +511,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const can = (p: PermType) => (permissions?.can ? permissions.can(p, 0) : !!permissions?.levels?.[0]?.[p]);
   const permissionsUnknown = !permissions || permissions.known === false;
   const actionsFor = (d: FrappeDoc) => formActions({
-    docstatus: (d.docstatus ?? 0) as 0 | 1 | 2, isNew: !!d.__islocal, dirty: !!d.__unsaved, isSubmittable: !!meta.is_submittable,
+    docstatus: (d.docstatus ?? 0) as 0 | 1 | 2, isNew: !!d.__islocal, dirty: !!d.__unsaved || !!props.alsoSave?.dirty, isSubmittable: !!meta.is_submittable,
     perms: { write: can("write"), create: can("create"), submit: can("submit"), cancel: can("cancel"), amend: can("amend") },
     hasWorkflow: !!(permissions?.workflow ?? recWorkflow),
     canCancelWithWorkflow: props.canCancelWithWorkflow ?? (recWorkflow ? canCancelDocument(recWorkflow) : undefined),
@@ -528,7 +533,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
 
   const save = async (action: SaveAction, confirmed = false): Promise<boolean> => {
     if (savingRef.current) return false;
-    if (action === "Save" && !store.isDirty()) { flash(t("formNoChanges")); return false; }
+    const also = latestProps.current.alsoSave;
+    if (action === "Save" && !store.isDirty() && !also?.dirty) { flash(t("formNoChanges")); return false; }
     if (action === "Submit" && !confirmed) { setConfirm("Submit"); return false; }
     savingRef.current = true;
     setSaving(action);
@@ -542,9 +548,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       if (!mandatoryOk()) return false;
       const current = store.getDoc();
       setFieldErrors({});
-      const saved = await onSave(current, action);
+      const saved = action === "Save" && !store.isDirty() ? current : await onSave(current, action);
       store.replace(saved);
       setVersion((v) => v + 1);
+      if (also?.dirty) await also.save();
       flash(t(action === "Submit" ? "formSubmitted" : "formSaved"));
       await trigger("after_save");
       latestProps.current.onSaved?.(saved, action);
@@ -694,7 +701,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   // toolbar.js:44-67: the title field's HTML is stripped (a Text Editor title shows as text)
   const title = props.title ?? (doc.__islocal ? interpolate(t("formNewDoc"), { doctype: docLabel }) : htmlToText(String(titleField || "")) || doc.name);
   const ind = resolveIndicator({
-    doc, isSubmittable: !!meta.is_submittable, hasField: (f) => fieldsByName.has(f),
+    doc: unsaved && !doc.__unsaved ? { ...doc, __unsaved: 1 } : doc, isSubmittable: !!meta.is_submittable, hasField: (f) => fieldsByName.has(f),
     states: meta.states as { title: string; color?: string }[] | undefined,
     workflow: recWorkflow ? {
       stateField: recWorkflow.workflow_state_field,
@@ -832,7 +839,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
             </Button>
           )}
           {typeof props.menu === "function"
-            ? props.menu({ frm: frmRef.current!, doc, dirty: !!doc.__unsaved, reload: props.onReload ? () => reload() : undefined, showTab: (key) => setActiveTab(key), tabs: [...visibleTabs.map((tb) => tb.key), ...extraTabs.map((x) => x.tabKey)] })
+            ? props.menu({ frm: frmRef.current!, doc, dirty: unsaved, reload: props.onReload ? () => reload() : undefined, showTab: (key) => setActiveTab(key), tabs: [...visibleTabs.map((tb) => tb.key), ...extraTabs.map((x) => x.tabKey)] })
             : props.menu}
         </div>
       )}

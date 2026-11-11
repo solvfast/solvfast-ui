@@ -3,13 +3,19 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { FrappeDocField } from "../contract";
 import { useFrappeApi } from "../FrappeProvider";
 import { FrappeForm, type FrappeFormProps } from "../form/FrappeForm";
+import type { FormController } from "../form/events";
+import type { DesignerPending } from "../../record/FieldDesigner";
 import { APPEARANCE_COLORS, IconColorPicker } from "../../fields/IconColorPicker";
 import { familyField, type FamilyDescriptor } from "./family";
 
 /** What the `designer` slot gets besides the type's DocType. */
 export interface TypeDesignerContext {
-  /** The type's Wizard mode (its form's tabs are a new record's steps); `undefined` when the registry has no such field. */
-  wizard?: { on: boolean; onChange: (on: boolean) => Promise<void> };
+  /** The type's Wizard mode (its form's tabs are a new record's steps): a change is the type's, saved with it.
+   *  `undefined` when the registry has no such field. */
+  wizard?: { on: boolean; onChange: (on: boolean) => void };
+  /** Give it to the designer (`FieldDesigner` `onPendingChange`): the type's Save then saves the designer's changes too
+   *  (after the type itself), and the type counts as not saved while they are pending. */
+  onPendingChange: (pending: DesignerPending) => void;
 }
 
 export interface FrappeTypeFormProps extends Omit<FrappeFormProps, "doctype"> {
@@ -29,11 +35,16 @@ export interface FrappeTypeFormProps extends Omit<FrappeFormProps, "doctype"> {
 /**
  * A type of a family: the registry's own form, so every field the registry has is shown (an app's Category included).
  * Saving a new type creates its DocType on the server; `designer` appears after that. The registry's Wizard mode field
- * is not on the form: it is the designer's switch (`context.wizard`), saved on its own.
+ * is not on the form: it is the designer's switch (`context.wizard`). One Save saves the type, then the designer's
+ * changes (`context.onPendingChange`).
  */
 export function FrappeTypeForm({ family, configuration = true, designer, defaults, appearancePicker = true, fieldFilter, renderField, onSaved, newDocDefaults, ...form }: FrappeTypeFormProps) {
   const api = useFrappeApi();
   const queryClient = useQueryClient();
+  const ownController = React.useRef<FormController | null>(null);
+  const controller = form.controllerRef ?? ownController;
+  const [pending, setPending] = React.useState<DesignerPending | null>(null);
+  const [wizardOn, setWizardOn] = React.useState<boolean | undefined>(undefined);
   const wizardField = familyField.wizard(family);
   const iconField = family.iconField === null ? undefined : family.iconField ?? "icon";
   const colorField = family.colorField === null ? undefined : family.colorField ?? "color";
@@ -86,9 +97,9 @@ export function FrappeTypeForm({ family, configuration = true, designer, default
     void queryClient.invalidateQueries({ queryKey: ["sf-frappe", "family-type-doctype", family.registry] });
     void queryClient.invalidateQueries({ queryKey: ["sf-frappe", "family-types", family.registry] });
   };
-  const setWizard = async (on: boolean) => {
-    await api.call("frappe.client.set_value", { doctype: family.registry, name, fieldname: wizardField, value: on ? 1 : 0 });
-    refresh();
+  const setWizard = (on: boolean) => {
+    controller.current?.setValue(wizardField!, on ? 1 : 0);
+    setWizardOn(on);
   };
   const startWith = defaults
     ? { ...newDocDefaults, routeOptions: { ...newDocDefaults?.routeOptions, ...defaults } }
@@ -99,17 +110,21 @@ export function FrappeTypeForm({ family, configuration = true, designer, default
       <FrappeForm
         {...form}
         doctype={family.registry}
+        controllerRef={controller}
+        alsoSave={pending ?? undefined}
         newDocDefaults={startWith}
         fieldFilter={hidden.size || fieldFilter ? filter : undefined}
         renderField={picker || renderField ? drawField : undefined}
         onSaved={(doc, action) => {
           refresh();
+          setWizardOn(undefined);
           onSaved?.(doc, action);
         }}
       />
       {designer && typeRow.data?.doctype
         ? designer(typeRow.data.doctype, {
-          wizard: typeRow.data.wizard === undefined ? undefined : { on: typeRow.data.wizard, onChange: setWizard },
+          wizard: typeRow.data.wizard === undefined ? undefined : { on: wizardOn ?? typeRow.data.wizard, onChange: setWizard },
+          onPendingChange: setPending,
         })
         : null}
     </div>

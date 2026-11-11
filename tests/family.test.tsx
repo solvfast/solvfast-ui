@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { createFrappeClient } from "../src/frappe/client";
@@ -16,6 +16,7 @@ import * as core from "../src";
 import { FamilyTabs } from "../src/record";
 import {
   FrappeFamilyRecord, FrappeNewFamilyRecord, FrappeTypeForm, fetchFamilyRecord, fetchFamilyTypes, type FamilyDescriptor,
+  type TypeDesignerContext,
 } from "../src/frappe";
 
 beforeAll(() => {
@@ -183,17 +184,36 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     expect(onCreated.mock.calls[0][0]).toMatchObject({ doctype: "Ticket Complaint", title: "Late reply", booking: "BK-1" });
   });
 
-  it("FAM.screens.8 the Wizard mode field is the designer's switch, saved on its own; a new type starts with the defaults", async () => {
+  it("FAM.screens.8 Wizard mode is the designer's switch and the designer's changes are the type's: one Save saves both; a new type starts with the defaults", async () => {
     const s = site();
-    let ctx: { wizard?: { on: boolean; onChange: (on: boolean) => Promise<void> } } = {};
+    let ctx: TypeDesignerContext | null = null;
+    const designerSave = vi.fn(async () => {});
     const first = mount(s, <FrappeTypeForm family={FAMILY} name="Refund Request" designer={(_dt, c) => { ctx = c; return <p>designer</p>; }} />);
     await screen.findByText("designer");
     expect(screen.queryByText("Wizard Mode")).toBeNull();
-    expect(ctx.wizard?.on).toBe(false);
-    await ctx.wizard!.onChange(true);
-    const sent = s.t.store.calls.find((c) => c.method === "frappe.client.set_value")!.args;
-    expect(sent).toMatchObject({ doctype: "Ticket Type", name: "Refund Request", fieldname: "wizard_mode", value: 1 });
+    expect(ctx!.wizard?.on).toBe(false);
+    act(() => ctx!.wizard!.onChange(true));
+    expect(s.t.store.calls.some((c) => c.method === "frappe.client.set_value")).toBe(false);
+    await waitFor(() => expect(ctx!.wizard?.on).toBe(true));
+    act(() => ctx!.onPendingChange({ dirty: true, save: designerSave }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    await waitFor(() => expect(designerSave).toHaveBeenCalled());
+    const saved = s.t.store.calls.filter((c) => /save/.test(c.method) && c.method !== "frappe.client.set_value");
+    expect(JSON.parse(String(saved[0]?.args.doc)).wizard_mode).toBe(1);
     first.unmount();
+
+    const only = site();
+    const alone = vi.fn(async () => {});
+    mount(only, <FrappeTypeForm family={FAMILY} name="Refund Request" designer={(_dt, c) => { ctx = c; return <p>designer</p>; }} />);
+    await screen.findByText("designer");
+    act(() => ctx!.onPendingChange({ dirty: true, save: alone }));
+    expect(await screen.findByText("Not Saved")).toBeTruthy();
+    const before = only.t.store.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(alone).toHaveBeenCalled());
+    expect(only.t.store.calls.slice(before).some((c) => /savedocs|client\.save/.test(c.method))).toBe(false);
+    cleanup();
+
     mount(site(), <FrappeTypeForm family={FAMILY} defaults={{ description: "Starts here" }} />);
     expect(await screen.findByDisplayValue("Starts here", {}, { timeout: 3000 })).toBeTruthy();
   });
