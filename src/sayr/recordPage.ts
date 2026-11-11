@@ -39,3 +39,18 @@ export interface ChecklistData {
   name: string; playbook_title: string | null; checks_done: number; checks_total: number; can_tick: boolean;
   steps: { name: string; step_title: string | null; instruction: string | null; done_check: boolean; done: boolean; done_by: string | null }[];
 }
+
+export const TYPE_PREVIEW_METHOD = "sear_product.apis.tickets.tickets.type_preview";
+
+/** What a new record of a DocType will get from its deployments. */
+export interface TypePreviewData {
+  lifecycle: null | {
+    lifecycle: string; title: string | null; states_count: number;
+    initial: { state_key: string; name_en: string; name_ar: string | null; phase: string } | null;
+  };
+  sla: { deployed: false } | {
+    deployed: true; policy: string; policy_name: string; level: string | null; calendar_name: string | null;
+    targets: { priority: "urgent" | "high" | "medium" | "low"; first_response: number; resolution: number }[];
+  };
+  assignment: { profile: string; profile_name: string; strategy: string }[];
+}

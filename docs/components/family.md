@@ -270,3 +270,23 @@ What it added elsewhere (additive, defaults unchanged): `FrappeFormView` / `Frap
 `tabBar: "record"`; `LifecycleRail` `onSelectNext`; `useRefreshDoc` (Frappe layer); `AssignDialog` `threePriorities`; `FrappeAssignTo` `comment` and
 `threePriorities`. Messages: the `rp…` block (`theme/messages-ws/recordPage.ts`).
 
+## 13. `SayrNewRecordPage` — a new record laid out like the record page (0.7.0-dev.14)
+
+`@solvfast/ui/sayr` · `src/sayr/SayrNewRecordPage.tsx`. `FrappeNewFamilyRecord` with `layout="record"` and a rail:
+
+```tsx
+<SayrNewRecordPage family={TICKETS} onCreated={(doc) => navigate(`/tickets/tickets/${doc.name}`)} onCancel={back}
+  backLabel="Tickets" labels={{ title: { en: "New Ticket", ar: "تذكرة جديدة" }, create: { en: "Create Ticket", ar: "إنشاء التذكرة" } }} />
+```
+
+- **Top row**: Back (`onCancel`, `backLabel`) and Create / Next / Back (a wizard type's steps).
+- **Header card** (`RecordHeaderCard`): `labels.title`, "Not Saved", the signed-in user and today, and the type picker.
+  Changing the type after filling fields still asks first.
+- **Form**: the type DocType's tabs as the full-width bar (a wizard type keeps its stepper). The `default` layout still
+  shows the fields in one list.
+- **Rail** (`aside(type)`), after a type is chosen, from Sayr's `type_preview(doctype)`: Lifecycle (its title, the status a
+  record starts in, how many statuses, "View full lifecycle"), Assignment (the deployed profiles and their strategy),
+  SLA (the policy, its level, first response and resolution per priority, the working hours). Playbook, Tasks, Pinned
+  Notes and Attachments say "Available after the record is created". Before a type is chosen every card asks for one.
+  "Customize sections" uses the record page's storage key, so a hidden card stays hidden on both pages.
+

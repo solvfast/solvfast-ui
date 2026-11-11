@@ -6,6 +6,23 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.14 — SayrNewRecordPage: a new record laid out like the record page
+
+Additive. jsdom tests only; the record page (dev.13) was checked on a real site.
+
+- `@solvfast/ui/sayr`: `SayrNewRecordPage` — Back and Create on top, a header card (title, Not Saved, who and today)
+  holding the type picker, the type's tabs as a full-width bar, and a rail that previews the chosen type through Sayr's
+  `sear_product.apis.tickets.tickets.type_preview`: the lifecycle and its first status, the SLA policy with its targets
+  per priority, the assignment profiles; Playbook, Tasks, Pinned Notes and Attachments say they come after the record is
+  created. "Customize sections" as on the record page (same storage key). Exports `TYPE_PREVIEW_METHOD`, `TypePreviewData`.
+- `FrappeNewFamilyRecord`: `layout: "record"`, `aside(type)`, `backLabel`, label `title` (default "New record").
+- Core `RecordHeaderCard` (+ `RecordHeaderCardProps`, `RecordHeaderFact`): the record page's header card; SayrRecordPage
+  now uses it.
+- SayrRecordPage: Pinned Notes says "No notes yet" when empty; the next actions follow the server's list (no write gate);
+  the header and cards are read again when the record's `modified` changes (a save or a toolbar workflow action).
+- Messages: `rpNoNotes`, `rpChooseTypePreview`, `rpAfterCreate`, `rpStartsIn`, `rpStatusesCount`,
+  `rpNoAssignmentProfile`, `rpPr…`; `famNewRecord`.
+
 ## 0.7.0-dev.13 — SayrRecordPage: a record opened as a page
 
 Additive. jsdom tests only; checked on a real site (servefast-dev) before vendoring.

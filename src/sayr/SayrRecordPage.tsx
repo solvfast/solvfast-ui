@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import {
-  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, ListChecks, Paperclip, Settings2, ShieldCheck,
+  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, ListChecks, Paperclip, ShieldCheck,
   StickyNote, Timer, User,
 } from "lucide-react";
 import { cn } from "../lib/cn";
@@ -19,10 +19,10 @@ import { Badge } from "../primitives/badge";
 import { Button } from "../primitives/button";
 import { Card } from "../primitives/card";
 import { Checkbox } from "../primitives/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "../primitives/popover";
 import { Skeleton } from "../primitives/skeleton";
 import { LifecycleRail, type LifecycleRailNext } from "../record/LifecycleRail";
 import { fmt, initials } from "../record/format";
+import { RecordHeaderCard } from "../record/RecordHeaderCard";
 import { htmlToText } from "../record/sanitize";
 import { useLocale } from "../theme/ThemeProvider";
 import type { FrappeDoc } from "../frappe/contract";
@@ -38,10 +38,11 @@ import {
   OPEN_CHECKLIST_METHOD, RECORD_PAGE_METHOD, TICK_STEP_METHOD, TRANSITION_METHOD, defaultLifecycleHref,
   type ChecklistData, type RecordPageData, type SlaTargetClock,
 } from "./recordPage";
+import {
+  CustomizeSections, Empty, PHASE_VARIANT, RECORD_RAIL_CARDS, RailCard, dateTime, duration, railStorageKeyOf, useHiddenCards,
+  type RecordRailCard, type T,
+} from "./rail";
 
-export type RecordRailCard = "assignment" | "sla" | "playbook" | "tasks" | "notes" | "attachments";
-/** The rail's order (Lifecycle is always first and cannot be hidden). */
-export const RECORD_RAIL_CARDS: readonly RecordRailCard[] = ["assignment", "sla", "playbook", "tasks", "notes", "attachments"];
 const TASKS_BEFORE_SCROLL = 5;
 
 export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "name" | "header" | "toolbarStart" | "tabBar"> {
@@ -57,52 +58,8 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   railStorageKey?: string;
 }
 
-type T = ReturnType<typeof useLocale>["t"];
-
-function readHidden(key: string): Set<RecordRailCard> {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return new Set(raw ? (JSON.parse(raw) as RecordRailCard[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeHidden(key: string, hidden: Set<RecordRailCard>) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify([...hidden]));
-  } catch {
-    // Storage blocked (private window): the choice lasts for this visit only.
-  }
-}
-
-const dateTime = (at: number, language: string) =>
-  new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(at));
-
-const duration = (seconds: number, t: T) =>
-  seconds >= 3600 && seconds % 3600 === 0 ? fmt(t("rpHours"), seconds / 3600) : fmt(t("rpMinutes"), Math.round(seconds / 60));
-
-const PHASE_VARIANT = { open: "info", on_hold: "warning", closed: "success" } as const;
-
-function RailCard({ id, icon: Icon, title, action, children }: {
-  id: string; icon: React.ComponentType<{ className?: string }>; title: React.ReactNode; action?: React.ReactNode; children: React.ReactNode;
-}) {
-  return (
-    <Card className="space-y-3 p-4" data-rail-card={id}>
-      <div className="flex min-h-7 items-center justify-between gap-2">
-        <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-          <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-          <span className="truncate">{title}</span>
-        </h3>
-        {action}
-      </div>
-      {children}
-    </Card>
-  );
-}
-
 /** One Sayr method's answer, read again when `key` changes or on `reload`. */
-function useSayrCall<D>(method: string, args: Record<string, unknown>, key: string, enabled = true) {
+export function useSayrCall<D>(method: string, args: Record<string, unknown>, key: string, enabled = true) {
   const api = useFrappeApi();
   const [state, setState] = React.useState<{ data?: D; error?: Error; pending: boolean }>({ pending: enabled });
   const latest = React.useRef(0);
@@ -120,8 +77,6 @@ function useSayrCall<D>(method: string, args: Record<string, unknown>, key: stri
   const set = React.useCallback((data: D) => setState({ data, pending: false }), []);
   return { ...state, reload, set };
 }
-
-const Empty = ({ children }: { children: React.ReactNode }) => <p className="text-xs text-muted-foreground">{children}</p>;
 
 export function SayrRecordPage({
   doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, onDirtyChange, onSaved, ...form
@@ -141,6 +96,14 @@ export function SayrRecordPage({
 
   const page = useSayrCall<RecordPageData>(RECORD_PAGE_METHOD, { doctype, name }, `${doctype}\u0001${name}`);
   const refresh = page.reload;
+  // A save, a toolbar workflow action or a transition changes `modified`: the header and cards follow.
+  const seenModified = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    const modified = doc?.modified as string | undefined;
+    if (!modified) return;
+    if (seenModified.current && seenModified.current !== modified) void page.reload();
+    seenModified.current = modified;
+  }, [doc?.modified]); // eslint-disable-line react-hooks/exhaustive-deps
   const [moving, setMoving] = React.useState(false);
   const [moveNote, setMoveNote] = React.useState<{ text: string; error: boolean } | null>(null);
 
@@ -163,15 +126,7 @@ export function SayrRecordPage({
     }
   };
 
-  const storageKey = railStorageKey ?? `sf-record-rail:${doctype}`;
-  const [hidden, setHidden] = React.useState<Set<RecordRailCard>>(() => readHidden(storageKey));
-  React.useEffect(() => setHidden(readHidden(storageKey)), [storageKey]);
-  const toggle = (card: RecordRailCard) => setHidden((prev) => {
-    const next = new Set(prev);
-    if (next.has(card)) next.delete(card); else next.add(card);
-    writeHidden(storageKey, next);
-    return next;
-  });
+  const { hidden, toggle } = useHiddenCards(railStorageKey ?? railStorageKeyOf(doctype));
 
   const data = page.data;
   const lc = data?.lifecycle ?? null;
@@ -181,32 +136,19 @@ export function SayrRecordPage({
   const title = doc ? htmlToText(String((titleField && doc[titleField]) || "")) || doc.name : name;
 
   const header = (
-    <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-r from-primary/10 via-card to-accent/10 p-5 shadow-sm" data-record-header>
-      <div className="flex items-start gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-card text-lg font-semibold text-primary ring-2 ring-primary/20" aria-hidden>
-          {initials(title) || <FileText className="h-6 w-6" />}
-        </div>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="min-w-0 truncate text-xl font-semibold">{title}</h1>
-            <span className="font-mono text-xs text-muted-foreground">#{name}</span>
-            {current ? (
-              <Badge variant={PHASE_VARIANT[current.phase as keyof typeof PHASE_VARIANT] ?? "outline"} data-status={current.state_key}>{stateLabel(current)}</Badge>
-            ) : null}
-          </div>
-          {data ? (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <span className="inline-flex items-center gap-1 font-medium"><User className="h-3.5 w-3.5" aria-hidden />{data.header.owner_name || data.header.owner}</span>
-              <span className="opacity-40" aria-hidden>•</span>
-              <span className="inline-flex items-center gap-1" title={dateTime(parseFrappeTime(data.header.creation), language)}>
-                <Calendar className="h-3.5 w-3.5" aria-hidden />{fmt(t("rpCreatedOn"), dateTime(parseFrappeTime(data.header.creation), language))}
-              </span>
-            </div>
-          ) : <Skeleton className="h-4 w-48" />}
-          {typeLabel ? <Badge variant="brand">{typeLabel}</Badge> : null}
-        </div>
-      </div>
-    </div>
+    <RecordHeaderCard
+      title={title}
+      name={name}
+      avatar={initials(title) || <FileText className="h-6 w-6" />}
+      status={current ? { label: stateLabel(current), variant: PHASE_VARIANT[current.phase as keyof typeof PHASE_VARIANT] ?? "outline", key: current.state_key } : undefined}
+      facts={data ? [
+        { icon: User, text: data.header.owner_name || data.header.owner },
+        { icon: Calendar, text: fmt(t("rpCreatedOn"), dateTime(parseFrappeTime(data.header.creation), language)), title: dateTime(parseFrappeTime(data.header.creation), language) },
+      ] : undefined}
+      chips={typeLabel ? <Badge variant="brand">{typeLabel}</Badge> : undefined}
+    >
+      {data ? null : <Skeleton className="h-4 w-48" />}
+    </RecordHeaderCard>
   );
 
   const back = onBack ? (
@@ -230,7 +172,8 @@ export function SayrRecordPage({
             disabledReason: dirty ? t("rpSaveFirst") : undefined,
           }))}
           ended={lc.actions.length === 0}
-          onSelectNext={canWrite ? (n) => void runTransition(n) : undefined}
+          // The server lists only actions this user may take; a state's edit lock does not apply to a transition.
+          onSelectNext={(n) => void runTransition(n)}
           onViewAll={() => window.open(lifecycleHref(lc.lifecycle), "_blank", "noopener")}
         />
       )}
@@ -279,7 +222,7 @@ export function SayrRecordPage({
     notes: (
       <RailCard id="notes" icon={StickyNote} title={docinfo?.comments?.length ? `${t("rpNotes")} (${docinfo.comments.length})` : t("rpNotes")}>
         <div className="max-h-96 overflow-y-auto pe-1">
-          <FrappeComments doctype={doctype} name={name} docinfo={docinfo} order="newest-first" />
+          <FrappeComments doctype={doctype} name={name} docinfo={docinfo} order="newest-first" labels={{ empty: t("rpNoNotes") }} />
         </div>
       </RailCard>
     ),
@@ -306,24 +249,7 @@ export function SayrRecordPage({
         />
       </div>
       <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start" aria-label={t("rpVisibleSections")}>
-        <div className="flex justify-end">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs"><Settings2 className="h-3.5 w-3.5" aria-hidden />{t("rpCustomize")}</Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-64 p-2">
-              <p className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("rpVisibleSections")}</p>
-              <div role="group" aria-label={t("rpVisibleSections")} className="space-y-0.5">
-                {RECORD_RAIL_CARDS.map((card) => (
-                  <label key={card} className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
-                    <Checkbox checked={!hidden.has(card)} onCheckedChange={() => toggle(card)} data-rail-toggle={card} />
-                    <span className="flex-1 truncate">{railLabel(card, t)}</span>
-                  </label>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+        <CustomizeSections hidden={hidden} onToggle={toggle} />
         {page.error ? <p role="alert" className="text-xs text-destructive">{page.error.message || t("rpLoadFailed")}</p> : null}
         {lifecycleCard}
         {RECORD_RAIL_CARDS.filter((card) => !hidden.has(card)).map((card) => <React.Fragment key={card}>{cards[card]}</React.Fragment>)}
@@ -336,10 +262,6 @@ export function SayrRecordPage({
       </aside>
     </div>
   );
-}
-
-function railLabel(card: RecordRailCard, t: T): string {
-  return { assignment: t("rpAssignment"), sla: t("rpSla"), playbook: t("rpPlaybook"), tasks: t("rpTasks"), notes: t("rpNotes"), attachments: t("rpAttachments") }[card];
 }
 
 function FooterLine({ label, who, at, isRTL, language }: { label: string; who: string; at: string; isRTL: boolean; language: string }) {

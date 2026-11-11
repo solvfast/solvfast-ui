@@ -9,6 +9,8 @@ export type { AssigneeGroupProps, AssignPickerProps, AssignLabels } from "./Assi
 export { LifecycleBar } from "./LifecycleBar";
 export type { LifecycleBarProps } from "./LifecycleBar";
 export { LifecycleRail } from "./LifecycleRail";
+export { RecordHeaderCard } from "./RecordHeaderCard";
+export type { RecordHeaderCardProps, RecordHeaderFact } from "./RecordHeaderCard";
 export type { LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels } from "./LifecycleRail";
 export { LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LIFECYCLE_DIAGRAM_COLORS } from "./LifecycleDiagram";
 export type {

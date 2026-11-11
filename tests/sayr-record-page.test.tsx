@@ -11,7 +11,8 @@ import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
 import { createFixtureTransport } from "../src/frappe/testing";
 import { AssignDialog } from "../src/record/AssignDialog";
-import { RECORD_PAGE_METHOD, SayrRecordPage, TRANSITION_METHOD, type RecordPageData } from "../src/sayr";
+import { RECORD_PAGE_METHOD, SayrNewRecordPage, SayrRecordPage, TRANSITION_METHOD, TYPE_PREVIEW_METHOD, type RecordPageData, type TypePreviewData } from "../src/sayr";
+import type { FamilyDescriptor } from "../src/frappe";
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -176,5 +177,70 @@ describe("RP.assign — AssignDialog threePriorities", () => {
     expect(priority.textContent).toContain("Medium");
     fireEvent.click(priority);
     await waitFor(() => expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Low", "Medium", "High"]));
+  });
+});
+
+describe("RP.notes — Pinned Notes are the record's comments", () => {
+  it("RP.notes.1 an empty list says No notes yet", async () => {
+    mount(PAGE());
+    await waitFor(() => expect(screen.getByText("No notes yet")).toBeTruthy());
+  });
+});
+
+const REGISTRY: DocTypeMeta = {
+  name: "Ticket Type", autoname: "field:type_name", title_field: "type_name", permissions: ALL,
+  fields: [
+    { fieldname: "type_name", fieldtype: "Data", label: "Name" },
+    { fieldname: "type_doctype", fieldtype: "Link", label: "Records DocType", options: "DocType" },
+    { fieldname: "enabled", fieldtype: "Check", label: "Enabled" },
+  ],
+};
+const FAMILY: FamilyDescriptor = { parent: "Ticket", registry: "Ticket Type", labelField: "type_name" };
+const PREVIEW: TypePreviewData = {
+  lifecycle: { lifecycle: "SEAR-LC-00001", title: "Support", states_count: 4, initial: { state_key: "tst_new", name_en: "New", name_ar: "جديد", phase: "open" } },
+  sla: { deployed: true, policy: "SEAR-SLA-00001", policy_name: "Test Support SLA", level: "Service", calendar_name: "Egypt Business Hours",
+    targets: [{ priority: "urgent", first_response: 1800, resolution: 14400 }, { priority: "high", first_response: 3600, resolution: 28800 }] },
+  assignment: [{ profile: "SEAR-AP-00001", profile_name: "Test Support Assignment", strategy: "Round Robin" }],
+};
+
+function mountNew(defaultType?: string) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const t = createFixtureTransport(
+    { meta: { "Ticket Type": [REGISTRY], "Ticket Bug": [BUG] },
+      docs: { "Ticket Type": [{ doctype: "Ticket Type", name: "Bug", type_name: "Bug", type_doctype: "Ticket Bug", enabled: 1, owner: "Administrator", creation: T, modified: T, docstatus: 0 } as FrappeDoc] } },
+    { handlers: { [TYPE_PREVIEW_METHOD]: () => ({ message: PREVIEW }) } },
+  );
+  return render(
+    <QueryClientProvider client={qc}>
+      <FrappeProvider client={createFrappeClient({ transport: t })} queryClient={qc} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
+        <ThemeProvider storageKeys={null}>
+          <SayrNewRecordPage family={FAMILY} defaultType={defaultType} onCreated={() => {}} onCancel={() => {}} backLabel="Tickets"
+            labels={{ title: { en: "New Ticket", ar: "تذكرة جديدة" } }} />
+        </ThemeProvider>
+      </FrappeProvider>
+    </QueryClientProvider>,
+  );
+}
+
+describe("RP.new — a new record laid out like the record page", () => {
+  it("RP.new.1 header card with the title, Not saved and the type picker; Back and Create on top", async () => {
+    const { container } = mountNew();
+    await waitFor(() => expect(container.querySelector("[data-new-record-page]")).toBeTruthy());
+    const header = container.querySelector("[data-record-header]") as HTMLElement;
+    expect(within(header).getByText("New Ticket")).toBeTruthy();
+    expect(within(header).getByText("Not Saved")).toBeTruthy();
+    await waitFor(() => expect(within(header).getByLabelText(/Type/)).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Tickets" })).toBeTruthy();
+    expect(screen.getAllByText("Choose a type to see what it brings.").length).toBeGreaterThan(0);
+  });
+
+  it("RP.new.2 with a type: the rail previews its lifecycle, SLA targets and assignment; the rest waits for the record", async () => {
+    const { container } = mountNew("Bug");
+    await waitFor(() => expect(screen.getByText("Test Support SLA")).toBeTruthy());
+    expect(screen.getByText("Test Support Assignment")).toBeTruthy();
+    expect(container.querySelector("[data-sla-preview='SEAR-SLA-00001']")?.textContent).toContain("30 min");
+    expect(screen.getByRole("button", { name: "View full lifecycle" })).toBeTruthy();
+    expect(screen.getAllByText("Available after the record is created.").length).toBe(4);
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Booking Change Request" })).toBeTruthy());
   });
 });
