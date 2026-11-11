@@ -114,8 +114,12 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     select("Status");
     expect(within(panel()).getByText(/Standard field/)).toBeTruthy();
     expect(within(panel()).queryByRole("button", { name: /Remove/ })).toBeNull();
+    // A field every type has from the parent is locked: a lock on its card, and it still moves.
+    expect(card("Title").querySelector("[data-locked-field]")).toBeTruthy();
+    expect(card("Amount").querySelector("[data-locked-field]")).toBeNull();
     select("Title");
-    expect(within(panel()).getByText(/Shared with every type/)).toBeTruthy();
+    expect(within(panel()).getByText(/Locked: every type has it from the parent/)).toBeTruthy();
+    expect(within(panel()).queryByRole("button", { name: /Remove/ })).toBeNull();
     select("Amount");
     expect(within(panel()).getByText(/Field Library/)).toBeTruthy();
     expect(within(panel()).getByRole("button", { name: "Remove: Amount" })).toBeTruthy();

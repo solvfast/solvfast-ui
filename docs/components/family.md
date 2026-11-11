@@ -124,7 +124,7 @@ click a field, section or tab to see it in the panel.
 | Card | What it can do |
 |---|---|
 | Standard field (lock) | Placed anywhere; never removed or edited. |
-| Shared field (from the family parent) | Moves (drag, the grip's arrow keys, or the up / down buttons); never removed or edited. |
+| Locked field (shared from the family parent; a lock on its card) | Moves to any position, section or step (drag, the grip's arrow keys, or the up / down buttons); never removed, renamed or given another field type. |
 | A field set's field | Moves and is removed; its settings stay in the Field Library (the set's own deploy, linked to the set). |
 | A field added on the form | Moves, is removed, and is edited in the panel with every property a field set's field has. |
 
@@ -264,6 +264,10 @@ Every other prop is `FrappeForm`'s and goes to the form.
   
   Then Created by / Last edited by. **Customize sections** hides or shows cards 2–7, per DocType, in this browser
   (`localStorage`, key `sf-record-rail:<doctype>`, or `railStorageKey`).
+- `extraCards` (0.7.0-dev.21): the app's own cards, `{ id, label, icon, render(doc) }`, placed after Playbook, listed in
+  Customize sections and hidden like the others (`railOrder(extraCards)` gives the order). ServeFast passes the
+  record's CRM Contact and Organization. `SayrNewRecordPage` takes the same prop and shows them as "Available after the
+  record is created".
 - **Data**: one call to Sayr's `sear_product.apis.tickets.tickets.record_page` (header, lifecycle, SLA, the assign
   comment, ToDos); assignment, comments and attachments read Frappe's docinfo.
 

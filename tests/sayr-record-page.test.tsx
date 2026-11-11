@@ -11,8 +11,9 @@ import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
 import { createFixtureTransport } from "../src/frappe/testing";
 import { AssignDialog } from "../src/record/AssignDialog";
-import { RECORD_PAGE_METHOD, SayrNewRecordPage, SayrRecordPage, TRANSITION_METHOD, TYPE_PREVIEW_METHOD, WALK_TREE_METHOD, type RecordPageData, type TypePreviewData } from "../src/sayr";
+import { RECORD_PAGE_METHOD, SayrNewRecordPage, SayrRecordPage, TRANSITION_METHOD, TYPE_PREVIEW_METHOD, WALK_TREE_METHOD, type RecordPageData, type RecordRailExtraCard, type TypePreviewData } from "../src/sayr";
 import type { FamilyDescriptor } from "../src/frappe";
+import { User } from "lucide-react";
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -71,13 +72,13 @@ function site(page: RecordPageData, calls: string[] = []) {
   return createFrappeClient({ transport: t });
 }
 
-function mount(page: RecordPageData, language: "en" | "ar" = "en", calls: string[] = []) {
+function mount(page: RecordPageData, language: "en" | "ar" = "en", calls: string[] = [], extraCards?: RecordRailExtraCard[]) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <FrappeProvider client={site(page, calls)} queryClient={qc} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
         <ThemeProvider defaultLanguage={language} storageKeys={null}>
-          <SayrRecordPage doctype="Ticket Bug" name="TKT-00008" typeLabel="Bug" onBack={() => {}} />
+          <SayrRecordPage doctype="Ticket Bug" name="TKT-00008" typeLabel="Bug" onBack={() => {}} extraCards={extraCards} />
         </ThemeProvider>
       </FrappeProvider>
     </QueryClientProvider>,
@@ -155,6 +156,17 @@ describe("RP.cards — empty states, tasks, customize", () => {
     const again = mount(PAGE());
     await waitFor(() => expect(again.container.querySelector("[data-rail-card='tasks']")).toBeTruthy());
     expect(again.container.querySelector("[data-rail-card='sla']")).toBeNull();
+  });
+
+  it("RP.cards.5 the app's own cards sit after Playbook, get the record, and hide like the others", async () => {
+    const contact: RecordRailExtraCard = { id: "contact", label: "Contact", icon: User, render: (doc) => <p>Contact of {String(doc?.name ?? "")}</p> };
+    const { container } = mount(PAGE(), "en", [], [contact]);
+    await waitFor(() => expect(screen.getByText("Contact of TKT-00008")).toBeTruthy());
+    const order = [...container.querySelectorAll("[data-rail-card]")].map((c) => c.getAttribute("data-rail-card"));
+    expect(order.slice(0, 6)).toEqual(["lifecycle", "assignment", "sla", "playbook", "contact", "tasks"]);
+    fireEvent.click(screen.getByRole("button", { name: "Customize sections" }));
+    fireEvent.click(await waitFor(() => document.querySelector("[data-rail-toggle='contact']") as HTMLElement));
+    await waitFor(() => expect(container.querySelector("[data-rail-card='contact']")).toBeNull());
   });
 
   it("RP.cards.4 Arabic labels", async () => {

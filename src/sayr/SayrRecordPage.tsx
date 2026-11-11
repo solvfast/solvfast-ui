@@ -39,8 +39,8 @@ import {
   type ChecklistData, type RecordPageData, type SlaTargetClock,
 } from "./recordPage";
 import {
-  CustomizeSections, Empty, PHASE_VARIANT, RECORD_RAIL_CARDS, RailCard, dateTime, duration, railStorageKeyOf, useHiddenCards,
-  type RecordRailCard, type T,
+  CustomizeSections, Empty, PHASE_VARIANT, RailCard, railOrder, dateTime, duration, railStorageKeyOf, useHiddenCards,
+  type RecordRailExtraCard, type T,
 } from "./rail";
 
 const TASKS_BEFORE_SCROLL = 5;
@@ -59,6 +59,8 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   /** All fields as one form, no tabs (a family type without wizard mode). Default: the DocType's tabs as a
    *  full-width bar (a wizard type's steps). */
   oneForm?: boolean;
+  /** The app's own cards (e.g. the record's CRM contact and organization), after Playbook. */
+  extraCards?: readonly RecordRailExtraCard[];
 }
 
 const noTabBreaks = (df: { fieldtype: string }) => df.fieldtype !== "Tab Break";
@@ -84,7 +86,7 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 }
 
 export function SayrRecordPage({
-  doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, oneForm, onDirtyChange, onSaved, ...form
+  doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, oneForm, extraCards, onDirtyChange, onSaved, ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
   const api = useFrappeApi();
@@ -186,7 +188,8 @@ export function SayrRecordPage({
     </RailCard>
   );
 
-  const cards: Record<RecordRailCard, React.ReactNode> = {
+  const cards: Record<string, React.ReactNode> = {
+    ...Object.fromEntries((extraCards ?? []).map((c) => [c.id, <RailCard id={c.id} icon={c.icon} title={c.label}>{c.render(doc)}</RailCard>])),
     assignment: (
       <RailCard id="assignment" icon={ShieldCheck} title={t("rpAssignment")}>
         {doc && session?.user ? (
@@ -255,10 +258,10 @@ export function SayrRecordPage({
         />
       </div>
       <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start" aria-label={t("rpVisibleSections")}>
-        <CustomizeSections hidden={hidden} onToggle={toggle} />
+        <CustomizeSections hidden={hidden} onToggle={toggle} extra={extraCards} />
         {page.error ? <p role="alert" className="text-xs text-destructive">{page.error.message || t("rpLoadFailed")}</p> : null}
         {lifecycleCard}
-        {RECORD_RAIL_CARDS.filter((card) => !hidden.has(card)).map((card) => <React.Fragment key={card}>{cards[card]}</React.Fragment>)}
+        {railOrder(extraCards).filter((card) => !hidden.has(card)).map((card) => <React.Fragment key={card}>{cards[card]}</React.Fragment>)}
         {data ? (
           <Card className="space-y-1 p-4 text-[11px] text-muted-foreground" data-rail-footer>
             <FooterLine label={t("rpCreatedBy")} who={data.header.owner_name || data.header.owner} at={data.header.creation} isRTL={isRTL} language={language} />

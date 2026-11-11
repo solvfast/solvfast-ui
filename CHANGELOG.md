@@ -6,6 +6,16 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.21 — locked fields show a lock; the app adds its own rail cards
+
+Additive, with a visual change in the form builder. jsdom tests only.
+
+- `FieldDesigner`: a field shared from the family parent (a locked field) shows a lock instead of the share icon; its
+  note says it moves to any position, section or step but is never removed, renamed or given another field type.
+- `SayrRecordPage` / `SayrNewRecordPage` `extraCards`: the app's own rail cards (`RecordRailExtraCard`:
+  `{ id, label, icon, render(doc) }`), after Playbook, in Customize sections, hidden per DocType like the others. On a new
+  record they wait for it. Exports `railOrder`, `RecordRailExtraCard`.
+
 ## 0.7.0-dev.20 — assignee avatars name their user and filter by them
 
 Additive. jsdom tests only.

@@ -13,20 +13,35 @@ export type RecordRailCard = "assignment" | "sla" | "playbook" | "tasks" | "note
 /** The rail's order (Lifecycle is always first and cannot be hidden). */
 export const RECORD_RAIL_CARDS: readonly RecordRailCard[] = ["assignment", "sla", "playbook", "tasks", "notes", "attachments"];
 
+/** A card the app adds to the rail (e.g. the record's CRM contact): placed after Playbook, hidden and shown like the others. */
+export interface RecordRailExtraCard {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** The card's body for the record as loaded (undefined until it is). */
+  render: (doc: Record<string, unknown> | undefined) => React.ReactNode;
+}
+
+/** The rail's cards in order, the app's own after Playbook (as the reference: Playbook, Contacts, Organization, Tasks). */
+export function railOrder(extra: readonly RecordRailExtraCard[] = []): string[] {
+  const at = RECORD_RAIL_CARDS.indexOf("playbook") + 1;
+  return [...RECORD_RAIL_CARDS.slice(0, at), ...extra.map((c) => c.id), ...RECORD_RAIL_CARDS.slice(at)];
+}
+
 export type T = ReturnType<typeof useLocale>["t"];
 
 export const railStorageKeyOf = (doctype: string) => `sf-record-rail:${doctype}`;
 
-function readHidden(key: string): Set<RecordRailCard> {
+function readHidden(key: string): Set<string> {
   try {
     const raw = window.localStorage.getItem(key);
-    return new Set(raw ? (JSON.parse(raw) as RecordRailCard[]) : []);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
   } catch {
     return new Set();
   }
 }
 
-function writeHidden(key: string, hidden: Set<RecordRailCard>) {
+function writeHidden(key: string, hidden: Set<string>) {
   try {
     window.localStorage.setItem(key, JSON.stringify([...hidden]));
   } catch {
@@ -35,9 +50,9 @@ function writeHidden(key: string, hidden: Set<RecordRailCard>) {
 }
 
 export function useHiddenCards(storageKey: string) {
-  const [hidden, setHidden] = React.useState<Set<RecordRailCard>>(() => readHidden(storageKey));
+  const [hidden, setHidden] = React.useState<Set<string>>(() => readHidden(storageKey));
   React.useEffect(() => setHidden(readHidden(storageKey)), [storageKey]);
-  const toggle = React.useCallback((card: RecordRailCard) => setHidden((prev) => {
+  const toggle = React.useCallback((card: string) => setHidden((prev) => {
     const next = new Set(prev);
     if (next.has(card)) next.delete(card); else next.add(card);
     writeHidden(storageKey, next);
@@ -50,8 +65,11 @@ export function railLabel(card: RecordRailCard, t: T): string {
   return { assignment: t("rpAssignment"), sla: t("rpSla"), playbook: t("rpPlaybook"), tasks: t("rpTasks"), notes: t("rpNotes"), attachments: t("rpAttachments") }[card];
 }
 
-export function CustomizeSections({ hidden, onToggle }: { hidden: Set<RecordRailCard>; onToggle: (card: RecordRailCard) => void }) {
+export function CustomizeSections({ hidden, onToggle, extra = [] }: {
+  hidden: Set<string>; onToggle: (card: string) => void; extra?: readonly RecordRailExtraCard[];
+}) {
   const { t } = useLocale();
+  const label = (card: string) => extra.find((c) => c.id === card)?.label ?? railLabel(card as RecordRailCard, t);
   return (
     <div className="flex justify-end">
       <Popover>
@@ -61,10 +79,10 @@ export function CustomizeSections({ hidden, onToggle }: { hidden: Set<RecordRail
         <PopoverContent align="end" className="w-64 p-2">
           <p className="px-2 py-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t("rpVisibleSections")}</p>
           <div role="group" aria-label={t("rpVisibleSections")} className="space-y-0.5">
-            {RECORD_RAIL_CARDS.map((card) => (
+            {railOrder(extra).map((card) => (
               <label key={card} className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
                 <Checkbox checked={!hidden.has(card)} onCheckedChange={() => onToggle(card)} data-rail-toggle={card} />
-                <span className="flex-1 truncate">{railLabel(card, t)}</span>
+                <span className="flex-1 truncate">{label(card)}</span>
               </label>
             ))}
           </div>

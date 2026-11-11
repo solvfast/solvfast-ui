@@ -15,8 +15,8 @@ import { TYPE_PREVIEW_METHOD, defaultLifecycleHref, type TypePreviewData } from 
 import { useSayrCall } from "./SayrRecordPage";
 import { SayrTypeFinder } from "./SayrTypeFinder";
 import {
-  CustomizeSections, Empty, PHASE_VARIANT, RECORD_RAIL_CARDS, RailCard, duration, railStorageKeyOf, useHiddenCards,
-  type RecordRailCard, type T,
+  CustomizeSections, Empty, PHASE_VARIANT, RailCard, railOrder, duration, railStorageKeyOf, useHiddenCards,
+  type RecordRailExtraCard, type T,
 } from "./rail";
 import { Skeleton } from "../primitives/skeleton";
 
@@ -25,19 +25,23 @@ export interface SayrNewRecordPageProps extends Omit<FrappeNewFamilyRecordProps,
   lifecycleHref?: (lifecycle: string) => string;
   /** A decision tree (Sayr Studio › Routing) behind "Not sure? Find the right type" under the type picker. None: no link. */
   decisionTree?: string | null;
+  /** The app's own rail cards, as on SayrRecordPage; here they wait for the record. */
+  extraCards?: readonly RecordRailExtraCard[];
 }
 
-export function SayrNewRecordPage({ lifecycleHref = defaultLifecycleHref, decisionTree, ...props }: SayrNewRecordPageProps) {
+export function SayrNewRecordPage({ lifecycleHref = defaultLifecycleHref, decisionTree, extraCards, ...props }: SayrNewRecordPageProps) {
   return (
     <FrappeNewFamilyRecord {...props} layout="record"
       typeHelp={decisionTree ? ({ types, choose }) => (
         <SayrTypeFinder tree={decisionTree} registry={props.family.registry} types={types} onChoose={choose} />
       ) : undefined}
-      aside={(type) => <TypePreviewRail key={type?.doctype ?? ""} type={type} lifecycleHref={lifecycleHref} />} />
+      aside={(type) => <TypePreviewRail key={type?.doctype ?? ""} type={type} lifecycleHref={lifecycleHref} extraCards={extraCards} />} />
   );
 }
 
-function TypePreviewRail({ type, lifecycleHref }: { type?: FamilyType; lifecycleHref: (lifecycle: string) => string }) {
+function TypePreviewRail({ type, lifecycleHref, extraCards }: {
+  type?: FamilyType; lifecycleHref: (lifecycle: string) => string; extraCards?: readonly RecordRailExtraCard[];
+}) {
   const { t, isRTL } = useLocale();
   const doctype = type?.doctype ?? "";
   const preview = useSayrCall<TypePreviewData>(TYPE_PREVIEW_METHOD, { doctype }, doctype, !!doctype);
@@ -48,7 +52,8 @@ function TypePreviewRail({ type, lifecycleHref }: { type?: FamilyType; lifecycle
   const choose = <Empty>{t("rpChooseTypePreview")}</Empty>;
   const lc = p?.lifecycle;
 
-  const cards: Record<RecordRailCard, React.ReactNode> = {
+  const cards: Record<string, React.ReactNode> = {
+    ...Object.fromEntries((extraCards ?? []).map((c) => [c.id, <RailCard id={c.id} icon={c.icon} title={c.label}>{doctype ? later : choose}</RailCard>])),
     assignment: (
       <RailCard id="assignment" icon={ShieldCheck} title={t("rpAssignment")}>
         {!doctype ? choose : loading ? <Skeleton className="h-8" /> : !p?.assignment.length ? <Empty>{t("rpNoAssignmentProfile")}</Empty> : (
@@ -76,7 +81,7 @@ function TypePreviewRail({ type, lifecycleHref }: { type?: FamilyType; lifecycle
 
   return (
     <>
-      {doctype ? <CustomizeSections hidden={hidden} onToggle={toggle} /> : null}
+      {doctype ? <CustomizeSections hidden={hidden} onToggle={toggle} extra={extraCards} /> : null}
       {preview.error ? <p role="alert" className="text-xs text-destructive">{preview.error.message || t("rpLoadFailed")}</p> : null}
       <RailCard id="lifecycle" icon={GitBranch} title={lc?.title ? `${t("rpLifecycle")} · ${lc.title}` : t("rpLifecycle")}>
         {!doctype ? choose : loading ? <Skeleton className="h-16" /> : !lc ? <Empty>{t("rpNoLifecycle")}</Empty> : (
@@ -93,7 +98,7 @@ function TypePreviewRail({ type, lifecycleHref }: { type?: FamilyType; lifecycle
           </div>
         )}
       </RailCard>
-      {RECORD_RAIL_CARDS.filter((card) => !doctype || !hidden.has(card)).map((card) => <div key={card}>{cards[card]}</div>)}
+      {railOrder(extraCards).filter((card) => !doctype || !hidden.has(card)).map((card) => <div key={card}>{cards[card]}</div>)}
     </>
   );
 }

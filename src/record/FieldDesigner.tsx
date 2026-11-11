@@ -1,7 +1,7 @@
 import * as React from "react";
 import {
   AlignLeft, ArrowDown, ArrowUp, Calendar, CheckSquare, ChevronDown, Clock, Database, FileText, GripVertical, Hash,
-  Image as ImageIcon, Layers, Link2, List, Lock, MapPin, Palette, PenLine, Phone, Plus, Share2, Star, Table, Trash2,
+  Image as ImageIcon, Layers, Link2, List, Lock, MapPin, Palette, PenLine, Phone, Plus, Star, Table, Trash2,
   Type, Upload, X, type LucideIcon,
 } from "lucide-react";
 import { Badge } from "../primitives/badge";
@@ -334,7 +334,7 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
             <div className="space-y-2 text-sm">
               <p className="font-medium">{item.label || item.id}</p>
               {item.fieldtype && <p className="text-xs text-muted-foreground">{item.fieldtype}</p>}
-              <Note icon={item.native ? (item.movable ? Share2 : Lock) : Layers}>
+              <Note icon={item.native ? Lock : Layers}>
                 {item.native ? (item.movable ? L("fdShared") : L("fdLocked")) : `${L("fdFromSet")}: ${item.source ?? ""}. ${L("fdEditInLibrary")}`}
               </Note>
             </div>
@@ -590,7 +590,7 @@ function FieldCard({ field, L, typeLabel, selected, onSelect, onDragStart, onDra
           </span>
           {!isCheck && <FieldPreview type={field.fieldtype} definition={field.definition} className="mt-2" />}
         </button>
-        {field.native && field.movable && <Share2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-label={L("fdShared")} />}
+        {field.native && field.movable && <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-label={L("fdShared")} data-locked-field="" />}
         {field.source && <Badge variant="brand" className="shrink-0">{field.source}</Badge>}
         {movable && (
           <span className="flex flex-col opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
