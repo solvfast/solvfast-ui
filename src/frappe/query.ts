@@ -31,9 +31,12 @@ const NUMERIC = new Set(["Int", "Float", "Currency", "Percent"]);
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const END_OF_DAY = " 23:59:59.999999";
 
+/** A Check filter value as stored (PMO `_coerce`): "1" / "true" / "yes" / "on" → 1, anything else → 0. */
+export const checkFilterValue = (value: string): 0 | 1 => (["1", "true", "yes", "on"].includes(value.trim().toLowerCase()) ? 1 : 0);
+
 /** A string value in the column's stored type (PMO `_coerce`); `undefined` = not a valid value → skip. */
 function coerce(value: string, fieldtype?: string): unknown {
-  if (fieldtype === "Check") return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase()) ? 1 : 0;
+  if (fieldtype === "Check") return checkFilterValue(value);
   if (fieldtype && NUMERIC.has(fieldtype)) { const n = Number(value); return value.trim() === "" || Number.isNaN(n) ? undefined : n; }
   return value;
 }

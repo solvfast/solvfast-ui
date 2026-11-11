@@ -299,9 +299,168 @@ describe("LV.D6 / LV.D7 / LV.D11 / LV.J8 group-by sidebar with server counts, ta
     const last = calls("frappe.desk.listview.get_group_by_count").map((c) => c.args);
     expect(last).toContainEqual({ doctype: "Memo", current_filters: JSON.stringify([["_assign", "like", "%bob@x.com%"]]), field: "owner" });
     expect(last.filter((a) => a.field === "assigned_to").every((a) => a.current_filters === "[]")).toBe(true);
+    // The unfiltered rows are still cached from the first load, so they paint before the refetch is sent (React Query
+    // starts it in an effect after the render). Waiting on the rows and then reading the last request raced that refetch;
+    // wait for the request itself and check the first one sent after the click.
+    const sent = calls("frappe.desk.reportview.get").length;
     fireEvent.click(within(section(en("listAssigned"))).getByRole("button", { name: /Bob Ray/ }));
+    await waitFor(() => expect(calls("frappe.desk.reportview.get").length).toBeGreaterThan(sent));
+    expect(parsed(calls("frappe.desk.reportview.get")[sent].args.filters)).toEqual([]);
     await waitFor(() => expect(bodyRows()).toHaveLength(4));
-    expect(parsed(lastGet().filters)).toEqual([]);
+    expect(within(section(en("listAssigned"))).getByRole("button", { name: /Bob Ray/ }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("LV.D6 every sidebar section toggles: the applied value clicked again removes its filter — Created By, a group_by_fields Select and Check, a tag, No Tags (SIMULATED)", async () => {
+    const transport = simBackend({ docs: { Memo: MEMOS.map((m) => ({ ...m, urgent: m.name === "MEMO-001" ? 1 : 0 })) } });
+    transport.store.userSettings.Memo = JSON.stringify({ group_by_fields: ["status", "urgent"] });
+    const { calls } = mountSim(transport, { sidebar: true });
+    const gets = () => calls("frappe.desk.reportview.get");
+    const button = (label: string, name: RegExp) => within(section(label)).getByRole("button", { name });
+    /** Click, then return the filters of the first get_list request sent after the click. */
+    const click = async (label: string, name: RegExp) => {
+      const sent = gets().length;
+      fireEvent.click(button(label, name));
+      await waitFor(() => expect(gets().length).toBeGreaterThan(sent));
+      return parsed(gets()[sent].args.filters);
+    };
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    await waitFor(() => expect(items(t("listTags"))).toEqual(["urgent2", "vip1", `${t("listNoTags")}2`]));
+    await waitFor(() => expect(items("Urgent")).toEqual([`${t("no")}3`, `${t("yes")}1`]));
+    const cases: [string, RegExp, unknown[], number][] = [
+      [en("listOwner"), /Ann Lee/, ["owner", "=", "ann@x.com"], 2],
+      ["Status", /Open/, ["status", "=", "Open"], 1],
+      ["Urgent", new RegExp(`^${t("yes")}`), ["urgent", "=", 1], 1],
+      [t("listTags"), /vip/, ["_user_tags", "like", "%vip%"], 1],
+      [t("listTags"), new RegExp(t("listNoTags")), ["_user_tags", "not like", "%,%"], 2],
+    ];
+    for (const [label, name, filter, rows] of cases) {
+      expect(await click(label, name)).toEqual([filter]);
+      await waitFor(() => expect(bodyRows()).toHaveLength(rows));
+      await waitFor(() => expect(button(label, name).getAttribute("aria-pressed")).toBe("true"));
+      expect(await click(label, name)).toEqual([]);
+      await waitFor(() => expect(bodyRows()).toHaveLength(4));
+      await waitFor(() => expect(button(label, name).getAttribute("aria-pressed")).toBe("false"));
+    }
+  });
+
+  // A Check group value as the server may send it. Frappe sends JSON numbers (int(1) / smallint column, no cast in
+  // get_group_by_count, listview.py:62-71); Desk labels it `name == "0" ? No : Yes` (loose, list_sidebar_group_by.js:223),
+  // so 0, "0" and false are all "No".
+  const checkSim = (no: unknown, yes: unknown) => {
+    const real = simBackend({ docs: { Memo: MEMOS.map((m) => ({ ...m, urgent: m.name === "MEMO-001" ? 1 : 0 })) } });
+    const wrapped = Object.assign(async (method: string, args: Record<string, unknown>) => (
+      method === "frappe.desk.listview.get_group_by_count" && args.field === "urgent"
+        ? { message: [{ name: no, count: 3 }, { name: yes, count: 1 }] } : real(method, args)), real) as FixtureTransport;
+    real.store.userSettings.Memo = JSON.stringify({ group_by_fields: ["urgent"] });
+    return wrapped;
+  };
+  it.each([
+    ["numbers 0 / 1 (what Frappe sends)", 0, 1],
+    ["strings \"0\" / \"1\"", "0", "1"],
+    ["booleans false / true", false, true],
+  ])("LV.D6 a Check section with %s: No / Yes, each filters `= 0` / `= 1`, clicking again removes (SIMULATED)", async (_, no, yes) => {
+    const { calls } = mountSim(checkSim(no, yes), { sidebar: true });
+    const gets = () => calls("frappe.desk.reportview.get");
+    const button = (name: string) => within(section("Urgent")).getByRole("button", { name: new RegExp(`^${name}`) });
+    const click = async (name: string) => {
+      const sent = gets().length;
+      fireEvent.click(button(name));
+      await waitFor(() => expect(gets().length).toBeGreaterThan(sent));
+      return parsed(gets()[sent].args.filters);
+    };
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    await waitFor(() => expect(items("Urgent")).toEqual([`${t("no")}3`, `${t("yes")}1`]));
+    for (const [name, value, rows] of [[t("no"), 0, 3], [t("yes"), 1, 1]] as const) {
+      expect(await click(name)).toEqual([["urgent", "=", value]]);
+      await waitFor(() => expect(bodyRows()).toHaveLength(rows));
+      await waitFor(() => expect(button(name).getAttribute("aria-pressed")).toBe("true"));
+      expect(await click(name)).toEqual([]);
+      await waitFor(() => expect(bodyRows()).toHaveLength(4));
+      await waitFor(() => expect(button(name).getAttribute("aria-pressed")).toBe("false"));
+    }
+  });
+
+  it("LV.D6 a Check filter applied from the filter builder (\"true\" / \"false\") marks the sidebar's Yes / No; clicking it removes the filter (SIMULATED)", async () => {
+    const { calls } = mountSim(checkSim(0, 1), {
+      sidebar: true, initialQuery: { conjunction: "and", conditions: [{ id: "u", field: "urgent", operator: "equals", value: "true" }] },
+    });
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    const yes = () => within(section("Urgent")).getByRole("button", { name: new RegExp(`^${t("yes")}`) });
+    await waitFor(() => expect(yes().getAttribute("aria-pressed")).toBe("true"));
+    expect(within(section("Urgent")).getByRole("button", { name: new RegExp(`^${t("no")}`) }).getAttribute("aria-pressed")).toBe("false");
+    const sent = calls("frappe.desk.reportview.get").length;
+    fireEvent.click(yes());
+    await waitFor(() => expect(calls("frappe.desk.reportview.get").length).toBeGreaterThan(sent));
+    expect(parsed(calls("frappe.desk.reportview.get")[sent].args.filters)).toEqual([]);
+  });
+
+  // An Int group-by field. Frappe sends the values as JSON numbers (int(11) / bigint column, no cast in
+  // get_group_by_count); Desk labels them `__(name)` (the number as is) and filters `= <number>` (jQuery `.data()` reads
+  // `data-value="5"` back as 5, list_sidebar_group_by.js:216-271). The simulator answers strings; `numeric` swaps in the
+  // server's numbers.
+  const PRIORITY = { 1: 5, 2: 5, 3: 0, 4: 10 } as Record<number, number>;
+  const intSim = (numeric: boolean, counts?: { name: number; count: number }[]) => {
+    const real = createFixtureTransport({
+      meta: { Memo: [{ ...MEMO, fields: [...MEMO.fields, { fieldname: "priority", fieldtype: "Int", label: "Priority" }] } as DocTypeMeta], ToDo: [TODO_META] },
+      docs: { Memo: MEMOS.map((m, i) => ({ ...m, priority: PRIORITY[i + 1] })), ToDo: TODOS, User: USERS },
+      user: "u@x.com",
+    } as never);
+    real.store.userSettings.Memo = JSON.stringify({ group_by_fields: ["priority"] });
+    if (!numeric) return real;
+    return Object.assign(async (method: string, args: Record<string, unknown>) => {
+      if (method !== "frappe.desk.listview.get_group_by_count" || args.field !== "priority") return real(method, args);
+      if (counts) return { message: counts };
+      const res = await real(method, args);
+      return { message: (res.message as { name: string | null; count: number }[]).map((x) => ({ ...x, name: x.name === null ? null : Number(x.name) })) };
+    }, real) as FixtureTransport;
+  };
+  it.each([
+    ["numbers (what Frappe sends)", true],
+    ["strings (the simulator's own answer)", false],
+  ])("LV.D6 an Int section with %s: labels and counts; 5 / 0 / 10 filter `= n` (sent as a number), clicking again removes (SIMULATED)", async (_, numeric) => {
+    const transport = intSim(numeric as boolean);
+    const { calls } = mountSim(transport, { sidebar: true });
+    const gets = () => calls("frappe.desk.reportview.get");
+    const button = (n: number) => within(section("Priority")).getByRole("button", { name: new RegExp(`^${n}\\D`) });
+    const click = async (n: number) => {
+      const sent = gets().length;
+      fireEvent.click(button(n));
+      await waitFor(() => expect(gets().length).toBeGreaterThan(sent));
+      return parsed(gets()[sent].args.filters);
+    };
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    await waitFor(() => expect(within(section("Priority")).queryAllByRole("button").map((b) => b.querySelectorAll("span")[0]?.textContent + "|" + b.querySelectorAll("span")[1]?.textContent))
+      .toEqual(["5|2", "0|1", "10|1"]));
+    for (const [n, rows] of [[5, 2], [0, 1], [10, 1]] as const) {
+      expect(await click(n)).toEqual([["priority", "=", n]]);
+      await waitFor(() => expect(bodyRows()).toHaveLength(rows));
+      await waitFor(() => expect(button(n).getAttribute("aria-pressed")).toBe("true"));
+      expect(await click(n)).toEqual([]);
+      await waitFor(() => expect(bodyRows()).toHaveLength(4));
+      await waitFor(() => expect(button(n).getAttribute("aria-pressed")).toBe("false"));
+    }
+  });
+
+  it("LV.D6 an Int filter from the filter builder (\"10\") marks the server's numeric 10 as applied; clicking it removes the filter (SIMULATED)", async () => {
+    const { calls } = mountSim(intSim(true), {
+      sidebar: true, initialQuery: { conjunction: "and", conditions: [{ id: "p", field: "priority", operator: "equals", value: "10" }] },
+    });
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    expect(parsed(calls("frappe.desk.reportview.get").at(-1)!.args.filters)).toEqual([["priority", "=", 10]]);
+    const ten = () => within(section("Priority")).getByRole("button", { name: /^10\D/ });
+    await waitFor(() => expect(ten().getAttribute("aria-pressed")).toBe("true"));
+    const sent = calls("frappe.desk.reportview.get").length;
+    fireEvent.click(ten());
+    await waitFor(() => expect(calls("frappe.desk.reportview.get").length).toBeGreaterThan(sent));
+    expect(parsed(calls("frappe.desk.reportview.get")[sent].args.filters)).toEqual([]);
+  });
+
+  it("LV.D6 an Int section with more than 8 numeric values: the section search filters by the label (SIMULATED)", async () => {
+    const counts = [0, 1, 2, 3, 4, 5, 10, 11, 12].map((name, i) => ({ name, count: 9 - i }));
+    mountSim(intSim(true, counts), { sidebar: true });
+    await waitFor(() => expect(within(section("Priority")).queryAllByRole("button")).toHaveLength(9));
+    fireEvent.change(within(section("Priority")).getByRole("textbox"), { target: { value: "1" } });
+    expect(within(section("Priority")).queryAllByRole("button").map((b) => b.querySelectorAll("span")[0]?.textContent)).toEqual(["1", "10", "11", "12"]);
   });
 
   it("LV.D6 the session user is listed first as 'Me'; Administrator / Guest are dropped (list_sidebar_group_by.js:177-188) (SIMULATED)", async () => {

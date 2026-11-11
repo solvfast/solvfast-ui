@@ -6,10 +6,13 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-## 0.7.0-dev.7 — Sayr's Appearance and First Day of the Week
+## 0.7.0 — Sayr's Appearance and First Day of the Week
 
-Additive: nothing changes for a consumer that does not pass the new props. Ported from Sayr (sear_product), where these
-pieces lived in the app; Sayr and ServeFast now take them from the package. jsdom tests only; no real-site run.
+Stable package release. Additive, plus the group-by sidebar compatibility fixes under **Fixes** below (they change
+what `FrappeGroupBySidebar` and `useGroupByCounts` do with numeric server values); apart from those, nothing changes
+for a consumer that does not pass the new props. Ported from Sayr (sear_product), where these pieces lived in the app;
+Sayr and ServeFast now take them from the package. Automated package tests and builds passed; no authenticated
+real-site validation has been performed.
 
 **Brand colours** (Sayr: System Settings › Appearance)
 - New `applyBrandTheme(brand, isDark, defaults?)`, `brandTokens`, `hexToHsl`, `DEFAULT_BRAND_COLORS` and the
@@ -38,6 +41,18 @@ pieces lived in the app; Sayr and ServeFast now take them from the package. jsdo
   `sysdefaults.first_day_of_the_week`.
 - `DateField` / `DateTimeField` `weekStartsOn`; `FrappeField` Date and Datetime pass the FormatContext's. Unset: the
   calendar locale's (Saturday in Arabic, Sunday in English), as before.
+
+**Fixes** (`FrappeGroupBySidebar`; Frappe's `get_group_by_count` sends Check and Int values as JSON numbers)
+- `useGroupByCounts` now matches its `GroupByCount.name: string | null` type: a numeric `name` becomes its decimal
+  string (`0` → `"0"`). Strings, null and `count` are passed as sent. An app that read the numbers from the hook gets
+  strings now.
+- Check: `0` / `"0"` / `false` show No, anything else Yes (Desk's `name == "0"`, list_sidebar_group_by.js:223); a click
+  filters `= 0` / `= 1`; a filter-builder Check filter (`"true"` / `"false"`) shows as applied and is removed on click.
+  Before, a numeric value showed Yes for both and a click sent no request.
+- Int: a numeric value filters `= n`, shows as applied when the filter builder set it, and works with the section
+  search. Before, a click threw (`value.trim`) and unmounted the list, and the search threw.
+- String values (and every other field) behave as before. The server's number shape was checked with a read-only
+  server-side call on a local Frappe 15.109 bench; the hook and sidebar flows are jsdom tests (stubbed / SIMULATED).
 
 ## 0.7.0-dev.6 — P36e FrappeField trace, field types, FrappeField without a server, Frappe-like print, docstatus, Lifecycle rail
 
