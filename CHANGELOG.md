@@ -6,6 +6,15 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.20 — assignee avatars name their user and filter by them
+
+Additive. jsdom tests only.
+
+- `FrappeListView` Assigned To cell (Desk's assignee avatars): each avatar shows its user's full name in a tooltip on
+  hover or focus, and a click filters the list by that user (`_assign like %user%`, the sidebar's Assigned To filter)
+  without opening the row. A "+N" shows the other names. The group's native `title` is gone; each avatar is a button
+  labelled with the user's name (`data-assignee` holds the user id).
+
 ## 0.7.0-dev.19 — the type on a new record is a searchable link field
 
 Visual change (the type picker). jsdom tests only.

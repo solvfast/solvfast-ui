@@ -73,7 +73,8 @@ describe("rows through reportview.get", () => {
     await waitFor(() => expect(bodyRows()).toHaveLength(5));
     const heads = [...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim());
     expect(heads).toEqual(expect.arrayContaining([en("listAssigned"), en("listComments"), en("listLikes")]));
-    const first = bodyRows().find((r) => r.querySelector('[title*="sara, omar"]'))!; // full names from user_info
+    // full names from user_info, one per avatar
+    const first = bodyRows().find((r) => [...r.querySelectorAll("[data-assignee]")].map((a) => a.getAttribute("aria-label")).join() === "sara,omar")!;
     expect(first).toBeTruthy();
     expect(first.textContent).toContain("S"); // initials of sara
     expect(first.textContent).toContain("2"); // 2 comments
@@ -89,7 +90,7 @@ describe("rows through reportview.get", () => {
     expect(heads).toContain(en("listAssigned"));
     expect(heads).not.toContain(en("listComments"));
     expect(heads).not.toContain(en("listLikes"));
-    expect(bodyRows().some((r) => r.querySelector('[title*="sara, omar"]'))).toBe(true);
+    expect(bodyRows().some((r) => [...r.querySelectorAll("[data-assignee]")].map((a) => a.getAttribute("aria-label")).join() === "sara,omar")).toBe(true);
   });
 
   it("List View Settings: disable_comment_count → with_comment_count 0 and no comments column; disable_count → no count call", async () => {
