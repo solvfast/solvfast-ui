@@ -87,19 +87,22 @@ export interface RowMetaColumnOptions {
   likes?: boolean;
   tags?: boolean;
   userInfo: Record<string, ReportviewUser>;
-  /** Start hidden (offered in the column manager) — used when the app curates its own columns. */
-  hidden: boolean;
+  /** Start hidden (offered in the column manager) — used when the app curates its own columns. A function decides per
+   *  column (`__indicator`, `_assign`, `_comments`, `_liked_by`, `_user_tags`). */
+  hidden: boolean | ((key: string) => boolean);
   labels: { indicator: string; assigned: string; comments: string; likes: string; tags?: string };
 }
 
 /** Columns for the row metadata Desk shows; `render` closes over the response's `user_info`. */
 export function rowMetaColumns(o: RowMetaColumnOptions): { indicator?: ColumnDef<Record<string, unknown>>; trailing: ColumnDef<Record<string, unknown>>[] } {
-  const base = { sortable: false, filterable: false, hidden: o.hidden };
+  const hiddenOf = (key: string) => (typeof o.hidden === "function" ? o.hidden(key) : o.hidden);
+  const base = { sortable: false, filterable: false, hidden: o.hidden === true };
+  const col = (key: string) => ({ ...base, key, hidden: hiddenOf(key) });
   const trailing: ColumnDef<Record<string, unknown>>[] = [];
-  if (o.tags) trailing.push({ ...base, key: "_user_tags", label: o.labels.tags ?? "Tags", render: (r) => <TagsCell value={r._user_tags} /> });
-  if (o.assignees) trailing.push({ ...base, key: "_assign", label: o.labels.assigned, render: (r) => <AssigneesCell value={r._assign} userInfo={o.userInfo} /> });
-  if (o.comments) trailing.push({ ...base, key: "_comments", label: o.labels.comments, render: (r) => <CommentsCell row={r} /> });
-  if (o.likes) trailing.push({ ...base, key: "_liked_by", label: o.labels.likes, render: (r) => <LikesCell value={r._liked_by} /> });
+  if (o.tags) trailing.push({ ...col("_user_tags"), label: o.labels.tags ?? "Tags", render: (r) => <TagsCell value={r._user_tags} /> });
+  if (o.assignees) trailing.push({ ...col("_assign"), label: o.labels.assigned, render: (r) => <AssigneesCell value={r._assign} userInfo={o.userInfo} /> });
+  if (o.comments) trailing.push({ ...col("_comments"), label: o.labels.comments, render: (r) => <CommentsCell row={r} /> });
+  if (o.likes) trailing.push({ ...col("_liked_by"), label: o.labels.likes, render: (r) => <LikesCell value={r._liked_by} /> });
   const cfg = o.indicator;
-  return { indicator: cfg ? { ...base, key: "__indicator", label: o.labels.indicator, render: (r) => <IndicatorCell row={r} config={cfg} /> } : undefined, trailing };
+  return { indicator: cfg ? { ...col("__indicator"), label: o.labels.indicator, render: (r) => <IndicatorCell row={r} config={cfg} /> } : undefined, trailing };
 }

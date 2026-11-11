@@ -6,6 +6,15 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.17 — rowMeta can show single columns by default
+
+Additive. jsdom tests only.
+
+- `FrappeListView` / `useFrappeList` `rowMeta` object: a column set `true` (e.g. `{ assignees: true }`, Desk's assignee
+  avatars) is shown by default; the others stay offered in the column manager, hidden. `false` still removes one;
+  `true` (all shown) and the default (all offered, hidden) are unchanged. `rowMetaColumns` `hidden` also takes a
+  per-column function.
+
 ## 0.7.0-dev.16 — Field cards show their control
 
 Visual change in `FieldDesigner`. jsdom tests only.
