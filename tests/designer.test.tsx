@@ -138,7 +138,9 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     mount(adapter);
     await screen.findByText("Amount");
     fireEvent.click(screen.getByRole("button", { name: "Deploy a field set" }));
-    fireEvent.click(await within(panel()).findByRole("button", { name: /Contact Set/ }));
+    fireEvent.click(await within(panel()).findByRole("combobox"));
+    fireEvent.change(screen.getByPlaceholderText("Search field sets…"), { target: { value: "cont" } });
+    fireEvent.click(screen.getByRole("option", { name: /Contact Set/ }));
     expect(await within(panel()).findByLabelText("Phone")).toBeTruthy();
     expect(within(panel()).getByRole("checkbox", { name: "Add them as a new section" }).getAttribute("data-state")).toBe("checked");
     fireEvent.click(within(panel()).getByRole("button", { name: "Add to the form" }));
@@ -261,10 +263,11 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     await waitFor(() => expect(pending.at(-1)!.dirty).toBe(false));
   });
 
-  it("FD.ui.11 the inspector has a control for every property Sayr's registry declares", () => {
+  it("FD.ui.11 the inspector has a control for every property a field type in Sayr's registry takes", () => {
     const sayrProperties = ["choices", "doctype_target", "child_target", "sibling_field", "data_subtype", "max_rating", "precision",
       "non_negative", "max_length", "bounds", "default", "placeholder", "unique", "autofill", "collapsible"];
-    expect([...INSPECTED_PROPERTIES].sort()).toEqual([...sayrProperties].sort());
+    // Sayr's registry (field_types.PROPERTIES): every property but `collapsible`, which only a Section Break takes.
+    expect([...INSPECTED_PROPERTIES, "collapsible"].sort()).toEqual([...sayrProperties].sort());
     expect(ownKeys([{ id: "a", definition: { type: "text", label: "Name" } }, { id: "b", definition: { type: "text", label: "Name" } },
       { id: "c", definition: { key: "name_2", type: "text", label: "Other" } }, { id: "d", definition: { type: "text", label: "اسم" } }]))
       .toEqual(new Map([["a", "name"], ["b", "name_3"], ["c", "name_2"], ["d", "field"]]));

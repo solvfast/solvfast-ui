@@ -6,6 +6,12 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.12 — Families: the field set picker is a searchable link field
+
+jsdom tests only. Deploy a field set: the published sets are a `SearchCombobox` (description and field count under
+each) instead of a list of cards. `INSPECTED_PROPERTIES` no longer lists `collapsible` (a Section Break's, not a field's).
+Messages `fdChooseSetShort`, `fdSearchSets`, `fdNoMatchingSets`, `fdFieldsCount`; `fdOtherSet` removed.
+
 ## 0.7.0-dev.11 — Families: fields added on a type's form, one Save
 
 jsdom tests only; no real-site run. **BREAKING** for `FieldDesigner` hosts: fields are removed from the properties

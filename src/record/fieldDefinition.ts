@@ -52,10 +52,11 @@ export type FieldTypeProperty =
   | "choices" | "doctype_target" | "child_target" | "sibling_field" | "data_subtype" | "max_rating" | "precision"
   | "non_negative" | "max_length" | "bounds" | "default" | "placeholder" | "unique" | "autofill" | "collapsible";
 
-/** Every registry property the inspector has a control for (`collapsible` belongs to sections, not fields). */
+/** Every registry property the inspector has a control for. `collapsible` is not one: only a Section Break takes it,
+ *  and sections are placed on the form, not defined as fields. */
 export const INSPECTED_PROPERTIES: readonly FieldTypeProperty[] = [
   "choices", "doctype_target", "child_target", "sibling_field", "data_subtype", "max_rating", "precision",
-  "non_negative", "max_length", "bounds", "default", "placeholder", "unique", "autofill", "collapsible",
+  "non_negative", "max_length", "bounds", "default", "placeholder", "unique", "autofill",
 ];
 
 export interface FieldTypeInfo {

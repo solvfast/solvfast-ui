@@ -11,6 +11,7 @@ import { Switch } from "../primitives/switch";
 import { Input } from "../primitives/input";
 import { Label } from "../primitives/label";
 import { Skeleton } from "../primitives/skeleton";
+import { SearchCombobox } from "../primitives/search-combobox";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
@@ -603,29 +604,22 @@ function DeploySetPanel({ adapter, L, present, canSection, onAdd }: {
 
   if (error) return <p role="alert" className="text-sm text-destructive">{error}</p>;
   if (!sets) return <Skeleton className="h-24 rounded-md" />;
-  if (!set) {
-    return sets.length === 0 ? <p className="text-sm text-muted-foreground">{L("fdNoSets")}</p> : (
-      <div className="space-y-1.5">
-        <p className="text-[11px] text-muted-foreground">{L("fdChooseSet")}</p>
-        {sets.map((s) => (
-          <button key={s.name} type="button" onClick={() => setSet(s)}
-            className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card p-3 text-start transition-colors hover:border-primary/50">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Layers className="h-4 w-4" /></span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{loc(s.label, language)}</span>
-              {s.description && <span className="block truncate text-[11px] text-muted-foreground">{s.description}</span>}
-            </span>
-            {s.fieldCount !== undefined && <Badge variant="brand" className="shrink-0">{s.fieldCount}</Badge>}
-          </button>
-        ))}
-      </div>
-    );
-  }
+  if (sets.length === 0) return <p className="text-sm text-muted-foreground">{L("fdNoSets")}</p>;
+  const options = sets.map((s) => ({
+    value: s.name,
+    label: loc(s.label, language),
+    description: [s.description, s.fieldCount !== undefined ? `${s.fieldCount} ${L("fdFieldsCount")}` : ""].filter(Boolean).join(" · ") || undefined,
+  }));
   return (
     <div className="space-y-3">
-      <button type="button" className="text-xs text-primary" onClick={() => { setSet(null); setFields(null); }}>← {L("fdOtherSet")}</button>
-      <p className="text-sm font-medium">{loc(set.label, language)}</p>
-      {!fields && <Skeleton className="h-24 rounded-md" />}
+      <div className="space-y-1.5">
+        <Label htmlFor="sf-designer-set" className="text-xs">{L("fdFieldSet")}</Label>
+        <SearchCombobox id="sf-designer-set" variant="field" value={set?.name} options={options}
+          placeholder={L("fdChooseSetShort")} searchPlaceholder={L("fdSearchSets")} emptyText={L("fdNoMatchingSets")}
+          onSelect={(name) => setSet(sets.find((s) => s.name === name) ?? null)} />
+        <p className="text-[11px] text-muted-foreground">{L("fdChooseSet")}</p>
+      </div>
+      {set && !fields && <Skeleton className="h-24 rounded-md" />}
       {fields && fields.length === 0 && <p className="text-sm text-muted-foreground">{L("fdNoFieldsLeft")}</p>}
       {fields && fields.length > 0 && (
         <ul className="max-h-72 space-y-1.5 overflow-auto">
@@ -644,8 +638,8 @@ function DeploySetPanel({ adapter, L, present, canSection, onAdd }: {
           <Label htmlFor="sf-designer-as-section" className="font-normal">{L("fdAsSection")}</Label>
         </div>
       )}
-      <Button type="button" size="sm" className="w-full" disabled={!fields || picked.size === 0}
-        onClick={() => fields && onAdd(set, fields.filter((f) => picked.has(f.id)), canSection && asSection)}>
+      <Button type="button" size="sm" className="w-full" disabled={!set || !fields || picked.size === 0}
+        onClick={() => set && fields && onAdd(set, fields.filter((f) => picked.has(f.id)), canSection && asSection)}>
         {L("fdAddToForm")}
       </Button>
     </div>

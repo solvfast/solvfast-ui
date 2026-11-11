@@ -136,8 +136,9 @@ click a field, section or tab to see it in the panel.
   read only, translatable). Only what the type takes is shown (the registry's `props` per type); changing the type
   keeps the title, help text, conditions and display and drops the rest. Its name in conditions (`key`) comes from
   the English title until the field is saved, then stays.
-- **Deploy a field set** (toolbar): a published set in the panel, then its fields not yet on the form (all ticked),
-  added as a new section at the end of the tab (default) or into the last section.
+- **Deploy a field set** (toolbar): in the panel, a searchable link field over the published field sets (each with
+  its description and field count), then its fields not yet on the form (all ticked), added as a new section at the end
+  of the tab (default) or into the last section.
 - **Add section** / **Add tab** (Add step in wizard mode): named in the panel. Removing one the type added moves what
   it held to the one before.
 - **Saving.** Standalone, the designer has a Save form button. With `onPendingChange` (a host such as `FrappeTypeForm`)
@@ -159,7 +160,7 @@ The layout model is exported for adapters and tests: `designerLayout` / `designe
 `fromLayout`), `designerPreviousId`, `designerKeys` (`ownKeys`: every added field's key, as the adapter will save it),
 `kindOfFieldtype`; `src/record` also exports `moveItem`, `stepItem`, `insertSectionAfter`, `appendTab`,
 `removeSection`, `removeTab`, `FieldInspector`, `INSPECTED_PROPERTIES` (the registry properties the inspector has a
-control for).
+control for: all but `collapsible`, a Section Break's).
 
 ## 8. `@solvfast/ui/sayr` — the Field Library adapter
 
