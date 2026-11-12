@@ -1,6 +1,13 @@
 import * as React from "react";
 import { LifecycleBar, type LifecycleBarProps } from "../../record/LifecycleBar";
+import { LifecycleRail, type LifecycleRailLabels, type LifecycleRailNext, type LifecycleRailStep } from "../../record/LifecycleRail";
+import type { LifecycleActionItem } from "../../record/types";
+import type { ActionBarLabels } from "../../record/ActionBar";
+import { errorText, fmt } from "../../record/format";
 import { Skeleton } from "../../primitives/skeleton";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "../../primitives/alert-dialog";
 import { useLocale } from "../../theme/ThemeProvider";
 import type { DocInfo, FrappeDoc } from "../contract";
 import { FrappeErrorState } from "../feedback/FrappeErrorState";
@@ -9,7 +16,15 @@ import { stateEntries } from "./stateHistory";
 import { useWorkflow } from "./useWorkflow";
 import { lifecycleActions, lifecycleStates } from "./workflow";
 
-export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "variant" | "currentMarker" | "actionLabels" | "className" | "showCurrentEntry"> {
+export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "currentMarker" | "actionLabels" | "className" | "showCurrentEntry"> {
+  /** `compact` = state badge + Actions menu; `steps` = LifecycleBar's stepper too; `rail` = the record's Lifecycle as
+   *  the CRM record page draws it (LifecycleRail: the states it went through with who · when, the ways forward as
+   *  buttons that apply the transition, End of lifecycle). */
+  variant?: LifecycleBarProps["variant"] | "rail";
+  /** `rail`: shows "View full lifecycle" (e.g. to open a LifecycleDiagramDialog). */
+  onViewAll?: () => void;
+  /** `rail`: the rail's chrome strings (default from the ThemeProvider's language). */
+  railLabels?: LifecycleRailLabels;
   doc: FrappeDoc;
   user: string;
   roles?: string[];
@@ -39,49 +54,132 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "var
  * user is unknown (only `allow_self_approval` transitions can then be offered). A refused `apply_workflow` (403
  * `PermissionError`, `WorkflowTransitionError`, self-approval) is shown by the action bar; nothing is applied locally.
  */
-export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, ...rest }: FrappeWorkflowActionsProps) {
-  const { t } = useLocale();
+export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, ...rest }: FrappeWorkflowActionsProps) {
+  const { t, language } = useLocale();
   const w = useWorkflow({ doc, user, roles });
-  const info = useRecordDocInfo(variant === "steps" && !doc.__islocal ? doc.doctype : undefined, doc.name, docinfo);
+  const withHistory = variant === "steps" || variant === "rail";
+  const info = useRecordDocInfo(withHistory && !doc.__islocal ? doc.doctype : undefined, doc.name, docinfo);
   if (doc.__islocal) return <>{fallback}</>;
   if (w.isLoading && !w.workflow) return <Skeleton className="h-8 w-40" />;
   if (!w.workflow) return <>{fallback}</>;
   const base = lifecycleStates(w.workflow, translate);
-  const entries = variant === "steps" ? stateEntries({ doc, docinfo: info.data, stateField: w.workflow.workflow_state_field, states: base.map((b) => b.id), translate }) : undefined;
+  const entries = withHistory ? stateEntries({ doc, docinfo: info.data, stateField: w.workflow.workflow_state_field, states: base.map((b) => b.id), translate }) : undefined;
   const states = entries ? base.map((b) => ({ ...b, by: entries.get(b.id)?.by, at: entries.get(b.id)?.at })) : base;
   const actions = lifecycleActions(w.transitions, translate, (tr) => (typeof confirm === "function" ? confirm(tr.action) : confirm));
+  const runAction = async (actionId: string) => {
+    if (beforeApply) {
+      let go = false;
+      try { go = await beforeApply(actionId); } catch { go = false; }
+      if (!go) return;
+    }
+    const saved = await w.apply(actionId);
+    onApplied?.(saved, actionId);
+    await afterApply?.(actionId, saved);
+  };
+  if (variant === "rail") {
+    // The record's path: the states it entered, oldest first (workflow logs / versions), ending with the current state.
+    const visited = [...(entries ?? new Map()).entries()].sort((a, b) => a[1].at - b[1].at).map(([id]) => id).filter((id) => id !== w.state);
+    const pathIds = [...visited, ...(w.state ? [w.state] : [])];
+    const day = new Intl.DateTimeFormat(language, { month: "short", day: "numeric" });
+    const full = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" });
+    const path: LifecycleRailStep[] = pathIds.map((id) => {
+      const e = entries?.get(id);
+      return { id, label: base.find((b) => b.id === id)?.label ?? translate(id), meta: e ? `${e.by} · ${day.format(e.at)}` : undefined, metaTitle: e ? `${e.by} · ${full.format(e.at)}` : undefined };
+    });
+    // Ways forward: the server's transitions for this user (one per action), named by the state they lead to.
+    const byAction = new Map(w.transitions.map((tr) => [tr.action, tr]));
+    const targets = [...byAction.values()].map((tr) => tr.next_state);
+    const next: LifecycleRailNext[] = [...byAction.values()].map((tr) => ({
+      id: tr.action,
+      label: targets.filter((x) => x === tr.next_state).length > 1 ? `${translate(tr.action)} → ${translate(tr.next_state)}` : translate(tr.next_state),
+      back: pathIds.slice(0, -1).includes(tr.next_state),
+      disabled: w.needsSave || w.applying,
+      disabledReason: w.needsSave ? t("recSaveBeforeAction") : undefined,
+    }));
+    // End of lifecycle: no transition leaves this state for anyone (not just "none for this user").
+    const ended = !w.workflow.transitions.some((tr) => tr.state === w.state);
+    const railEl = (
+      <RailActions path={path} next={next} ended={ended && !w.needsSave} actions={actions} onRun={runAction}
+        note={w.needsSave ? t("recSaveBeforeAction") : undefined} viewAll={onViewAll} labels={railLabels} actionLabels={rest.actionLabels} className={rest.className} />
+    );
+    return wrapStatus(railEl);
+  }
   const bar = (
     <LifecycleBar
       {...rest} variant={variant} states={states} current={w.state} currentLabel={w.state ? translate(w.state) : undefined}
       actions={actions} busy={w.applying}
       actionsDisabled={w.needsSave} actionsDisabledReason={w.needsSave ? t("recSaveBeforeAction") : undefined}
-      onAction={async (a) => {
-        if (beforeApply) {
-          let go = false;
-          try { go = await beforeApply(a.id); } catch { go = false; }
-          if (!go) return;
-        }
-        const saved = await w.apply(a.id);
-        onApplied?.(saved, a.id);
-        await afterApply?.(a.id, saved);
-      }}
+      onAction={(a) => runAction(a.id)}
     />
   );
-  if (w.error) {
-    return (
-      <div className="flex flex-col gap-2" data-workflow-actions="unavailable">
-        {bar}
-        <FrappeErrorState error={w.error} compact onRetry={w.refetchTransitions} />
-      </div>
-    );
+  return wrapStatus(bar);
+
+  function wrapStatus(el: React.ReactElement) {
+    if (w.error) {
+      return (
+        <div className="flex flex-col gap-2" data-workflow-actions="unavailable">
+          {el}
+          <FrappeErrorState error={w.error} compact onRetry={w.refetchTransitions} />
+        </div>
+      );
+    }
+    if (!w.transitionsKnown && !w.isLoading && !w.needsSave) {
+      return (
+        <div className="flex flex-col gap-2" data-workflow-actions="unknown">
+          {el}
+          <p role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</p>
+        </div>
+      );
+    }
+    return el;
   }
-  if (!w.transitionsKnown && !w.isLoading && !w.needsSave) {
-    return (
-      <div className="flex flex-col gap-2" data-workflow-actions="unknown">
-        {bar}
-        <p role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</p>
-      </div>
-    );
-  }
-  return bar;
+}
+
+/** The `rail` variant: LifecycleRail whose ways forward apply the transition (asking first where `confirm` says so). */
+function RailActions({ path, next, ended, actions, onRun, note, viewAll, labels, actionLabels, className }: {
+  path: LifecycleRailStep[]; next: LifecycleRailNext[]; ended: boolean; actions: LifecycleActionItem[]; onRun: (actionId: string) => Promise<void>;
+  /** Why no way forward is offered right now (e.g. unsaved changes: Desk hides the actions, apply_workflow would drop them). */
+  note?: string;
+  viewAll?: () => void; labels?: LifecycleRailLabels; actionLabels?: ActionBarLabels; className?: string;
+}) {
+  const { t } = useLocale();
+  const L = {
+    confirmTitle: actionLabels?.confirmTitle ?? t("recConfirmTitle"), confirmBody: actionLabels?.confirmBody ?? t("recConfirmBody"),
+    confirm: actionLabels?.confirm ?? t("recConfirm"), cancel: actionLabels?.cancel ?? t("recCancel"), working: actionLabels?.working ?? t("recWorking"),
+  };
+  const [pending, setPending] = React.useState<LifecycleActionItem | null>(null);
+  const [running, setRunning] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const mounted = React.useRef(true);
+  React.useEffect(() => () => { mounted.current = false; }, []);
+  const run = async (a: LifecycleActionItem) => {
+    setError(""); setRunning(true);
+    try { await onRun(a.id); } catch (e) { if (mounted.current) setError(errorText(e) || "Error"); }
+    finally { if (mounted.current) setRunning(false); }
+  };
+  const choose = (n: LifecycleRailNext) => {
+    const a = actions.find((x) => x.id === n.id);
+    if (!a) return;
+    if (a.confirm) setPending(a); else void run(a);
+  };
+  const shown = running ? next.map((n) => ({ ...n, disabled: true, disabledReason: L.working })) : next;
+  return (
+    <div className={className} data-workflow-actions="rail" data-busy={running || undefined}>
+      <LifecycleRail path={path} next={shown} ended={ended} onViewAll={viewAll} onSelectNext={choose} labels={labels} />
+      {note ? <p role="status" data-workflow-note="" className="mt-2 text-xs text-muted-foreground">{note}</p> : null}
+      {error ? <p role="alert" className="mt-2 text-xs text-destructive">{error}</p> : null}
+      <AlertDialog open={!!pending} onOpenChange={(o) => { if (!o) setPending(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{fmt(L.confirmTitle, pending?.label ?? "")}</AlertDialogTitle>
+            <AlertDialogDescription>{typeof pending?.confirm === "string" ? pending.confirm : L.confirmBody}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{L.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { const a = pending; setPending(null); if (a) void run(a); }}>{L.confirm}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
 }

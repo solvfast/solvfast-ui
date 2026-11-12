@@ -471,7 +471,8 @@ export interface RecordRailArticleReaderProps {
   children?: React.ReactNode;
   /** "Open in …" escape link at the bottom. */
   link?: { href: string; label: string; icon?: React.ReactNode };
-  /** Default: the end side of the reading direction (right in LTR, left in RTL). */
+  /** The package Sheet's side, which is logical: "right" = the end edge (right in LTR, left in RTL; the default),
+   *  "left" = the start edge. The CRM passes `isRTL ? "left" : "right"`, i.e. the right edge in both languages. */
   side?: "left" | "right";
   /** Glyphs: kicker (FileText), link end (ArrowUpRight — turned in RTL). */
   icons?: { kicker?: IconType; link?: IconType };
@@ -479,11 +480,10 @@ export interface RecordRailArticleReaderProps {
 
 /** The read-only slide-in article reader (single close: the sheet's own). */
 export function RecordRailArticleReader({ open, onClose, kicker, title, children, link, side, icons }: RecordRailArticleReaderProps) {
-  const { isRTL } = useLocale();
   const KickerIcon = icons?.kicker ?? FileText, LinkIcon = icons?.link ?? ArrowUpRight;
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent side={side ?? (isRTL ? "left" : "right")} className="w-full sm:max-w-xl p-0 overflow-y-auto">
+      <SheetContent side={side ?? "right"} className="w-full sm:max-w-xl p-0 overflow-y-auto">
         {open && (
           <article className="p-6" data-record-rail-article="">
             <div className="mb-4 pe-8">
