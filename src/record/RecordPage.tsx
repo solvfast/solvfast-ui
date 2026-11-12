@@ -21,6 +21,8 @@ type IconType = React.ComponentType<{ className?: string }>;
 export interface RecordPageProps {
   /** "Back to Deals": the toolbar's start. */
   back?: { label: React.ReactNode; onClick: () => void; icon?: IconType };
+  /** Above the toolbar (e.g. a "sample data" banner). */
+  banner?: React.ReactNode;
   /** The toolbar's end: e.g. the page Save button, an Actions menu, the ⋯ menu. */
   actions?: React.ReactNode;
   /** The main column's first block (e.g. a `RecordHeaderCard variant="crm"`). */
@@ -34,11 +36,12 @@ export interface RecordPageProps {
   className?: string;
 }
 
-export function RecordPage({ back, actions, header, between, aside, children, className }: RecordPageProps) {
+export function RecordPage({ back, banner, actions, header, between, aside, children, className }: RecordPageProps) {
   const { isRTL } = useLocale();
   const BackIcon = back?.icon ?? (isRTL ? ArrowRight : ArrowLeft);
   return (
     <div className={cn("sf-record-page p-4 md:p-6 max-w-[1600px] mx-auto", className)} data-record-page>
+      {banner}
       <div className="flex items-center justify-between mb-4">
         {back ? (
           <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-brand-violet" onClick={back.onClick}>

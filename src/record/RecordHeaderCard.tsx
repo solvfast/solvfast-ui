@@ -45,6 +45,8 @@ export interface RecordHeaderCardProps {
   value?: React.ReactNode;
   /** `crm`: the quick actions at the end of the card (`RecordQuickAction`, `RecordQuickActionMenu`). */
   actions?: React.ReactNode;
+  /** `crm`: before the title in the title row (e.g. a person's salutation, "Mr."). */
+  titlePrefix?: React.ReactNode;
 }
 
 export function RecordHeaderCard(props: RecordHeaderCardProps) {
@@ -103,7 +105,7 @@ export function RecordHeaderIcon({ icon: Icon, color, className }: {
   );
 }
 
-function CrmRecordHeader({ title, name, avatar, status, statusNode, titleExtra, facts, value, chips, actions, children, className }: RecordHeaderCardProps) {
+function CrmRecordHeader({ title, titlePrefix, name, avatar, status, statusNode, titleExtra, facts, value, chips, actions, children, className }: RecordHeaderCardProps) {
   return (
     <div className={cn("relative overflow-hidden rounded-2xl border border-border bg-card", className)} data-record-header="crm">
       <div className="relative p-5 space-y-4">
@@ -112,6 +114,7 @@ function CrmRecordHeader({ title, name, avatar, status, statusNode, titleExtra, 
             {avatar}
             <div className="flex-1 min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
+                {titlePrefix != null ? <span className="text-xl md:text-2xl font-semibold text-foreground">{titlePrefix}</span> : null}
                 <h1 className="min-w-0 max-w-full truncate text-xl md:text-2xl font-semibold text-foreground">{title}</h1>
                 {name ? <span className="font-mono text-xs text-muted-foreground">#{name}</span> : null}
                 {statusNode ?? (status ? <Badge variant={status.variant ?? "outline"} data-status={status.key}>{status.label}</Badge> : null)}
@@ -126,10 +129,10 @@ function CrmRecordHeader({ title, name, avatar, status, statusNode, titleExtra, 
                         <button type="button" className="inline-flex items-center gap-1 hover:text-brand-violet font-medium transition-colors" title={f.title} onClick={f.onClick}>
                           {f.icon ? <f.icon className="h-3.5 w-3.5" /> : null}{f.text}
                         </button>
+                      ) : f.icon ? (
+                        <span className="inline-flex items-center gap-1" title={f.title}><f.icon className="h-3.5 w-3.5" />{f.text}</span>
                       ) : (
-                        <span className={cn("inline-flex items-center gap-1", i === 0 && "font-medium")} title={f.title}>
-                          {f.icon ? <f.icon className="h-3.5 w-3.5" /> : null}{f.text}
-                        </span>
+                        <span title={f.title}>{f.text}</span>
                       )}
                     </React.Fragment>
                   ))}

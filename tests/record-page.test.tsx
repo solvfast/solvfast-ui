@@ -165,3 +165,17 @@ describe("RecordTabs", () => {
     expect(history.getAttribute("aria-selected") === "true" || screen.queryByText("history panel") !== null).toBe(true);
   });
 });
+
+describe("RecordHeaderCard crm — Lead-style headers; RecordPage banner", () => {
+  it("titlePrefix before the title; a fact without icon or link is a plain span; banner above the toolbar", () => {
+    const { container } = wrap(<RecordPage banner={<p data-testid="banner">sample data</p>} back={{ label: "Back", onClick: () => {} }}
+      header={<RecordHeaderCard variant="crm" title="Abdullah" titlePrefix="Mr." facts={[{ text: "Travel Manager" }, { icon: Building2, text: "Org", onClick: () => {} }]} />} />);
+    const root = container.querySelector("[data-record-page]")!;
+    expect(root.firstElementChild?.getAttribute("data-testid")).toBe("banner");
+    const row = root.querySelector("h1")!.parentElement!;
+    expect(row.firstElementChild!.textContent).toBe("Mr.");
+    expect(row.firstElementChild!.className).toBe("text-xl md:text-2xl font-semibold text-foreground");
+    const plain = screen.getByText("Travel Manager");
+    expect(plain.tagName).toBe("SPAN"); expect(plain.className).toBe("");
+  });
+});
