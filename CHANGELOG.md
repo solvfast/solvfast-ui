@@ -6,7 +6,7 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-## 0.8.0-dev.5 — P0 T5–T10 (in progress)
+## 0.8.0-dev.5 — P0: RecordTabs, RecordSectionCard, the Lifecycle contract, a second-domain showcase, the ListView spec
 
 Additive; nothing changes for existing code.
 - **T5 `RecordTabs`**: `overflow?: "fill" | "scroll"` (default `"fill"` = the 0.8.0-dev.4 markup, tested), `ariaLabel?`, and
@@ -31,6 +31,9 @@ Additive; nothing changes for existing code.
   embedded ListView). Captured in light / dark × en / ar × 390 / 820 / 1440: no CRM CSS or strings, no truncated tab.
 - **T9** `docs/specs/LISTVIEW-API.md`: the ListView API classified against the CRM's lists (covered / gap / app-level /
   not required / future). One proposed change (not implemented): `onResultChange` in client mode.
+- **T10** parity: a CRM build from the frozen control snapshot `20261112T183811Z-crm-p0` with this package (and the CRM-side
+  lab patches) compared with the control build, every capture and behaviour suite in one session. Record:
+  `docs/audit/p08/P0-FINAL.md`. Not published; the live CRM is unchanged.
 
 ## 0.8.0-dev.4 — RecordPage `surface` (P0 T4)
 
