@@ -321,13 +321,16 @@ export interface RecordEditableCardProps {
 }
 
 /** An About card whose fields turn into inputs in place: header (icon, title, Edit), body, and Cancel (+ Save in the
- *  single-card model) while editing. */
+ *  single-card model) while editing. Outside a RecordEditSession it edits on its own (the single-card model, local). */
 export function RecordEditableCard({ cardId, label, editableWhenClosed, children, renderEdit, onSave, onCancel, getPatch, headerExtra, icon, readOnly, editIcon: EditIcon = Pencil }: RecordEditableCardProps) {
   const s = useRecordEditSession();
+  const { t } = useLocale();
   const pageSave = !!s?.pageSave;
   const ref = React.useRef<HTMLElement | null>(null);
-  const legacyEditing = s?.activeCardId === cardId;
-  const legacyDirty = legacyEditing && !!s?.dirty;
+  // no session: the card is its own single-card session
+  const [own, setOwn] = React.useState({ editing: false, dirty: false });
+  const legacyEditing = s ? s.activeCardId === cardId : own.editing;
+  const legacyDirty = legacyEditing && (s ? !!s.dirty : own.dirty);
   const lockedByClosed = !!readOnly || (!!s?.closed && !editableWhenClosed);
   const pageEditing = pageSave && !!s?.isEditing(cardId);
   const getPatchRef = React.useRef(getPatch); getPatchRef.current = getPatch;
@@ -344,11 +347,11 @@ export function RecordEditableCard({ cardId, label, editableWhenClosed, children
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageSave, cardId, label, lockedByClosed]);
   const editing = pageSave ? pageEditing : legacyEditing;
-  const markDirty = () => { if (pageSave) s?.setRegionDirty(cardId, true); else s?.setDirty(true); };
-  const doSave = () => { const r = onSave(); if (r === false) return false; s?.release(cardId); return true; };
-  const doCancel = () => { onCancel?.(); if (pageSave) s?.toggleEdit(cardId, false); else s?.release(cardId); };
-  const begin = () => { if (pageSave) s?.toggleEdit(cardId, true); else s?.requestEdit(cardId, { label, save: doSave, cancel: doCancel }); };
-  const L = s?.labels;
+  const markDirty = () => { if (!s) setOwn((o) => ({ ...o, dirty: true })); else if (pageSave) s.setRegionDirty(cardId, true); else s.setDirty(true); };
+  const doSave = () => { const r = onSave(); if (r === false) return false; if (s) s.release(cardId); else setOwn({ editing: false, dirty: false }); return true; };
+  const doCancel = () => { onCancel?.(); if (!s) setOwn({ editing: false, dirty: false }); else if (pageSave) s.toggleEdit(cardId, false); else s.release(cardId); };
+  const begin = () => { if (!s) setOwn({ editing: true, dirty: false }); else if (pageSave) s.toggleEdit(cardId, true); else s.requestEdit(cardId, { label, save: doSave, cancel: doCancel }); };
+  const L = s?.labels ?? { edit: t("resEdit"), cancel: t("resCancel"), save: t("resSave") };
   return (
     <section ref={ref} className="rounded-xl border border-border bg-card" data-record-card={cardId} data-editing={editing || undefined}>
       <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">

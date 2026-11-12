@@ -159,6 +159,24 @@ describe("RecordEditSession — single card", () => {
   });
 });
 
+describe("RecordEditableCard without a session", () => {
+  it("edits on its own: labelled Edit, Save enabled once dirty, Save / Cancel close it", () => {
+    const save = vi.fn();
+    wrap(<RecordEditableCard cardId="a" label="Notes" onSave={save} renderEdit={({ markDirty }) => <input aria-label="n" onChange={markDirty} />}><p>read</p></RecordEditableCard>);
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const s = screen.getByRole("button", { name: "Save" }) as HTMLButtonElement;
+    expect(s.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("n"), { target: { value: "x" } });
+    expect(s.disabled).toBe(false);
+    fireEvent.click(s);
+    expect(save).toHaveBeenCalled();
+    expect(screen.getByText("read")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByText("read")).toBeTruthy();
+  });
+});
+
 describe("About cards", () => {
   it("info tile, info row (— when empty), field list (empty label), insight card, closed notice", () => {
     const { container } = wrap(<>
