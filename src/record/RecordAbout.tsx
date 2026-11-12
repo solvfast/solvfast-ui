@@ -8,6 +8,7 @@ import * as React from "react";
 import { Activity, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { cn } from "../lib/cn";
 import { useLocale } from "../theme/ThemeProvider";
+import { Label } from "../primitives/label";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type IconType = React.ComponentType<any>;
@@ -239,4 +240,21 @@ export function RecordInteractions({ inbound, outbound, labels, icons }: RecordI
       </div>
     </div>
   );
+}
+
+/* ── Edit-mode fields ─────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** A labelled control in a card's edit view (the label is small; a required field gets a red star). */
+export function RecordField({ label, htmlFor, required, children, className }: { label: React.ReactNode; htmlFor?: string; required?: boolean; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("space-y-1.5", className)} data-record-field="">
+      <Label htmlFor={htmlFor} className="text-xs">{label}{required ? <span className="text-destructive ms-0.5">*</span> : null}</Label>
+      {children}
+    </div>
+  );
+}
+
+/** The edit view's two-column grid of RecordFields (one column on small screens). */
+export function RecordFieldGrid({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4", className)}>{children}</div>;
 }

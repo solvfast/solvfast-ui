@@ -15,7 +15,7 @@ export { RecordPage, RecordQuickAction, RecordQuickActionMenu, RecordTabs } from
 export type { RecordPageProps, RecordQuickActionProps, RecordQuickActionMenuProps, RecordQuickActionMenuItem, RecordTab, RecordTabsProps } from "./RecordPage";
 export { RecordEditSession, RecordEditableCard, RecordNotSavedPill, RecordSaveButton, useRecordEditSession } from "./RecordEditSession";
 export type { RecordEditSessionProps, RecordEditSessionApi, RecordEditSessionLabels, RecordSaveRegion, RecordEditableCardProps, RecordUnsavedDialogProps } from "./RecordEditSession";
-export { RecordInfoTile, RecordInfoRow, RecordScoreRing, RecordFieldList, RecordInsightCard, RecordClosedNotice, RecordInteractions } from "./RecordAbout";
+export { RecordInfoTile, RecordInfoRow, RecordScoreRing, RecordFieldList, RecordInsightCard, RecordClosedNotice, RecordInteractions, RecordField, RecordFieldGrid } from "./RecordAbout";
 export type { RecordInfoTileProps, RecordInfoRowProps, RecordScoreRingProps, RecordFieldListItem, RecordInsightCardProps, RecordInteraction, RecordInteractionsProps } from "./RecordAbout";
 export { FieldPreview, previewKind } from "./FieldPreview";
 export type { FieldPreviewProps } from "./FieldPreview";

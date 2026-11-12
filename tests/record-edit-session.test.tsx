@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { Percent, Phone, TrendingUp } from "lucide-react";
 import {
   RecordEditSession, RecordEditableCard, RecordNotSavedPill, RecordSaveButton, useRecordEditSession, RecordInfoTile, RecordInfoRow, RecordScoreRing,
-  RecordFieldList, RecordInsightCard, RecordClosedNotice, RecordInteractions, ThemeProvider,
+  RecordFieldList, RecordInsightCard, RecordClosedNotice, RecordInteractions, RecordField, RecordFieldGrid, ThemeProvider,
 } from "../src";
 
 beforeAll(() => {
@@ -213,5 +213,16 @@ describe("About cards", () => {
     expect(within(inbound as HTMLElement).getAllByRole("button")).toHaveLength(4);
     fireEvent.click(screen.getByRole("button", { name: /Call 1/ }));
     expect(screen.getByText("body 1")).toBeTruthy();
+  });
+});
+
+describe("RecordField / RecordFieldGrid", () => {
+  it("a small label tied to its control, a red star when required, the two-column grid", () => {
+    const { container } = wrap(<RecordFieldGrid><RecordField label="Value (USD)" htmlFor="v" required><input id="v" /></RecordField><RecordField label="Close" htmlFor="c"><input id="c" /></RecordField></RecordFieldGrid>);
+    expect(container.firstElementChild!.className).toBe("grid grid-cols-1 md:grid-cols-2 gap-4");
+    expect(screen.getByLabelText(/Value \(USD\)/).id).toBe("v");
+    const star = container.querySelector("[data-record-field] label span")!;
+    expect(star.textContent).toBe("*"); expect(star.className).toContain("text-destructive");
+    expect(container.querySelectorAll("label span")).toHaveLength(1);
   });
 });
