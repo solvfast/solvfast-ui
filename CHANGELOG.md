@@ -29,6 +29,8 @@ Additive; nothing changes for existing code.
 - **T8** showcase › Record page (dental patient): the record page parts for another domain, package components only (a
   patient journey on the Lifecycle contract, five scrolling tabs, an edit session, an app card and rail section, an
   embedded ListView). Captured in light / dark × en / ar × 390 / 820 / 1440: no CRM CSS or strings, no truncated tab.
+- **T9** `docs/specs/LISTVIEW-API.md`: the ListView API classified against the CRM's lists (covered / gap / app-level /
+  not required / future). One proposed change (not implemented): `onResultChange` in client mode.
 
 ## 0.8.0-dev.4 — RecordPage `surface` (P0 T4)
 
