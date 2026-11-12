@@ -324,8 +324,11 @@ function WorkflowDemo({ onApplied }: { onApplied: (s: string) => void }) {
         <Badge variant="outline" dir="ltr">docstatus {String(doc.docstatus)} · {String(doc.workflow_state)}</Badge>
       </div>
       <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">{tr(l("variant=\"steps\" — the stepper with actor and time per state (from the comment_type \"Workflow\" comments the simulator writes), plus the Actions menu; every action asks first (confirm).", "variant=\"steps\" — المتتبّع مع الفاعل والوقت لكل حالة (من تعليقات comment_type \"Workflow\" التي يكتبها المحاكي)، مع قائمة الإجراءات؛ كل إجراء يطلب تأكيداً (confirm)."))}</p>
-        <FrappeWorkflowActions doc={doc} user="Administrator" roles={["System Manager"]} variant="steps" confirm showCurrentEntry onApplied={(d, a) => onApplied(`onApplied: ${a} → ${String(d.workflow_state)} (docstatus ${String(d.docstatus)})`)} />
+        <p className="text-xs font-medium text-muted-foreground">{tr(l("The record page pattern: variant=\"actions\" — the header Actions menu (every action asks first: confirm) — and variant=\"rail\" — the read-only Lifecycle card: the states entered with actor and time (from the comment_type \"Workflow\" comments the simulator writes), where the workflow goes next.", "نمط صفحة السجل: variant=\"actions\" — قائمة الإجراءات في الترويسة (كل إجراء يطلب تأكيداً: confirm) — وvariant=\"rail\" — بطاقة دورة الحياة للقراءة فقط: الحالات مع الفاعل والوقت (من تعليقات comment_type \"Workflow\" التي يكتبها المحاكي)، وإلى أين يتجه سير العمل."))}</p>
+        <div className="flex flex-wrap items-start gap-6">
+          <FrappeWorkflowActions doc={doc} user="Administrator" roles={["System Manager"]} variant="actions" confirm onApplied={(d, a) => onApplied(`onApplied: ${a} → ${String(d.workflow_state)} (docstatus ${String(d.docstatus)})`)} />
+          <div className="w-72"><FrappeWorkflowActions doc={doc} user="Administrator" roles={["System Manager"]} variant="rail" /></div>
+        </div>
       </div>
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground">{tr(l("variant=\"compact\" — badge and actions only (Desk's Actions dropdown).", "variant=\"compact\" — الشارة والإجراءات فقط (قائمة إجراءات ديسك)."))}</p>
@@ -416,9 +419,10 @@ export function FrappeWorkflowPage() {
     <div className="space-y-12">
       <StatusStrip parts={[["FrappeWorkflowActions · useWorkflow · workflow.ts helpers (32)", "simulated"], ["apply_workflow (write)", "simulated"], ["LifecycleBar · ActionBar · StatusBadge (41)", "generic"]]}
         note={l("Sada has no Frappe Workflow, so nothing here touched a real response; the Approval Flow (Draft → Pending → Approved) is an authored demo lifecycle (a Workflow record) served by the simulator's getdoctype (__workflow_docs) and applied by its apply_workflow. The server's `condition` is never evaluated client-side.", "لا يوجد Workflow فرابيه في سدى، لذا لم يمسّ شيء هنا استجابة حقيقية؛ Approval Flow ‏(مسودة → معلّقة → معتمدة) دورة حياة تجريبية (سجل Workflow) يقدّمها getdoctype في المحاكي (__workflow_docs) ويطبّقها apply_workflow فيه. شرط الخادم `condition` لا يُقيَّم في العميل أبداً.")} />
-      <Section title={l("Approval Memo AM-1 on the Approval Flow", "مذكرة الاعتماد AM-1 على Approval Flow")} description={l("AM-1 is Pending: Approve moves it to Approved (docstatus 1), Reject sends it back to Draft. The stepper marks past, current and future states with who moved it and when.", "AM-1 معلّقة: «اعتماد» ينقلها إلى «معتمدة» (docstatus 1)، و«رفض» يعيدها إلى «مسودة». يعلّم المتتبّع الحالات الماضية والحالية والمقبلة مع من نقلها ومتى.")}>
-        <Example code={`<FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} variant="steps" confirm showCurrentEntry
-  onApplied={(doc, action) => …} />`}>
+      <Section title={l("Approval Memo AM-1 on the Approval Flow", "مذكرة الاعتماد AM-1 على Approval Flow")} description={l("AM-1 is Pending: Approve moves it to Approved (docstatus 1), Reject sends it back to Draft. The Lifecycle card shows the states it entered with who moved it and when, and where it can go next.", "AM-1 معلّقة: «اعتماد» ينقلها إلى «معتمدة» (docstatus 1)، و«رفض» يعيدها إلى «مسودة». تعرض بطاقة دورة الحياة الحالات التي دخلتها مع من نقلها ومتى، وإلى أين يمكن أن تنتقل.")}>
+        <Example code={`<FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} variant="actions" confirm
+  onApplied={(doc, action) => …} />            {/* the header Actions menu */}
+<FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} variant="rail" />   {/* the read-only Lifecycle card */}`}>
           <SimProvider site={site}>{ready ? <WorkflowDemo onApplied={setLog} /> : <Skeleton className="h-40 w-full" />}</SimProvider>
         </Example>
         <Readout label="→">{log || "—"}</Readout>

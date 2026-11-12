@@ -169,3 +169,16 @@ describe("FrappeWorkflowActions (0.8.0-dev.5, E2): read-only rail by default + t
     expect((b2 as HTMLButtonElement).disabled).toBe(true); expect(b2.getAttribute("title")).toBe("Save your changes first");
   });
 });
+
+describe("FrappeWorkflowActions variant=\"steps\" (deprecated 0.8.0-dev.5)", () => {
+  it("still renders the stepper with the Actions menu (unchanged), and warns once", async () => {
+    stub(); const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { container } = mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
+    await waitFor(() => expect(container.querySelector('ol[aria-label="lifecycle"]')).not.toBeNull());
+    expect(await screen.findByRole("button", { name: "Actions" })).toBeTruthy();
+    cleanup(); mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Actions" })).toBeTruthy());
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes('variant="steps" is deprecated')).length).toBe(1);
+    warn.mockRestore();
+  });
+});

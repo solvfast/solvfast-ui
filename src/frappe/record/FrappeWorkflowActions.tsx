@@ -66,8 +66,14 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "cur
  * user is unknown (only `allow_self_approval` transitions can then be offered). A refused `apply_workflow` (403
  * `PermissionError`, `WorkflowTransitionError`, self-approval) is shown by the action bar; nothing is applied locally.
  */
+let warnedSteps = false;
+
 export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, applyFromRail = false, blockedReason, blockedIcon, ...rest }: FrappeWorkflowActionsProps) {
   const { t, language } = useLocale();
+  if (variant === "steps" && !warnedSteps) {
+    warnedSteps = true;
+    console.warn('[@solvfast/ui/frappe] FrappeWorkflowActions variant="steps" is deprecated (0.8.0-dev.5): use variant="actions" in the header and variant="rail" for the Lifecycle card.');
+  }
   const w = useWorkflow({ doc, user, roles });
   const withHistory = variant === "steps" || variant === "rail";
   const info = useRecordDocInfo(withHistory && !doc.__islocal ? doc.doctype : undefined, doc.name, docinfo);

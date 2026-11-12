@@ -23,7 +23,9 @@ Additive; nothing changes for existing code.
   - `FrappeWorkflowActions`: new `variant="actions"` (the header menu, `blockedReason`, `blockedIcon`); `variant="rail"` is
     now **read-only by default** (where the workflow goes from here) — `applyFromRail` keeps the previous clickable rail
     (an intentional change of the rail's default; its only consumer is the CRM lab). `variant="steps"` **deprecated**
-    (kept). `compact` unchanged. `workflowLifecycle(workflow)` (`@solvfast/ui/frappe`).
+    (kept, unchanged; warns once in the console). `compact` unchanged. `workflowLifecycle(workflow)` (`@solvfast/ui/frappe`).
+    Consumer check: no app passes `steps` to the package (the CRM maps its own `steps` to `rail`); the showcase's
+    workflow demo now shows `actions` + `rail`.
 
 ## 0.8.0-dev.4 — RecordPage `surface` (P0 T4)
 
