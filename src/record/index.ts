@@ -9,6 +9,10 @@ export type { AssigneeGroupProps, AssignPickerProps, AssignLabels } from "./Assi
 export { LifecycleBar } from "./LifecycleBar";
 export type { LifecycleBarProps } from "./LifecycleBar";
 export { LifecycleRail } from "./LifecycleRail";
+export { LifecycleActions } from "./LifecycleActions";
+export type { LifecycleActionsProps, LifecycleActionsItem } from "./LifecycleActions";
+export { lifecycleTone, lifecycleRoots, lifecyclePath, lifecycleTransitionsFrom, lifecycleNext, lifecycleGraph } from "./lifecycle";
+export type { LifecycleDefinition, LifecycleStateDef, LifecycleTransitionDef, LifecycleNextItem, LifecycleGraph } from "./lifecycle";
 export { RecordHeaderCard, RecordHeaderIcon } from "./RecordHeaderCard";
 // RecordPage — the CRM record page layout (toolbar, 3 + 1 grid) and its header quick actions. docs/components/record.md §11
 export { RecordPage, RecordQuickAction, RecordQuickActionMenu, RecordTabs } from "./RecordPage";

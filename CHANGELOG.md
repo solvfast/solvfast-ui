@@ -15,6 +15,15 @@ Additive; nothing changes for existing code.
   flagged) tabs. Keyboard (arrows, RTL reversed) skips hidden tabs (tested).
 - **T6 `RecordSectionCard`**: a read-only record page card — the shell of `RecordEditableCard` without editing (same DOM
   as a read-only editable card, tested). Docs §11.5: composing a record page (slots; Core vs adapter vs app).
+- **T7 Lifecycle** (docs §9.4–§9.5; reference: CRM-REFERENCE.md §3):
+  - Core contract `record/lifecycle.ts` (framework-free): `LifecycleDefinition`, `lifecycleTone`, `lifecycleRoots`,
+    `lifecyclePath` (shortest path), `lifecycleTransitionsFrom`, `lifecycleNext`, `lifecycleGraph` (diagram model; no
+    renderer in Core).
+  - `LifecycleActions`: the header Actions menu (plain items, immediate run, per-item disabled reason, blocked button).
+  - `FrappeWorkflowActions`: new `variant="actions"` (the header menu, `blockedReason`, `blockedIcon`); `variant="rail"` is
+    now **read-only by default** (where the workflow goes from here) — `applyFromRail` keeps the previous clickable rail
+    (an intentional change of the rail's default; its only consumer is the CRM lab). `variant="steps"` **deprecated**
+    (kept). `compact` unchanged. `workflowLifecycle(workflow)` (`@solvfast/ui/frappe`).
 
 ## 0.8.0-dev.4 — RecordPage `surface` (P0 T4)
 

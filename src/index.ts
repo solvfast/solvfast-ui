@@ -227,6 +227,8 @@ export { RecordEditSession, RecordEditableCard, RecordNotSavedPill, RecordSaveBu
 export type { RecordEditSessionProps, RecordEditSessionApi, RecordEditSessionLabels, RecordSaveRegion, RecordEditableCardProps, RecordUnsavedDialogProps, RecordInfoTileProps, RecordInfoRowProps, RecordScoreRingProps, RecordFieldListItem, RecordInsightCardProps, RecordInteraction, RecordInteractionsProps, RecordSectionCardProps } from "./record";
 export type { RecordHeaderCardProps, RecordHeaderCardVariant, RecordHeaderFact, FieldPreviewProps } from "./record";
 export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
+export { LifecycleActions, lifecycleTone, lifecycleRoots, lifecyclePath, lifecycleTransitionsFrom, lifecycleNext, lifecycleGraph } from "./record";
+export type { LifecycleActionsProps, LifecycleActionsItem, LifecycleDefinition, LifecycleStateDef, LifecycleTransitionDef, LifecycleNextItem, LifecycleGraph } from "./record";
 export type {
   LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels, LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels,
   LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,

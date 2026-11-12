@@ -10,7 +10,7 @@ export { useWorkflow, useWorkflowDefinition } from "./useWorkflow";
 export type { UseWorkflowOptions } from "./useWorkflow";
 export {
   workflowFromMeta, currentState, defaultState, hasApprovalAccess, visibleTransitions, isReadOnlyState, workflowLockedFields, canCancelDocument,
-  standardActionsUnderWorkflow, toneForStyle, lifecycleStates, lifecycleActions,
+  standardActionsUnderWorkflow, toneForStyle, lifecycleStates, lifecycleActions, workflowLifecycle,
 } from "./workflow";
 export type { RecordWorkflow, RecordWorkflowState, VisibleTransitionsOptions } from "./workflow";
 export { transitionsKnown } from "./workflow";

@@ -709,22 +709,52 @@ transitions, roles, logs) and the graph engine for the diagram.
 `LifecycleBar` (§2.5) uses the same dot and connector atoms (`LifecycleStepDot`): past states are `success` (was `primary`),
 the current label is `primary`, future connectors are dashed. Its API and `data-step` markup are unchanged.
 
-### 9.4 Lifecycle on Frappe data — `FrappeWorkflowActions variant="rail"`
+### 9.4 The Lifecycle contract and the Actions menu (Core, 0.8.0-dev.5)
 
-`FrappeWorkflowActions` (`@solvfast/ui/frappe`) renders the same `LifecycleRail` from a Frappe Workflow:
+The reference is the CRM record page's Lifecycle (`docs/audit/p08/CRM-REFERENCE.md` §3). Core is framework-free
+(`src/record/lifecycle.ts`, no renderer, no graph library):
 
-- **path** — the states the record entered, oldest first (docinfo `workflow_logs`, then Version rows; `stateEntries`),
-  ending with the current state; meta = `who · day`, tooltip = full date and time.
-- **next** — the server's `get_transitions` answer for this user (one per action), named by the state it leads to
-  (`action → state` when two actions lead to the same state); a move to a state already on the path is tagged *back*.
-  Each is a button (`onSelectNext`) that applies the transition: `confirm`, `beforeApply` / `afterApply` and
-  `onApplied` work as in the other variants; a refusal is shown under the rail.
-- **End of lifecycle** — only when no transition leaves the state **for anyone** (not when this user has none).
-- An unsaved document offers no way forward and says why (`recSaveBeforeAction`); transitions are not requested.
-- `onViewAll` and `railLabels` pass through. The diagram dialog needs the consumer's graph engine, as in §9.2.
+| Export | What it gives |
+|---|---|
+| `LifecycleDefinition` | `{ states: { id, label, phase: "open" \| "on_hold" \| "closed", color? }[], transitions: { id, from, to, label?, trigger?, roles? }[] }` |
+| `lifecycleTone(state)` | The status badge tone: open → info, on hold → warning; closed → by colour (red → danger, grey → neutral, else success) |
+| `lifecyclePath(def, current)` | The rail's path: the **shortest** path from a root to the current state (not the record's history) |
+| `lifecycleTransitionsFrom(def, current, roles?)` | The Actions menu: the transitions out of the current state, not automatic ones, role-restricted ones only for a holder |
+| `lifecycleNext(def, current, pathIds)` | The rail's ways forward: every target out of the state (automatic and role-restricted included), `back` when on the path |
+| `lifecycleGraph(def, current, pathIds?, visitedIds?)` | The diagram model: nodes done / current / future, edges `taken` — for any renderer (the CRM's is React Flow + dagre) |
 
-Workflow semantics (field names, states, transitions, `apply_workflow`, permissions) are unchanged; only the chrome says
-*Lifecycle*. Tests: `tests/frappe-lifecycle-rail.test.tsx` (stub client — request / response shapes, not a real site).
+`LifecycleActions` — {actions: {id, label, confirm?, disabledReason?}[], onAction(id), blockedReason?, blockedIcon?,
+busy?, labels?}: the header Actions menu. Plain items (no colour); a transition runs as soon as it is chosen (unless the
+item asks to `confirm`); "No actions from this status" when there is none; an item with a `disabledReason` stays visible,
+disabled, its reason after its label; `blockedReason` (e.g. "Save your changes first" while the page is dirty) replaces
+the menu by a disabled button with that tooltip (and `blockedIcon`).
+
+The record page pattern: **transitions only from the header Actions menu; the rail is read-only** (path, where it can go
+next, End of lifecycle, View full lifecycle). No failed / lost step kind: a closed state reads as any current state; its
+badge tone comes from `lifecycleTone`.
+
+### 9.5 Lifecycle on Frappe data — `FrappeWorkflowActions`
+
+`FrappeWorkflowActions` (`@solvfast/ui/frappe`) gives the same pattern from a Frappe Workflow (0.8.0-dev.5):
+
+- **`variant="actions"`** — the header Actions menu alone (`LifecycleActions`): the server's `get_transitions` answer for
+  this user (authoritative; roles, self-approval and conditions are the server's). Blocked with `recSaveBeforeAction`
+  while the document is unsaved, or with the host's `blockedReason` (e.g. the page has unsaved changes). `confirm`,
+  `beforeApply` / `afterApply`, `onApplied` as in the other variants; a refusal is shown under the menu.
+- **`variant="rail"`** — the Lifecycle card, **read-only by default**: path = the states the record entered, oldest first
+  (docinfo `workflow_logs`, then Version rows; `stateEntries`), ending with the current state, meta `who · day`; next =
+  every state the **workflow** leads to from here (`workflowLifecycle` + `lifecycleNext`: whoever may run it); End of
+  lifecycle when no transition leaves the state. `onViewAll`, `railLabels` pass through.
+  `applyFromRail` restores the 0.8.0-dev.1–dev.4 rail whose ways forward are buttons applying this user's transitions.
+- `variant="compact"` (badge + menu; FrappeForm's toolbar) is unchanged. **`variant="steps"` is deprecated**
+  (0.8.0-dev.5): use `actions` in the header with `rail` — it is kept, unchanged, for existing code.
+- `workflowLifecycle(workflow, translate)` maps a Workflow to a `LifecycleDefinition` (Frappe states carry no phase:
+  `"open"`; `allowed` → `roles`).
+
+On Frappe data the path is the record's real history (it is known); on host data without a log, `lifecyclePath` (the
+shortest path) is the reference's display. Workflow semantics (field names, states, transitions, `apply_workflow`,
+permissions) are unchanged. Tests: `tests/frappe-lifecycle-rail.test.tsx` (stub client — request / response shapes,
+**simulated**; validation on a real site is pending, P1), `tests/lifecycle-contract.test.tsx`.
 
 ## 10. RecordRail — the CRM record page's right rail
 

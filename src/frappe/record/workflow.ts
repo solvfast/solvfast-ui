@@ -5,6 +5,7 @@
  */
 import type { Check, DocTypeMeta, FrappeDoc, WorkflowInfo, WorkflowState, WorkflowTransition } from "../contract";
 import type { LifecycleActionItem, LifecycleStateItem, Tone } from "../../record/types";
+import type { LifecycleDefinition } from "../../record/lifecycle";
 import { styleTone } from "../services/indicator";
 import { isWorkflowReadOnly } from "../services/permissions";
 
@@ -152,4 +153,17 @@ export function lifecycleActions(transitions: WorkflowTransition[], translate: (
     out.push({ id: t.action, label: translate(t.action), confirm: confirm?.(t) });
   }
   return out;
+}
+
+/** The Workflow as a Core lifecycle definition (`LifecycleDefinition`, record/lifecycle.ts): its states (Frappe states
+ *  carry no open / on hold / closed phase: "open") and every transition, `allowed` as its role. For the read-only rail's
+ *  ways forward (`lifecycleNext`: every transition out of the state, whoever may run it) and any diagram model. */
+export function workflowLifecycle(wf: RecordWorkflow, translate: (s: string) => string = (s) => s): LifecycleDefinition {
+  const seen = new Set<string>();
+  const states: LifecycleDefinition["states"] = [];
+  for (const s of wf.states) if (!seen.has(s.state)) { seen.add(s.state); states.push({ id: s.state, label: translate(s.state), phase: "open" }); }
+  return {
+    states,
+    transitions: wf.transitions.map((t, i) => ({ id: `${i}:${t.state}:${t.action}`, from: t.state, to: t.next_state, label: translate(t.action), roles: t.allowed ? [t.allowed] : undefined })),
+  };
 }

@@ -14,13 +14,25 @@ import { FrappeErrorState } from "../feedback/FrappeErrorState";
 import { useRecordDocInfo } from "./data";
 import { stateEntries } from "./stateHistory";
 import { useWorkflow } from "./useWorkflow";
-import { lifecycleActions, lifecycleStates } from "./workflow";
+import { lifecycleActions, lifecycleStates, workflowLifecycle } from "./workflow";
+import { LifecycleActions } from "../../record/LifecycleActions";
+import { lifecycleNext } from "../../record/lifecycle";
 
 export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "currentMarker" | "actionLabels" | "className" | "showCurrentEntry"> {
-  /** `compact` = state badge + Actions menu; `steps` = LifecycleBar's stepper too; `rail` = the record's Lifecycle as
-   *  the CRM record page draws it (LifecycleRail: the states it went through with who · when, the ways forward as
-   *  buttons that apply the transition, End of lifecycle). */
-  variant?: LifecycleBarProps["variant"] | "rail";
+  /** `compact` = state badge + Actions menu (Desk's form toolbar); `actions` = the Actions menu alone (LifecycleActions:
+   *  a record page header's menu; blocked with a reason while the document is unsaved or `blockedReason` is set);
+   *  `rail` = the record's Lifecycle card (LifecycleRail: the states it went through with who · when, where it can go
+   *  next, End of lifecycle) — read-only unless `applyFromRail`; `steps` = **deprecated** (0.8.0-dev.5): LifecycleBar's
+   *  stepper with the menu inside it — use `actions` in the header with `rail` (kept for existing code). */
+  variant?: LifecycleBarProps["variant"] | "rail" | "actions";
+  /** `rail`: its ways forward are buttons that apply the transition (the 0.8.0-dev.1–dev.4 rail). Default false: a
+   *  read-only rail showing every state the workflow leads to from here (whoever may perform it), the transitions
+   *  being run from the Actions menu (`variant="actions"`). */
+  applyFromRail?: boolean;
+  /** `actions`: the menu is unavailable for a reason the page knows (e.g. unsaved changes on the page). */
+  blockedReason?: string;
+  /** `actions`: the blocked button's leading icon. */
+  blockedIcon?: React.ComponentType<{ className?: string }>;
   /** `rail`: shows "View full lifecycle" (e.g. to open a LifecycleDiagramDialog). */
   onViewAll?: () => void;
   /** `rail`: the rail's chrome strings (default from the ThemeProvider's language). */
@@ -54,7 +66,7 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "cur
  * user is unknown (only `allow_self_approval` transitions can then be offered). A refused `apply_workflow` (403
  * `PermissionError`, `WorkflowTransitionError`, self-approval) is shown by the action bar; nothing is applied locally.
  */
-export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, ...rest }: FrappeWorkflowActionsProps) {
+export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, applyFromRail = false, blockedReason, blockedIcon, ...rest }: FrappeWorkflowActionsProps) {
   const { t, language } = useLocale();
   const w = useWorkflow({ doc, user, roles });
   const withHistory = variant === "steps" || variant === "rail";
@@ -76,6 +88,13 @@ export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, 
     onApplied?.(saved, actionId);
     await afterApply?.(actionId, saved);
   };
+  if (variant === "actions") {
+    const blocked = blockedReason ?? (w.needsSave ? t("recSaveBeforeAction") : undefined);
+    return wrapStatus(
+      <LifecycleActions actions={actions.map((a) => ({ id: a.id, label: a.label, confirm: a.confirm }))} onAction={runAction}
+        blockedReason={blocked} blockedIcon={blockedIcon} busy={w.applying} labels={rest.actionLabels} className={rest.className} />,
+    );
+  }
   if (variant === "rail") {
     // The record's path: the states it entered, oldest first (workflow logs / versions), ending with the current state.
     const visited = [...(entries ?? new Map()).entries()].sort((a, b) => a[1].at - b[1].at).map(([id]) => id).filter((id) => id !== w.state);
@@ -86,6 +105,17 @@ export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, 
       const e = entries?.get(id);
       return { id, label: base.find((b) => b.id === id)?.label ?? translate(id), meta: e ? `${e.by} · ${day.format(e.at)}` : undefined, metaTitle: e ? `${e.by} · ${full.format(e.at)}` : undefined };
     });
+    if (!applyFromRail) {
+      // Read-only (default): where the workflow goes from here — every transition out of the state, whoever may run it
+      // (lifecycleNext), once per target state; a target already on the path is a move back. End of lifecycle: none.
+      const next = lifecycleNext(workflowLifecycle(w.workflow, translate), w.state, pathIds)
+        .map((n): LifecycleRailNext => ({ id: n.id, label: n.label, back: n.back }));
+      return (
+        <div className={rest.className} data-workflow-actions="rail">
+          <LifecycleRail path={path} next={next} ended={next.length === 0} onViewAll={onViewAll} labels={railLabels} />
+        </div>
+      );
+    }
     // Ways forward: the server's transitions for this user (one per action), named by the state they lead to.
     const byAction = new Map(w.transitions.map((tr) => [tr.action, tr]));
     const targets = [...byAction.values()].map((tr) => tr.next_state);

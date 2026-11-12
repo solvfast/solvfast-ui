@@ -59,9 +59,9 @@ const reopenDocs = [
 const withWf = (docs: unknown[]): MetaBundle => ({ ...bundle, meta: { ...bundle.meta, __workflow_docs: docs } as never });
 
 describe("FrappeWorkflowActions rail", () => {
-  it("renders the LifecycleRail: the current state, the way forward as a button that applies the transition", async () => {
+  it("applyFromRail: renders the LifecycleRail: the current state, the way forward as a button that applies the transition", async () => {
     const c = stub(); const applied = vi.fn();
-    const { container } = mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="rail" onApplied={applied} />);
+    const { container } = mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="rail" applyFromRail onApplied={applied} />);
     await waitFor(() => expect(container.querySelector("[data-lifecycle-rail]")).not.toBeNull());
     expect(Array.from(container.querySelectorAll("li[data-step]")).map((l) => l.textContent)).toEqual([expect.stringContaining("Draft")]);
     const opt = await screen.findByRole("button", { name: "Approved" });
@@ -92,24 +92,24 @@ describe("FrappeWorkflowActions rail", () => {
     await waitFor(() => expect(container.querySelector("[data-next='end']")).not.toBeNull());
   });
 
-  it("no End of lifecycle when transitions exist but not for this user", async () => {
+  it("applyFromRail: no End of lifecycle when transitions exist but not for this user", async () => {
     stub({ getWorkflowTransitions: vi.fn(async () => []) as never });
-    const { container } = mount(<FrappeWorkflowActions doc={doc} user="u@x" roles={["Sales User"]} variant="rail" />);
+    const { container } = mount(<FrappeWorkflowActions doc={doc} user="u@x" roles={["Sales User"]} variant="rail" applyFromRail />);
     await waitFor(() => expect(container.querySelector("[data-lifecycle-rail]")).not.toBeNull());
     expect(container.querySelector("[data-next]")).toBeNull();
   });
 
-  it("confirm asks first; a server refusal is shown", async () => {
+  it("applyFromRail: confirm asks first; a server refusal is shown", async () => {
     stub({ applyWorkflow: vi.fn(async () => { throw new Error("Not a valid Workflow Action"); }) as never });
-    mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="rail" confirm />);
+    mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="rail" applyFromRail confirm />);
     fireEvent.click(await screen.findByRole("button", { name: "Approved" }));
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Confirm" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Not a valid Workflow Action");
   });
 
-  it("an unsaved document: no way forward is offered (no transitions are asked for) and the reason is said", async () => {
+  it("applyFromRail: an unsaved document: no way forward is offered (no transitions are asked for) and the reason is said", async () => {
     const c = stub();
-    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, __unsaved: 1 }} user="boss@x" roles={["Sales Manager"]} variant="rail" />);
+    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, __unsaved: 1 }} user="boss@x" roles={["Sales Manager"]} variant="rail" applyFromRail />);
     await waitFor(() => expect(container.querySelector("[data-workflow-note]")).not.toBeNull());
     expect(container.querySelector("[data-workflow-note]")!.textContent).toBeTruthy();
     expect(container.querySelector("[data-next]")).toBeNull();
@@ -123,5 +123,49 @@ describe("FrappeWorkflowActions rail", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Whole lifecycle" }));
     expect(onViewAll).toHaveBeenCalled();
     expect(screen.getByText("Done here")).toBeTruthy();
+  });
+});
+
+describe("FrappeWorkflowActions (0.8.0-dev.5, E2): read-only rail by default + the header Actions menu", () => {
+  it("rail (default): read-only — where the workflow goes (rows, no buttons), even when this user may not run it", async () => {
+    stub();
+    const { container } = mount(<FrappeWorkflowActions doc={doc} user="u@x" roles={["Sales User"]} variant="rail" />);
+    await waitFor(() => expect(container.querySelector("[data-lifecycle-rail]")).not.toBeNull());
+    const rail = container.querySelector("[data-lifecycle-rail]")!;
+    expect(rail.querySelector('[data-step="current"]')?.textContent).toContain("Draft");
+    expect(rail.querySelector("[data-next]")?.getAttribute("data-next")).toBe("row");
+    expect(rail.querySelector("[data-next]")?.textContent).toContain("Approved");
+    expect(rail.querySelectorAll("[data-next-option]").length).toBe(0);
+    expect(container.querySelectorAll("button").length).toBe(0);
+  });
+  it("rail (default): an unsaved document still shows where it can go (no note: transitions run from the Actions menu)", async () => {
+    stub();
+    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, __unsaved: 1 }} user="boss@x" roles={["Sales Manager"]} variant="rail" />);
+    await waitFor(() => expect(container.querySelector("[data-next]")?.textContent).toContain("Approved"));
+    expect(container.querySelector("[data-workflow-note]")).toBeNull();
+  });
+  it("rail (default): End of lifecycle when no transition leaves the state", async () => {
+    stub();
+    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Approved", docstatus: 1 }} user="boss@x" roles={["Sales Manager"]} variant="rail" />);
+    await waitFor(() => expect(container.querySelector('[data-next="end"]')).not.toBeNull());
+  });
+  it("actions: the Actions menu alone (no badge); choosing an item applies the transition at once", async () => {
+    const c = stub(); const applied = vi.fn();
+    const { container } = mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="actions" onApplied={applied} />);
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Actions" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Approve" }));
+    await waitFor(() => expect(c.applyWorkflow).toHaveBeenCalled());
+    await waitFor(() => expect(applied).toHaveBeenCalled());
+    expect(container.querySelector("[data-status]")).toBeNull();
+  });
+  it("actions: blocked while the document is unsaved, and with the host's reason (e.g. unsaved page): disabled button + tooltip", async () => {
+    stub();
+    const a = mount(<FrappeWorkflowActions doc={{ ...doc, __unsaved: 1 }} user="boss@x" roles={["Sales Manager"]} variant="actions" />);
+    const b1 = await screen.findByRole("button", { name: /Actions/ });
+    expect((b1 as HTMLButtonElement).disabled).toBe(true); expect(b1.getAttribute("title")).toBeTruthy();
+    a.unmount();
+    mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="actions" blockedReason="Save your changes first" />);
+    const b2 = await screen.findByRole("button", { name: /Actions/ });
+    expect((b2 as HTMLButtonElement).disabled).toBe(true); expect(b2.getAttribute("title")).toBe("Save your changes first");
   });
 });
