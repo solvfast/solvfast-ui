@@ -46,12 +46,14 @@ export interface RecordRailCardProps {
   /** Grip props from a sortable list; the grip shows on hover either way. */
   dragHandle?: RecordRailDragHandle;
   dragLabel?: string;
+  /** The grip glyph (default GripVertical). Hosts on another lucide-react version pass theirs to keep their glyphs. */
+  gripIcon?: IconType;
   className?: string;
   children?: React.ReactNode;
 }
 
 /** One rail card: a hover grip, the icon, the uppercase title and an end action; the body is the caller's rows. */
-export function RecordRailCard({ title, icon: Icon, action, accent, dragHandle, dragLabel, className, children }: RecordRailCardProps) {
+export function RecordRailCard({ title, icon: Icon, action, accent, dragHandle, dragLabel, gripIcon: Grip = GripVertical, className, children }: RecordRailCardProps) {
   const { t } = useLocale();
   const { className: gripClass, style: gripStyle, ...grip } = dragHandle ?? {};
   return (
@@ -67,7 +69,7 @@ export function RecordRailCard({ title, icon: Icon, action, accent, dragHandle, 
             style={gripStyle}
             title={dragLabel ?? t("rrDragToReorder")}
           >
-            <GripVertical className="h-3.5 w-3.5" />
+            <Grip className="h-3.5 w-3.5" />
           </span>
           <Icon className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{title}</span>
@@ -95,6 +97,8 @@ export type RecordRailSectionSpec =
   | { kind: "content"; onAdd?: () => void };
 
 export interface RecordRailSectionLabels { link?: string; add?: string; change?: string; clear?: string }
+/** Header button glyphs (defaults Plus / Pencil / X). */
+export interface RecordRailSectionIcons { add?: IconType; change?: IconType; clear?: IconType }
 
 export interface RecordRailSectionProps extends Omit<RecordRailCardProps, "action" | "title"> {
   title: string;
@@ -102,9 +106,11 @@ export interface RecordRailSectionProps extends Omit<RecordRailCardProps, "actio
   /** Shown above the body (e.g. a "sample data" note). */
   notice?: React.ReactNode;
   labels?: RecordRailSectionLabels;
+  icons?: RecordRailSectionIcons;
 }
 
-export function RecordRailSection({ title, spec, notice, labels, children, ...card }: RecordRailSectionProps) {
+export function RecordRailSection({ title, spec, notice, labels, icons, children, ...card }: RecordRailSectionProps) {
+  const AddIcon = icons?.add ?? Plus, ChangeIcon = icons?.change ?? Pencil, ClearIcon = icons?.clear ?? X;
   const { t } = useLocale();
   const L = {
     link: labels?.link ?? t("rrLink"), add: labels?.add ?? t("rrAdd"), change: labels?.change ?? t("rrChange"), clear: labels?.clear ?? t("rrClear"),
@@ -115,13 +121,13 @@ export function RecordRailSection({ title, spec, notice, labels, children, ...ca
     </Button>
   );
   const action = (() => {
-    if (spec.kind === "multi" && spec.onAdd) return iconButton(L.link, spec.onAdd, Plus, "text-primary", "h-4 w-4");
-    if (spec.kind === "content" && spec.onAdd) return iconButton(L.add, spec.onAdd, Plus, "text-primary", "h-4 w-4");
+    if (spec.kind === "multi" && spec.onAdd) return iconButton(L.link, spec.onAdd, AddIcon, "text-primary", "h-4 w-4");
+    if (spec.kind === "content" && spec.onAdd) return iconButton(L.add, spec.onAdd, AddIcon, "text-primary", "h-4 w-4");
     if (spec.kind === "single" && (spec.onChange || spec.onClear))
       return (
         <span className="flex items-center gap-0.5">
-          {spec.onChange && iconButton(L.change, spec.onChange, Pencil, "text-muted-foreground", "h-3.5 w-3.5")}
-          {spec.onClear && iconButton(L.clear, spec.onClear, X, "text-muted-foreground hover:text-destructive", "h-3.5 w-3.5")}
+          {spec.onChange && iconButton(L.change, spec.onChange, ChangeIcon, "text-muted-foreground", "h-3.5 w-3.5")}
+          {spec.onClear && iconButton(L.clear, spec.onClear, ClearIcon, "text-muted-foreground hover:text-destructive", "h-3.5 w-3.5")}
         </span>
       );
     // A `single` section without controls keeps the CRM's empty end slot (an empty span).
@@ -209,11 +215,13 @@ export interface RecordRailCustomizeProps {
   visible: ReadonlySet<string>;
   onToggle: (id: string) => void;
   labels?: { trigger?: string; heading?: string };
+  /** The button glyph (default Settings2). */
+  icon?: IconType;
   className?: string;
 }
 
 /** The "Customize sections" button and its "Visible sections" checklist. */
-export function RecordRailCustomize({ options, visible, onToggle, labels, className }: RecordRailCustomizeProps) {
+export function RecordRailCustomize({ options, visible, onToggle, labels, icon: Icon = Settings2, className }: RecordRailCustomizeProps) {
   const { t } = useLocale();
   const [open, setOpen] = React.useState(false);
   const heading = labels?.heading ?? t("rrVisibleSections");
@@ -223,7 +231,7 @@ export function RecordRailCustomize({ options, visible, onToggle, labels, classN
         <PopoverTrigger asChild>
           <Button type="button" variant="outline" size="sm"
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-xs font-medium transition-colors border-border bg-card hover:border-primary/40 hover:text-primary">
-            <Settings2 className="h-3.5 w-3.5" />
+            <Icon className="h-3.5 w-3.5" />
             <span>{labels?.trigger ?? t("rrCustomize")}</span>
           </Button>
         </PopoverTrigger>
@@ -304,24 +312,27 @@ export interface RecordRailAssignmentProps {
   autoAssign?: { label: string; onClick: () => void };
   /** Anything after (e.g. the open assignments' ToDo details). */
   footer?: React.ReactNode;
+  /** Glyphs of the team row and the auto-assign link (defaults User / Sparkles). */
+  icons?: { team?: IconType; autoAssign?: IconType };
   className?: string;
 }
 
 /** Assignment module body (put it in a `single` RecordRailSection): assignees, the team row, auto-assign, details. */
-export function RecordRailAssignment({ children, team, autoAssign, footer, className }: RecordRailAssignmentProps) {
+export function RecordRailAssignment({ children, team, autoAssign, footer, icons, className }: RecordRailAssignmentProps) {
+  const TeamIcon = icons?.team ?? User, AutoIcon = icons?.autoAssign ?? Sparkles;
   return (
     <div data-record-rail-assignment="" className={cn("space-y-2.5 text-xs", className)}>
       {children}
       {team && (
         <div className="flex items-center gap-2 pt-2 border-t border-border/40">
-          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <TeamIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="text-muted-foreground flex-1">{team.label}</span>
           <span className="text-foreground font-medium truncate max-w-[55%] text-end">{team.value}</span>
         </div>
       )}
       {autoAssign && (
         <button type="button" onClick={autoAssign.onClick} className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
-          <Sparkles className="h-3 w-3" />{autoAssign.label}
+          <AutoIcon className="h-3 w-3" />{autoAssign.label}
         </button>
       )}
       {footer}
@@ -374,11 +385,13 @@ export interface RecordRailTasksProps extends Omit<RecordRailSectionProps, "spec
   onAdd?: () => void;
   /** Icon-square classes of each row (default: primary tint). */
   iconTint?: string;
+  /** Glyph of the "Open in …" link (default ExternalLink). */
+  openIcon?: IconType;
   isAr?: boolean;
 }
 
 /** Tasks module: the record's linked tasks (count in the title), each with its state and an "Open in …" link. */
-export function RecordRailTasks({ title, tasks, emptyLabel, openLabel, max = 5, onAdd, iconTint = "bg-primary/10 text-primary", isAr, icon = CheckSquare, ...section }: RecordRailTasksProps) {
+export function RecordRailTasks({ title, tasks, emptyLabel, openLabel, max = 5, onAdd, iconTint = "bg-primary/10 text-primary", openIcon: OpenIcon = ExternalLink, isAr, icon = CheckSquare, ...section }: RecordRailTasksProps) {
   return (
     <RecordRailSection {...section} icon={icon} title={`${title}${tasks.length ? ` (${tasks.length})` : ""}`} spec={{ kind: "content", onAdd }}>
       {tasks.length === 0 && <p className="text-xs text-muted-foreground">{emptyLabel}</p>}
@@ -388,7 +401,7 @@ export function RecordRailTasks({ title, tasks, emptyLabel, openLabel, max = 5, 
             chips={w.status ? <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-muted-foreground">{w.status}</Badge> : undefined} />
           {w.onOpen && (
             <button type="button" onClick={w.onOpen} className="ms-1 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline">
-              <ExternalLink className="h-3 w-3" />{openLabel}
+              <OpenIcon className="h-3 w-3" />{openLabel}
             </button>
           )}
         </div>
@@ -408,18 +421,21 @@ export interface RecordRailArticlesProps {
   articles: RecordRailArticle[];
   onOpen: (id: string) => void;
   title?: string;
+  /** Glyphs: header (BookOpen), row (FileText), row end (ChevronRight — mirrored in RTL). */
+  icons?: { header?: IconType; row?: IconType; chevron?: IconType };
   className?: string;
 }
 
 /** Articles module: the knowledge articles attached to the record's app / module / type. Nothing when there are none. */
-export function RecordRailArticles({ articles, onOpen, title, className }: RecordRailArticlesProps) {
+export function RecordRailArticles({ articles, onOpen, title, icons, className }: RecordRailArticlesProps) {
   const { t } = useLocale();
+  const HeaderIcon = icons?.header ?? BookOpen, RowIcon = icons?.row ?? FileText, Chevron = icons?.chevron ?? ChevronRight;
   if (articles.length === 0) return null;
   return (
     <div data-record-rail-articles="" className={cn("rounded-xl border border-border bg-card overflow-hidden", className)}>
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-primary" />
+          <HeaderIcon className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold">{title ?? t("rrArticles")}</h3>
         </div>
         <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-medium text-muted-foreground">
@@ -431,13 +447,13 @@ export function RecordRailArticles({ articles, onOpen, title, className }: Recor
           <button key={a.id} type="button" onClick={() => onOpen(a.id)}
             className="w-full flex items-center gap-3 p-3 text-start transition-colors hover:bg-muted/50 cursor-pointer">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <FileText className="h-4 w-4" />
+              <RowIcon className="h-4 w-4" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium truncate">{a.title}</span>
               {a.meta != null && <span className="block text-[11px] text-muted-foreground truncate">{a.meta}</span>}
             </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground rtl:rotate-180" />
+            <Chevron className="h-4 w-4 shrink-0 text-muted-foreground rtl:rotate-180" />
           </button>
         ))}
       </div>
@@ -457,11 +473,14 @@ export interface RecordRailArticleReaderProps {
   link?: { href: string; label: string; icon?: React.ReactNode };
   /** Default: the end side of the reading direction (right in LTR, left in RTL). */
   side?: "left" | "right";
+  /** Glyphs: kicker (FileText), link end (ArrowUpRight — turned in RTL). */
+  icons?: { kicker?: IconType; link?: IconType };
 }
 
 /** The read-only slide-in article reader (single close: the sheet's own). */
-export function RecordRailArticleReader({ open, onClose, kicker, title, children, link, side }: RecordRailArticleReaderProps) {
+export function RecordRailArticleReader({ open, onClose, kicker, title, children, link, side, icons }: RecordRailArticleReaderProps) {
   const { isRTL } = useLocale();
+  const KickerIcon = icons?.kicker ?? FileText, LinkIcon = icons?.link ?? ArrowUpRight;
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent side={side ?? (isRTL ? "left" : "right")} className="w-full sm:max-w-xl p-0 overflow-y-auto">
@@ -470,7 +489,7 @@ export function RecordRailArticleReader({ open, onClose, kicker, title, children
             <div className="mb-4 pe-8">
               {kicker != null && (
                 <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
-                  <FileText className="h-3.5 w-3.5" />
+                  <KickerIcon className="h-3.5 w-3.5" />
                   {kicker}
                 </div>
               )}
@@ -482,7 +501,7 @@ export function RecordRailArticleReader({ open, onClose, kicker, title, children
                 <a href={link.href} className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
                   {link.icon}
                   {link.label}
-                  <ArrowUpRight className="h-3.5 w-3.5 rtl:rotate-90" />
+                  <LinkIcon className="h-3.5 w-3.5 rtl:rotate-90" />
                 </a>
               </div>
             )}
@@ -518,6 +537,7 @@ export interface RecordRailProps {
   /** Show "Customize sections" (default true). */
   customize?: boolean;
   customizeLabels?: RecordRailCustomizeProps["labels"];
+  customizeIcon?: IconType;
   /** After the sections (e.g. a RecordRailFooter). */
   footer?: React.ReactNode;
   /** After the footer, outside Customize (e.g. RecordRailArticles). */
@@ -532,7 +552,7 @@ function readHidden(key: string | undefined): string[] | null {
 }
 
 /** The whole rail: Customize, pinned sections, the visible sections in order, the footer, then `after`. Renders an `aside`. */
-export function RecordRail({ sections, visible, onVisibleChange, defaultVisible, storageKey, customize = true, customizeLabels, footer, after, className }: RecordRailProps) {
+export function RecordRail({ sections, visible, onVisibleChange, defaultVisible, storageKey, customize = true, customizeLabels, customizeIcon, footer, after, className }: RecordRailProps) {
   const toggleable = sections.filter((s) => !s.pinned);
   const [own, setOwn] = React.useState<Set<string>>(() => {
     const hidden = readHidden(storageKey);
@@ -552,7 +572,7 @@ export function RecordRail({ sections, visible, onVisibleChange, defaultVisible,
   return (
     <aside data-record-rail="" className={className}>
       {customize && toggleable.length > 0 && (
-        <RecordRailCustomize options={toggleable.map((s) => ({ id: s.id, label: s.label }))} visible={shown} onToggle={toggle} labels={customizeLabels} />
+        <RecordRailCustomize options={toggleable.map((s) => ({ id: s.id, label: s.label }))} visible={shown} onToggle={toggle} labels={customizeLabels} icon={customizeIcon} />
       )}
       {sections.filter((s) => s.pinned).map((s) => <React.Fragment key={s.id}>{s.render()}</React.Fragment>)}
       {toggleable.filter((s) => shown.has(s.id)).map((s) => <React.Fragment key={s.id}>{s.render()}</React.Fragment>)}

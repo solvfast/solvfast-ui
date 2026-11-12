@@ -251,6 +251,19 @@ describe("RecordRail modules", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("hosts can pass their own glyphs (another lucide-react version keeps its shapes)", () => {
+    const G = (name: string) => function Glyph({ className }: { className?: string }) { return <svg data-glyph={name} className={className} />; };
+    const { container } = wrap(<>
+      <RecordRailCustomize options={[{ id: "a", label: "A" }]} visible={new Set(["a"])} onToggle={() => {}} icon={G("settings")} />
+      <RecordRailSection title="C" icon={User} spec={{ kind: "multi", count: 1, onAdd: () => {} }} icons={{ add: G("plus") }} gripIcon={G("grip")}>x</RecordRailSection>
+      <RecordRailAssignment team={{ label: "Team", value: "R" }} autoAssign={{ label: "Auto", onClick: () => {} }} icons={{ team: G("team"), autoAssign: G("auto") }}>a</RecordRailAssignment>
+      <RecordRailTasks title="T" emptyLabel="-" openLabel="Open" openIcon={G("open")} tasks={[{ id: "1", title: "t", onOpen: () => {} }]} />
+      <RecordRailArticles articles={[{ id: "a", title: "A" }]} onOpen={() => {}} icons={{ header: G("book"), row: G("file"), chevron: G("chev") }} />
+    </>);
+    const glyphs = Array.from(container.querySelectorAll("[data-glyph]")).map((g) => g.getAttribute("data-glyph"));
+    expect(glyphs).toEqual(expect.arrayContaining(["settings", "plus", "grip", "team", "auto", "open", "book", "file", "chev"]));
+  });
+
   it("uses logical (RTL-safe) placement only and no hard-coded colours", () => {
     const { container } = wrap(<RecordRail sections={[
       { id: "o", label: "Organization", render: () => <RecordRailLinkedRecord title="Organization" icon={Building2} emptyLabel="none" onChange={() => {}} record={{ name: "Org", action: <button>x</button> }} /> },
