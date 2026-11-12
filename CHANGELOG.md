@@ -6,6 +6,21 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0-dev.2 — the CRM record page: RecordPage, the CRM header, the edit session, the About cards
+
+Additive (nothing changes for a consumer that does not use the new components or props). docs/components/record.md §11.
+- `RecordPage` (+ `sf-record-page` surfaces in glass.css: the CRM's airy glass cards, any app), `RecordHeaderCard
+  variant="crm"` + `RecordHeaderIcon`, `RecordQuickAction`, `RecordQuickActionMenu`, `RecordTabs`.
+- `RecordEditSession` (page-level Save and single-card models, the unsaved-changes prompt), `RecordEditableCard`,
+  `RecordNotSavedPill`, `RecordSaveButton`, `useRecordEditSession`; `res*` messages.
+- About cards: `RecordInfoTile`, `RecordInfoRow`, `RecordScoreRing`, `RecordFieldList`, `RecordInsightCard`,
+  `RecordClosedNotice`, `RecordInteractions`; `rpg*` messages.
+- `RecordMenu`: `contentClassName`, `shortcutDir`, `layout` (defaults unchanged).
+- Evidence: a lab build of the CRM on these components matched the live CRM Deal page — main column and toolbar in 15
+  states (tabs, menus, title edit, profile edit / dirty / refused, the unsaved prompt, prerequisites edit, won and lost
+  deals) × 4 combinations: structural signatures and screenshots identical (the ⋯ menu: one more <span> per item, same
+  pixels); the edit flow behaves identically (40 checks on both). jsdom tests: record-page, record-edit-session.
+
 ## 0.8.0-dev.1 — integration: 0.7.0 + the Sayr families line + RecordRail
 
 The first prerelease after 0.7.0 (`feat/0.8.x/integration`, from tag `v0.7.0`). It merges `feat/0.7.x/families` at

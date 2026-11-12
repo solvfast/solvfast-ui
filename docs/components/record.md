@@ -795,3 +795,55 @@ Pass `labels` when rendering outside a ThemeProvider or when the host's language
 `FrappeFormView` / `FrappeForm` take `aside` (a node, or a function of the live form context like `menu`): the form
 takes 3 of 4 columns from `lg` up and the aside the 4th — the CRM record page's grid. Pass a `RecordRail` for the CRM
 experience or a `FrappeFormSidebar` for Desk's. Without `aside` the form's DOM is unchanged.
+
+## 11. RecordPage — the CRM record page (0.8.0-dev.2)
+
+The main area of the CRM record pages (Deal first; the same parts on Lead, Contact, Organization, Ticket) as DS
+components — **ports, not a redesign**: each reproduces the CRM's markup inside its @solvfast/ui scope, verified by
+structural signatures (every element's position, size and computed styles) and screenshots against the live page, 15
+states × 4 theme / language / width combinations (`docs/audit/p08/` record).
+
+### 11.1 Layout and surfaces
+
+- `RecordPage` — `back` ({label, onClick, icon}), `actions` (the toolbar's end: Save, Actions, ⋯), `header`, `children`
+  (the tabs), `aside` (a `RecordRail`), `between` (dialogs, bridges). The page container, toolbar and 3 + 1 grid.
+- It sets **`sf-record-page`**, the record page's surfaces (`styles/src/sf-record-page.css`, in glass.css): the CRM's
+  airy glass cards (`.bg-card` + `.rounded-*` → the glass pane, 20 px corners on the large ones), band strips and page
+  roots — the CRM look in any app. The package's own `Card` stays as it is (solid in light).
+
+### 11.2 Header and actions
+
+- `RecordHeaderCard variant="crm"` — `avatar` (e.g. `RecordHeaderIcon` {icon, color}: the brand halo tile; or a photo),
+  `title` (e.g. `EditableTitle`), `name` (#id), `statusNode` (e.g. `StatusBadge` in the lifecycle tone), `titleExtra`
+  (e.g. `RecordNotSavedPill`), `facts` ({icon, text, onClick?: a link}), `value` (left-to-right, tabular), `chips`, `actions`.
+  The default variant (Sayr's header) is unchanged.
+- `RecordQuickAction` (outline pill; `variant="primary"` = filled) and `RecordQuickActionMenu` (`variant="split"`: Meeting ▾;
+  `"more"`: More ▾; `items` with icon, icon colour, onSelect).
+- The toolbar's ⋯: `RecordMenu` with `contentClassName="w-60"`, `shortcutDir="inherit"`, `layout="inline"` and the host's
+  trigger; Actions: `ActionBar variant="menu"`; Save: `RecordSaveButton`.
+- `RecordTabs` — {value, onValueChange, tabs: {value, label, icon}[]} + the `TabsContent` panels.
+
+### 11.3 Editing — `RecordEditSession`
+
+One session per page. **Page-level Save** (`pageSave` + `commit`): many cards edit at once; every change feeds one save —
+`RecordNotSavedPill`, `RecordSaveButton` (toolbar), Ctrl/Cmd+S; `saveAll()` merges the dirty regions' patches (a region's
+`getPatch` returning `false` refuses and is focused) and calls `commit` once. **Single card** (default): one card at a
+time, its own Save. Leaving while dirty (`useRecordEditSession().guard(fn)`) asks: Save and leave · Discard · Keep editing.
+Host hooks: `notify` (saved / error — e.g. a toast), `onDirtyChange` (e.g. a shell guard), `renderUnsavedDialog` (an app's
+own popup), `labels` (`res*` messages). `RecordEditableCard` — {cardId, label, renderEdit({markDirty}), getPatch, onSave,
+onCancel, editableWhenClosed, readOnly, icon, headerExtra}: header (icon, title, Edit), body, Cancel (+ Save) while editing.
+
+### 11.4 About cards
+
+`RecordInfoTile` (labelled tile; `tone` = border + wash classes), `RecordInfoRow` (icon square + label + value; `tone`),
+`RecordScoreRing` (0–100; ≤ 64 px = compact), `RecordFieldList` (label / value rows; `emptyLabel`), `RecordInsightCard`
+(icon, title, subtitle; e.g. an AI summary whose text the app writes), `RecordClosedNotice`, `RecordInteractions`
+(inbound / outbound columns of `RecordInteraction`, up to 4 each, a row opens to its body). Domain content (the summary's
+text, health signals, which interactions are inbound) stays in the app.
+
+### 11.5 Not yet
+
+- The Frappe adapter: `FrappeFormView` rendering this page (header from the doc, sections as `RecordEditableCard`s bound
+  to the form controller's dirty / save). Today `FrappeFormView aside` (§10.6) hosts the rail beside Desk's form.
+- Lead, Contact, Organization, Ticket, Service Request, Order: their headers / toolbars / About cards are not on these
+  components yet (their rail cards and the edit session are).
