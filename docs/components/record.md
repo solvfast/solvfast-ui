@@ -807,9 +807,14 @@ states × 4 theme / language / width combinations (`docs/audit/p08/` record).
 
 - `RecordPage` — `back` ({label, onClick, icon}), `actions` (the toolbar's end: Save, Actions, ⋯), `header`, `children`
   (the tabs), `aside` (a `RecordRail`), `between` (dialogs, bridges). The page container, toolbar and 3 + 1 grid.
-- It sets **`sf-record-page`**, the record page's surfaces (`styles/src/sf-record-page.css`, in glass.css): the CRM's
-  airy glass cards (`.bg-card` + `.rounded-*` → the glass pane, 20 px corners on the large ones), band strips and page
-  roots — the reference look in any app. The package's own `Card` stays as it is (solid in light).
+- **`surface`** (0.8.0-dev.4): `"glass"` (**default**) or `"plain"`.
+  - `"glass"` (or no `surface`) sets **`sf-record-page`**, the record page's glass surfaces
+    (`styles/src/sf-record-page.css`, shipped in glass.css: import glass.css to get them). The CRM's airy glass cards
+    (`.bg-card` + `.rounded-*` → the glass pane, 20 px corners on the large ones), band strips and page roots — the
+    reference look in any app. The package's own `Card` stays as it is (solid in light).
+  - `"plain"` omits `sf-record-page`: no record page surface styling; each component keeps its own surface classes (e.g.
+    a solid `bg-card`). Nothing else changes (same DOM, roles and focus order).
+  - Type: `RecordPageSurface`.
 
 ### 11.2 Header and actions
 

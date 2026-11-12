@@ -11,12 +11,16 @@ import { Tabs, TabsList, TabsTrigger } from "../primitives/tabs";
  * end side), then the 3 + 1 grid — the main column (the header card, then the tabs) and the right rail (`aside`, e.g. a
  * `RecordRail`). Its reference is the CRM record page (Deal / Lead / Contact / Organization / Ticket details), markup 1:1.
  *
- * It also sets `sf-record-page`: the record page's surfaces (styles/src/sf-record-page.css — airy glass cards with
- * 20px corners, in both themes, as the reference draws them). Presentational: routing, permissions and
- * the save model are the host's (`actions` takes them).
+ * Surfaces (`surface`): "glass" (default) sets `sf-record-page`, the record page's glass look (styles/src/sf-record-page.css,
+ * shipped in glass.css — airy glass cards with 20px corners, in both themes, as the reference draws them); "plain" omits
+ * it, so each component keeps its own surface. Presentational: routing, permissions and the save model are the host's
+ * (`actions` takes them).
  */
 
 type IconType = React.ComponentType<{ className?: string }>;
+
+/** The record page's surfaces: "glass" (the default look) or "plain" (the components' own surfaces). */
+export type RecordPageSurface = "glass" | "plain";
 
 export interface RecordPageProps {
   /** "Back to <list>": the toolbar's start. */
@@ -34,13 +38,16 @@ export interface RecordPageProps {
   /** The main column after the header (e.g. the tabs). */
   children?: React.ReactNode;
   className?: string;
+  /** "glass" (default): the record page's glass look (`sf-record-page`; needs glass.css). "plain": no record page
+   *  surface styling — each component keeps its own surface classes. */
+  surface?: RecordPageSurface;
 }
 
-export function RecordPage({ back, banner, actions, header, between, aside, children, className }: RecordPageProps) {
+export function RecordPage({ back, banner, actions, header, between, aside, children, className, surface = "glass" }: RecordPageProps) {
   const { isRTL } = useLocale();
   const BackIcon = back?.icon ?? (isRTL ? ArrowRight : ArrowLeft);
   return (
-    <div className={cn("sf-record-page p-4 md:p-6 max-w-[1600px] mx-auto", className)} data-record-page>
+    <div className={cn(surface !== "plain" && "sf-record-page", "p-4 md:p-6 max-w-[1600px] mx-auto", className)} data-record-page>
       {banner}
       <div className="flex items-center justify-between mb-4">
         {back ? (

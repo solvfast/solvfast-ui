@@ -214,3 +214,47 @@ describe("T3 neutral naming — the deprecated alias variant=\"crm\" is variant=
     expect(Array.from(container.querySelectorAll("[data-record-header]")).map((e) => e.getAttribute("data-record-header"))).toEqual(["true", "true"]);
   });
 });
+
+describe("T4 RecordPage surface — glass (default) | plain", () => {
+  const ROOT = "sf-record-page p-4 md:p-6 max-w-[1600px] mx-auto";
+  const page = (props: Partial<React.ComponentProps<typeof RecordPage>>) => (
+    <RecordPage back={{ label: "Back", onClick: () => {} }} actions={<button>Save</button>} between={<i />}
+      header={<RecordHeaderCard variant="page" title="Annual contract" name="1" facts={[{ icon: Building2, text: "Org", onClick: () => {} }]} />}
+      aside={<aside data-testid="aside" />} {...props}>
+      <section className="rounded-2xl border border-border bg-card">card</section>
+    </RecordPage>
+  );
+  const render2 = (ui: React.ReactElement, language: "en" | "ar", theme: "light" | "dark") =>
+    render(<ThemeProvider language={language} theme={theme} storageKeys={null}>{ui}</ThemeProvider>);
+  const rootOf = (c: HTMLElement) => c.querySelector("[data-record-page]")!;
+
+  for (const theme of ["light", "dark"] as const) for (const language of ["en", "ar"] as const) {
+    it(`no surface and surface="glass" render the same DOM; the root keeps today's class string (${theme}, ${language})`, () => {
+      const a = render2(page({}), language, theme).container; const htmlA = a.innerHTML;
+      expect(rootOf(a).getAttribute("class")).toBe(ROOT); cleanup();
+      const b = render2(page({ surface: "glass" }), language, theme).container;
+      expect(b.innerHTML).toBe(htmlA);
+    });
+    it(`surface="plain" omits sf-record-page and changes nothing else (${theme}, ${language})`, () => {
+      const g = render2(page({ surface: "glass" }), language, theme).container.innerHTML; cleanup();
+      const p = render2(page({ surface: "plain" }), language, theme).container;
+      expect(rootOf(p).getAttribute("class")).toBe("p-4 md:p-6 max-w-[1600px] mx-auto");
+      expect(p.querySelector(".sf-record-page")).toBeNull();
+      expect(p.innerHTML).toBe(g.replace('class="sf-record-page p-4', 'class="p-4'));
+    });
+  }
+  it("className merges in both surfaces (and can still override the padding)", () => {
+    const g = wrap(page({ className: "px-2 extra" })).container;
+    expect(rootOf(g).getAttribute("class")).toBe("sf-record-page p-4 md:p-6 max-w-[1600px] mx-auto px-2 extra"); cleanup();
+    const p = wrap(page({ surface: "plain", className: "px-2 extra" })).container;
+    expect(rootOf(p).getAttribute("class")).toBe("p-4 md:p-6 max-w-[1600px] mx-auto px-2 extra");
+  });
+  it("plain and glass expose the same accessible structure (roles, names, focus order)", () => {
+    const tree = (surface: "glass" | "plain") => {
+      const c = wrap(page({ surface })).container;
+      const out = Array.from(c.querySelectorAll("button,a,[role],h1,aside")).map((e) => `${e.tagName}:${e.getAttribute("role") ?? ""}:${e.textContent}:${(e as HTMLElement).tabIndex}`);
+      cleanup(); return out;
+    };
+    expect(tree("plain")).toEqual(tree("glass"));
+  });
+});

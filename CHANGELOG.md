@@ -6,6 +6,16 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0-dev.4 — RecordPage `surface` (P0 T4)
+
+Additive; nothing changes for existing code (glass stays the default).
+- `RecordPage` **`surface?: "glass" | "plain"`** (new type `RecordPageSurface`). `"glass"` is the **default**: no
+  `surface` and `surface="glass"` render exactly what 0.8.0-dev.3 rendered (root class `sf-record-page p-4 md:p-6
+  max-w-[1600px] mx-auto`; same DOM, tested). `"plain"` is an explicit opt-out: no `sf-record-page`, so no record page
+  glass styling; the components keep their own surfaces. Nothing else differs between the two (DOM, roles, focus order).
+- The glass rules and tokens are unchanged; `glass.css` is byte-identical to 0.8.0-dev.3 (`sf-record-page.css` changed
+  in its source comment only). Showcase: the record page demo passes `surface` and has a Glass / Plain switch.
+
 ## 0.8.0-dev.3 — neutral RecordPage naming (P0 T3)
 
 No visual or behaviour change; existing code keeps working.

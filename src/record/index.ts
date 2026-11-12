@@ -12,7 +12,7 @@ export { LifecycleRail } from "./LifecycleRail";
 export { RecordHeaderCard, RecordHeaderIcon } from "./RecordHeaderCard";
 // RecordPage — the CRM record page layout (toolbar, 3 + 1 grid) and its header quick actions. docs/components/record.md §11
 export { RecordPage, RecordQuickAction, RecordQuickActionMenu, RecordTabs } from "./RecordPage";
-export type { RecordPageProps, RecordQuickActionProps, RecordQuickActionMenuProps, RecordQuickActionMenuItem, RecordTab, RecordTabsProps } from "./RecordPage";
+export type { RecordPageProps, RecordPageSurface, RecordQuickActionProps, RecordQuickActionMenuProps, RecordQuickActionMenuItem, RecordTab, RecordTabsProps } from "./RecordPage";
 export { RecordEditSession, RecordEditableCard, RecordNotSavedPill, RecordSaveButton, useRecordEditSession } from "./RecordEditSession";
 export type { RecordEditSessionProps, RecordEditSessionApi, RecordEditSessionLabels, RecordSaveRegion, RecordEditableCardProps, RecordUnsavedDialogProps } from "./RecordEditSession";
 export { RecordInfoTile, RecordInfoRow, RecordScoreRing, RecordFieldList, RecordInsightCard, RecordClosedNotice, RecordInteractions, RecordField, RecordFieldGrid } from "./RecordAbout";

@@ -1,6 +1,7 @@
 /**
  * Record page (the CRM reference composition) — RecordPage + RecordHeaderCard variant="page" + quick actions + RecordRail, with no app CSS: what
- * another app gets from the package (the CRM record page's look, `sf-record-page` surfaces). Data is illustrative.
+ * another app gets from the package. Surface: "glass" (the default, the CRM record page's look) or "plain" (the
+ * components' own surfaces) — switch above the demo, or `?surface=plain` in the URL. Data is illustrative.
  */
 import * as React from "react";
 import {
@@ -20,12 +21,22 @@ export function RecordPageDemoPage() {
   const [value, setValue] = React.useState(12500000);
   const [draft, setDraft] = React.useState(String(value));
   const L = (en: string, ar: string) => tr({ en, ar });
+  const [surface, setSurface] = React.useState<"glass" | "plain">(() =>
+    (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("surface") === "plain" ? "plain" : "glass"));
   return (
     <Section title={l("Record page (CRM)", "صفحة السجل (CRM)")}>
       <Example title={l("A deal, as the CRM shows it", "صفقة كما يعرضها CRM")}>
-        <div data-demo="record-page">
+        <div className="mb-3 flex items-center gap-2" data-demo-surface-switch>
+          {(["glass", "plain"] as const).map((v) => (
+            <Button key={v} size="sm" variant={surface === v ? "default" : "outline"} aria-pressed={surface === v} onClick={() => setSurface(v)}>
+              {v === "glass" ? L("Glass (default)", "زجاجي (الافتراضي)") : L("Plain", "عادي")}
+            </Button>
+          ))}
+        </div>
+        <div data-demo="record-page" data-demo-surface={surface}>
           <RecordEditSession pageSave commit={(m) => { setValue(Number(m.value)); return true; }}>
           <RecordPage
+            surface={surface}
             back={{ label: L("Back to Deals", "العودة للصفقات"), onClick: () => {} }}
             actions={<><RecordSaveButton /><Button size="sm">{L("Actions", "الإجراءات")}</Button></>}
             header={

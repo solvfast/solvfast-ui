@@ -1,11 +1,10 @@
-/* The record page's surfaces — the CRM record page look, for any app (opt-in: `RecordPage` sets `sf-record-page`).
+/* The record page's glass surfaces (`RecordPage surface="glass"`, the default, sets `sf-record-page`; "plain" omits it).
  *
- * Source: serve_fast's src/crm-ds-look.css §3–§6 (2026-11-12), the rules that give the CRM record page its look:
- * solid card surfaces become the airy glass pane (this file's engine: .sf-glass-pane + --airy, re-targeted) in BOTH
+ * Solid card surfaces become the airy glass pane (this file's engine: .sf-glass-pane + --airy, re-targeted) in BOTH
  * themes — the package's own `.sf-glass-pane` is solid in light (glass.css "light surfaces solid") — with 20px corners on
- * the large ones; band strips, page roots and unrounded card bodies as there. Copied verbatim; only the scope changed
- * (`.sf-crm main` → `.sf-record-page`). In the CRM both rule sets apply with identical declarations, so nothing changes
- * there; elsewhere a RecordPage looks like the CRM's. Uses the glass engine's variables (`.sf-theme`).
+ * the large ones; band strips, page roots and unrounded card bodies as well. Reference: the CRM record page's surfaces,
+ * reproduced verbatim (only the scope differs), so inside the CRM both rule sets apply with identical declarations.
+ * Uses the glass engine's variables (`.sf-theme`).
  */
 
 /* 3. Solid card surfaces → @solvfast/ui's airy glass pane (glass.css .sf-glass-pane + --airy, re-targeted), with
@@ -18,10 +17,10 @@
 .sf-record-page :where(div, section, article, aside, header, li, form, a, button):where(.bg-card, .bg-card\/50, .bg-card\/60, .bg-card\/70, .bg-card\/80, .bg-card\/90, .bg-card\/95, .bg-background):where(.rounded-xl, .rounded-2xl, .rounded-3xl):where(:not(.absolute, .fixed, .sticky)) { border-radius: 20px; }
 
 /* 4. Full-width header / footer / toolbar bands (border-b / border-t on a solid page or card fill): the airy glass
- *    of the shell's top bar, square, borders kept (saqr's wizard footers; Sear has no solid strips). */
+ *    of the shell's top bar, square, borders kept. */
 .sf-record-page :where(div, header, footer, section, nav):where(.bg-background, .bg-card):where(.border-b, .border-t, .border-y):where(:not([class*="rounded"])):where(:not(.absolute, .fixed)) { background: color-mix(in srgb, var(--c-glass) 6%, transparent); -webkit-backdrop-filter: blur(8px) saturate(156%); backdrop-filter: blur(8px) saturate(156%); }
 
-/* 5. Page and region roots painting the solid page colour over the aurora (Sear's pages have none). */
+/* 5. Page and region roots painting the solid page colour over the aurora. */
 .sf-record-page :where(div, section, main, form, article):where(.bg-background):where(.flex-1, .min-h-0, .h-full, .min-h-full, .h-screen, .min-h-screen, [class*="h-[calc(100vh"], [class*="min-h-[calc(100vh"]):where(:not(.border-b, .border-t, .border-y, .sticky)):where(:not([class*="rounded"])):where(:not(.absolute, .fixed)) { background-color: transparent; }
 
 /* 6. Unrounded card bodies (`p-6 bg-card` under a card's header strip): the card around them is already glass.
