@@ -283,3 +283,17 @@ const p36bSocial = () => import("./pages/p36b-social");
   PAGES.push({ ...page, group });
   PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
 }
+
+// 0.8.0-dev.2 — the CRM record page (RecordPage, RecordHeaderCard crm, quick actions, RecordRail) with no app CSS
+{
+  const recordPage = () => import("./pages/record-page");
+  const group = GROUPS.find((g) => g.id === "patterns")!;
+  const page: Page = {
+    id: "record-page-crm",
+    title: l("Record page (CRM)", "صفحة السجل (CRM)"),
+    description: l("The CRM record page from the package: the toolbar, the header card with quick actions, the tabs area and the right rail (RecordRail) — the CRM's look (sf-record-page surfaces) in any app.", "صفحة سجل CRM من الحزمة: شريط الأدوات وبطاقة الرأس مع الإجراءات السريعة ومنطقة التبويبات والشريط الأيمن (RecordRail) — بمظهر CRM في أي تطبيق."),
+    Component: from(recordPage, "RecordPageDemoPage"),
+  };
+  group.pages.push(page);
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}

@@ -123,7 +123,9 @@ const glass = shake(postcss.root()
   .append(transform(read(sources.tokens), { dropDims: true }))
   .append(transform(read(sources.engine)))
   .append(transform(read(sources.adapter)))
-  .append(postcss.parse(read(path.join(root, "styles/src/sf-fixes.css")))));
+  .append(postcss.parse(read(path.join(root, "styles/src/sf-fixes.css"))))
+  // 0.8.0-dev.2: the record page's surfaces (RecordPage → `sf-record-page`), the CRM record page look — opt-in, LAST.
+  .append(postcss.parse(read(path.join(root, "styles/src/sf-record-page.css")))));
 const base = postcss.root().append(postcss.parse("@layer base {}"));
 base.first.append(baseRules.nodes);
 

@@ -218,7 +218,10 @@ export type {
 export { STATUS_PALETTE, resolveStatusColor, statusColorStyles } from "./primitives/status-dot";
 export type { LifecycleStep } from "./record";
 // Lifecycle — the shared record lifecycle rail + diagram look (CRM, Tickets). docs/components/record.md §9
-export { RecordHeaderCard, FieldPreview, previewKind } from "./record";
+export { RecordHeaderCard, RecordHeaderIcon, FieldPreview, previewKind } from "./record";
+// RecordPage — the CRM record page layout and header quick actions (0.8.0-dev.2). docs/components/record.md §11
+export { RecordPage, RecordQuickAction, RecordQuickActionMenu } from "./record";
+export type { RecordPageProps, RecordQuickActionProps, RecordQuickActionMenuProps, RecordQuickActionMenuItem } from "./record";
 export type { RecordHeaderCardProps, RecordHeaderFact, FieldPreviewProps } from "./record";
 export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
 export type {
