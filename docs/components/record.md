@@ -923,7 +923,11 @@ A record page is **composed by the app** from Core parts; nothing in Core knows 
 | `aside` | `RecordRail` with the app's sections (Lifecycle, Assignment, Linked records, Tasks, custom ones) | Core component; each section's `render` is the app's |
 | data, permissions, stores, routing, history storage | — | the app (or a Frappe adapter: `@solvfast/ui/frappe`) |
 
-The CRM record page is the reference composition (`showcase` › Record page); the package keeps no CRM content.
+The CRM record page is the reference composition (`showcase` › Record page (CRM)); the package keeps no CRM content.
+`showcase` › **Record page (dental patient)** composes the same parts for a dental clinic (package components only): a patient
+journey (`LifecycleActions` in the toolbar, a read-only `LifecycleRail` from `lifecyclePath` / `lifecycleNext`, the badge
+from `lifecycleTone`), five tabs (`overflow="scroll"`), an edit session, an app card (`RecordSectionCard`), an app rail
+section and an embedded `ListView`.
 
 ### 11.6 Not yet
 

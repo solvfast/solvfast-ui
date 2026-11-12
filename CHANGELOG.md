@@ -26,6 +26,9 @@ Additive; nothing changes for existing code.
     (kept, unchanged; warns once in the console). `compact` unchanged. `workflowLifecycle(workflow)` (`@solvfast/ui/frappe`).
     Consumer check: no app passes `steps` to the package (the CRM maps its own `steps` to `rail`); the showcase's
     workflow demo now shows `actions` + `rail`.
+- **T8** showcase › Record page (dental patient): the record page parts for another domain, package components only (a
+  patient journey on the Lifecycle contract, five scrolling tabs, an edit session, an app card and rail section, an
+  embedded ListView). Captured in light / dark × en / ar × 390 / 820 / 1440: no CRM CSS or strings, no truncated tab.
 
 ## 0.8.0-dev.4 — RecordPage `surface` (P0 T4)
 

@@ -297,3 +297,17 @@ const p36bSocial = () => import("./pages/p36b-social");
   group.pages.push(page);
   PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
 }
+
+// 0.8.0-dev.5 (P0 T8) — the record page parts composed for another domain: a dental clinic's patient
+{
+  const recordPageDental = () => import("./pages/record-page-dental");
+  const group = GROUPS.find((g) => g.id === "patterns")!;
+  const page: Page = {
+    id: "record-page-dental",
+    title: l("Record page (dental patient)", "صفحة السجل (مريض أسنان)"),
+    description: l("The record page parts for a dental clinic's patient: a patient journey (Actions menu + read-only rail), five tabs, an edit session, an app card, an app rail section and an embedded list — package components only.", "أجزاء صفحة السجل لمريض في عيادة أسنان: رحلة المريض (قائمة الإجراءات + شريط للقراءة فقط)، خمسة تبويبات، جلسة تعديل، بطاقة وقسم في الشريط من التطبيق وقائمة مضمّنة — مكوّنات الحزمة فقط."),
+    Component: from(recordPageDental, "RecordPageDentalPage"),
+  };
+  group.pages.push(page);
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}
