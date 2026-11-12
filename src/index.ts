@@ -210,6 +210,12 @@ export type {
 export { EmptyState } from "./primitives/empty-state";
 export type { EmptyStateProps } from "./primitives/empty-state";
 export type { RichTextEditorHandle } from "./primitives/rich-text-editor";
+// RecordRail — the CRM record page's right rail (Customize sections, cards, Assignment / Organization / Tasks / Articles
+// modules, footer). NOT the Desk form sidebar (FormSidebar). docs/components/record.md §10
+export { RecordRail, RecordRailCard, RecordRailSection, RecordRailRow, RecordRailCustomize, RecordRailFooter, RecordRailAssignment, RecordRailLinkedRecord, RecordRailTasks, RecordRailArticles, RecordRailArticleReader, recordRailCardClass, RECORD_RAIL_DEFAULT_ACCENT } from "./record";
+export type {
+  RecordRailProps, RecordRailSectionDef, RecordRailCardProps, RecordRailDragHandle, RecordRailSectionProps, RecordRailSectionSpec, RecordRailSectionLabels, RecordRailRowProps, RecordRailCustomizeProps, RecordRailCustomizeOption, RecordRailFooterProps, RecordRailFooterLine, RecordRailAssignmentProps, RecordRailLinkedRecordProps, RecordRailTasksProps, RecordRailTask, RecordRailArticlesProps, RecordRailArticle, RecordRailArticleReaderProps,
+} from "./record";
 
 // P35 views — Core list views (Frappe-free): view switcher, Image, Kanban, Calendar
 export {

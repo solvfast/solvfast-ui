@@ -15,6 +15,11 @@ export type {
   LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels, LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
 } from "./LifecycleDiagram";
 export { LifecycleStepDot } from "./lifecycle-parts";
+// RecordRail — the CRM record page's right rail (docs/components/record.md §10)
+export { RecordRail, RecordRailCard, RecordRailSection, RecordRailRow, RecordRailCustomize, RecordRailFooter, RecordRailAssignment, RecordRailLinkedRecord, RecordRailTasks, RecordRailArticles, RecordRailArticleReader, recordRailCardClass, RECORD_RAIL_DEFAULT_ACCENT } from "./RecordRail";
+export type {
+  RecordRailProps, RecordRailSectionDef, RecordRailCardProps, RecordRailDragHandle, RecordRailSectionProps, RecordRailSectionSpec, RecordRailSectionLabels, RecordRailRowProps, RecordRailCustomizeProps, RecordRailCustomizeOption, RecordRailFooterProps, RecordRailFooterLine, RecordRailAssignmentProps, RecordRailLinkedRecordProps, RecordRailTasksProps, RecordRailTask, RecordRailArticlesProps, RecordRailArticle, RecordRailArticleReaderProps,
+} from "./RecordRail";
 export { ActionBar } from "./ActionBar";
 export type { ActionBarProps, ActionBarLabels } from "./ActionBar";
 export { StatusBadge } from "./StatusBadge";
