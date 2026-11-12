@@ -119,6 +119,10 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   canCancelAllLinked?: (docs: LinkedDoc[]) => Promise<boolean | undefined> | boolean | undefined;
   onSaved?: (doc: FrappeDoc, action: SaveAction | "Cancel") => void;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Changes the host keeps outside this document that the form's Save also saves (e.g. a type's Form section): while
+   *  `dirty` the form counts as not saved, and Save runs `save()` after the document's own save — alone when only they
+   *  changed. A failed `save()` shows its error like a failed save. */
+  alsoSave?: { dirty: boolean; save: () => Promise<void> };
   /** Defaults for new child rows (session user, user defaults). */
   defaults?: DefaultsContext;
   saveDisabled?: boolean;
@@ -132,6 +136,12 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   hideToolbar?: boolean;
   /** Title override (default: "New {DocType}" / title field / name). */
   title?: React.ReactNode;
+  /** A record header shown under the toolbar instead of the toolbar's title block (image, title, name, web link). */
+  header?: React.ReactNode;
+  /** With `header`: what the toolbar shows where the title was (e.g. a Back button). */
+  toolbarStart?: React.ReactNode;
+  /** "record": the tab bar spans the width, each tab an equal share (record pages). Default "default". */
+  tabBar?: "default" | "record";
   /** Ask before leaving the page with unsaved changes (default true). */
   guardUnload?: boolean;
   /** The form's controller (`frm`) for code outside the events. */
@@ -148,6 +158,16 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   /** Only the meta fields (breaks included) it accepts take part in the layout (Quick Entry uses it). Hidden / permission
    *  statuses still apply; the mandatory check still covers every required field — keep required fields in. */
   fieldFilter?: (df: FrappeDocField) => boolean;
+  /** The tab shown, by its key (`onTabsChange` lists them): the host drives the tabs (a wizard's steps). Absent, the
+   *  form keeps its own. */
+  activeTab?: string;
+  /** No tab bar: the host shows the tabs its own way (a stepper) through `activeTab`. */
+  hideTabBar?: boolean;
+  /** The form's visible tabs in order (key + label), whenever they change. */
+  onTabsChange?: (tabs: { key: string; label: string }[]) => void;
+  /** Draw a field the host's way (e.g. an icon and its colour as one picker): return a node, or `undefined` for the
+   *  form's own control. `setValue` writes any field of the document, as the form's controls do. */
+  renderField?: (df: FrappeDocField, context: { value: unknown; doc: FrappeDoc; setValue: (fieldname: string, value: unknown) => void }) => React.ReactNode | undefined;
   /** Desk's keyboard shortcuts while this form is the topmost one mounted: Ctrl/⌘+S runs the visible primary action
    *  (desk.js `trigger_primary_action`), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo (outside text inputs).
    *  Default true; false registers nothing. */
@@ -237,13 +257,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     if (docProp === cur) return;
     if (docProp.name !== cur.name || (docProp.modified !== cur.modified && !store.isDirty())) { store.replace(docProp); setVersion((v) => v + 1); }
   }, [docProp, store]);
-  React.useEffect(() => { props.onDirtyChange?.(!!doc.__unsaved); }, [doc.__unsaved]); // eslint-disable-line react-hooks/exhaustive-deps
+  const unsaved = !!doc.__unsaved || !!props.alsoSave?.dirty;
+  React.useEffect(() => { props.onDirtyChange?.(unsaved); }, [unsaved]); // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
-    if (props.guardUnload === false || !doc.__unsaved || typeof window === "undefined") return;
+    if (props.guardUnload === false || !unsaved || typeof window === "undefined") return;
     const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
     window.addEventListener("beforeunload", h);
     return () => window.removeEventListener("beforeunload", h);
-  }, [doc.__unsaved, props.guardUnload]);
+  }, [unsaved, props.guardUnload]);
 
   // ---- effective fields and statuses ----
   const childFields = React.useCallback((childDoctype: string) => bundle.children[childDoctype]?.fields ?? [], [bundle]);
@@ -414,8 +435,9 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   };
   const visibleTabs = layout.tabs.filter(tabVisible);
   const extraTabs = (props.extraTabs ?? []).map((x) => ({ ...x, tabKey: `extra:${x.key}` }));
-  const activeExtra = extraTabs.find((x) => x.tabKey === activeTab);
-  const currentTab = activeExtra ? undefined : visibleTabs.find((tb) => tb.key === activeTab) ?? visibleTabs[0];
+  const shownTab = props.activeTab ?? activeTab;
+  const activeExtra = extraTabs.find((x) => x.tabKey === shownTab);
+  const currentTab = activeExtra ? undefined : visibleTabs.find((tb) => tb.key === shownTab) ?? visibleTabs[0];
   const tabCount = visibleTabs.length + extraTabs.length;
 
   React.useEffect(() => {
@@ -495,7 +517,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const can = (p: PermType) => (permissions?.can ? permissions.can(p, 0) : !!permissions?.levels?.[0]?.[p]);
   const permissionsUnknown = !permissions || permissions.known === false;
   const actionsFor = (d: FrappeDoc) => formActions({
-    docstatus: (d.docstatus ?? 0) as 0 | 1 | 2, isNew: !!d.__islocal, dirty: !!d.__unsaved, isSubmittable: !!meta.is_submittable,
+    docstatus: (d.docstatus ?? 0) as 0 | 1 | 2, isNew: !!d.__islocal, dirty: !!d.__unsaved || !!props.alsoSave?.dirty, isSubmittable: !!meta.is_submittable,
     perms: { write: can("write"), create: can("create"), submit: can("submit"), cancel: can("cancel"), amend: can("amend") },
     hasWorkflow: !!(permissions?.workflow ?? recWorkflow),
     canCancelWithWorkflow: props.canCancelWithWorkflow ?? (recWorkflow ? canCancelDocument(recWorkflow) : undefined),
@@ -517,7 +539,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
 
   const save = async (action: SaveAction, confirmed = false): Promise<boolean> => {
     if (savingRef.current) return false;
-    if (action === "Save" && !store.isDirty()) { flash(t("formNoChanges")); return false; }
+    const also = latestProps.current.alsoSave;
+    if (action === "Save" && !store.isDirty() && !also?.dirty) { flash(t("formNoChanges")); return false; }
     if (action === "Submit" && !confirmed) { setConfirm("Submit"); return false; }
     savingRef.current = true;
     setSaving(action);
@@ -531,9 +554,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       if (!mandatoryOk()) return false;
       const current = store.getDoc();
       setFieldErrors({});
-      const saved = await onSave(current, action);
+      const saved = action === "Save" && !store.isDirty() ? current : await onSave(current, action);
       store.replace(saved);
       setVersion((v) => v + 1);
+      if (also?.dirty) await also.save();
       flash(t(action === "Submit" ? "formSubmitted" : "formSaved"));
       await trigger("after_save");
       latestProps.current.onSaved?.(saved, action);
@@ -683,7 +707,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   // toolbar.js:44-67: the title field's HTML is stripped (a Text Editor title shows as text)
   const title = props.title ?? (doc.__islocal ? interpolate(t("formNewDoc"), { doctype: docLabel }) : htmlToText(String(titleField || "")) || doc.name);
   const ind = resolveIndicator({
-    doc, isSubmittable: !!meta.is_submittable, hasField: (f) => fieldsByName.has(f),
+    doc: unsaved && !doc.__unsaved ? { ...doc, __unsaved: 1 } : doc, isSubmittable: !!meta.is_submittable, hasField: (f) => fieldsByName.has(f),
     states: meta.states as { title: string; color?: string }[] | undefined,
     workflow: recWorkflow ? {
       stateField: recWorkflow.workflow_state_field,
@@ -712,6 +736,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     const e = df.fieldname === "__newname" ? df : eff.get(df.fieldname) ?? df;
     const st = fieldStatus(df);
     if (st === "None") return null;
+    const custom = props.renderField?.(e, { value: doc[df.fieldname], doc, setValue: (f, v) => store.setValue(f, v, undefined, { record: true }) });
+    if (custom !== undefined) return <React.Fragment key={df.fieldname}>{custom}</React.Fragment>;
     const isTable = TABLE_TYPES.has(df.fieldtype);
     return (
       <FrappeField
@@ -757,6 +783,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   };
 
   const tabLabel = (tab: LayoutTab) => (tab.details || !tab.df ? t("formDetails") : s.translate(bundle, tab.df.label || tab.df.fieldname));
+  const tabsSignature = visibleTabs.map((tab) => `${tab.key}\u0001${tabLabel(tab)}`).join("\u0002");
+  React.useEffect(() => {
+    props.onTabsChange?.(visibleTabs.map((tab) => ({ key: tab.key, label: tabLabel(tab) })));
+  }, [tabsSignature]); // eslint-disable-line react-hooks/exhaustive-deps
   const lineText = (l: MandatoryLine) => {
     switch (l.kind) {
       case "field": return interpolate(t("formFieldRequired"), { label: l.label });
@@ -771,6 +801,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     <div className={cn("min-w-0 space-y-5", className)} data-doctype={meta.name}>
       {!props.hideToolbar && (
         <div className="flex flex-wrap items-center gap-3">
+          {props.header !== undefined ? <div className="min-w-0 flex-1">{props.toolbarStart}</div> : <>
           {imageField !== undefined && (
             <FrappeFormImage bundle={bundle} doc={doc} df={eff.get(imageField) ?? fieldsByName.get(imageField)} canWrite={!permissionsUnknown && can("write")}
               initials={initials(htmlToText(String(titleField || "")) || doc.name)} getDocInfo={() => latestProps.current.docinfo}
@@ -785,6 +816,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
               </a>
             )}
           </div>
+          </>}
           {indicator && <Badge variant={indicator.variant}>{indicator.text}</Badge>}
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
           {!notice && permissionsUnknown && <span role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</span>}
@@ -815,7 +847,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
             </Button>
           )}
           {typeof props.menu === "function"
-            ? props.menu({ frm: frmRef.current!, doc, dirty: !!doc.__unsaved, reload: props.onReload ? () => reload() : undefined, showTab: (key) => setActiveTab(key), tabs: [...visibleTabs.map((tb) => tb.key), ...extraTabs.map((x) => x.tabKey)] })
+            ? props.menu({ frm: frmRef.current!, doc, dirty: unsaved, reload: props.onReload ? () => reload() : undefined, showTab: (key) => setActiveTab(key), tabs: [...visibleTabs.map((tb) => tb.key), ...extraTabs.map((x) => x.tabKey)] })
             : props.menu}
         </div>
       )}
@@ -844,11 +876,13 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </div>
       )}
 
-      {tabCount > 1 && (
+      {props.header}
+
+      {tabCount > 1 && !props.hideTabBar && (
         <Tabs value={activeExtra?.tabKey ?? currentTab?.key} onValueChange={(v) => setActiveTab(v)}>
-          <TabsList className="max-w-full overflow-x-auto">
-            {visibleTabs.map((tab) => <TabsTrigger key={tab.key} value={tab.key}>{tabLabel(tab)}</TabsTrigger>)}
-            {extraTabs.map((x) => <TabsTrigger key={x.tabKey} value={x.tabKey} data-extra-tab={x.key}>{x.label}</TabsTrigger>)}
+          <TabsList className={props.tabBar === "record" ? "flex w-full max-w-full overflow-x-auto" : "max-w-full overflow-x-auto"} data-tab-bar={props.tabBar ?? "default"}>
+            {visibleTabs.map((tab) => <TabsTrigger key={tab.key} value={tab.key} className={props.tabBar === "record" ? "min-w-0 flex-1" : undefined}>{tabLabel(tab)}</TabsTrigger>)}
+            {extraTabs.map((x) => <TabsTrigger key={x.tabKey} value={x.tabKey} data-extra-tab={x.key} className={props.tabBar === "record" ? "min-w-0 flex-1" : undefined}>{x.label}</TabsTrigger>)}
           </TabsList>
         </Tabs>
       )}

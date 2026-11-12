@@ -73,12 +73,24 @@ describe("rows through reportview.get", () => {
     await waitFor(() => expect(bodyRows()).toHaveLength(5));
     const heads = [...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim());
     expect(heads).toEqual(expect.arrayContaining([en("listAssigned"), en("listComments"), en("listLikes")]));
-    const first = bodyRows().find((r) => r.querySelector('[title*="sara, omar"]'))!; // full names from user_info
+    // full names from user_info, one per avatar
+    const first = bodyRows().find((r) => [...r.querySelectorAll("[data-assignee]")].map((a) => a.getAttribute("aria-label")).join() === "sara,omar")!;
     expect(first).toBeTruthy();
     expect(first.textContent).toContain("S"); // initials of sara
     expect(first.textContent).toContain("2"); // 2 comments
     expect(bodyRows().some((r) => r.querySelector('[title="sara@example.com"]'))).toBe(true); // liked by
     expect(calls(mock, "frappe.desk.reportview.get").at(-1)!.args).toMatchObject({ with_comment_count: 1 });
+  });
+
+  it("rowMeta object: a column set true is shown by default, the others stay offered and hidden (0.7.0-dev.17)", async () => {
+    const mock = withMeta();
+    mount(mock.transport, { rowMeta: { assignees: true }, columnLimit: false });
+    await waitFor(() => expect(bodyRows()).toHaveLength(5));
+    const heads = [...document.querySelectorAll("thead th")].map((h) => h.textContent?.trim());
+    expect(heads).toContain(en("listAssigned"));
+    expect(heads).not.toContain(en("listComments"));
+    expect(heads).not.toContain(en("listLikes"));
+    expect(bodyRows().some((r) => [...r.querySelectorAll("[data-assignee]")].map((a) => a.getAttribute("aria-label")).join() === "sara,omar")).toBe(true);
   });
 
   it("List View Settings: disable_comment_count → with_comment_count 0 and no comments column; disable_count → no count call", async () => {

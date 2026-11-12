@@ -9,12 +9,28 @@ export type { AssigneeGroupProps, AssignPickerProps, AssignLabels } from "./Assi
 export { LifecycleBar } from "./LifecycleBar";
 export type { LifecycleBarProps } from "./LifecycleBar";
 export { LifecycleRail } from "./LifecycleRail";
+export { RecordHeaderCard } from "./RecordHeaderCard";
+export { FieldPreview, previewKind } from "./FieldPreview";
+export type { FieldPreviewProps } from "./FieldPreview";
+export type { RecordHeaderCardProps, RecordHeaderFact } from "./RecordHeaderCard";
 export type { LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels } from "./LifecycleRail";
 export { LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LIFECYCLE_DIAGRAM_COLORS } from "./LifecycleDiagram";
 export type {
   LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels, LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
 } from "./LifecycleDiagram";
 export { LifecycleStepDot } from "./lifecycle-parts";
+// Families — the Records | Types tabs. docs/components/family.md
+export { FamilyTabs } from "./FamilyTabs";
+export type { FamilyTabsProps, FamilyTab, FamilyTabProps } from "./FamilyTabs";
+// Families — a type's Form section (placement only). docs/components/family.md §7
+export { FieldDesigner } from "./FieldDesigner";
+export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval, DesignerPending } from "./FieldDesigner";
+export { FieldInspector } from "./FieldInspector";
+export type { FieldInspectorProps, LinkTargetOption, LinkTargetField } from "./FieldInspector";
+export { INSPECTED_PROPERTIES, LINK_OPERATORS, keyFromLabel, deriveKey, ownKeys, retype, definitionProblem } from "./fieldDefinition";
+export type { FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./fieldDefinition";
+export { toLayout, fromLayout, insertItem, moveItem, stepItem, locateField, insertSectionAfter, appendTab, removeSection, removeTab, previousId, kindOfFieldtype } from "./fieldLayout";
+export type { DesignerItem, DesignerKind, DropSlot, LayoutTab, LayoutSection, LayoutColumn } from "./fieldLayout";
 export { ActionBar } from "./ActionBar";
 export type { ActionBarProps, ActionBarLabels } from "./ActionBar";
 export { StatusBadge } from "./StatusBadge";

@@ -14,6 +14,7 @@ against them; changes go through the Lead. Native behaviour references: `apps/se
 | Frappe services, hooks, feedback, simulated backend | `src/frappe/{services,hooks,feedback,testing}/` + `client.ts`, `FrappeProvider.tsx` | `./frappe` | everything except shell |
 | Frappe list | `src/frappe/{FrappeListView.tsx,useFrappeList.ts,query.ts,meta.ts,list/}` + generic `src/list/` | `./frappe` / `.` | — |
 | Frappe forms | `src/frappe/form/` | `./frappe` | fields, primitives, services/hooks |
+| Sayr (0.7.0-dev.8) | `src/sayr/` | `./sayr` | the Frappe client, record (FieldDesigner), theme — the only layer that calls Sayr's own methods; nothing else imports it |
 | Frappe record (workflow, assignment, timeline, lifecycle) | `src/frappe/record/` | `./frappe` | record, fields, primitives, services/hooks |
 
 `scripts/check-boundaries.mjs` enforces this. A component that renders without a Frappe site belongs in `fields/` or

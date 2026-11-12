@@ -78,3 +78,14 @@ export function useDoc(doctype?: string, name?: string): UseQueryResult<LoadedDo
   }
   return { ...doc, data, refetch: doc.refetch } as unknown as UseQueryResult<LoadedDoc, FrappeError>;
 }
+
+/** Read a document and its docinfo again (after something outside the form changed it, e.g. an app's own method). */
+export function useRefreshDoc(): (doctype: string, name: string) => Promise<void> {
+  const qc = useQueryClient();
+  return React.useCallback(async (doctype: string, name: string) => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: frappeKeys.doc(doctype, name) }),
+      qc.invalidateQueries({ queryKey: frappeKeys.docinfo(doctype, name) }),
+    ]);
+  }, [qc]);
+}

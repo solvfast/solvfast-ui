@@ -272,6 +272,22 @@ describe("LV.D2 / LV.D3 / LV.D4 / LV.B13 / LV.B14 / LV.E7 Assigned To and Tags a
     await waitFor(() => expect(bodyRows()).toHaveLength(1));
     expect(parsed(lastGet().filters)).toEqual([["_user_tags", "like", "%vip%"]]);
   });
+
+  it("LV.E8 an assignee avatar names its user on hover; clicking it filters by that user, not opening the row (SIMULATED)", async () => {
+    const onRowClick = vi.fn();
+    const { lastGet } = mountSim(simBackend(), { rowMeta: true, onRowClick });
+    await waitFor(() => expect(bodyRows()).toHaveLength(4));
+    const row1 = bodyRows().find((r) => r.textContent!.includes("Memo 1"))!;
+    const cell = row1.querySelector("[data-assignees]") as HTMLElement;
+    await waitFor(() => expect(within(cell).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Ann Lee", "Bob Ray"]));
+    const bob = within(cell).getByRole("button", { name: "Bob Ray" });
+    fireEvent.focus(bob);
+    expect((await screen.findByRole("tooltip")).textContent).toBe("Bob Ray");
+    fireEvent.click(bob);
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
+    expect(parsed(lastGet().filters)).toEqual([["_assign", "like", "%bob@x.com%"]]);
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
 });
 
 

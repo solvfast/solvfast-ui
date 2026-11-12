@@ -6,6 +6,218 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0-dev.1 — integration: 0.7.0 + the Sayr families line + RecordRail
+
+The first prerelease after 0.7.0 (`feat/0.8.x/integration`, from tag `v0.7.0`). It merges `feat/0.7.x/families` at
+`e26ab97` and `feat/0.7.x/p0-record-rail`. The families entries below keep the labels they were vendored under
+(0.7.0-dev.8 … 0.7.0-dev.22: built after 0.7.0 but never published to the registry; as SemVer prereleases those labels
+sort below 0.7.0, which is why this line continues as 0.8.0-dev.N). 0.7.0's group-by fixes, which the families line
+did not have, are included. Nothing below changes for a consumer of 0.7.0 that does not use the new APIs.
+
+## 0.7.0-dev.22 — a family's extra registry columns and the new record's form hooks
+
+Additive. jsdom tests only.
+
+- `FamilyDescriptor.extraFields`: more registry columns read into `FamilyType.row` (e.g. a type's unit price and
+  currency); a column the registry lacks is skipped.
+- `FrappeNewFamilyRecord` / `SayrNewRecordPage` `formProps(type)`: the chosen type's form gets `events`, `childEvents`
+  and `renderField` (e.g. a price filled on a new record, a quantity stepper drawn by the app).
+
+## 0.7.0-dev.21 — locked fields show a lock; the app adds its own rail cards
+
+Additive, with a visual change in the form builder. jsdom tests only.
+
+- `FieldDesigner`: a field shared from the family parent (a locked field) shows a lock instead of the share icon; its
+  note says it moves to any position, section or step but is never removed, renamed or given another field type.
+- `SayrRecordPage` / `SayrNewRecordPage` `extraCards`: the app's own rail cards (`RecordRailExtraCard`:
+  `{ id, label, icon, render(doc) }`), after Playbook, in Customize sections, hidden per DocType like the others. On a new
+  record they wait for it. Exports `railOrder`, `RecordRailExtraCard`.
+
+## 0.7.0-dev.20 — assignee avatars name their user and filter by them
+
+Additive. jsdom tests only.
+
+- `FrappeListView` Assigned To cell (Desk's assignee avatars): each avatar shows its user's full name in a tooltip on
+  hover or focus, and a click filters the list by that user (`_assign like %user%`, the sidebar's Assigned To filter)
+  without opening the row. A "+N" shows the other names. The group's native `title` is gone; each avatar is a button
+  labelled with the user's name (`data-assignee` holds the user id).
+
+## 0.7.0-dev.19 — the type on a new record is a searchable link field
+
+Visual change (the type picker). jsdom tests only.
+
+- `FrappeNewFamilyRecord` (and so `SayrNewRecordPage`): the type picker is a `LinkInput` instead of a `Select`: typing
+  searches the loaded types by their English or Arabic name or their name, a click opens the whole list, × clears it
+  back to empty (no type: the form waits). The id `sf-family-type` and the label are unchanged.
+- Changing or clearing the type warns only after the user has changed a field (`FormController.canUndo`); before, a new
+  record counted as changed as soon as it opened, so every switch warned.
+- Labels `searchTypes`, `noMatchingTypes`; messages `famSearchTypes`, `famNoMatchingTypes`.
+
+## 0.7.0-dev.18 — "Not sure? Find the right type" on a new record
+
+Additive. jsdom tests only.
+
+- `@solvfast/ui/sayr` `SayrTypeFinder`: walks a Sayr decision tree (`sear_product.apis.routing.routing.decision_tree_walk`)
+  in a dialog, one answer at a time, with Back and Start over. An outcome that is one of the types offered gets "Use this
+  type", which picks it; an outcome in another registry, or a type not offered, shows a warning and the type stays empty;
+  a walk error is shown as the server words it. Exports `WALK_TREE_METHOD`, `TreeStep`.
+- `SayrNewRecordPage` `decisionTree`: the tree behind the "Not sure? Find the right type" link under the type picker;
+  none, no link.
+- `FrappeNewFamilyRecord` `typeHelp({ types, choose })`: content under the type picker (both layouts).
+- Messages: the `tf…` block.
+
+## 0.7.0-dev.17 — rowMeta can show single columns by default
+
+Additive. jsdom tests only.
+
+- `FrappeListView` / `useFrappeList` `rowMeta` object: a column set `true` (e.g. `{ assignees: true }`, Desk's assignee
+  avatars) is shown by default; the others stay offered in the column manager, hidden. `false` still removes one;
+  `true` (all shown) and the default (all offered, hidden) are unchanged. `rowMetaColumns` `hidden` also takes a
+  per-column function.
+
+## 0.7.0-dev.16 — Field cards show their control
+
+Visual change in `FieldDesigner`. jsdom tests only.
+
+- Each field's card draws its control under the label: a text box for text, a checkbox beside the label for a check, a
+  toolbar and an area for an editor, a dropdown (its first choice) for a choice, a search box for a link, a drop zone for
+  a file or image, a pad for a signature, a map for a location, a grid for a table, stars for a rating, a date or number
+  box… The type's name stays at the card's end. Decorative only (`aria-hidden`, no focus): the card is what is selected
+  and dragged.
+- Core `FieldPreview` / `previewKind` (+ `FieldPreviewProps`): the preview for a Frappe fieldtype ("Check") or a Field
+  Library type key ("checkbox"). Type icons now also follow Frappe fieldtypes.
+- Messages: the `fp…` block.
+
+## 0.7.0-dev.15 — Wizard mode decides the form's shape
+
+Intentional visual change for hosts that pass `FieldDesigner`'s `wizard` / show family records. jsdom tests only.
+
+- `FieldDesigner` with `wizard` offered and **off**: the form is one list — every tab's sections in order, no tab bar,
+  no Add tab (Add section adds at the end). Turning wizard mode **off** removes the tabs added on the type (`own`,
+  not `native`), so their fields join the step before, in the same order. **On**: the tabs are steps ("Step N ·",
+  Add step, Step name, Remove step, a locked step's note), and a field dragged onto a step is highlighted there
+  (`data-drop-target`) and moves to it. Hosts without `wizard` are unchanged.
+- `FrappeNewFamilyRecord` `layout="record"`: a type without wizard mode is one form again (no tab bar); a wizard type
+  walks its steps with Back / Next (unchanged).
+- `SayrRecordPage` `oneForm`: every field in one form, no tab bar (for a type without wizard mode). Default unchanged:
+  the DocType's tabs as the full-width bar.
+- Messages: `fdStepName`, `fdRemoveStep`, `fdStepLocked`; `fdWizardHint` reworded.
+
+## 0.7.0-dev.14 — SayrNewRecordPage: a new record laid out like the record page
+
+Additive. jsdom tests only; the record page (dev.13) was checked on a real site.
+
+- `@solvfast/ui/sayr`: `SayrNewRecordPage` — Back and Create on top, a header card (title, Not Saved, who and today)
+  holding the type picker, the type's tabs as a full-width bar, and a rail that previews the chosen type through Sayr's
+  `sear_product.apis.tickets.tickets.type_preview`: the lifecycle and its first status, the SLA policy with its targets
+  per priority, the assignment profiles; Playbook, Tasks, Pinned Notes and Attachments say they come after the record is
+  created. "Customize sections" as on the record page (same storage key). Exports `TYPE_PREVIEW_METHOD`, `TypePreviewData`.
+- `FrappeNewFamilyRecord`: `layout: "record"`, `aside(type)`, `backLabel`, label `title` (default "New record").
+- Core `RecordHeaderCard` (+ `RecordHeaderCardProps`, `RecordHeaderFact`): the record page's header card; SayrRecordPage
+  now uses it.
+- SayrRecordPage: Pinned Notes says "No notes yet" when empty; the next actions follow the server's list (no write gate);
+  the header and cards are read again when the record's `modified` changes (a save or a toolbar workflow action).
+- Messages: `rpNoNotes`, `rpChooseTypePreview`, `rpAfterCreate`, `rpStartsIn`, `rpStatusesCount`,
+  `rpNoAssignmentProfile`, `rpPr…`; `famNewRecord`.
+
+## 0.7.0-dev.13 — SayrRecordPage: a record opened as a page
+
+Additive. jsdom tests only; checked on a real site (servefast-dev) before vendoring.
+
+- `@solvfast/ui/sayr`: `SayrRecordPage` — header card (title, name, status, creator's name, created on, type chip),
+  the record's own tabs as a full-width bar, and a rail: Lifecycle (current status, next actions that run
+  `execute_transition`, "View full lifecycle" to the builder), Assignment, SLA (read only), Playbook, Tasks (scroll past
+  five), Pinned Notes (comments), Attachments, Created by / Last edited by; "Customize sections" per DocType
+  (localStorage). Reads `sear_product.apis.tickets.tickets.record_page` (needs Sayr with that endpoint). Also exports
+  `RECORD_RAIL_CARDS`, `RECORD_PAGE_METHOD`, `TRANSITION_METHOD`, `defaultLifecycleHref`.
+- `@solvfast/ui/frappe`: `useRefreshDoc()` — read a document and its docinfo again after an outside change.
+- `FrappeFormView` / `FrappeForm`: `header` (shown under the toolbar instead of its title block), `toolbarStart`, and
+  `tabBar: "record"` (full-width tabs).
+- `LifecycleRail`: `onSelectNext` makes the next options buttons.
+- `AssignDialog`: `threePriorities` (Low / Medium / High only, Medium preselected). `FrappeAssignTo`: `comment` (the
+  dialog's Comment instead of the title field) and `threePriorities`.
+- Messages: the `rp…` block.
+
+## 0.7.0-dev.12 — Families: the field set picker is a searchable link field
+
+jsdom tests only. Deploy a field set: the published sets are a `SearchCombobox` (description and field count under
+each) instead of a list of cards. `INSPECTED_PROPERTIES` no longer lists `collapsible` (a Section Break's, not a field's).
+Messages `fdChooseSetShort`, `fdSearchSets`, `fdNoMatchingSets`, `fdFieldsCount`; `fdOtherSet` removed.
+
+## 0.7.0-dev.11 — Families: fields added on a type's form, one Save
+
+jsdom tests only; no real-site run. **BREAKING** for `FieldDesigner` hosts: fields are removed from the properties
+panel (no Remove button on the cards), the Add fields dialog is now the "Deploy a field set" panel, and
+`context.wizard.onChange` no longer saves on its own.
+
+**The Form section** — docs/components/family.md §7, §8, §11
+- `FieldDesigner`: a canvas with a properties panel beside it. Add field (per column) from the adapter's field types,
+  edited in the new `FieldInspector` with every property a field set's field has; Add section / Add tab (Add step);
+  Deploy a field set in the panel. `onPendingChange` hands its changes to a host's Save (no Save form button then).
+- New adapter methods (optional): `makeSection`, `fieldTypes`, `linkTargets`, `linkTargetFields`. `DesignerItem`
+  gains `own` and `definition`. New core exports: `FieldInspector`, `INSPECTED_PROPERTIES`, `designerKeys`,
+  `FieldDefinition`, `FieldTypeRegistry` (+ related types); `src/record` adds `keyFromLabel`, `deriveKey`, `ownKeys`,
+  `retype`, `definitionProblem`.
+- `@solvfast/ui/sayr`: the form's own fields live in the deployment's `own_fields` (needs Sayr with that table);
+  rows are anchored by tokens (`@own::<key>`, `@section::<label>` added); `definitionOfRow` / `rowOfDefinition`.
+- `FrappeTypeForm`: `context.onPendingChange`; Wizard mode is set on the type and saved with it.
+- `FrappeFormView` / `FrappeForm`: `alsoSave: { dirty, save }` — outside changes that count as unsaved and are
+  saved after the document (alone when only they changed).
+- Messages: the `fd…` block rewritten; new `fi…` block (the inspector).
+
+## 0.7.0-dev.10 — Families: the Appearance section
+
+Additive. jsdom tests only; no real-site run.
+
+- Core `IconColorPicker` (+ `APPEARANCE_ICONS`, `APPEARANCE_ICON_NAMES`, `APPEARANCE_COLORS`): Sayr Studio's icon +
+  colour picker with a preview; icons imported by name. Messages `icIcon`, `icColor`, `icNoIcon`, `icNoIconSelected`,
+  `icPreview`.
+- `FrappeTypeForm` draws the icon field with it (`appearancePicker`, default on); the colour field and
+  `appearance_column` leave the form.
+- `FrappeFormView` / `FrappeForm` `renderField(df, {value, doc, setValue})`.
+
+## 0.7.0-dev.9 — Families: Wizard mode and a new type's defaults
+
+Additive. jsdom tests only; no real-site run.
+
+**Wizard mode** — docs/components/family.md §9
+- `FamilyType.wizard` (registry `wizardField`, default `wizard_mode`); `FrappeNewFamilyRecord` walks a wizard type's tabs
+  as steps (`Stepper`, Back / Next, Create on the last step).
+- `FrappeTypeForm` `designer(typeDoctype, context)`: `context.wizard = { on, onChange }`, saved with
+  `frappe.client.set_value`; the field is kept off the type's form. `FieldDesigner` `wizard` prop: the switch, and tabs
+  labelled "Step N · …". Messages `famBack`, `famNext`, `famSteps`, `fdWizard`, `fdWizardHint`, `fdStep`.
+- `FrappeFormView` / `FrappeForm`: `activeTab`, `hideTabBar`, `onTabsChange`.
+
+**A new type's defaults**
+- `FrappeTypeForm` `defaults`: values a new type starts with (through `newDocDefaults.routeOptions`).
+
+## 0.7.0-dev.8 — Families: the family screens, a type's Form section and @solvfast/ui/sayr
+
+Additive: nothing changes for a consumer that does not use the new components. jsdom tests only; no real-site run.
+
+**Families** (Sayr's inheritance: a parent, a type registry, one DocType per type) — docs/components/family.md
+- Core `FamilyTabs`: the Records | Types tabs above a family's pages; `records={false}` shows Types alone.
+- Frappe `FrappeNewFamilyRecord`: the type first (enabled types with a DocType, both names), then that type's form in one
+  list (Tab Breaks left out), Cancel / Create; changing the type after filling fields asks first.
+- Frappe `FrappeFamilyRecord`: a record opened from its parent row, in its type's DocType.
+- Frappe `FrappeTypeForm`: the registry's form, Configuration (Linked Lifecycle, SLA Policy, Assignment Profile) shown
+  by default or hidden with `configuration={false}`; a `designer` slot under a saved type.
+- `FamilyDescriptor` (field names per family, Sayr's by default), `useFamilyTypes`, `useFamilyRecord`,
+  `fetchFamilyTypes`, `fetchFamilyRecord`, `SAYR_CONFIGURATION_FIELDS`. Stock methods only (`getdoctype`, `get_list`).
+- Messages `famRecords` … `famNotFound` (en + ar).
+
+**A type's Form section** (placement only) — docs/components/family.md §7–8
+- Core `FieldDesigner` over a `FieldDesignerAdapter`: tabs → sections → columns; standard fields locked, shared ones
+  movable, a field set's fields movable and removable; Add fields (from a published set, as a new section or into one),
+  Add tab, remove an added section or tab; moves by drag or by the up / down buttons (keyboard); Save form asks before
+  removing fields that hold values and before withdrawing every added field. Layout model ported from Sayr's Field Library
+  canvas (`toLayout`, `fromLayout`, `moveItem`, `stepItem`, `insertSectionAfter`, `appendTab`, `removeSection`,
+  `removeTab`, `previousId`, `kindOfFieldtype`). Messages `fdTitle` … `fdRecords` (en + ar).
+- **New entry `@solvfast/ui/sayr`** — the only one that calls Sayr's own methods: `SayrFieldDesigner`,
+  `createSayrFieldDesignerAdapter` (Sayr's `doctype_deployment`, `Sear Field Deployment` save, `save_field_order`,
+  `withdraw_deployment`, `deployment_removal_impact`), `sayrToken`. `check-boundaries` keeps core, `./frappe` and the
+  other entries from reaching it.
+
 ## 0.7.0 — Sayr's Appearance and First Day of the Week
 
 Stable package release. Additive, plus the group-by sidebar compatibility fixes under **Fixes** below (they change

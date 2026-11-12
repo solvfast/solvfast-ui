@@ -681,6 +681,7 @@ transitions, roles, logs) and the graph engine for the diagram.
 | `next` | `LifecycleRailNext[]` (`{ id, label, back?, disabled?, disabledReason? }`) | Ways forward from the current state. 1 → a dashed row on the line; ≥ 2 → one box under the current row. `back` = a move to a state already on the path (undo icon + "back" tag). `disabled` = shown, not available (`aria-disabled`, reason as tooltip). |
 | `ended` | `boolean` | No way forward: "End of lifecycle" (only when `next` is empty). |
 | `onViewAll` | `() => void` | Shows "View full lifecycle". |
+| `onSelectNext` | `(next: LifecycleRailNext) => void` | Makes each next option a button (e.g. run that transition). A `disabled` option stays text. (0.7.0-dev.13) |
 | `labels` | `{ back?, end?, viewAll?, current?, next? }` | Chrome strings. Default: the ThemeProvider's language (`lc*` messages, en / ar). **Pass them when rendering outside a ThemeProvider.** |
 
 ### 8.2 Diagram pieces (`src/record/LifecycleDiagram.tsx`)

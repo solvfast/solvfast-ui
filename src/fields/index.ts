@@ -46,6 +46,9 @@ export type { CameraCaptureProps } from "./CameraCapture";
 export { SignatureInput, isSignatureDataUrl } from "./SignatureInput";
 export type { SignatureInputProps, SignatureInputLabels } from "./SignatureInput";
 export { IconInput } from "./IconInput";
+// Families — an icon and a colour with a preview (Sayr Studio's picker). docs/components/family.md §10
+export { IconColorPicker, APPEARANCE_ICONS, APPEARANCE_ICON_NAMES, APPEARANCE_COLORS } from "./IconColorPicker";
+export type { IconColorPickerProps } from "./IconColorPicker";
 export type { IconInputProps, IconInputLabels } from "./IconInput";
 export { BarcodeInput, parseBarcodeValue } from "./BarcodeInput";
 export type { BarcodeInputProps, BarcodeInputLabels, ParsedBarcode } from "./BarcodeInput";

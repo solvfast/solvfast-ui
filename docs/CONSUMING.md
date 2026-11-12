@@ -357,6 +357,15 @@ const form = useForm({ defaultValues: { name: "" } });
 ```
 With a zod resolver, keep `@hookform/resolvers` and `zod` in the app as before; the package doesn't need them.
 
+**Sayr** — a separate entry, `@solvfast/ui/sayr`, the only one that calls Sayr's own methods (sear_product): today the
+Field Library adapter behind a family type's Form section. Core and `@solvfast/ui/frappe` never import it, so an app
+that is not built on Sayr never ships it. Needs a `FrappeProvider`. See `docs/components/family.md` §7–8.
+
+```tsx
+import { SayrFieldDesigner } from "@solvfast/ui/sayr";
+<FrappeTypeForm family={TICKETS} name={name} designer={(doctype) => <SayrFieldDesigner doctype={doctype} />} />
+```
+
 ### Components the package does not ship
 **drawer** (vaul), **carousel** (embla-carousel), **input-otp** and **resizable** (react-resizable-panels — v2 in Sear
 and the Design System, v4 in PMO and the starter; their APIs differ). Keep your local shadcn copies of these. With the

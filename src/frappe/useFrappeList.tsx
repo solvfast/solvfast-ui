@@ -113,7 +113,7 @@ export interface FrappeListOptions<T> {
   /**
    * Row metadata columns Desk draws (indicator, assignees, comment count, likes). Default: offered in the column
    * manager, hidden at first (0.3.x lists look as before). `true`: shown by default. `false`: none. An object turns
-   * single columns off.
+   * single columns off (`false`) or shows them by default (`true`, 0.7.0-dev.17); the rest stay offered, hidden.
    */
   rowMeta?: boolean | { indicator?: boolean; assignees?: boolean; comments?: boolean; likes?: boolean; tags?: boolean };
   /**
@@ -157,6 +157,9 @@ export interface FrappeListOptions<T> {
 type Row = Record<string, unknown>;
 const parseJsonList = (v: unknown): string[] => { if (Array.isArray(v)) return v.map(String); try { const l = JSON.parse(String(v || "[]")) as unknown; return Array.isArray(l) ? l.map(String).filter(Boolean) : []; } catch { return []; } };
 const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** A row-metadata column's key → its `rowMeta` option. */
+const META_KEY: Record<string, string> = { __indicator: "indicator", _assign: "assignees", _comments: "comments", _liked_by: "likes", _user_tags: "tags" };
 
 export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
   const fallback = useFrappeClient();
@@ -204,7 +207,9 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     const on = (k: "assignees" | "comments" | "likes" | "tags") => o.rowMeta !== false && rm[k] !== false && (k !== "comments" || !commentsOff) && !!meta?.hasField(k === "assignees" ? "_assign" : k === "comments" ? "_comments" : k === "tags" ? "_user_tags" : "_liked_by");
     const extra = rowMetaColumns({
       indicator: indicatorCfg, assignees: on("assignees"), comments: on("comments"), likes: on("likes"), tags: on("tags"), userInfo,
-      hidden: o.rowMeta !== true,
+      hidden: o.rowMeta === true ? false
+        : typeof o.rowMeta === "object" ? (key: string) => (rm as Record<string, boolean | undefined>)[META_KEY[key]] !== true
+        : true,
       labels: { indicator: t("listIndicator"), assigned: t("listAssigned"), comments: t("listComments"), likes: t("listLikes"), tags: t("listTags") },
     });
     // Desk's order: subject, status indicator, the DocType's own columns, then assignees / comments / likes

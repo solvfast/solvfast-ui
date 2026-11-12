@@ -218,11 +218,22 @@ export type {
 export { STATUS_PALETTE, resolveStatusColor, statusColorStyles } from "./primitives/status-dot";
 export type { LifecycleStep } from "./record";
 // Lifecycle — the shared record lifecycle rail + diagram look (CRM, Tickets). docs/components/record.md §9
+export { RecordHeaderCard, FieldPreview, previewKind } from "./record";
+export type { RecordHeaderCardProps, RecordHeaderFact, FieldPreviewProps } from "./record";
 export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
 export type {
   LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels, LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels,
   LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
 } from "./record";
+// Families — the Records | Types tabs; the Frappe screens are in ./frappe. docs/components/family.md
+export { FamilyTabs } from "./record";
+export { IconColorPicker, APPEARANCE_ICONS, APPEARANCE_ICON_NAMES, APPEARANCE_COLORS } from "./fields";
+export type { IconColorPickerProps } from "./fields";
+export type { FamilyTabsProps, FamilyTab, FamilyTabProps } from "./record";
+export { FieldDesigner, toLayout as designerLayout, fromLayout as designerItems, previousId as designerPreviousId, kindOfFieldtype } from "./record";
+export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval, DesignerPending, DesignerItem, DesignerKind } from "./record";
+export { FieldInspector, INSPECTED_PROPERTIES, ownKeys as designerKeys } from "./record";
+export type { FieldInspectorProps, FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./record";
 export { EmptyState } from "./primitives/empty-state";
 export type { EmptyStateProps } from "./primitives/empty-state";
 export type { RichTextEditorHandle } from "./primitives/rich-text-editor";

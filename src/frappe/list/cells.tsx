@@ -2,6 +2,7 @@
 import { Heart, MessageSquare } from "lucide-react";
 import { Badge } from "../../primitives/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../../primitives/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../primitives/tooltip";
 import { useListActions } from "../../list/ListActionsContext";
 import type { ColumnDef } from "../../list/model/columns";
 import { getIndicator, type IndicatorConfig } from "./indicator";
@@ -28,20 +29,45 @@ export function IndicatorCell({ row, config }: { row: Record<string, unknown>; c
   return <button type="button" className="rounded-md transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={(e) => { e.stopPropagation(); actions.applyCondition(field, "equals", String(value)); }}>{badge}</button>;
 }
 
+/** Desk's assignee avatars (list_view.js get_assign_html): each one names its user on hover and, in a list, filters it by
+ *  that user on click (`_assign like %user%`, the sidebar's "Assigned To" filter) without opening the row. */
 export function AssigneesCell({ value, userInfo }: { value: unknown; userInfo: Record<string, ReportviewUser> }) {
+  const actions = useListActions();
   const users = parseList(value);
   if (!users.length) return <span className="text-muted-foreground">—</span>;
   const shown = users.slice(0, 3);
+  const name = (u: string) => userInfo[u]?.fullname || u;
   return (
-    <div className="flex items-center -space-x-2 rtl:space-x-reverse" title={users.map((u) => userInfo[u]?.fullname || u).join(", ")}>
-      {shown.map((u) => (
-        <Avatar key={u} className="h-6 w-6 border border-background">
-          {userInfo[u]?.image ? <AvatarImage src={String(userInfo[u].image)} alt="" /> : null}
-          <AvatarFallback className="text-[10px]">{initials(userInfo[u]?.fullname || u)}</AvatarFallback>
-        </Avatar>
-      ))}
-      {users.length > shown.length && <span className="ps-3 text-xs text-muted-foreground" dir="ltr">+{users.length - shown.length}</span>}
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <div className="flex items-center -space-x-2 rtl:space-x-reverse" data-assignees="">
+        {shown.map((u) => {
+          const avatar = (
+            <Avatar className="h-6 w-6 border border-background">
+              {userInfo[u]?.image ? <AvatarImage src={String(userInfo[u].image)} alt="" /> : null}
+              <AvatarFallback className="text-[10px]">{initials(name(u))}</AvatarFallback>
+            </Avatar>
+          );
+          return (
+            <Tooltip key={u}>
+              <TooltipTrigger asChild>
+                {actions ? (
+                  <button type="button" aria-label={name(u)} data-assignee={u}
+                    className="rounded-full transition-transform hover:z-10 hover:scale-110 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onClick={(e) => { e.stopPropagation(); actions.applyCondition("_assign", "like", u); }}>{avatar}</button>
+                ) : <span aria-label={name(u)} data-assignee={u} className="rounded-full">{avatar}</span>}
+              </TooltipTrigger>
+              <TooltipContent>{name(u)}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+        {users.length > shown.length && (
+          <Tooltip>
+            <TooltipTrigger asChild><span className="ps-3 text-xs text-muted-foreground" dir="ltr">+{users.length - shown.length}</span></TooltipTrigger>
+            <TooltipContent>{users.slice(shown.length).map(name).join(", ")}</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -87,19 +113,22 @@ export interface RowMetaColumnOptions {
   likes?: boolean;
   tags?: boolean;
   userInfo: Record<string, ReportviewUser>;
-  /** Start hidden (offered in the column manager) — used when the app curates its own columns. */
-  hidden: boolean;
+  /** Start hidden (offered in the column manager) — used when the app curates its own columns. A function decides per
+   *  column (`__indicator`, `_assign`, `_comments`, `_liked_by`, `_user_tags`). */
+  hidden: boolean | ((key: string) => boolean);
   labels: { indicator: string; assigned: string; comments: string; likes: string; tags?: string };
 }
 
 /** Columns for the row metadata Desk shows; `render` closes over the response's `user_info`. */
 export function rowMetaColumns(o: RowMetaColumnOptions): { indicator?: ColumnDef<Record<string, unknown>>; trailing: ColumnDef<Record<string, unknown>>[] } {
-  const base = { sortable: false, filterable: false, hidden: o.hidden };
+  const hiddenOf = (key: string) => (typeof o.hidden === "function" ? o.hidden(key) : o.hidden);
+  const base = { sortable: false, filterable: false, hidden: o.hidden === true };
+  const col = (key: string) => ({ ...base, key, hidden: hiddenOf(key) });
   const trailing: ColumnDef<Record<string, unknown>>[] = [];
-  if (o.tags) trailing.push({ ...base, key: "_user_tags", label: o.labels.tags ?? "Tags", render: (r) => <TagsCell value={r._user_tags} /> });
-  if (o.assignees) trailing.push({ ...base, key: "_assign", label: o.labels.assigned, render: (r) => <AssigneesCell value={r._assign} userInfo={o.userInfo} /> });
-  if (o.comments) trailing.push({ ...base, key: "_comments", label: o.labels.comments, render: (r) => <CommentsCell row={r} /> });
-  if (o.likes) trailing.push({ ...base, key: "_liked_by", label: o.labels.likes, render: (r) => <LikesCell value={r._liked_by} /> });
+  if (o.tags) trailing.push({ ...col("_user_tags"), label: o.labels.tags ?? "Tags", render: (r) => <TagsCell value={r._user_tags} /> });
+  if (o.assignees) trailing.push({ ...col("_assign"), label: o.labels.assigned, render: (r) => <AssigneesCell value={r._assign} userInfo={o.userInfo} /> });
+  if (o.comments) trailing.push({ ...col("_comments"), label: o.labels.comments, render: (r) => <CommentsCell row={r} /> });
+  if (o.likes) trailing.push({ ...col("_liked_by"), label: o.labels.likes, render: (r) => <LikesCell value={r._liked_by} /> });
   const cfg = o.indicator;
-  return { indicator: cfg ? { ...base, key: "__indicator", label: o.labels.indicator, render: (r) => <IndicatorCell row={r} config={cfg} /> } : undefined, trailing };
+  return { indicator: cfg ? { ...col("__indicator"), label: o.labels.indicator, render: (r) => <IndicatorCell row={r} config={cfg} /> } : undefined, trailing };
 }
