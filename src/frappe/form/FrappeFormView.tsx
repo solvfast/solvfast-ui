@@ -156,6 +156,11 @@ export interface FrappeFormViewProps extends FormEventsConfig {
    *  upload or a Clear the form saves (`Update` on a submitted document). Default true; false (Quick Entry: Desk's
    *  dialog controls have no `frm`) makes them only set their value. */
   attachHost?: boolean;
+  /** A record rail next to the form — e.g. @solvfast/ui's `RecordRail` (the CRM record page's right rail) or the Desk
+   *  `FrappeFormSidebar`. From `lg` up the form takes 3 of 4 columns and the rail the 4th (the CRM record page's grid);
+   *  below `lg` the rail follows the form. A function receives the same live context as `menu`. Absent → the form's
+   *  layout is unchanged. */
+  aside?: React.ReactNode | ((ctx: FrappeFormMenuContext) => React.ReactNode);
 }
 
 /** What a `menu` render function receives (P35 integration). */
@@ -766,9 +771,12 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     }
   };
 
-  return (
-    <FrappeAttachHost value={props.attachHost === false ? null : attachHost}>
-    <div className={cn("min-w-0 space-y-5", className)} data-doctype={meta.name}>
+  const liveCtx = (): FrappeFormMenuContext => ({
+    frm: frmRef.current!, doc, dirty: !!doc.__unsaved, reload: props.onReload ? () => reload() : undefined, showTab: (key) => setActiveTab(key),
+    tabs: [...visibleTabs.map((tb) => tb.key), ...extraTabs.map((x) => x.tabKey)],
+  });
+  const form = (
+    <div className={cn("min-w-0 space-y-5", props.aside ? "lg:col-span-3" : className)} data-doctype={meta.name}>
       {!props.hideToolbar && (
         <div className="flex flex-wrap items-center gap-3">
           {imageField !== undefined && (
@@ -814,9 +822,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
               {actionLabel(actions.primary)}
             </Button>
           )}
-          {typeof props.menu === "function"
-            ? props.menu({ frm: frmRef.current!, doc, dirty: !!doc.__unsaved, reload: props.onReload ? () => reload() : undefined, showTab: (key) => setActiveTab(key), tabs: [...visibleTabs.map((tb) => tb.key), ...extraTabs.map((x) => x.tabKey)] })
-            : props.menu}
+          {typeof props.menu === "function" ? props.menu(liveCtx()) : props.menu}
         </div>
       )}
 
@@ -897,6 +903,15 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+  return (
+    <FrappeAttachHost value={props.attachHost === false ? null : attachHost}>
+      {props.aside ? (
+        <div className={cn("grid grid-cols-1 items-start gap-5 lg:grid-cols-4", className)} data-form-layout="aside">
+          {form}
+          {typeof props.aside === "function" ? props.aside(liveCtx()) : props.aside}
+        </div>
+      ) : form}
     </FrappeAttachHost>
   );
 }
