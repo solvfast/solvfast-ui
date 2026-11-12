@@ -5,11 +5,11 @@
  *
  * Two looks, one structure (the title row and the facts row are the same markup):
  *  - `variant="default"` — the Sayr record page's header (gradient surface, 56 px avatar). Unchanged.
- *  - `variant="crm"` (0.8.0-dev.2) — the CRM record page's header, ported 1:1 from serve_fast's Deal / Lead / Contact /
- *    Organization / Ticket pages (their @solvfast/ui-scope markup): a plain card, the host's avatar (e.g.
- *    `RecordHeaderIcon`, a photo), a larger title that takes an editable title, `titleExtra` after the status (e.g. a
- *    "Not saved" pill), facts that can be links (`onClick`), a `value` line, `chips` as given, and `actions` (the quick
- *    action pills) at the end of the card.
+ *  - `variant="page"` (0.8.0-dev.3) — the `RecordPage` header: a plain card, the host's avatar (e.g. `RecordHeaderIcon`,
+ *    a photo), a larger title that takes an editable title, `titleExtra` after the status (e.g. a "Not saved" pill),
+ *    facts that can be links (`onClick`), a `value` line, `chips` as given, and `actions` (the quick action pills) at
+ *    the end of the card. Its reference is the CRM record page (Deal / Lead / Contact / Organization / Ticket).
+ *  - `variant="crm"` — deprecated alias of `"page"` (its name in 0.8.0-dev.2): the same output.
  */
 import * as React from "react";
 import { cn } from "../lib/cn";
@@ -20,9 +20,12 @@ export interface RecordHeaderFact {
   text: React.ReactNode;
   /** Tooltip (e.g. the exact date). */
   title?: string;
-  /** `crm` variant: the fact is a link (e.g. the record's organization). */
+  /** `page` variant: the fact is a link (e.g. the record's organization). */
   onClick?: () => void;
 }
+
+/** `"crm"`: @deprecated 0.8.0-dev.3 — use `"page"` (the same output). */
+export type RecordHeaderCardVariant = "default" | "page" | "crm";
 
 export interface RecordHeaderCardProps {
   title: React.ReactNode;
@@ -35,23 +38,27 @@ export interface RecordHeaderCardProps {
   chips?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
-  /** `default` = the Sayr header (unchanged); `crm` = the CRM record page header. */
-  variant?: "default" | "crm";
-  /** `crm`: the status as a node (e.g. a `StatusBadge` in the lifecycle tone); wins over `status`. */
+  /** `default` = the Sayr header (unchanged); `page` = the `RecordPage` header. `crm` is a deprecated alias of `page`
+   *  (0.8.0-dev.2's name; same output). */
+  variant?: RecordHeaderCardVariant;
+  /** `page`: the status as a node (e.g. a `StatusBadge` in the lifecycle tone); wins over `status`. */
   statusNode?: React.ReactNode;
-  /** `crm`: after the status in the title row (e.g. the "Not saved" pill). */
+  /** `page`: after the status in the title row (e.g. the "Not saved" pill). */
   titleExtra?: React.ReactNode;
-  /** `crm`: the value line under the facts (e.g. "12,500,000 USD"; shown left-to-right, tabular digits). */
+  /** `page`: the value line under the facts (e.g. "12,500,000 USD"; shown left-to-right, tabular digits). */
   value?: React.ReactNode;
-  /** `crm`: the quick actions at the end of the card (`RecordQuickAction`, `RecordQuickActionMenu`). */
+  /** `page`: the quick actions at the end of the card (`RecordQuickAction`, `RecordQuickActionMenu`). */
   actions?: React.ReactNode;
-  /** `crm`: before the title in the title row (e.g. a person's salutation, "Mr."). */
+  /** `page`: before the title in the title row (e.g. a person's salutation, "Mr."). */
   titlePrefix?: React.ReactNode;
 }
 
 export function RecordHeaderCard(props: RecordHeaderCardProps) {
-  return props.variant === "crm" ? <CrmRecordHeader {...props} /> : <DefaultRecordHeader {...props} />;
+  return isPageVariant(props.variant) ? <PageRecordHeader {...props} /> : <DefaultRecordHeader {...props} />;
 }
+
+/** `"crm"` (deprecated) is `"page"`. */
+const isPageVariant = (v: RecordHeaderCardVariant | undefined) => v === "page" || v === "crm";
 
 function DefaultRecordHeader({ title, name, avatar, status, facts, chips, children, className }: RecordHeaderCardProps) {
   return (
@@ -88,7 +95,7 @@ function DefaultRecordHeader({ title, name, avatar, status, facts, chips, childr
   );
 }
 
-/** The CRM header's avatar: the record type's icon on a card tile with the brand halo (violet → flame → violet). */
+/** The `page` header's avatar: the record type's icon on a card tile with the brand halo (violet → flame → violet). */
 export function RecordHeaderIcon({ icon: Icon, color, className }: {
   icon: React.ComponentType<{ className?: string }>;
   /** The icon's colour (e.g. the record type's colour); default: inherited. */
@@ -105,9 +112,9 @@ export function RecordHeaderIcon({ icon: Icon, color, className }: {
   );
 }
 
-function CrmRecordHeader({ title, titlePrefix, name, avatar, status, statusNode, titleExtra, facts, value, chips, actions, children, className }: RecordHeaderCardProps) {
+function PageRecordHeader({ title, titlePrefix, name, avatar, status, statusNode, titleExtra, facts, value, chips, actions, children, className }: RecordHeaderCardProps) {
   return (
-    <div className={cn("relative overflow-hidden rounded-2xl border border-border bg-card", className)} data-record-header="crm">
+    <div className={cn("relative overflow-hidden rounded-2xl border border-border bg-card", className)} data-record-header="page">
       <div className="relative p-5 space-y-4">
         <div className="flex flex-col md:flex-row md:items-start gap-4">
           <div className="flex items-start gap-4 flex-1 min-w-0">

@@ -1,4 +1,5 @@
-/** RecordPage, RecordHeaderCard variant="crm", RecordHeaderIcon, RecordQuickAction(Menu) — the CRM record page (0.8.0-dev.2). */
+/** RecordPage, RecordHeaderCard variant="page" (and its deprecated alias "crm"), RecordHeaderIcon, RecordQuickAction(Menu) — the record page
+ *  (reference: the CRM record page; 0.8.0-dev.2, renamed 0.8.0-dev.3). */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
 import fs from "node:fs";
@@ -70,14 +71,14 @@ describe("RecordHeaderCard variant=crm", () => {
     { icon: Building2, text: "Al-Faisaliah Group", onClick: open }, { icon: User, text: "Sara Al-Otaibi" }, { icon: Calendar, text: "2026-11-15" },
   ];
 
-  it("the CRM header: card, avatar, title row (title, #id, status, extra), facts (a link first), value, chips, actions", () => {
+  it("the page header: card, avatar, title row (title, #id, status, extra), facts (a link first), value, chips, actions", () => {
     const open = vi.fn();
     const { container } = wrap(
-      <RecordHeaderCard variant="crm" avatar={<RecordHeaderIcon icon={Handshake} color="#fe4e18" />} title="Annual contract" name="1"
+      <RecordHeaderCard variant="page" avatar={<RecordHeaderIcon icon={Handshake} color="#fe4e18" />} title="Annual contract" name="1"
         statusNode={<span data-testid="status">Negotiation</span>} titleExtra={<span data-testid="extra" />} facts={facts(open)}
         value="12,500,000 USD" chips={<button data-testid="chip">Converted</button>} actions={<button>Log Call</button>} />,
     );
-    const root = container.querySelector("[data-record-header='crm']")!;
+    const root = container.querySelector("[data-record-header='page']")!;
     expect(has(root, "relative overflow-hidden rounded-2xl border border-border bg-card")).toBe(true);
     const h1 = root.querySelector("h1")!;
     expect(has(h1, "min-w-0 max-w-full truncate text-xl md:text-2xl font-semibold text-foreground")).toBe(true);
@@ -166,10 +167,10 @@ describe("RecordTabs", () => {
   });
 });
 
-describe("RecordHeaderCard crm — Lead-style headers; RecordPage banner", () => {
+describe("RecordHeaderCard page — Lead-style headers; RecordPage banner", () => {
   it("titlePrefix before the title; a fact without icon or link is a plain span; banner above the toolbar", () => {
     const { container } = wrap(<RecordPage banner={<p data-testid="banner">sample data</p>} back={{ label: "Back", onClick: () => {} }}
-      header={<RecordHeaderCard variant="crm" title="Abdullah" titlePrefix="Mr." facts={[{ text: "Travel Manager" }, { icon: Building2, text: "Org", onClick: () => {} }]} />} />);
+      header={<RecordHeaderCard variant="page" title="Abdullah" titlePrefix="Mr." facts={[{ text: "Travel Manager" }, { icon: Building2, text: "Org", onClick: () => {} }]} />} />);
     const root = container.querySelector("[data-record-page]")!;
     expect(root.firstElementChild?.getAttribute("data-testid")).toBe("banner");
     const row = root.querySelector("h1")!.parentElement!;
@@ -177,5 +178,39 @@ describe("RecordHeaderCard crm — Lead-style headers; RecordPage banner", () =>
     expect(row.firstElementChild!.className).toBe("text-xl md:text-2xl font-semibold text-foreground");
     const plain = screen.getByText("Travel Manager");
     expect(plain.tagName).toBe("SPAN"); expect(plain.className).toBe("");
+  });
+});
+
+describe("T3 neutral naming — the deprecated alias variant=\"crm\" is variant=\"page\"", () => {
+  const full = (variant: "page" | "crm", onClick: () => void) => (
+    <RecordHeaderCard variant={variant} avatar={<RecordHeaderIcon icon={Handshake} color="#fe4e18" />} title="Annual contract" name="1"
+      titlePrefix="Mr." status={{ label: "Open", key: "open" }} statusNode={<span>Negotiation</span>} titleExtra={<span>Not saved</span>}
+      facts={[{ icon: Building2, text: "Org", onClick }, { text: "Plain" }, { icon: Calendar, text: "2026-11-15", title: "15 Nov" }]}
+      value="12,500,000 USD" chips={<button>Converted</button>} actions={<button>Log Call</button>} className="extra">
+      <p>child</p>
+    </RecordHeaderCard>
+  );
+  for (const language of ["en", "ar"] as const) {
+    it(`renders the same DOM for "crm" and "page" (every prop, ${language})`, () => {
+      const a = wrap(full("page", () => {}), language).container.innerHTML; cleanup();
+      const b = wrap(full("crm", () => {}), language).container.innerHTML;
+      expect(b).toBe(a);
+      expect(a).toContain('data-record-header="page"');
+    });
+  }
+  it("the alias keeps the behaviour: a fact link calls its onClick", () => {
+    const onClick = vi.fn();
+    wrap(full("crm", onClick));
+    fireEvent.click(screen.getByRole("button", { name: "Org" }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+  it("inside a RecordPage header the alias renders the same page", () => {
+    const page = (v: "page" | "crm") => <RecordPage back={{ label: "Back", onClick: () => {} }} header={full(v, () => {})}><p>main</p></RecordPage>;
+    const a = wrap(page("page")).container.innerHTML; cleanup();
+    expect(wrap(page("crm")).container.innerHTML).toBe(a);
+  });
+  it("no variant / \"default\" still renders the default header (not the page one)", () => {
+    const { container } = wrap(<><RecordHeaderCard title="A" /><RecordHeaderCard variant="default" title="B" /></>);
+    expect(Array.from(container.querySelectorAll("[data-record-header]")).map((e) => e.getAttribute("data-record-header"))).toEqual(["true", "true"]);
   });
 });

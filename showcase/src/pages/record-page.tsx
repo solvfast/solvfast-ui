@@ -1,5 +1,5 @@
 /**
- * Record page (CRM) — RecordPage + RecordHeaderCard variant="crm" + quick actions + RecordRail, with no app CSS: what
+ * Record page (the CRM reference composition) — RecordPage + RecordHeaderCard variant="page" + quick actions + RecordRail, with no app CSS: what
  * another app gets from the package (the CRM record page's look, `sf-record-page` surfaces). Data is illustrative.
  */
 import * as React from "react";
@@ -29,7 +29,7 @@ export function RecordPageDemoPage() {
             back={{ label: L("Back to Deals", "العودة للصفقات"), onClick: () => {} }}
             actions={<><RecordSaveButton /><Button size="sm">{L("Actions", "الإجراءات")}</Button></>}
             header={
-              <RecordHeaderCard variant="crm" avatar={<RecordHeaderIcon icon={Handshake} />} title={L("Annual Corporate Travel Contract", "عقد السفر المؤسسي السنوي")}
+              <RecordHeaderCard variant="page" avatar={<RecordHeaderIcon icon={Handshake} />} title={L("Annual Corporate Travel Contract", "عقد السفر المؤسسي السنوي")}
                 name="1" statusNode={<StatusBadge label={L("Negotiation", "تفاوض")} tone="info" />} titleExtra={<RecordNotSavedPill />}
                 facts={[{ icon: Building2, text: "Al-Faisaliah Group", onClick: () => {} }, { icon: User, text: "Sara Al-Otaibi" }, { icon: Calendar, text: "2026-11-15" }]}
                 value={`${value.toLocaleString()} USD`}

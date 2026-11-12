@@ -56,13 +56,13 @@ export interface RecordMenuProps {
   /** Replace the default "⋯" trigger (must accept a ref / props — rendered with `asChild`). */
   trigger?: React.ReactElement;
   className?: string;
-  /** The open menu's classes (default `min-w-[12rem]`), e.g. the CRM record page's `w-60`. */
+  /** The open menu's classes (default `min-w-[12rem]`), e.g. `w-60` (the record page's toolbar menu). */
   contentClassName?: string;
-  /** The shortcut hints' direction: "ltr" (default — keys read left to right) or "inherit" (the CRM record page's: the
+  /** The shortcut hints' direction: "ltr" (default — keys read left to right) or "inherit" (the record page's toolbar menu: the
    *  hint follows the item's direction, so it sits at the end of the row in RTL too). */
   shortcutDir?: "ltr" | "inherit";
-  /** "stacked" (default): the trigger in a column with the error under it; "inline": the trigger alone in its row (the
-   *  CRM record page's toolbar), the error after it. */
+  /** "stacked" (default): the trigger in a column with the error under it; "inline": the trigger alone in its row (e.g. a
+   *  record page's toolbar), the error after it. */
   layout?: "stacked" | "inline";
 }
 

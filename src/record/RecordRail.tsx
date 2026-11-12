@@ -381,7 +381,7 @@ export interface RecordRailTasksProps extends Omit<RecordRailSectionProps, "spec
   openLabel: string;
   /** Rows shown (default 5). */
   max?: number;
-  /** Optional "+" (the CRM creates tasks in My Work, so its rail has none). */
+  /** Optional "+" (omit it when tasks are created elsewhere). */
   onAdd?: () => void;
   /** Icon-square classes of each row (default: primary tint). */
   iconTint?: string;
@@ -472,7 +472,7 @@ export interface RecordRailArticleReaderProps {
   /** "Open in …" escape link at the bottom. */
   link?: { href: string; label: string; icon?: React.ReactNode };
   /** The package Sheet's side, which is logical: "right" = the end edge (right in LTR, left in RTL; the default),
-   *  "left" = the start edge. The CRM passes `isRTL ? "left" : "right"`, i.e. the right edge in both languages. */
+   *  "left" = the start edge. `isRTL ? "left" : "right"` gives the right edge in both languages. */
   side?: "left" | "right";
   /** Glyphs: kicker (FileText), link end (ArrowUpRight — turned in RTL). */
   icons?: { kicker?: IconType; link?: IconType };
@@ -520,7 +520,7 @@ export interface RecordRailSectionDef {
   label: React.ReactNode;
   /** The section (usually a RecordRailSection or a module); may return null when it does not apply right now. */
   render: () => React.ReactNode;
-  /** Always shown, first, and not listed in Customize (the CRM's Lifecycle). */
+  /** Always shown, first, and not listed in Customize (e.g. the Lifecycle). */
   pinned?: boolean;
 }
 
@@ -532,7 +532,7 @@ export interface RecordRailProps {
   onVisibleChange?: (visible: Set<string>) => void;
   /** Uncontrolled initial visible ids (default: every section). */
   defaultVisible?: Iterable<string>;
-  /** Opt-in persistence of the hidden ids in localStorage (`sf-record-rail:<key>`); the CRM keeps it per page view. */
+  /** Opt-in persistence of the hidden ids in localStorage (`sf-record-rail:<key>`) (e.g. one key per page view). */
   storageKey?: string;
   /** Show "Customize sections" (default true). */
   customize?: boolean;

@@ -7,25 +7,25 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsList, TabsTrigger } from "../primitives/tabs";
 
 /**
- * RecordPage — the CRM record page (Deal / Lead / Contact / Organization / Ticket details) as a layout: the toolbar
- * (Back on the start side; Save, Actions and ⋯ on the end side), then the 3 + 1 grid — the main column (the header card,
- * then the tabs) and the right rail (`aside`, e.g. a `RecordRail`). A 1:1 port of the CRM's markup.
+ * RecordPage — a record's details page as a layout: the toolbar (Back on the start side; Save, Actions and ⋯ on the
+ * end side), then the 3 + 1 grid — the main column (the header card, then the tabs) and the right rail (`aside`, e.g. a
+ * `RecordRail`). Its reference is the CRM record page (Deal / Lead / Contact / Organization / Ticket details), markup 1:1.
  *
- * It also sets `sf-record-page`: the record page's surfaces (styles/src/sf-record-page.css — the CRM's airy glass cards
- * with 20px corners, in both themes), so another app gets the CRM look. Presentational: routing, permissions and
+ * It also sets `sf-record-page`: the record page's surfaces (styles/src/sf-record-page.css — airy glass cards with
+ * 20px corners, in both themes, as the reference draws them). Presentational: routing, permissions and
  * the save model are the host's (`actions` takes them).
  */
 
 type IconType = React.ComponentType<{ className?: string }>;
 
 export interface RecordPageProps {
-  /** "Back to Deals": the toolbar's start. */
+  /** "Back to <list>": the toolbar's start. */
   back?: { label: React.ReactNode; onClick: () => void; icon?: IconType };
   /** Above the toolbar (e.g. a "sample data" banner). */
   banner?: React.ReactNode;
   /** The toolbar's end: e.g. the page Save button, an Actions menu, the ⋯ menu. */
   actions?: React.ReactNode;
-  /** The main column's first block (e.g. a `RecordHeaderCard variant="crm"`). */
+  /** The main column's first block (e.g. a `RecordHeaderCard variant="page"`). */
   header?: React.ReactNode;
   /** Rendered between the toolbar and the grid (dialogs, bridges — nothing visual). */
   between?: React.ReactNode;
@@ -104,7 +104,7 @@ export interface RecordQuickActionMenuProps {
   className?: string;
 }
 
-/** A header quick action with a menu: the CRM's split pill (Meeting ▾) or its More ▾ pill. */
+/** A header quick action with a menu: a split pill (e.g. Meeting ▾) or a More ▾ pill. */
 export function RecordQuickActionMenu({ label, items, variant = "split", icon: Icon, chevronIcon: Chevron = ChevronDown, className }: RecordQuickActionMenuProps) {
   const trigger = variant === "more" ? (
     <Button type="button" size="sm" variant="outline" className={cn("h-8 gap-1 px-2.5 rounded-full text-xs font-medium", className)}>

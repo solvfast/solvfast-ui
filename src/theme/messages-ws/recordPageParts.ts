@@ -1,6 +1,7 @@
-/** Chrome strings of the CRM record page (RecordEditSession `res*`, About cards `rpg*`) — the CRM's own wording.
- *  en + ar; the ar object must have every en key. Hosts can pass `labels` instead. */
-export const recordPageCrmEn = {
+/** Chrome strings of the record page parts (RecordEditSession `res*`, About cards `rpg*`); their wording is the CRM
+ *  record page's (the reference). en + ar; the ar object must have every en key. Hosts can pass `labels` instead.
+ *  (Module named `recordPageCrm` until 0.8.0-dev.2; internal, keys unchanged.) */
+export const recordPagePartsEn = {
   resNotSaved: "Not saved",
   resSave: "Save",
   resSaving: "Saving…",
@@ -21,7 +22,7 @@ export const recordPageCrmEn = {
   rpgOutbound: "Outbound",
   rpgNoInteractions: "No interactions yet",
 };
-export const recordPageCrmAr: { [K in keyof typeof recordPageCrmEn]: string } = {
+export const recordPagePartsAr: { [K in keyof typeof recordPagePartsEn]: string } = {
   resNotSaved: "غير محفوظ",
   resSave: "حفظ",
   resSaving: "جارٍ الحفظ…",

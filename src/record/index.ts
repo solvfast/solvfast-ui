@@ -19,7 +19,7 @@ export { RecordInfoTile, RecordInfoRow, RecordScoreRing, RecordFieldList, Record
 export type { RecordInfoTileProps, RecordInfoRowProps, RecordScoreRingProps, RecordFieldListItem, RecordInsightCardProps, RecordInteraction, RecordInteractionsProps } from "./RecordAbout";
 export { FieldPreview, previewKind } from "./FieldPreview";
 export type { FieldPreviewProps } from "./FieldPreview";
-export type { RecordHeaderCardProps, RecordHeaderFact } from "./RecordHeaderCard";
+export type { RecordHeaderCardProps, RecordHeaderCardVariant, RecordHeaderFact } from "./RecordHeaderCard";
 export type { LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels } from "./LifecycleRail";
 export { LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LIFECYCLE_DIAGRAM_COLORS } from "./LifecycleDiagram";
 export type {
