@@ -222,6 +222,9 @@ export { RecordHeaderCard, RecordHeaderIcon, FieldPreview, previewKind } from ".
 // RecordPage — the CRM record page layout and header quick actions (0.8.0-dev.2). docs/components/record.md §11
 export { RecordPage, RecordQuickAction, RecordQuickActionMenu } from "./record";
 export type { RecordPageProps, RecordQuickActionProps, RecordQuickActionMenuProps, RecordQuickActionMenuItem } from "./record";
+// The record page's edit session and About cards (0.8.0-dev.2). docs/components/record.md §11
+export { RecordEditSession, RecordEditableCard, RecordNotSavedPill, RecordSaveButton, useRecordEditSession, RecordInfoTile, RecordInfoRow, RecordScoreRing, RecordFieldList, RecordInsightCard, RecordClosedNotice, RecordInteractions } from "./record";
+export type { RecordEditSessionProps, RecordEditSessionApi, RecordEditSessionLabels, RecordSaveRegion, RecordEditableCardProps, RecordUnsavedDialogProps, RecordInfoTileProps, RecordInfoRowProps, RecordScoreRingProps, RecordFieldListItem, RecordInsightCardProps, RecordInteraction, RecordInteractionsProps } from "./record";
 export type { RecordHeaderCardProps, RecordHeaderFact, FieldPreviewProps } from "./record";
 export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
 export type {
