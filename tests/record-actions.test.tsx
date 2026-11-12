@@ -244,3 +244,26 @@ describe("ReminderDialog (Core)", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
+
+describe("RecordMenu — the CRM record page's ⋯ menu options (0.8.0-dev.2)", () => {
+  it("contentClassName sizes the menu; shortcutDir inherit drops dir=ltr; layout inline renders no wrapper", () => {
+    const { container } = mount(<div data-testid="row">
+      <RecordMenu layout="inline" shortcutDir="inherit" contentClassName="w-60" items={[{ id: "new", label: "New Deal", shortcut: "Ctrl+B", onSelect: () => {} }]}
+        trigger={<button type="button" title="More">⋯</button>} />
+    </div>);
+    const row = container.querySelector("[data-testid='row']")!;
+    expect(row.firstElementChild?.tagName).toBe("BUTTON");
+    const t = screen.getByTitle("More");
+    fireEvent.pointerDown(t, { button: 0, ctrlKey: false }); fireEvent.keyDown(t, { key: "Enter" });
+    const menu = screen.getByRole("menu");
+    expect(menu.className).toContain("w-60");
+    expect(within(menu).getByText("Ctrl+B").getAttribute("dir")).toBeNull();
+  });
+  it("defaults are unchanged: stacked wrapper and dir=ltr hints", () => {
+    const { container } = mount(<RecordMenu items={[{ id: "x", label: "Print", shortcut: "Ctrl+P", onSelect: () => {} }]} />);
+    expect(container.firstElementChild?.className).toContain("inline-flex flex-col items-end");
+    const t = screen.getByRole("button");
+    fireEvent.pointerDown(t, { button: 0, ctrlKey: false }); fireEvent.keyDown(t, { key: "Enter" });
+    expect(within(screen.getByRole("menu")).getByText("Ctrl+P").getAttribute("dir")).toBe("ltr");
+  });
+});

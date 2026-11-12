@@ -56,6 +56,14 @@ export interface RecordMenuProps {
   /** Replace the default "⋯" trigger (must accept a ref / props — rendered with `asChild`). */
   trigger?: React.ReactElement;
   className?: string;
+  /** The open menu's classes (default `min-w-[12rem]`), e.g. the CRM record page's `w-60`. */
+  contentClassName?: string;
+  /** The shortcut hints' direction: "ltr" (default — keys read left to right) or "inherit" (the CRM record page's: the
+   *  hint follows the item's direction, so it sits at the end of the row in RTL too). */
+  shortcutDir?: "ltr" | "inherit";
+  /** "stacked" (default): the trigger in a column with the error under it; "inline": the trigger alone in its row (the
+   *  CRM record page's toolbar), the error after it. */
+  layout?: "stacked" | "inline";
 }
 
 /** Visible items grouped in order of first appearance (pure; exported for tests and custom renderers). */
@@ -71,7 +79,7 @@ export function groupMenuItems(items: RecordMenuItem[]): RecordMenuItem[][] {
   return order.map((g) => by.get(g)!);
 }
 
-export function RecordMenu({ items, onSelect, onError, disabled, busy, align = "end", labels, trigger, className }: RecordMenuProps) {
+export function RecordMenu({ items, onSelect, onError, disabled, busy, align = "end", labels, trigger, className, contentClassName, shortcutDir = "ltr", layout = "stacked" }: RecordMenuProps) {
   const { t } = useLocale();
   const L = {
     menu: labels?.menu ?? t("r35Menu"), confirmTitle: labels?.confirmTitle ?? t("r35ConfirmTitle"), confirmBody: labels?.confirmBody ?? t("r35ConfirmBody"),
@@ -102,8 +110,7 @@ export function RecordMenu({ items, onSelect, onError, disabled, busy, align = "
   const c: RecordMenuConfirm = typeof confirm === "object" ? confirm : typeof confirm === "string" ? { body: confirm } : {};
   if (!groups.length) return null;
 
-  return (
-    <div className={cn("inline-flex flex-col items-end", className)} data-busy={isBusy || undefined}>
+  const menu = (
       <DropdownMenu>
         <DropdownMenuTrigger asChild disabled={disabled || isBusy}>
           {trigger ?? (
@@ -112,7 +119,7 @@ export function RecordMenu({ items, onSelect, onError, disabled, busy, align = "
             </Button>
           )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align={align} className="min-w-[12rem]">
+        <DropdownMenuContent align={align} className={cn("min-w-[12rem]", contentClassName)}>
           {groups.map((g, gi) => (
             <React.Fragment key={gi}>
               {gi > 0 && <DropdownMenuSeparator />}
@@ -121,14 +128,16 @@ export function RecordMenu({ items, onSelect, onError, disabled, busy, align = "
                   className={it.destructive ? "text-destructive focus:text-destructive" : undefined} onSelect={() => choose(it)}>
                   {it.icon}
                   <span>{it.label}</span>
-                  {it.shortcut ? <DropdownMenuShortcut dir="ltr">{it.shortcut}</DropdownMenuShortcut> : null}
+                  {it.shortcut ? <DropdownMenuShortcut dir={shortcutDir === "ltr" ? "ltr" : undefined}>{it.shortcut}</DropdownMenuShortcut> : null}
                 </DropdownMenuItem>
               ))}
             </React.Fragment>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      {error ? <p role="alert" className="mt-1 max-w-xs text-xs text-destructive">{error}</p> : null}
+  );
+  const errorEl = error ? <p role="alert" className="mt-1 max-w-xs text-xs text-destructive">{error}</p> : null;
+  const dialog = (
       <AlertDialog open={!!pending} onOpenChange={(o) => { if (!o) setPending(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -142,6 +151,13 @@ export function RecordMenu({ items, onSelect, onError, disabled, busy, align = "
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+  );
+  if (layout === "inline") return <>{menu}{errorEl}{dialog}</>;
+  return (
+    <div className={cn("inline-flex flex-col items-end", className)} data-busy={isBusy || undefined}>
+      {menu}
+      {errorEl}
+      {dialog}
     </div>
   );
 }
