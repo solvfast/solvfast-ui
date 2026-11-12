@@ -708,3 +708,90 @@ transitions, roles, logs) and the graph engine for the diagram.
 
 `LifecycleBar` (§2.5) uses the same dot and connector atoms (`LifecycleStepDot`): past states are `success` (was `primary`),
 the current label is `primary`, future connectors are dashed. Its API and `data-step` markup are unchanged.
+
+### 9.4 Lifecycle on Frappe data — `FrappeWorkflowActions variant="rail"`
+
+`FrappeWorkflowActions` (`@solvfast/ui/frappe`) renders the same `LifecycleRail` from a Frappe Workflow:
+
+- **path** — the states the record entered, oldest first (docinfo `workflow_logs`, then Version rows; `stateEntries`),
+  ending with the current state; meta = `who · day`, tooltip = full date and time.
+- **next** — the server's `get_transitions` answer for this user (one per action), named by the state it leads to
+  (`action → state` when two actions lead to the same state); a move to a state already on the path is tagged *back*.
+  Each is a button (`onSelectNext`) that applies the transition: `confirm`, `beforeApply` / `afterApply` and
+  `onApplied` work as in the other variants; a refusal is shown under the rail.
+- **End of lifecycle** — only when no transition leaves the state **for anyone** (not when this user has none).
+- An unsaved document offers no way forward and says why (`recSaveBeforeAction`); transitions are not requested.
+- `onViewAll` and `railLabels` pass through. The diagram dialog needs the consumer's graph engine, as in §9.2.
+
+Workflow semantics (field names, states, transitions, `apply_workflow`, permissions) are unchanged; only the chrome says
+*Lifecycle*. Tests: `tests/frappe-lifecycle-rail.test.tsx` (stub client — request / response shapes, not a real site).
+
+## 10. RecordRail — the CRM record page's right rail
+
+The right rail of the CRM record pages (Deal, Lead, Contact, Organization; Tickets reuse the cards), as DS components.
+It is a **port, not a redesign**: the DOM and class strings of the CRM's `SidebarCard`, `RailSection` (its DS-scope
+branch), `RelatedRecordRow`, `SidebarCustomizer` (DS-scope branch), `RailFooter` and `ReferencesPanel`, with
+`brand-violet` → `primary`. On the CRM Deal page the migrated rail is pixel-identical to the pre-migration capture
+(12 theme × language × width combinations; see `docs/audit/p0/P0-CONSOLIDATION.md`).
+
+**Two sidebar systems, both kept.** `RecordRail` is not the Desk form sidebar. `FormSidebar` / `FrappeFormSidebar` (§6:
+Assigned To, Attachments, Tags, Share, stats, Created / Modified, in Desk's order and look) are unchanged and remain the
+Frappe-native sidebar. The two can share data adapters (`FrappeAssignTo`, `FrappeAttachments`) but not their look.
+
+### 10.1 The rail
+
+`RecordRail` (renders an `aside`) — Customize sections, pinned sections, the visible sections in order, `footer`, then
+`after` (outside Customize).
+
+| Prop | Meaning |
+|---|---|
+| `sections` | `RecordRailSectionDef[]` = `{ id, label, render, pinned? }`, in order. `pinned` = always shown, first, not in Customize (the CRM's Lifecycle). `render` may return `null` when the section does not apply now (the CRM's Playbook). |
+| `visible` / `onVisibleChange` | Controlled visible ids (non-pinned). |
+| `defaultVisible` | Uncontrolled initial ids (default: all). |
+| `storageKey` | **Opt-in** persistence of the hidden ids (`localStorage` `sf-record-rail:<key>`). The CRM does not persist (per page view). |
+| `customize`, `customizeLabels`, `customizeIcon` | Show the button (default true); its strings; its glyph. |
+| `footer`, `after` | E.g. `RecordRailFooter`; `RecordRailArticles` (the CRM shows Articles after the footer). |
+| `className` | The aside's classes (the CRM: `lg:col-span-1 lg:sticky lg:top-4 lg:self-start space-y-4`). |
+
+Reordering by drag is not implemented (the CRM has none: its `SortableSidebar` is not mounted); cards accept a
+`dragHandle` (HTML attributes for the grip) for a host that adds one.
+
+### 10.2 Building blocks
+
+| Component | What it is |
+|---|---|
+| `RecordRailCard` | A card: hover grip, icon, uppercase title, end `action`, body. `accent` = border classes (default `border-primary/20 hover:border-primary/40`). `recordRailCardClass(accent, stacked)` is its surface for hosts that draw their own header (the CRM's Attachments card). |
+| `RecordRailSection` | A card whose `spec.kind` decides the header controls: `process` (none), `single` (pencil Change, × Clear), `multi` (count in the title, + Link), `content` (optional + Add). `notice` renders above the body. |
+| `RecordRailRow` | A linked record: tinted icon square, `#id`, name (Arabic with `nameAr` + `isAr`), subline, `chips`, a hover `action`. Clickable rows are `div[role=button]` (Enter / Space). |
+| `RecordRailCustomize` | "Customize sections" + the "Visible sections" checklist. |
+| `RecordRailFooter` | `lines: { label, who?, when?, whenTitle? }[]` and `seenBy: { label, people }`. Times are formatted by the host. |
+
+### 10.3 Modules
+
+| Module | Component | Host supplies |
+|---|---|---|
+| Assignment | `RecordRailAssignment` (inside a `single` section) | The assignee UI as children — `AssigneeGroup variant="list" withDetails` (mock / local data) or `FrappeAssignTo` (Frappe) — plus `team`, `autoAssign`, `footer` (e.g. open ToDo details). |
+| Attachments | `FrappeAttachments` (`@solvfast/ui/frappe`) with `className={recordRailCardClass(accent, false)}` | A `FrappeProvider` (a real site, or a local mock client as the CRM does). The section keeps the Desk attachments header (sentence case), as the CRM shows it today. Upload / Library / Link / remove / limits are `FrappeAttachments`' (§6). |
+| Organization (any single link) | `RecordRailLinkedRecord` | `record` (row props) or `emptyLabel`; `onChange` (toggle the host's picker), `onClear`; the `picker` element (e.g. a `LinkInput`-based record picker). |
+| Tasks | `RecordRailTasks` | `tasks: { id, title, titleAr?, subline?, status?, onOpen? }[]` (count in the title, max 5 rows, state badge, "Open in …" link only where `onOpen` is given), `emptyLabel`, `openLabel`; optional `onAdd` (the CRM has none). |
+| Articles | `RecordRailArticles` + `RecordRailArticleReader` | `articles: { id, title, meta? }[]`, `onOpen(id)`; the reader's `kicker`, `title`, body (the host renders / sanitises it), `link`. Renders nothing without articles. The reader's `side` is the logical Sheet side (default `right` = end edge). |
+
+Domain logic stays in the app: which organization / tasks / articles belong to a record, stores, undo, history logging,
+permissions and routing come in through props and callbacks.
+
+### 10.4 Glyphs and the host's icon version
+
+Every icon the package draws in the rail can be replaced (`gripIcon`, `icons`, `customizeIcon`, `openIcon`, …). The CRM
+is on `lucide-react` 0.462, the package on 1.28; some shapes differ (measured: `BookOpen`, `Settings2`, `CheckSquare`),
+so the CRM passes its own glyphs to keep its look exactly. Hosts on the package's version can omit them.
+
+### 10.5 Strings
+
+`rr*` messages (en / ar): Customize sections, Visible sections, Drag to reorder, Link, Add, Change, Clear, Articles.
+Pass `labels` when rendering outside a ThemeProvider or when the host's language state is not the provider's.
+
+### 10.6 FormView: `FrappeFormView aside`
+
+`FrappeFormView` / `FrappeForm` take `aside` (a node, or a function of the live form context like `menu`): the form
+takes 3 of 4 columns from `lg` up and the aside the 4th — the CRM record page's grid. Pass a `RecordRail` for the CRM
+experience or a `FrappeFormSidebar` for Desk's. Without `aside` the form's DOM is unchanged.

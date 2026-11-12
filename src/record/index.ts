@@ -31,6 +31,11 @@ export { INSPECTED_PROPERTIES, LINK_OPERATORS, keyFromLabel, deriveKey, ownKeys,
 export type { FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./fieldDefinition";
 export { toLayout, fromLayout, insertItem, moveItem, stepItem, locateField, insertSectionAfter, appendTab, removeSection, removeTab, previousId, kindOfFieldtype } from "./fieldLayout";
 export type { DesignerItem, DesignerKind, DropSlot, LayoutTab, LayoutSection, LayoutColumn } from "./fieldLayout";
+// RecordRail — the CRM record page's right rail (docs/components/record.md §10)
+export { RecordRail, RecordRailCard, RecordRailSection, RecordRailRow, RecordRailCustomize, RecordRailFooter, RecordRailAssignment, RecordRailLinkedRecord, RecordRailTasks, RecordRailArticles, RecordRailArticleReader, recordRailCardClass, RECORD_RAIL_DEFAULT_ACCENT } from "./RecordRail";
+export type {
+  RecordRailProps, RecordRailSectionDef, RecordRailCardProps, RecordRailDragHandle, RecordRailSectionProps, RecordRailSectionSpec, RecordRailSectionLabels, RecordRailSectionIcons, RecordRailRowProps, RecordRailCustomizeProps, RecordRailCustomizeOption, RecordRailFooterProps, RecordRailFooterLine, RecordRailAssignmentProps, RecordRailLinkedRecordProps, RecordRailTasksProps, RecordRailTask, RecordRailArticlesProps, RecordRailArticle, RecordRailArticleReaderProps,
+} from "./RecordRail";
 export { ActionBar } from "./ActionBar";
 export type { ActionBarProps, ActionBarLabels } from "./ActionBar";
 export { StatusBadge } from "./StatusBadge";

@@ -14,6 +14,27 @@ The first prerelease after 0.7.0 (`feat/0.8.x/integration`, from tag `v0.7.0`). 
 sort below 0.7.0, which is why this line continues as 0.8.0-dev.N). 0.7.0's group-by fixes, which the families line
 did not have, are included. Nothing below changes for a consumer of 0.7.0 that does not use the new APIs.
 
+### RecordRail, Lifecycle on Frappe data, FormView aside (from `feat/0.7.x/p0-record-rail`)
+
+**RecordRail — the CRM record page's right rail as DS components** (docs/components/record.md §10)
+- New Core `RecordRail`, `RecordRailCard`, `RecordRailSection`, `RecordRailRow`, `RecordRailCustomize`,
+  `RecordRailFooter`, and the modules `RecordRailAssignment`, `RecordRailLinkedRecord` (Organization),
+  `RecordRailTasks`, `RecordRailArticles` + `RecordRailArticleReader`; `recordRailCardClass` for the Attachments card
+  (`FrappeAttachments`). A 1:1 port of the CRM's rail pieces (same DOM and classes); on the CRM Deal page the migrated
+  rail is pixel-identical to the pre-migration capture. Hosts can pass their own glyphs.
+- The Desk form sidebar (`FormSidebar`, `FrappeFormSidebar`) is unchanged; both sidebar systems remain.
+- `rr*` messages (en / ar).
+
+**Lifecycle on Frappe data**
+- `FrappeWorkflowActions variant="rail"`: the record's Lifecycle as `LifecycleRail` (path from workflow logs / versions,
+  the server's transitions as buttons that apply them, back-moves tagged, End of lifecycle only when no transition
+  leaves the state). `onViewAll`, `railLabels`. `compact` and `steps` are unchanged.
+- `LifecycleRail` gains `onSelectNext` (the same change as on `feat/0.7.x/families`).
+
+**FormView**
+- `FrappeFormView` / `FrappeForm` `aside`: a record rail next to the form (3 + 1 columns from `lg` up). Absent → the
+  layout is unchanged.
+
 ## 0.7.0-dev.22 — a family's extra registry columns and the new record's form hooks
 
 Additive. jsdom tests only.
