@@ -41,8 +41,12 @@ branch for Service Desk / Service Management, `CrmDsListView`, `FrappeEntityList
 | `LifecycleBar` (Core) + `FrappeWorkflowActions variant="steps"` | A stepper with an Actions menu | CRM **Frappe data** path (`CrmStatusActions`) — a second look |
 | `Stepper` (primitive) | Wizard steps | Not a lifecycle (wizards) |
 
-Consolidated: `FrappeWorkflowActions` gains `variant="rail"` (the same `LifecycleRail`), and the CRM's Frappe path uses
-it, so both data modes draw one Lifecycle. `LifecycleBar`, `compact` and `steps` stay for other consumers. No third look.
+Consolidated: `FrappeWorkflowActions` gains `variant="rail"` (the same `LifecycleRail` component), and the CRM's Frappe
+path uses it instead of `LifecycleBar`. `LifecycleBar`, `compact` and `steps` stay for other consumers. No third look.
+**It is not identical to the reference rail:** on Frappe data the CRM page header has no Actions button ("one menu
+only"), so the rail's next options are buttons that apply the transition (hover underline), where the mock rail's are
+plain text and the header carries Actions; and there is no "View full lifecycle". This path is covered by stub-client
+unit tests only — the deployed build cannot select a Frappe data mode, and no real site was used.
 
 ### 2.3 FormView and sidebars
 
