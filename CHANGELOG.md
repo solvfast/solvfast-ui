@@ -6,6 +6,25 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+**RecordRail — the CRM record page's right rail as DS components** (docs/components/record.md §10)
+- New Core `RecordRail`, `RecordRailCard`, `RecordRailSection`, `RecordRailRow`, `RecordRailCustomize`,
+  `RecordRailFooter`, and the modules `RecordRailAssignment`, `RecordRailLinkedRecord` (Organization),
+  `RecordRailTasks`, `RecordRailArticles` + `RecordRailArticleReader`; `recordRailCardClass` for the Attachments card
+  (`FrappeAttachments`). A 1:1 port of the CRM's rail pieces (same DOM and classes); on the CRM Deal page the migrated
+  rail is pixel-identical to the pre-migration capture. Hosts can pass their own glyphs.
+- The Desk form sidebar (`FormSidebar`, `FrappeFormSidebar`) is unchanged; both sidebar systems remain.
+- `rr*` messages (en / ar).
+
+**Lifecycle on Frappe data**
+- `FrappeWorkflowActions variant="rail"`: the record's Lifecycle as `LifecycleRail` (path from workflow logs / versions,
+  the server's transitions as buttons that apply them, back-moves tagged, End of lifecycle only when no transition
+  leaves the state). `onViewAll`, `railLabels`. `compact` and `steps` are unchanged.
+- `LifecycleRail` gains `onSelectNext` (the same change as on `feat/0.7.x/families`).
+
+**FormView**
+- `FrappeFormView` / `FrappeForm` `aside`: a record rail next to the form (3 + 1 columns from `lg` up). Absent → the
+  layout is unchanged.
+
 ## 0.7.0-dev.6 — P36e FrappeField trace, field types, FrappeField without a server, Frappe-like print, docstatus, Lifecycle rail
 
 P36e follows up on the P36d Lead Details audit. Evidence comes from jsdom tests, the in-package SIMULATOR and Playwright
