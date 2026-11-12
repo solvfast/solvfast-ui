@@ -4,6 +4,7 @@ import { cn } from "../lib/cn";
 import { useLocale } from "../theme/ThemeProvider";
 import { Button } from "../primitives/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "../primitives/tabs";
 
 /**
  * RecordPage — the CRM record page (Deal / Lead / Contact / Organization / Ticket details) as a layout: the toolbar
@@ -130,5 +131,32 @@ export function RecordQuickActionMenu({ label, items, variant = "split", icon: I
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+export interface RecordTab { value: string; label: React.ReactNode; icon?: IconType }
+
+export interface RecordTabsProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  tabs: RecordTab[];
+  /** The panels (`TabsContent`), after the bar. */
+  children?: React.ReactNode;
+  className?: string;
+}
+
+/** The record page's full-width tab bar (About · History · Activities · …): equal tabs, an icon before each label. */
+export function RecordTabs({ value, onValueChange, tabs, children, className }: RecordTabsProps) {
+  return (
+    <Tabs value={value} onValueChange={onValueChange} className={className}>
+      <TabsList className="flex w-full">
+        {tabs.map((t) => (
+          <TabsTrigger key={t.value} value={t.value} className="min-w-0 flex-1 gap-1.5">
+            {t.icon ? <t.icon className="h-3.5 w-3.5" /> : null}{t.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {children}
+    </Tabs>
   );
 }

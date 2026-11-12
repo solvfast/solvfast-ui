@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Building2, Calendar, CalendarPlus, Handshake, Paperclip, PhoneCall, User } from "lucide-react";
-import { RecordPage, RecordHeaderCard, RecordHeaderIcon, RecordQuickAction, RecordQuickActionMenu, ThemeProvider } from "../src";
+import { RecordPage, RecordHeaderCard, RecordHeaderIcon, RecordQuickAction, RecordQuickActionMenu, RecordTabs, TabsContent, ThemeProvider } from "../src";
 import * as record from "../src/record";
 
 beforeAll(() => {
@@ -140,5 +140,28 @@ describe("RecordQuickAction / RecordQuickActionMenu", () => {
     wrap(<RecordQuickActionMenu variant="more" label="More" items={[{ label: "Attachment", icon: Paperclip, onSelect: () => {} }]} />);
     const t = screen.getByRole("button", { name: "More" });
     expect(has(t, "h-8 gap-1 px-2.5 rounded-full text-xs font-medium")).toBe(true);
+  });
+});
+
+describe("RecordTabs", () => {
+  it("the CRM's full-width bar: equal tabs, an icon before each label; switching shows the panel", () => {
+    function T() {
+      const [v, setV] = React.useState("about");
+      return (
+        <RecordTabs value={v} onValueChange={setV} tabs={[{ value: "about", label: "About", icon: Handshake }, { value: "history", label: "History", icon: Calendar }]}>
+          <TabsContent value="about">about panel</TabsContent><TabsContent value="history">history panel</TabsContent>
+        </RecordTabs>
+      );
+    }
+    wrap(<T />);
+    const list = screen.getByRole("tablist");
+    expect(has(list, "flex w-full")).toBe(true);
+    const [about, history] = screen.getAllByRole("tab");
+    expect(has(about, "min-w-0 flex-1 gap-1.5")).toBe(true);
+    expect(about.querySelector("svg")?.getAttribute("class")).toContain("h-3.5 w-3.5");
+    expect(screen.getByText("about panel")).toBeTruthy();
+    fireEvent.mouseDown(history); fireEvent.click(history);
+    fireEvent.keyDown(history, { key: "Enter" });
+    expect(history.getAttribute("aria-selected") === "true" || screen.queryByText("history panel") !== null).toBe(true);
   });
 });
