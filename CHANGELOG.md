@@ -35,6 +35,10 @@ did not have, are included. Nothing below changes for a consumer of 0.7.0 that d
 - `FrappeFormView` / `FrappeForm` `aside`: a record rail next to the form (3 + 1 columns from `lg` up). Absent → the
   layout is unchanged.
 
+### Naming
+- `@solvfast/ui/sayr`: the rail's card-id type is now `SayrRailCardId`. `RecordRailCard` stays there as a **deprecated
+  alias** (same type), because the core entry's `RecordRailCard` is the CRM rail's card component.
+
 ## 0.7.0-dev.22 — a family's extra registry columns and the new record's form hooks
 
 Additive. jsdom tests only.

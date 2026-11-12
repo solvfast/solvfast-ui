@@ -9,9 +9,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "../primitives/popover";
 import { fmt } from "../record/format";
 import { useLocale } from "../theme/ThemeProvider";
 
-export type RecordRailCard = "assignment" | "sla" | "playbook" | "tasks" | "notes" | "attachments";
+/** The Sayr record page's own rail cards (ids). */
+export type SayrRailCardId = "assignment" | "sla" | "playbook" | "tasks" | "notes" | "attachments";
+/** @deprecated 0.8.0-dev.1 — use `SayrRailCardId`. The core `RecordRailCard` (from `@solvfast/ui`) is the CRM rail's card
+ *  component; this Sayr-only type of card ids kept the same name until 0.8.0-dev.1. Kept as an alias for existing code. */
+export type RecordRailCard = SayrRailCardId;
 /** The rail's order (Lifecycle is always first and cannot be hidden). */
-export const RECORD_RAIL_CARDS: readonly RecordRailCard[] = ["assignment", "sla", "playbook", "tasks", "notes", "attachments"];
+export const RECORD_RAIL_CARDS: readonly SayrRailCardId[] = ["assignment", "sla", "playbook", "tasks", "notes", "attachments"];
 
 /** A card the app adds to the rail (e.g. the record's CRM contact): placed after Playbook, hidden and shown like the others. */
 export interface RecordRailExtraCard {
@@ -61,7 +65,7 @@ export function useHiddenCards(storageKey: string) {
   return { hidden, toggle };
 }
 
-export function railLabel(card: RecordRailCard, t: T): string {
+export function railLabel(card: SayrRailCardId, t: T): string {
   return { assignment: t("rpAssignment"), sla: t("rpSla"), playbook: t("rpPlaybook"), tasks: t("rpTasks"), notes: t("rpNotes"), attachments: t("rpAttachments") }[card];
 }
 
@@ -69,7 +73,7 @@ export function CustomizeSections({ hidden, onToggle, extra = [] }: {
   hidden: Set<string>; onToggle: (card: string) => void; extra?: readonly RecordRailExtraCard[];
 }) {
   const { t } = useLocale();
-  const label = (card: string) => extra.find((c) => c.id === card)?.label ?? railLabel(card as RecordRailCard, t);
+  const label = (card: string) => extra.find((c) => c.id === card)?.label ?? railLabel(card as SayrRailCardId, t);
   return (
     <div className="flex justify-end">
       <Popover>
