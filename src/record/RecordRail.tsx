@@ -24,7 +24,7 @@ import { Sheet, SheetContent } from "../primitives/sheet";
 type IconType = React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 
 /** Props a sortable list (e.g. dnd-kit) spreads on the card's grip. */
-export type RecordRailDragHandle = React.HTMLAttributes<HTMLElement> & { [attr: `data-${string}`]: string | undefined };
+export type RecordRailDragHandle = React.HTMLAttributes<HTMLElement>;
 
 /** The rail card surface (also used by hosts that draw their own header inside, e.g. FrappeAttachments' `className`). */
 export const recordRailCardClass = (accent?: string, stacked = true) =>

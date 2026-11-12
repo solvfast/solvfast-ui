@@ -50,8 +50,9 @@ describe("RecordRailCard — the CRM SidebarCard", () => {
   });
 
   it("spreads drag-handle props on the grip", () => {
-    const { container } = wrap(<RecordRailCard title="X" icon={User} dragHandle={{ "data-handle": "yes", className: "cursor-grab" }} />);
-    const grip = container.querySelector("[data-handle='yes']")!;
+    const { container } = wrap(<RecordRailCard title="X" icon={User} dragHandle={{ id: "grip", draggable: true, className: "cursor-grab" }} />);
+    const grip = container.querySelector("#grip")!;
+    expect(grip.getAttribute("draggable")).toBe("true");
     expect(classes(grip).has("cursor-grab")).toBe(true);
   });
 });
