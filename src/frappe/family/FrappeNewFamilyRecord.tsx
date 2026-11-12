@@ -13,7 +13,7 @@ import type { familyEn } from "../../theme/messages-ws/family";
 import { cn } from "../../lib/cn";
 import type { FrappeDoc, FrappeDocField } from "../contract";
 import type { FormController } from "../form/events";
-import { FrappeForm } from "../form/FrappeForm";
+import { FrappeForm, type FrappeFormProps } from "../form/FrappeForm";
 import { useFrappeSettings } from "../FrappeProvider";
 import { useFamilyTypes, type FamilyDescriptor, type FamilyType } from "./family";
 
@@ -61,6 +61,9 @@ export interface FrappeNewFamilyRecordProps {
   /** Under the type picker (both layouts), e.g. a "Find the right type" guide. `choose` picks a type by its name, asking
    *  first when fields were filled, as the picker does. */
   typeHelp?: (ctx: { types: FamilyType[]; choose: (name: string) => void }) => React.ReactNode;
+  /** The chosen type's form: its events (Desk's `frappe.ui.form.on`, e.g. a price filled when the record opens) and
+   *  fields drawn by the app. */
+  formProps?: (type: FamilyType) => Pick<FrappeFormProps, "events" | "childEvents" | "renderField">;
 }
 
 // A type's own fields sit on a tab Sayr adds; a new record shows them in one list, so tab breaks are left out.
@@ -71,7 +74,7 @@ function Dot({ color }: { color?: string }) {
 }
 
 /** A new record of a family: the type first, then that type's form. Changing the type after filling fields asks first. */
-export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType, renderTypeIcon, createClassName, labels, className, layout = "default", aside, backLabel, typeHelp }: FrappeNewFamilyRecordProps) {
+export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType, renderTypeIcon, createClassName, labels, className, layout = "default", aside, backLabel, typeHelp, formProps }: FrappeNewFamilyRecordProps) {
   const { t, language, isRTL } = useLocale();
   const { session } = useFrappeSettings();
   const L = (key: keyof FrappeNewFamilyRecordLabels, fallback: keyof typeof familyEn) => loc(labels?.[key], language) || t(fallback);
@@ -179,6 +182,7 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
         />
       )}
       <FrappeForm
+        {...formProps?.(type)}
         key={type.doctype}
         doctype={type.doctype}
         hideToolbar

@@ -189,6 +189,18 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     expect(screen.getByRole("textbox", { name: /Booking Reference/ })).toBeTruthy();
   });
 
+  it("FAM.screens.12 extraFields reach FamilyType.row; formProps gives the chosen type's form its events and drawn fields", async () => {
+    const family: FamilyDescriptor = { ...FAMILY, extraFields: ["type_name_ar", "no_such_column"] };
+    mount(site(), <FrappeNewFamilyRecord family={family} defaultType="Refund Request" onCreated={() => {}}
+      formProps={(type) => ({
+        events: { refresh: (frm) => { if (frm.isNew && !frm.doc.booking) frm.setValue("booking", String(type.row.type_name_ar)); } },
+        renderField: (df) => (df.fieldname === "title" ? <p data-drawn-title="">Drawn by the app</p> : undefined),
+      })} />);
+    const booking = await screen.findByRole("textbox", { name: /Booking Reference/ }, { timeout: 3000 });
+    await waitFor(() => expect((booking as HTMLInputElement).value).toBe("طلب استرداد"));
+    expect(document.querySelector("[data-drawn-title]")?.textContent).toBe("Drawn by the app");
+  });
+
   it("FAM.screens.7 a wizard type walks its tabs as steps: Next, Back, and Create on the last step", async () => {
     const s = site();
     const onCreated = vi.fn();

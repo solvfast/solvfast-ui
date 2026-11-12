@@ -6,6 +6,15 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.22 — a family's extra registry columns and the new record's form hooks
+
+Additive. jsdom tests only.
+
+- `FamilyDescriptor.extraFields`: more registry columns read into `FamilyType.row` (e.g. a type's unit price and
+  currency); a column the registry lacks is skipped.
+- `FrappeNewFamilyRecord` / `SayrNewRecordPage` `formProps(type)`: the chosen type's form gets `events`, `childEvents`
+  and `renderField` (e.g. a price filled on a new record, a quantity stepper drawn by the app).
+
 ## 0.7.0-dev.21 — locked fields show a lock; the app adds its own rail cards
 
 Additive, with a visual change in the form builder. jsdom tests only.

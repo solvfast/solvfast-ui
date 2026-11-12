@@ -36,6 +36,9 @@ export interface FamilyDescriptor {
   /** Registry: the Configuration fields `FrappeTypeForm` hides with `configuration={false}`. Default
    *  `SAYR_CONFIGURATION_FIELDS`. */
   configurationFields?: readonly string[];
+  /** Registry: more of a type's columns to read into `FamilyType.row` (e.g. a price a new record starts from); a column
+   *  the registry lacks is skipped. */
+  extraFields?: readonly string[];
 }
 
 /** The fields Sayr adds to every registry for a type's lifecycle, SLA policy and assignment profile. */
@@ -90,7 +93,8 @@ export async function fetchFamilyTypes(api: Pick<FrappeApi, "getMeta" | "getList
   const colorField = pick(opt(family.colorField, "color"));
   const enabledField = pick(opt(family.enabledField, "enabled"));
   const wizardField = pick(familyField.wizard(family));
-  const fields = [...new Set(["name", link, labelField, arField, descField, iconField, colorField, wizardField].filter(Boolean) as string[])];
+  const extra = (family.extraFields ?? []).filter((f) => has.has(f));
+  const fields = [...new Set(["name", link, labelField, arField, descField, iconField, colorField, wizardField, ...extra].filter(Boolean) as string[])];
   const rows = await api.getList<Record<string, unknown>>(family.registry, {
     fields,
     filters: [[link, "is", "set"], ...(enabledField ? [[enabledField, "=", 1] as [string, string, unknown]] : [])],

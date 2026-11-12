@@ -264,6 +264,9 @@ Every other prop is `FrappeForm`'s and goes to the form.
   
   Then Created by / Last edited by. **Customize sections** hides or shows cards 2–7, per DocType, in this browser
   (`localStorage`, key `sf-record-rail:<doctype>`, or `railStorageKey`).
+- `formProps(type)` (0.7.0-dev.22, also on `FrappeNewFamilyRecord`): the chosen type's form gets `events`,
+  `childEvents` and `renderField`. With `FamilyDescriptor.extraFields` (registry columns read into `FamilyType.row`) a
+  new record can start from its type's values, e.g. a price.
 - `extraCards` (0.7.0-dev.21): the app's own cards, `{ id, label, icon, render(doc) }`, placed after Playbook, listed in
   Customize sections and hidden like the others (`railOrder(extraCards)` gives the order). ServeFast passes the
   record's CRM Contact and Organization. `SayrNewRecordPage` takes the same prop and shows them as "Available after the
