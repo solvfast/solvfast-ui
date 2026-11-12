@@ -828,7 +828,13 @@ states × 4 theme / language / width combinations (`docs/audit/p08/` record).
   `"more"`: More ▾; `items` with icon, icon colour, onSelect).
 - The toolbar's ⋯: `RecordMenu` with `contentClassName="w-60"`, `shortcutDir="inherit"`, `layout="inline"` and the host's
   trigger; Actions: `ActionBar variant="menu"`; Save: `RecordSaveButton`.
-- `RecordTabs` — {value, onValueChange, tabs: {value, label, icon}[]} + the `TabsContent` panels.
+- `RecordTabs` — {value, onValueChange, tabs: {value, label, icon, hidden?}[], overflow?, ariaLabel?} + the `TabsContent`
+  panels. `overflow="fill"` (default): equal tabs sharing the bar (the CRM's main record tabs). `overflow="scroll"`: each
+  tab keeps its content width and the bar scrolls horizontally when they don't fit — the CRM's own scrollable tab bar
+  (its Activities sub-tabs: `w-full overflow-x-auto` around a `min-w-max` list, no-wrap tabs); on a wide screen it still
+  fills. `hidden` leaves a tab out (the CRM's feature-flagged tabs); `ariaLabel` names the list. Keyboard: arrow keys
+  move between the shown tabs (reversed in RTL). Not added (no CRM evidence): per-tab disabled, count badges (a
+  `label` is a node), render-on-demand content.
 
 ### 11.3 Editing — `RecordEditSession`
 

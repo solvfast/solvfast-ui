@@ -6,6 +6,14 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0-dev.5 — P0 T5–T10 (in progress)
+
+Additive; nothing changes for existing code.
+- **T5 `RecordTabs`**: `overflow?: "fill" | "scroll"` (default `"fill"` = the 0.8.0-dev.4 markup, tested), `ariaLabel?`, and
+  `RecordTab.hidden?`. `"scroll"` is the CRM's scrollable tab bar (Deal / Ticket / Order Activities sub-tabs: an
+  `overflow-x-auto` wrapper, a `min-w-max` list, `whitespace-nowrap` tabs). `hidden` = the CRM's conditional (feature
+  flagged) tabs. Keyboard (arrows, RTL reversed) skips hidden tabs (tested).
+
 ## 0.8.0-dev.4 — RecordPage `surface` (P0 T4)
 
 Additive; nothing changes for existing code (glass stays the default).

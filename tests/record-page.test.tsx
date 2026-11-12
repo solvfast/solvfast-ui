@@ -4,7 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
 import fs from "node:fs";
 import path from "node:path";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Building2, Calendar, CalendarPlus, Handshake, Paperclip, PhoneCall, User } from "lucide-react";
 import { RecordPage, RecordHeaderCard, RecordHeaderIcon, RecordQuickAction, RecordQuickActionMenu, RecordTabs, TabsContent, ThemeProvider } from "../src";
 import * as record from "../src/record";
@@ -256,5 +256,51 @@ describe("T4 RecordPage surface — glass (default) | plain", () => {
       cleanup(); return out;
     };
     expect(tree("plain")).toEqual(tree("glass"));
+  });
+});
+
+describe("T5 RecordTabs — hidden, overflow (fill | scroll), ariaLabel", () => {
+  const T = [
+    { value: "about", label: "About", icon: Handshake }, { value: "history", label: "History", icon: Paperclip },
+    { value: "flagged", label: "Messages", icon: PhoneCall, hidden: true }, { value: "revenue", label: "Revenue", icon: Calendar },
+  ];
+  const tabs = (props: Partial<React.ComponentProps<typeof RecordTabs>> = {}, language: "en" | "ar" = "en", onValueChange = vi.fn()) =>
+    wrap(<RecordTabs value="about" onValueChange={onValueChange} tabs={T} {...props}><TabsContent value="about">a</TabsContent></RecordTabs>, language);
+
+  it("default = fill: the 0.8.0-dev.4 markup (no wrapper, no aria-label) — identical to overflow=\"fill\"", () => {
+    const a = tabs().container; const list = a.querySelector("[role=tablist]")!;
+    expect(list.getAttribute("class")).toContain("flex w-full");
+    expect(list.className.split(/\s+/)).not.toContain("min-w-max");
+    expect(list.hasAttribute("aria-label")).toBe(false);
+    expect(list.parentElement!.getAttribute("role")).toBeNull();
+    expect(list.parentElement!.className).not.toContain("overflow-x-auto");
+    for (const t of Array.from(list.querySelectorAll("[role=tab]"))) expect(t.className).toContain("min-w-0 flex-1 gap-1.5");
+    const ids = (h: string) => h.replace(/radix-:r[0-9a-z]+:/g, "radix-id");
+    const html = ids(a.innerHTML); cleanup();
+    expect(ids(tabs({ overflow: "fill" }).container.innerHTML)).toBe(html);
+  });
+  it("hidden leaves the tab out; the others are unchanged and in order", () => {
+    tabs();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["About", "History", "Revenue"]);
+    expect(screen.queryByRole("tab", { name: "Messages" })).toBeNull();
+  });
+  for (const [language, nextKey] of [["en", "ArrowRight"], ["ar", "ArrowLeft"]] as const) {
+    it(`keyboard (${language}): ${nextKey} moves to the next shown tab, skipping a hidden one; activation selects it`, async () => {
+      const change = vi.fn();
+      tabs({}, language, change);
+      const [, history] = screen.getAllByRole("tab");
+      history.focus();
+      fireEvent.keyDown(history, { key: nextKey });
+      await waitFor(() => expect(document.activeElement?.textContent).toBe("Revenue"));
+      expect(change).toHaveBeenCalledWith("revenue");
+    });
+  }
+  it("scroll = the CRM's scrollable tab bar: overflow-x wrapper, min-w-max list, no-wrap tabs; ariaLabel names the list", () => {
+    const { container } = tabs({ overflow: "scroll", ariaLabel: "Activity sections" });
+    const list = screen.getByRole("tablist", { name: "Activity sections" });
+    expect(has(list, "flex w-full min-w-max")).toBe(true);
+    expect(list.parentElement!.getAttribute("class")).toBe("w-full overflow-x-auto");
+    for (const t of screen.getAllByRole("tab")) expect(has(t, "min-w-0 flex-1 gap-1.5 whitespace-nowrap")).toBe(true);
+    expect(container.querySelectorAll("[role=tab]").length).toBe(3);
   });
 });

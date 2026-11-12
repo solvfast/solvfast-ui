@@ -144,28 +144,44 @@ export function RecordQuickActionMenu({ label, items, variant = "split", icon: I
   );
 }
 
-export interface RecordTab { value: string; label: React.ReactNode; icon?: IconType }
+export interface RecordTab {
+  value: string;
+  /** The tab's label (a node: e.g. a label with a count). */
+  label: React.ReactNode;
+  icon?: IconType;
+  /** Leave the tab out (e.g. a tab behind a feature flag). The host keeps `value` on a shown tab. */
+  hidden?: boolean;
+}
 
 export interface RecordTabsProps {
   value: string;
   onValueChange: (value: string) => void;
   tabs: RecordTab[];
+  /** "fill" (default): the tabs share the bar's width. "scroll": each tab keeps its content width (no truncation) and
+   *  the bar scrolls horizontally when they don't fit (on a phone, or with many tabs); on a wide screen it still fills. */
+  overflow?: "fill" | "scroll";
+  /** The tab list's accessible name (e.g. "Activity sections"). */
+  ariaLabel?: string;
   /** The panels (`TabsContent`), after the bar. */
   children?: React.ReactNode;
   className?: string;
 }
 
 /** The record page's full-width tab bar (About · History · Activities · …): equal tabs, an icon before each label. */
-export function RecordTabs({ value, onValueChange, tabs, children, className }: RecordTabsProps) {
+export function RecordTabs({ value, onValueChange, tabs, overflow = "fill", ariaLabel, children, className }: RecordTabsProps) {
+  const scroll = overflow === "scroll";
+  const list = (
+    <TabsList className={scroll ? "flex w-full min-w-max" : "flex w-full"} aria-label={ariaLabel}>
+      {tabs.filter((t) => !t.hidden).map((t) => (
+        <TabsTrigger key={t.value} value={t.value} className={scroll ? "min-w-0 flex-1 gap-1.5 whitespace-nowrap" : "min-w-0 flex-1 gap-1.5"}>
+          {t.icon ? <t.icon className="h-3.5 w-3.5" /> : null}{t.label}
+        </TabsTrigger>
+      ))}
+    </TabsList>
+  );
   return (
     <Tabs value={value} onValueChange={onValueChange} className={className}>
-      <TabsList className="flex w-full">
-        {tabs.map((t) => (
-          <TabsTrigger key={t.value} value={t.value} className="min-w-0 flex-1 gap-1.5">
-            {t.icon ? <t.icon className="h-3.5 w-3.5" /> : null}{t.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      {scroll ? <div className="w-full overflow-x-auto">{list}</div> : list}
       {children}
     </Tabs>
   );
