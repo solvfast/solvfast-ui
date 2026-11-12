@@ -1,8 +1,7 @@
 /**
- * The record page's About cards (the CRM Deal / Lead / Contact / Organization pages' About tab), ported 1:1 from their
- * @solvfast/ui-scope markup: summary tiles, info rows, the score ring (Probability), a field list (Prerequisites'
- * read view), an insight card (e.g. an AI summary — the host writes its content), the closed-record notice, and the
- * two-column Recent Interactions card. Presentational: the host passes values, colours (`tone`) and wording.
+ * A record page's About cards: summary tiles, info rows, a score ring (e.g. a probability), a field list (a read view of
+ * label / value pairs), an insight card (e.g. an AI summary — the host writes its content), the closed-record notice,
+ * and the two-column Recent Interactions card. Presentational: the host passes values, colours (`tone`) and wording.
  */
 import * as React from "react";
 import { Activity, ArrowDownLeft, ArrowUpRight } from "lucide-react";

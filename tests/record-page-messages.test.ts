@@ -1,8 +1,9 @@
-/** T3 (0.8.0-dev.3): the record page parts' messages moved from the internal module `recordPageCrm` to `recordPageParts`.
- *  Keys and wording are unchanged (the 0.8.0-dev.2 values, verbatim), so hosts overriding them through ThemeProvider
+/** 0.8.0-dev.3: the record page parts' messages moved from the internal module `recordPageCrm` to one module per
+ *  component, as the other message modules: `recordEditSession` (`res*`) and `recordAbout` (`rpg*`). Keys and wording are unchanged (the 0.8.0-dev.2 values, verbatim), so hosts overriding them through ThemeProvider
  *  messages or `labels` are unaffected. */
 import { describe, expect, it } from "vitest";
-import { recordPagePartsAr, recordPagePartsEn } from "../src/theme/messages-ws/recordPageParts";
+import { recordEditSessionAr, recordEditSessionEn } from "../src/theme/messages-ws/recordEditSession";
+import { recordAboutAr, recordAboutEn } from "../src/theme/messages-ws/recordAbout";
 import { wsAr, wsEn } from "../src/theme/messages-ws";
 
 const DEV2_EN = {
@@ -48,10 +49,12 @@ const DEV2_AR = {
   rpgNoInteractions: "لا توجد تفاعلات بعد",
 };
 
-describe("recordPageParts messages (renamed from recordPageCrm)", () => {
+describe("recordEditSession + recordAbout messages (moved from recordPageCrm)", () => {
   it("en and ar are the 0.8.0-dev.2 objects, key for key and value for value", () => {
-    expect(recordPagePartsEn).toEqual(DEV2_EN);
-    expect(recordPagePartsAr).toEqual(DEV2_AR);
+    expect({ ...recordEditSessionEn, ...recordAboutEn }).toEqual(DEV2_EN);
+    expect({ ...recordEditSessionAr, ...recordAboutAr }).toEqual(DEV2_AR);
+    expect(Object.keys(recordEditSessionEn).every((k) => k.startsWith("res"))).toBe(true);
+    expect(Object.keys(recordAboutEn).every((k) => k.startsWith("rpg"))).toBe(true);
   });
   it("the merged catalogue still carries every key with the same value", () => {
     for (const [k, v] of Object.entries(DEV2_EN)) expect((wsEn as Record<string, string>)[k]).toBe(v);

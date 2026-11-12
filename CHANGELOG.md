@@ -13,10 +13,12 @@ No visual or behaviour change; existing code keeps working.
   **deprecated alias** with identical output (tested: the same DOM for every prop, en and ar, alone and inside a
   `RecordPage`). New exported type `RecordHeaderCardVariant` (`"default" | "page" | "crm"`).
   The page header's `data-record-header` attribute now reads `"page"` (was `"crm"`; no consumer selects on it).
-- Messages: the internal module `messages-ws/recordPageCrm.ts` is now `recordPageParts.ts` (`res*`, `rpg*`). It is not
-  exported; keys and wording are unchanged (tested against the 0.8.0-dev.2 values).
-- Prop docs of `RecordPage`, `RecordQuickActionMenu`, `RecordMenu` and `RecordRail` no longer name the CRM in their API
-  descriptions (the CRM record page is documented as the reference). Showcase: `variant="page"`.
+- Messages: the internal module `messages-ws/recordPageCrm.ts` is now one module per component, as the other message
+  modules: `recordEditSession.ts` (`res*`) and `recordAbout.ts` (`rpg*`). Not exported; keys and wording are unchanged
+  (tested against the 0.8.0-dev.2 values).
+- Docs: the prop docs of `RecordPage`, `RecordQuickActionMenu`, `RecordMenu` and `RecordRail` and the file docs of
+  `RecordRail`, `RecordAbout`, `RecordEditSession` and `RecordHeaderCard` use neutral wording (no app component names). The
+  CRM record page is named only as the reference. Showcase: `variant="page"`.
 
 ## 0.8.0-dev.2 — the CRM record page: RecordPage, the CRM header, the edit session, the About cards
 

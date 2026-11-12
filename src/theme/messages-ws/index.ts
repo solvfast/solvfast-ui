@@ -24,10 +24,11 @@ import { familyEn, familyAr } from "./family";
 import { designerEn, designerAr } from "./designer";
 // SayrRecordPage (record header and side cards)
 import { recordPageEn, recordPageAr } from "./recordPage";
-// Record rail (RecordRail — the CRM record page's right rail)
+// Record rail (RecordRail)
 import { recordRailEn, recordRailAr } from "./recordRail";
-// CRM record page (RecordEditSession, About cards) — 0.8.0-dev.2
-import { recordPagePartsEn, recordPagePartsAr } from "./recordPageParts";
+// Record page parts: RecordEditSession (res*), About cards (rpg*)
+import { recordEditSessionEn, recordEditSessionAr } from "./recordEditSession";
+import { recordAboutEn, recordAboutAr } from "./recordAbout";
 
-export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn, ...recordRailEn, ...recordPagePartsEn };
-export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr, ...recordRailAr, ...recordPagePartsAr };
+export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn, ...recordRailEn, ...recordEditSessionEn, ...recordAboutEn };
+export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr, ...recordRailAr, ...recordEditSessionAr, ...recordAboutAr };

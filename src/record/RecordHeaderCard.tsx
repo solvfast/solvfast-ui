@@ -4,7 +4,7 @@
  * Frappe-free: the host passes what to show.
  *
  * Two looks, one structure (the title row and the facts row are the same markup):
- *  - `variant="default"` — the Sayr record page's header (gradient surface, 56 px avatar). Unchanged.
+ *  - `variant="default"` — the original header card (gradient surface, 56 px avatar). Unchanged.
  *  - `variant="page"` (0.8.0-dev.3) — the `RecordPage` header: a plain card, the host's avatar (e.g. `RecordHeaderIcon`,
  *    a photo), a larger title that takes an editable title, `titleExtra` after the status (e.g. a "Not saved" pill),
  *    facts that can be links (`onClick`), a `value` line, `chips` as given, and `actions` (the quick action pills) at
@@ -38,7 +38,7 @@ export interface RecordHeaderCardProps {
   chips?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
-  /** `default` = the Sayr header (unchanged); `page` = the `RecordPage` header. `crm` is a deprecated alias of `page`
+  /** `default` = the original header card (unchanged); `page` = the `RecordPage` header. `crm` is a deprecated alias of `page`
    *  (0.8.0-dev.2's name; same output). */
   variant?: RecordHeaderCardVariant;
   /** `page`: the status as a node (e.g. a `StatusBadge` in the lifecycle tone); wins over `status`. */

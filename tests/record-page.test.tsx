@@ -66,7 +66,7 @@ describe("RecordPage", () => {
   });
 });
 
-describe("RecordHeaderCard variant=crm", () => {
+describe("RecordHeaderCard variant=page", () => {
   const facts = (open = vi.fn()) => [
     { icon: Building2, text: "Al-Faisaliah Group", onClick: open }, { icon: User, text: "Sara Al-Otaibi" }, { icon: Calendar, text: "2026-11-15" },
   ];
@@ -97,7 +97,7 @@ describe("RecordHeaderCard variant=crm", () => {
     expect(has(actions, "flex flex-wrap items-center gap-1.5 md:self-start md:ms-auto md:pt-1 shrink-0")).toBe(true);
   });
 
-  it("the default (Sayr) header is unchanged", () => {
+  it("the default header is unchanged", () => {
     const { container } = wrap(<RecordHeaderCard title="T" name="N" avatar="AB" facts={[{ text: "x" }]} />);
     const root = container.querySelector("[data-record-header]")!;
     expect(root.getAttribute("data-record-header")).toBe("true");

@@ -816,7 +816,7 @@ states × 4 theme / language / width combinations (`docs/audit/p08/` record).
 - `RecordHeaderCard variant="page"` — `avatar` (e.g. `RecordHeaderIcon` {icon, color}: the brand halo tile; or a photo),
   `title` (e.g. `EditableTitle`), `name` (#id), `statusNode` (e.g. `StatusBadge` in the lifecycle tone), `titleExtra`
   (e.g. `RecordNotSavedPill`), `facts` ({icon, text, onClick?: a link}), `value` (left-to-right, tabular), `chips`, `actions`.
-  The default variant (Sayr's header) is unchanged. **`variant="crm"`** (its 0.8.0-dev.2 name) is a **deprecated alias**
+  The default variant is unchanged. **`variant="crm"`** (its 0.8.0-dev.2 name) is a **deprecated alias**
   of `"page"`: the same output, kept for existing code; prefer `"page"`. (The header's `data-record-header` attribute
   reads `"page"` for both.)
 - `RecordQuickAction` (outline pill; `variant="primary"` = filled) and `RecordQuickActionMenu` (`variant="split"`: Meeting ▾;
@@ -832,8 +832,8 @@ One session per page. **Page-level Save** (`pageSave` + `commit`): many cards ed
 `getPatch` returning `false` refuses and is focused) and calls `commit` once. **Single card** (default): one card at a
 time, its own Save. Leaving while dirty (`useRecordEditSession().guard(fn)`) asks: Save and leave · Discard · Keep editing.
 Host hooks: `notify` (saved / error — e.g. a toast), `onDirtyChange` (e.g. a shell guard), `renderUnsavedDialog` (an app's
-own popup), `labels` (`res*` messages; with the About cards' `rpg*` they live in `messages-ws/recordPageParts.ts`, named
-`recordPageCrm.ts` until 0.8.0-dev.2 — keys and wording unchanged). `RecordEditableCard` — {cardId, label, renderEdit({markDirty}), getPatch, onSave,
+own popup), `labels` (`res*` messages, in `messages-ws/recordEditSession.ts`; the About cards' `rpg*` are in `recordAbout.ts`. Both
+were one module, `recordPageCrm.ts`, until 0.8.0-dev.2 — keys and wording unchanged). `RecordEditableCard` — {cardId, label, renderEdit({markDirty}), getPatch, onSave,
 onCancel, editableWhenClosed, readOnly, icon, headerExtra}: header (icon, title, Edit), body, Cancel (+ Save) while editing.
 
 ### 11.4 About cards

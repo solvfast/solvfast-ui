@@ -1,6 +1,5 @@
 /**
- * RecordEditSession + RecordEditableCard — the record page's ONE editing pattern (the CRM's, ported from serve_fast's
- * components/record-detail/RecordEditSession.tsx, its @solvfast/ui-scope branches).
+ * RecordEditSession + RecordEditableCard — a record page's ONE editing pattern.
  *
  * Two models share the provider:
  *  - page-level Save (`pageSave` + `commit`) — many cards edit at once; none has its own Save; every change feeds ONE

@@ -1,7 +1,6 @@
-/** Chrome strings of the record page parts (RecordEditSession `res*`, About cards `rpg*`); their wording is the CRM
- *  record page's (the reference). en + ar; the ar object must have every en key. Hosts can pass `labels` instead.
- *  (Module named `recordPageCrm` until 0.8.0-dev.2; internal, keys unchanged.) */
-export const recordPagePartsEn = {
+/** Chrome strings of RecordEditSession / RecordEditableCard / RecordNotSavedPill / RecordSaveButton (`res*`). en + ar;
+ *  the ar object must have every en key. Hosts can pass `labels` instead. */
+export const recordEditSessionEn = {
   resNotSaved: "Not saved",
   resSave: "Save",
   resSaving: "Saving…",
@@ -17,12 +16,8 @@ export const recordPagePartsEn = {
   resKeepEditing: "Keep editing",
   resStay: "Stay",
   resDiscard: "Discard",
-  rpgInteractions: "Recent Interactions",
-  rpgInbound: "Inbound",
-  rpgOutbound: "Outbound",
-  rpgNoInteractions: "No interactions yet",
 };
-export const recordPagePartsAr: { [K in keyof typeof recordPagePartsEn]: string } = {
+export const recordEditSessionAr: { [K in keyof typeof recordEditSessionEn]: string } = {
   resNotSaved: "غير محفوظ",
   resSave: "حفظ",
   resSaving: "جارٍ الحفظ…",
@@ -38,8 +33,4 @@ export const recordPagePartsAr: { [K in keyof typeof recordPagePartsEn]: string 
   resKeepEditing: "متابعة التعديل",
   resStay: "البقاء",
   resDiscard: "تجاهل",
-  rpgInteractions: "التفاعلات الأخيرة",
-  rpgInbound: "واردة",
-  rpgOutbound: "صادرة",
-  rpgNoInteractions: "لا توجد تفاعلات بعد",
 };

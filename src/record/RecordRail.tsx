@@ -11,11 +11,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "../primitives/popover";
 import { Sheet, SheetContent } from "../primitives/sheet";
 
 /**
- * RecordRail — the record page's right rail as the CRM draws it (Deal / Lead / Contact / Organization / Ticket details):
- * "Customize sections", the pinned Lifecycle card, the visible sections in order, the footer (Created / Last edited /
- * Seen by) and the Articles panel after it. A CRM-exact port of the CRM's own rail pieces (SidebarCard, RailSection,
- * RelatedRecordRow, SidebarCustomizer, RailFooter, ReferencesPanel) — same DOM, same classes — so the CRM's look is the
- * package's look. It is NOT the Frappe Desk form sidebar (FormSidebar / FrappeFormSidebar), which stays as it is.
+ * RecordRail — a record page's right rail: "Customize sections", a pinned first card (e.g. the Lifecycle), the visible
+ * sections in order, the footer (Created / Last edited / Seen by) and an Articles panel after it. Built from rail cards,
+ * sections, a related-record row, the section customizer and the footer. It is NOT the Frappe Desk form sidebar
+ * (FormSidebar / FrappeFormSidebar), which stays as it is.
  *
  * Presentational only: data, stores, permissions, undo and routing stay in the app; accents are the host's border classes.
  * Literal class strings only: consumers compile the package's classes from dist (Tailwind path A).
