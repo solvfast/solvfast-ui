@@ -24,11 +24,7 @@ import { Sheet, SheetContent } from "../primitives/sheet";
 type IconType = React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 
 /** Props a sortable list (e.g. dnd-kit) spreads on the card's grip. */
-export interface RecordRailDragHandle {
-  className?: string;
-  style?: React.CSSProperties;
-  [attr: string]: unknown;
-}
+export type RecordRailDragHandle = React.HTMLAttributes<HTMLElement> & { [attr: `data-${string}`]: string | undefined };
 
 /** The rail card surface (also used by hosts that draw their own header inside, e.g. FrappeAttachments' `className`). */
 export const recordRailCardClass = (accent?: string, stacked = true) =>
@@ -66,7 +62,7 @@ export function RecordRailCard({ title, icon: Icon, action, accent, dragHandle, 
             {...grip}
             className={cn(
               "inline-flex items-center justify-center h-5 w-4 shrink-0 rounded text-muted-foreground/40 hover:text-foreground hover:bg-muted/60 opacity-0 group-hover:opacity-100 transition-opacity",
-              gripClass as string | undefined,
+              gripClass,
             )}
             style={gripStyle}
             title={dragLabel ?? t("rrDragToReorder")}
