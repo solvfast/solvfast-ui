@@ -13,6 +13,8 @@ Additive; nothing changes for existing code.
   `RecordTab.hidden?`. `"scroll"` is the CRM's scrollable tab bar (Deal / Ticket / Order Activities sub-tabs: an
   `overflow-x-auto` wrapper, a `min-w-max` list, `whitespace-nowrap` tabs). `hidden` = the CRM's conditional (feature
   flagged) tabs. Keyboard (arrows, RTL reversed) skips hidden tabs (tested).
+- **T6 `RecordSectionCard`**: a read-only record page card — the shell of `RecordEditableCard` without editing (same DOM
+  as a read-only editable card, tested). Docs §11.5: composing a record page (slots; Core vs adapter vs app).
 
 ## 0.8.0-dev.4 — RecordPage `surface` (P0 T4)
 

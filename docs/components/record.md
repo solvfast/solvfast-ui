@@ -855,7 +855,47 @@ onCancel, editableWhenClosed, readOnly, icon, headerExtra}: header (icon, title,
 (inbound / outbound columns of `RecordInteraction`, up to 4 each, a row opens to its body). Domain content (the summary's
 text, health signals, which interactions are inbound) stays in the app.
 
-### 11.5 Not yet
+`RecordSectionCard` (0.8.0-dev.5) — {label, icon, headerExtra, children, cardId, className, bodyClassName}: a read-only
+card in the record page family, the shell of `RecordEditableCard` without editing (same DOM as a read-only editable card:
+`section.rounded-xl.border.bg-card` › header with icon, `h3` title and `headerExtra` › `p-4` body). For an app's own
+content in a tab. Use `RecordEditableCard` when the card edits.
+
+### 11.5 Composing a record page (Core, Frappe adapters, app)
+
+A record page is **composed by the app** from Core parts; nothing in Core knows the app's record type.
+
+```tsx
+<RecordEditSession pageSave commit={save}>                 {/* optional: one Save for the page */}
+  <RecordPage
+    surface="glass"                                        {/* default; "plain" opts out */}
+    back={{ label: "Back to …", onClick }}                 {/* toolbar start */}
+    actions={<><RecordSaveButton /><ActionBar variant="menu" … /><RecordMenu … /></>}   {/* toolbar end */}
+    header={<RecordHeaderCard variant="page" avatar={<RecordHeaderIcon icon={…} />} title={…} facts={…}
+              actions={<><RecordQuickAction … /><RecordQuickActionMenu … /></>} />}  {/* header + quick actions */}
+    aside={<RecordRail sections={[{ id, label, render }, …]} footer={<RecordRailFooter … />} />}       {/* right rail */}
+  >
+    <RecordTabs value={tab} onValueChange={setTab} tabs={[…]} overflow="scroll">
+      <TabsContent value="about">
+        <RecordEditableCard … />                           {/* edits */}
+        <RecordSectionCard label="…" icon={…}>{appContent}</RecordSectionCard>   {/* read-only, app content */}
+      </TabsContent>
+      <TabsContent value="history"><Timeline … /></TabsContent>
+    </RecordTabs>
+  </RecordPage>
+</RecordEditSession>
+```
+
+| Slot | What goes there | Owner |
+|---|---|---|
+| `back`, `actions` | navigation, Save, the transitions menu, the ⋯ menu | Core components; the handlers are the app's |
+| `header` | `RecordHeaderCard variant="page"` (title, status, facts, value, quick actions) | Core component; the values and actions are the app's |
+| `children` | `RecordTabs` + panels: `RecordEditableCard`, `RecordSectionCard`, the About cards, any app component | Core components; the content (fields, wording, business rules) is the app's |
+| `aside` | `RecordRail` with the app's sections (Lifecycle, Assignment, Linked records, Tasks, custom ones) | Core component; each section's `render` is the app's |
+| data, permissions, stores, routing, history storage | — | the app (or a Frappe adapter: `@solvfast/ui/frappe`) |
+
+The CRM record page is the reference composition (`showcase` › Record page); the package keeps no CRM content.
+
+### 11.6 Not yet
 
 - The Frappe adapter: `FrappeFormView` rendering this page (header from the doc, sections as `RecordEditableCard`s bound
   to the form controller's dirty / save). Today `FrappeFormView aside` (§10.6) hosts the rail beside Desk's form.

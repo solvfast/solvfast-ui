@@ -14,6 +14,37 @@ type IconType = React.ComponentType<any>;
 
 /* ── Summary tile ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
+export interface RecordSectionCardProps {
+  /** The card's title (as `RecordEditableCard`'s `label`). */
+  label: React.ReactNode;
+  /** Before the title (e.g. an icon tile). */
+  icon?: React.ReactNode;
+  /** At the end of the header (e.g. a link or a small action). */
+  headerExtra?: React.ReactNode;
+  children?: React.ReactNode;
+  /** `data-record-card` value (as `RecordEditableCard`'s `cardId`). */
+  cardId?: string;
+  className?: string;
+  /** Classes added to the body (`p-4`), e.g. `space-y-3`. */
+  bodyClassName?: string;
+}
+
+/** A read-only record page card: the shell of `RecordEditableCard` without editing (header: icon, title, extra; body).
+ *  For an app's own content in a record page's tabs; renders exactly as a read-only `RecordEditableCard`. */
+export function RecordSectionCard({ label, icon, headerExtra, children, cardId, className, bodyClassName }: RecordSectionCardProps) {
+  return (
+    <section className={cn("rounded-xl border border-border bg-card", className)} data-record-card={cardId ?? ""}>
+      <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+        {icon}
+        <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+        <div className="flex-1" />
+        {headerExtra}
+      </header>
+      <div className={cn("p-4", bodyClassName)}>{children}</div>
+    </section>
+  );
+}
+
 export interface RecordInfoTileProps {
   label: React.ReactNode;
   icon?: IconType;
