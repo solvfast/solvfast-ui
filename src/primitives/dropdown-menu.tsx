@@ -2,6 +2,7 @@
 "use client"
 
 import * as React from "react"
+import { noteMenuOpener } from "./focus-return"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import { Check, ChevronRight, Circle } from "lucide-react"
 
@@ -84,7 +85,7 @@ const DropdownMenuItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean
   }
->(({ className, inset, ...props }, ref) => (
+>(({ className, inset, onSelect, ...props }, ref) => (
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
@@ -92,6 +93,8 @@ const DropdownMenuItem = React.forwardRef<
       inset && "ps-8",
       className
     )}
+    // Run 1 B-42: a dialog this item opens gives focus back to the menu's trigger when it closes
+    onSelect={(e) => { noteMenuOpener(e.currentTarget as Element); onSelect?.(e) }}
     {...props}
   />
 ))

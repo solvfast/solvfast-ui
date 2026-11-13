@@ -36,14 +36,37 @@ export interface NotificationPanelProps {
   onMarkAllRead?: () => void;
   /** Distance from the top of the viewport to the panel (the header height). Default 56. */
   top?: number;
+  /** Run 1 (A-09): a per-row "Mark as read" button on unread rows (Desk notifications.js:245-325). It does not open the
+   *  row. Omitted: no button (the 0.7 markup). */
+  onMarkRead?: (item: NotificationItem) => void;
+  /** Run 1 (A-09): the items are being loaded — a status line instead of the empty state. */
+  loading?: boolean;
 }
 
 const VIOLET = "var(--color-deep-violet)";
 
-export function NotificationPanel({ items, onItemClick, onMarkAllRead, top = 56 }: NotificationPanelProps) {
+export function NotificationPanel({ items, onItemClick, onMarkAllRead, top = 56, onMarkRead, loading }: NotificationPanelProps) {
   const { language, isRTL, t } = useLocale();
   const container = usePortalContainer();
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpenState] = React.useState(false);
+  // Run 1 A-09: focus moves into the panel when it opens and back to the bell when it closes (Escape, ×, outside, a row)
+  const bellRef = React.useRef<HTMLButtonElement>(null);
+  const panelRef = React.useRef<HTMLElement>(null);
+  const panelId = React.useId();
+  const setOpen = React.useCallback((next: boolean | ((o: boolean) => boolean)) => {
+    setOpenState((o) => {
+      const v = typeof next === "function" ? next(o) : next;
+      if (o && !v) queueMicrotask(() => bellRef.current?.focus());
+      return v;
+    });
+  }, []);
+  React.useEffect(() => {
+    if (!open) return;
+    panelRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); setOpen(false); } };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, setOpen]);
   const [filter, setFilter] = React.useState<"all" | "unread">("all");
 
   const unread = items.reduce((n, x) => n + (x.read ? 0 : 1), 0);
@@ -66,12 +89,14 @@ export function NotificationPanel({ items, onItemClick, onMarkAllRead, top = 56 
   return (
     <>
       <Button
+        ref={bellRef}
         type="button"
         variant="ghost"
         size="icon-sm"
         onClick={() => setOpen((o) => !o)}
-        aria-label={t("notifications")}
+        aria-label={unread > 0 ? t("notificationsUnread").replace("{n}", String(unread)) : t("notifications")}
         aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
         className="!rounded-lg text-muted-foreground hover:bg-muted"
       >
         <Bell className="h-4 w-4" />
@@ -87,10 +112,13 @@ export function NotificationPanel({ items, onItemClick, onMarkAllRead, top = 56 
           {/* Click-catcher — starts BELOW the header so the header stays clickable. No dim. */}
           <div className="fixed inset-x-0 bottom-0 z-40" style={{ top }} onClick={() => setOpen(false)} aria-hidden />
           <aside
+            ref={panelRef}
+            id={panelId}
+            tabIndex={-1}
             dir={isRTL ? "rtl" : "ltr"}
             style={{ top }}
             aria-label={t("notifications")}
-            className="!fixed sf-glass-pane sf-glass-pane--airy rounded-[20px] bottom-0 end-0 z-40 flex w-[360px] max-w-[92vw] flex-col border-s border-black/10 dark:border-white/10 shadow-2xl"
+            className="!fixed sf-glass-pane sf-glass-pane--airy rounded-[20px] bottom-0 end-0 z-40 flex outline-none w-[360px] max-w-[92vw] flex-col border-s border-black/10 dark:border-white/10 shadow-2xl"
           >
             <div className="flex items-center justify-between gap-2 px-4 py-3.5 border-b border-black/10 dark:border-white/10">
               <h2 className="text-sm font-semibold text-foreground dark:text-white">{t("notifications")}</h2>
@@ -137,7 +165,9 @@ export function NotificationPanel({ items, onItemClick, onMarkAllRead, top = 56 
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {nonEmpty.length === 0 ? (
+              {loading ? (
+                <p role="status" className="px-6 py-16 text-center text-sm text-muted-foreground">{t("ntfLoading")}</p>
+              ) : nonEmpty.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 px-6 py-16 text-center">
                   <Bell className="h-7 w-7 text-gray-300 dark:text-muted-foreground" />
                   <p className="text-sm text-muted-foreground dark:text-muted-foreground">
@@ -148,7 +178,8 @@ export function NotificationPanel({ items, onItemClick, onMarkAllRead, top = 56 
                 nonEmpty.map((g) => (
                   <div key={g.key}>
                     <div className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-muted-foreground">{g.label}</div>
-                    {g.items.map((n) => (
+                    {g.items.map((n) => {
+                      const row = (
                       <button
                         key={n.id}
                         type="button"
@@ -166,7 +197,18 @@ export function NotificationPanel({ items, onItemClick, onMarkAllRead, top = 56 
                         </div>
                         {!n.read && <span className="mt-1.5 h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: VIOLET }} />}
                       </button>
-                    ))}
+                      );
+                      if (!onMarkRead || n.read) return row;
+                      return (
+                        <div key={n.id} className="relative" data-notification-row="">
+                          {row}
+                          <button type="button" onClick={() => onMarkRead(n)} aria-label={`${t("ntfMarkRead")}: ${loc(n.body, language)}`} title={t("ntfMarkRead")}
+                            className="absolute end-2 bottom-2 rounded px-1.5 py-0.5 text-[11px] font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" style={{ color: VIOLET }}>
+                            {t("ntfMarkRead")}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 ))
               )}

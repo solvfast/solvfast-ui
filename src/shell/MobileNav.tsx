@@ -26,13 +26,17 @@ export interface MobileNavProps {
   maxItems?: number;
   /** The bar's items, chosen by the app (still capped by `maxItems`); a group goes to its `href` or its first child's.
    *  With `primary`, "More" lists the FULL `items` tree, so everything reachable on desktop is reachable here.
-   *  Omitted: the first top-level leaves fill the bar and "More" holds the rest (Sear's behaviour). */
+   *  Omitted: the first top-level leaves fill the bar and "More" holds the rest — a group with its children (indented),
+   *  so every child is reachable on a phone (Run 1 A-27; before, only the group's first child was). */
   primary?: NavItem[];
+  /** The bar's landmark name (default "Main navigation", translated). */
+  ariaLabel?: string;
 }
 
-export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIsActive, brand, exit, maxItems = 4, primary: chosen }: MobileNavProps) {
+export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIsActive, brand, exit, maxItems = 4, primary: chosen, ariaLabel }: MobileNavProps) {
   const { language, t } = useLocale();
   const [moreOpen, setMoreOpen] = React.useState(false);
+  const sheetId = React.useId();
   if (!items.length) return null;
   let primary: NavItem[];
   let overflow: { item: NavItem; depth: number }[];
@@ -49,8 +53,11 @@ export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIs
     const leaves = items.filter((i) => !i.children?.length);
     const parents = items.filter((i) => i.children?.length);
     primary = leaves.slice(0, maxItems);
-    overflow = [...leaves.slice(maxItems), ...parents].map((item) => ({ item, depth: 0 }));
-    overflowActive = overflow.some(({ item }) => isActive(item, currentPath));
+    // Run 1 A-27: a group is listed with its whole sub-tree (indented), not as one row to its first child
+    overflow = leaves.slice(maxItems).map((item) => ({ item, depth: 0 }));
+    const walk = (list: NavItem[], depth: number) => list.forEach((item) => { overflow.push({ item, depth }); if (item.children?.length) walk(item.children, depth + 1); });
+    walk(parents, 0);
+    overflowActive = overflow.some(({ item, depth }) => depth === 0 && isActive(item, currentPath));
   }
   const go = (item: NavItem) => {
     setMoreOpen(false);
@@ -61,7 +68,7 @@ export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIs
 
   return (
     <>
-      <nav className="sf-glass-pane sf-glass-pane--airy  !fixed inset-x-0 bottom-0 z-50 md:hidden pb-[env(safe-area-inset-bottom,6px)]">
+      <nav aria-label={ariaLabel ?? t("navMain")} className="sf-glass-pane sf-glass-pane--airy  !fixed inset-x-0 bottom-0 z-50 md:hidden pb-[env(safe-area-inset-bottom,6px)]">
         <div className="flex h-16 items-stretch justify-between gap-0.5 px-1">
           {primary.map((item) => {
             const active = isActive(item, currentPath);
@@ -74,7 +81,7 @@ export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIs
               </button>
             );
           })}
-          <button onClick={() => setMoreOpen(true)} aria-expanded={moreOpen}
+          <button onClick={() => setMoreOpen(true)} aria-expanded={moreOpen} aria-haspopup="dialog" aria-controls={moreOpen ? sheetId : undefined}
             className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 transition-colors ${overflowActive ? "text-brand-flame font-medium" : "text-muted-foreground"}`}>
             <MoreHorizontal className="h-5 w-5 shrink-0" />
             <span className="text-[10px] leading-none">{t("more")}</span>
@@ -85,7 +92,7 @@ export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIs
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         {/* `side="left"` is the logical START edge (the Sheet uses start-0); the rtl: classes make the slide come from
             that edge too. `sf-app` repeats the app scope on this portal, as Sear does with `sear-studio`. */}
-        <SheetContent side="left" className="sf-app flex w-72 flex-col pb-8 pt-4 rtl:data-[state=open]:slide-in-from-right rtl:data-[state=closed]:slide-out-to-right">
+        <SheetContent id={sheetId} side="left" className="sf-app flex w-72 flex-col pb-8 pt-4 rtl:data-[state=open]:slide-in-from-right rtl:data-[state=closed]:slide-out-to-right">
           <SheetTitle className="sr-only">{t("more")}</SheetTitle>
           <SheetDescription className="sr-only">{brandName}</SheetDescription>
           <div className="flex items-center gap-3 px-3 pb-3">
@@ -96,7 +103,9 @@ export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIs
           <div className="flex-1 space-y-1 overflow-y-auto">
             {overflow.map(({ item, depth }) => {
               // In the full tree (`primary` given) only the deepest matching row reads as current.
-              const active = chosen ? item.id === deepestActive(items, currentPath)?.id : isActive(item, currentPath);
+              // A group's rows (default mode) use the same rule, so a parent does not read as current beside its child.
+              const tree = chosen || depth > 0 || !!item.children?.length;
+              const active = tree ? item.id === deepestActive(items, currentPath)?.id : isActive(item, currentPath);
               const Icon = item.icon;
               return (
                 <button key={item.id} onClick={() => go(item)} aria-current={active ? "page" : undefined}

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { LifecycleBar, type LifecycleBarProps } from "../../record/LifecycleBar";
 import { LifecycleRail, type LifecycleRailLabels, type LifecycleRailNext, type LifecycleRailStep } from "../../record/LifecycleRail";
-import type { LifecycleActionItem } from "../../record/types";
+import type { LifecycleActionItem, LifecycleStep } from "../../record/types";
 import type { ActionBarLabels } from "../../record/ActionBar";
 import { errorText, fmt } from "../../record/format";
 import { Skeleton } from "../../primitives/skeleton";
@@ -106,7 +106,16 @@ export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, 
   if (!w.workflow) return <>{fallback}</>;
   const base = lifecycleStates(w.workflow, translate);
   const entries = withHistory ? stateEntries({ doc, docinfo: info.data, stateField: w.workflow.workflow_state_field, states: base.map((b) => b.id), translate }) : undefined;
-  const states = entries ? base.map((b) => ({ ...b, by: entries.get(b.id)?.by, at: entries.get(b.id)?.at })) : base;
+  // Run 1 D-62: the (deprecated) stepper ticks only the states the record actually entered (workflow logs / versions);
+  // a state before the current one that it never entered is "skipped" (a branching workflow: Rejected does not tick
+  // Approved). Without any history the order decides, as before.
+  const curIdx = base.findIndex((b) => b.id === w.state);
+  const stepFor = (id: string, i: number): LifecycleStep | undefined => {
+    if (variant !== "steps" || !entries || entries.size === 0 || id === w.state) return undefined;
+    if (entries.has(id)) return "past";
+    return curIdx >= 0 && i < curIdx ? "skipped" : "future";
+  };
+  const states = entries ? base.map((b, i) => ({ ...b, by: entries.get(b.id)?.by, at: entries.get(b.id)?.at, step: stepFor(b.id, i) ?? b.step })) : base;
   const actions = lifecycleActions(w.transitions, translate, (tr) => (typeof confirm === "function" ? confirm(tr.action) : confirm));
   const runAction = async (actionId: string) => {
     const form = beforeApply ? null : formOf();

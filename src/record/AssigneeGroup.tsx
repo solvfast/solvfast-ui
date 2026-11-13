@@ -229,14 +229,9 @@ export function AssigneeGroup({
     <AssignPicker {...picker} labels={labels} searchUsers={searchUsers} onAssign={onAssign} exclude={assignees.map((a) => a.id)} />
   ) : null;
 
-  return (
-    <section className={cn("space-y-2", className)} aria-label={heading ?? L.assignedTo} aria-busy={loading || undefined}>
-      {hideHeading ? null : <h3 className="text-xs font-medium text-muted-foreground">{heading ?? L.assignedTo}</h3>}
-      {loading ? <Skeleton className="h-7 w-24" /> : assignees.length === 0 ? (
-        <div className="flex items-center gap-2"><span className="text-xs text-muted-foreground">{L.none}</span>{picker_}</div>
-      ) : variant === "list" ? (
-        <ul className="space-y-1.5">
-          {assignees.map((a) => (
+  const { language } = useLocale();
+  const names = assignees.map((a) => a.name).join(language === "ar" ? "، " : ", ");
+  const row = (a: Assignee) => (
             <li key={a.id} className="flex items-center gap-2 text-xs" title={a.description}>
               <UserAvatar name={a.name} image={a.image} />
               {a.description ? (
@@ -262,28 +257,41 @@ export function AssigneeGroup({
                 </button>
               ) : null}
             </li>
-          ))}
+  );
+
+  return (
+    <section className={cn("space-y-2", className)} aria-label={heading ?? L.assignedTo} aria-busy={loading || undefined}>
+      {hideHeading ? null : <h3 className="text-xs font-medium text-muted-foreground">{heading ?? L.assignedTo}</h3>}
+      {loading ? <Skeleton className="h-7 w-24" /> : assignees.length === 0 ? (
+        <div className="flex items-center gap-2"><span className="text-xs text-muted-foreground">{L.none}</span>{picker_}</div>
+      ) : variant === "list" ? (
+        <ul className="space-y-1.5">
+          {assignees.map(row)}
           {picker_ ? <li>{picker_}</li> : null}
         </ul>
       ) : (
         <div className="flex items-center">
-          <ul className="flex items-center -space-x-2 rtl:space-x-reverse">
-            {assignees.slice(0, maxVisible).map((a) => (
-              <li key={a.id} className="group relative" title={a.name}>
-                <UserAvatar name={a.name} image={a.image} className="ring-2 ring-background" />
-                {canRemove?.(a) ? (
-                  <button type="button" disabled={removing === a.id} onClick={() => void remove(a)} aria-label={fmt(L.remove, a.name)}
-                    className="absolute -end-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground focus-visible:flex group-hover:flex group-focus-within:flex">
-                    <X className="h-2.5 w-2.5" aria-hidden />
-                  </button>
+          {/* Run 1 D-01 / D-07: the stack is one named button (every assignee's name, overflow included) that opens the
+              full list — names, Done and Remove reachable by keyboard and touch (Desk: the avatars open the assignment list). */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button type="button" aria-label={`${heading ?? L.assignedTo}: ${names}`} data-assignee-stack=""
+                className="flex items-center -space-x-2 rounded-full rtl:space-x-reverse focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {assignees.slice(0, maxVisible).map((a) => (
+                  <span key={a.id} className="relative" title={a.name}>
+                    <UserAvatar name={a.name} image={a.image} className="ring-2 ring-background" />
+                  </span>
+                ))}
+                {assignees.length > maxVisible ? (
+                  <span className="z-0 flex h-7 min-w-7 items-center justify-center rounded-full bg-muted px-1 text-[10px] ring-2 ring-background"
+                    title={assignees.slice(maxVisible).map((a) => a.name).join(", ")}>{fmt(t("recMoreCount"), assignees.length - maxVisible)}</span>
                 ) : null}
-              </li>
-            ))}
-            {assignees.length > maxVisible ? (
-              <li className="z-0 flex h-7 min-w-7 items-center justify-center rounded-full bg-muted px-1 text-[10px] ring-2 ring-background"
-                title={assignees.slice(maxVisible).map((a) => a.name).join(", ")}>{fmt(t("recMoreCount"), assignees.length - maxVisible)}</li>
-            ) : null}
-          </ul>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-2">
+              <ul className="space-y-1.5" aria-label={heading ?? L.assignedTo}>{assignees.map(row)}</ul>
+            </PopoverContent>
+          </Popover>
           {picker_ ? <span className="ms-2">{picker_}</span> : null}
         </div>
       )}

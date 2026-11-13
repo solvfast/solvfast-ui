@@ -7,6 +7,8 @@ import { Skeleton } from "../../primitives/skeleton";
 import { useLocale } from "../../theme/ThemeProvider";
 import type { AssignmentInfo, DocInfo, FrappeDoc, MetaBundle } from "../contract";
 import { useDocAction } from "../hooks";
+import { usePermissions } from "../hooks/usePermissions";
+import { useMetaBundle } from "../hooks/useDoc";
 import { useRecordApi, useRecordDocInfo } from "./data";
 import { useFormSidebarActions } from "./useFormSidebarActions";
 import { userGroupSource } from "./userGroups";
@@ -20,7 +22,9 @@ export interface FrappeAssignToProps extends Pick<AssigneeGroupProps, "variant" 
   docinfo?: DocInfo;
   /** Hide the add button (read-only page). Server stays the authority: any user who can READ the document may assign (assign_to.py:67). */
   canAssign?: boolean;
-  /** `write` on the document. Desk shows remove only for the assignee or users with write (assign_to.js:358). */
+  /** `write` on the document. Desk shows remove only for the assignee or users with write (assign_to.js:358). Omitted
+   *  (Run 1 D-07): the user's write right on this document (`usePermissions(bundle, doc, docinfo)`; before, omitted
+   *  meant no right, so a writer could not remove someone else's assignment). */
   canWrite?: boolean;
   /** Only users shown by `searchUsers`; default: System Users that are enabled, through `search_link`. */
   searchUsers?: AssigneeGroupProps["searchUsers"];
@@ -49,7 +53,7 @@ export interface FrappeAssignToProps extends Pick<AssigneeGroupProps, "variant" 
  * ToDo-based assignment. List from `docinfo.assignments` (uncapped); after add / remove the docinfo is re-fetched — the
  * 5-row list `assign_to.add` returns is never used as the source of truth (docs 14 A2). Unsaved documents cannot be assigned.
  */
-export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = true, canWrite = false, searchUsers, onChanged, layout = "group", allowComplete, bundle, userGroups = true, comment, threePriorities, ...rest }: FrappeAssignToProps) {
+export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = true, canWrite: canWriteProp, searchUsers, onChanged, layout = "group", allowComplete, bundle, userGroups = true, comment, threePriorities, ...rest }: FrappeAssignToProps) {
   const { t } = useLocale();
   const c = useRecordApi();
   const actions = useDocAction();
@@ -57,6 +61,10 @@ export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = t
   const [dialog, setDialog] = React.useState(false);
   const q = useRecordDocInfo(doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
   const info = q.data;
+  // Desk's frm.perm needs the DocType's permission rows: loaded only when the host did not decide (`canWrite` omitted)
+  const metaQ = useMetaBundle(canWriteProp === undefined && !bundle && !doc.__islocal ? doc.doctype : undefined);
+  const perms = usePermissions(bundle ?? metaQ.data, doc, info);
+  const canWrite = canWriteProp ?? (perms.known && !!perms.can?.("write"));
   const assignees = React.useMemo(
     () => (info?.assignments ?? []).filter((a: AssignmentInfo) => !!a.owner).map((a) => ({
       id: a.owner, name: info?.user_info?.[a.owner]?.fullname ?? a.owner, image: info?.user_info?.[a.owner]?.image ?? null, description: a.description,
@@ -101,6 +109,8 @@ export function FrappeAssignTo({ doc, user, userFullName, docinfo, canAssign = t
     );
   }
   if (q.isLoading) return <Skeleton className="h-7 w-24" />;
+  // Run 1 D-01: a failed get_docinfo is shown, not read as "nobody assigned"
+  if (q.error && !info) return <p role="alert" className={rest.className ? `text-xs text-destructive ${rest.className}` : "text-xs text-destructive"}>{q.error.message || t("sbLoadFailed")}</p>;
   const unsaved = !!doc.__islocal;
   return (
     <AssigneeGroup

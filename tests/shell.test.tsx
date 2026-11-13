@@ -134,7 +134,8 @@ describe("NotificationPanel", () => {
   it("badge caps at 9+, filters, marks all, opens rows and closes", () => {
     const opened: string[] = []; const markAll = vi.fn();
     render(<ThemeProvider defaultLanguage="en"><NotificationPanel items={items} onItemClick={(n) => opened.push(n.id)} onMarkAllRead={markAll} /></ThemeProvider>);
-    const bell = screen.getByRole("button", { name: "Notifications" });
+    // Run 1 A-09: the bell is named with the unread count ("Notifications" → "Notifications, 10 unread")
+    const bell = screen.getByRole("button", { name: "Notifications, 10 unread" });
     expect(within(bell).getByText("9+")).toBeTruthy();
     fireEvent.click(bell);
     const panel = screen.getByRole("complementary", { name: "Notifications" });

@@ -41,7 +41,8 @@ export function LifecycleBar({
   const marker = currentMarker ?? t("recCurrentState");
   // P35 (G7): a state's own `step` wins over its position (a Lost deal: "Won" is skipped, not ticked).
   const stepOf = (s: LifecycleStateItem, i: number): LifecycleStep => s.step ?? (i === idx ? "current" : idx >= 0 && i < idx ? "past" : "future");
-  const srStep: Partial<Record<LifecycleStep, string>> = { skipped: t("coreStepSkipped"), failed: t("coreStepFailed") };
+  // Run 1 D-62: every step carries its state for screen readers (before: only skipped / failed)
+  const srStep: Partial<Record<LifecycleStep, string>> = { past: t("lcStepDone"), future: t("lcStepNotReached"), skipped: t("coreStepSkipped"), failed: t("coreStepFailed") };
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -51,7 +52,7 @@ export function LifecycleBar({
         ) : null}
       </div>
       {variant === "steps" && states.length > 0 ? (
-        <ol className="flex flex-col gap-0" aria-label="lifecycle">
+        <ol className="flex flex-col gap-0" aria-label={t("lcSteps")} data-lifecycle-steps="">
           {states.map((s, i) => {
             const step = stepOf(s, i);
             const isCur = i === idx || step === "current";

@@ -174,11 +174,44 @@ describe("FrappeWorkflowActions variant=\"steps\" (deprecated 0.8.0-dev.5)", () 
   it("still renders the stepper with the Actions menu (unchanged), and warns once", async () => {
     stub(); const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { container } = mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
-    await waitFor(() => expect(container.querySelector('ol[aria-label="lifecycle"]')).not.toBeNull());
+    await waitFor(() => expect(container.querySelector('ol[data-lifecycle-steps]') /* Run 1 D-62: the list is named "Lifecycle" (translated); selected by its data attribute */).not.toBeNull());
     expect(await screen.findByRole("button", { name: "Actions" })).toBeTruthy();
     cleanup(); mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
     await waitFor(() => expect(screen.getByRole("button", { name: "Actions" })).toBeTruthy());
     expect(warn.mock.calls.filter((c) => String(c[0]).includes('variant="steps" is deprecated')).length).toBe(1);
     warn.mockRestore();
+  });
+});
+
+// Run 1 · D-62 (P1): the deprecated stepper ticks only the states the record entered (branching workflows).
+describe("Run 1 D-62 — FrappeWorkflowActions variant=\"steps\" marks only entered states", () => {
+  const branchDocs = [
+    { ...wfDocs[0], states: [{ state: "Draft", doc_status: "0", allow_edit: "Sales User" }, { state: "Approved", doc_status: "1", allow_edit: "Sales Manager" }, { state: "Rejected", doc_status: "0", allow_edit: "Sales Manager" }],
+      transitions: [{ state: "Draft", action: "Approve", next_state: "Approved", allowed: "Sales Manager", allow_self_approval: 1 }, { state: "Draft", action: "Reject", next_state: "Rejected", allowed: "Sales Manager", allow_self_approval: 1 }] },
+    ...wfDocs.slice(1), { doctype: "Workflow State", name: "Rejected", style: "Danger" },
+  ];
+  const logs = { ...info, workflow_logs: [{ owner: "bob@x", creation: "2026-11-02 10:00:00", content: "Draft" }, { owner: "bob@x", creation: "2026-11-03 10:00:00", content: "Rejected" }] };
+  it("a Rejected record: Draft is past, Approved (never entered) is skipped — not ticked — and Rejected is current", async () => {
+    stub({ getMetaBundle: vi.fn(async () => withWf(branchDocs)) as never, getWorkflowTransitions: vi.fn(async () => []) as never, getDocInfo: vi.fn(async () => logs) as never });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Rejected" }} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
+    await waitFor(() => expect(container.querySelectorAll("ol[data-lifecycle-steps] li").length).toBe(3));
+    await waitFor(() => expect([...container.querySelectorAll("ol[data-lifecycle-steps] li")].map((l) => l.getAttribute("data-step"))).toEqual(["past", "skipped", "current"]));
+    expect(container.querySelector("ol[data-lifecycle-steps] li[data-step=skipped]")?.textContent).toContain("Skipped");
+  });
+  it("NEGATIVE: without any history (no logs / versions) the order decides, as before", async () => {
+    stub({ getMetaBundle: vi.fn(async () => withWf(branchDocs)) as never, getWorkflowTransitions: vi.fn(async () => []) as never, getDocInfo: vi.fn(async () => ({ ...info, versions: [], workflow_logs: [] })) as never });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Rejected" }} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
+    await waitFor(() => expect(container.querySelectorAll("ol[data-lifecycle-steps] li").length).toBe(3));
+    expect([...container.querySelectorAll("ol[data-lifecycle-steps] li")].map((l) => l.getAttribute("data-step"))).toEqual(["past", "past", "current"]);
+  });
+  it("the stepper list is named in the UI language and every step carries its state for screen readers (ar)", async () => {
+    const { LifecycleBar } = await import("../src/record/LifecycleBar");
+    const { container } = render(<ThemeProvider defaultLanguage="ar" storageKeys={null}><LifecycleBar states={[{ id: "a", label: "A" }, { id: "b", label: "B" }, { id: "c", label: "C" }]} current="b" /></ThemeProvider>);
+    expect(container.querySelector("ol")?.getAttribute("aria-label")).toBe("دورة الحياة");
+    const texts = [...container.querySelectorAll("li")].map((l) => l.querySelector(".sr-only")?.textContent ?? "");
+    expect(texts[0]).toContain("مكتملة");
+    expect(texts[2]).toContain("لم تُبلغ بعد");
   });
 });

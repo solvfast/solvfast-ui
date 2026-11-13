@@ -37,6 +37,26 @@ Run 1 of the P1 / P2 roadmap (owner authorization 2026-11-13; rows keep their Ph
   its meta's mandatory fields (Missing Fields dialog; `checkMandatory={false}` opts out).
 - **E-19 report export**: the list's "Export as report" sends the checked rows as `selected_items`; the dialog's labels
   come from the catalogue (`rx*`, en / ar; `reportExportLabels(t)`).
+**Step 2 — P1 accessibility**
+- **A-09 `NotificationPanel`**: focus moves into the panel on open and back to the bell on close (Escape, ×, outside,
+  a row); the bell is named with the unread count ("Notifications, 3 unread", en / ar) and controls the panel; opt-in
+  `onMarkRead` (per-row "Mark as read", does not open the row) and `loading`. Look unchanged.
+- **A-27 `MobileNav`**: default mode lists a group's whole sub-tree in More (indented) — every child reachable on a phone;
+  the bar is a named landmark (`ariaLabel`, default "Main navigation"); More has `aria-haspopup` / `aria-controls`.
+  (The CRM passes `primary`: unchanged.)
+- **B-42 focus return (G28)**: `DialogContent`, `AlertDialogContent` and `SheetContent` give focus back to the element
+  that opened them (a menu item → its menu's trigger; `DropdownMenuItem` notes it) — every list dialog opened from the ⋯
+  or Actions menu now returns focus to its trigger. New prop `returnFocus` overrides. No visual change.
+- **D-01 / D-07 `AssigneeGroup variant="avatars"`**: the stack is one button named with every assignee (overflow included)
+  that opens the full list with Remove / Done (keyboard and touch); the hover-only remove on an avatar is gone (it was
+  unreachable). `FrappeAssignTo`: `canWrite` omitted → the user's write right (`usePermissions`, meta loaded); a failed
+  `get_docinfo` is an error, not "nobody assigned". The CRM uses `variant="list"`: unchanged.
+- **D-62 lifecycle stepper**: `FrappeWorkflowActions variant="steps"` (deprecated, kept) ticks only states the record
+  entered; a state it never entered before the current one is "skipped". `LifecycleBar`'s list is named "Lifecycle"
+  (translated; was the untranslated "lifecycle") and each step has a screen-reader state (completed / not reached).
+- Tests changed with the behaviour: `shell` NotificationPanel test (bell name now counts unread);
+  `frappe-lifecycle-rail` steps test selects the list by `data-lifecycle-steps` (its name is translated now).
+
 - Tests changed with the behaviour (old → new): `merged`/sanitizer pins unchanged; comment-edit tests in `record`,
   `social-p36b` (P36B.social.18), `history-p36d` (P36D.history.8) now type into the rich editor; `trace-p36e`
   P36E.trace.11 asserted the Date defect (no clear, no typing) and now asserts the fix.
