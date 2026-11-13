@@ -23,6 +23,7 @@ import { Input } from "../../primitives/input";
 import { Label } from "../../primitives/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { useLocale } from "../../theme/ThemeProvider";
+import { useFrappeTranslate } from "../services/useTranslate";
 import type { FrappeApi } from "../client";
 import { FrappeErrorState } from "../feedback/FrappeErrorState";
 import type { FrappeFilter } from "../query";
@@ -83,6 +84,8 @@ export function reportExportLabels(t: (key: string) => string): ReportExportDial
 export function FrappeReportExportDialog({ api, doctype, open, onOpenChange, fields, filters, or_filters, order_by, selectedNames, shownCount, totalCount, title, offerTranslate, onDone, labels }: FrappeReportExportDialogProps) {
   const { t } = useLocale();
   const L = { ...reportExportLabels(t as (key: string) => string), ...labels };
+  const tr = useFrappeTranslate();
+  const shownTitle = title || tr(doctype, null); // Run 1 B-61: the DocType's name in the session language (the file name stays `title || doctype`)
   const hasSelection = !!selectedNames?.length;
   const [format, setFormat] = React.useState<ReportExportFormat>("Excel");
   const [background, setBackground] = React.useState(false);
@@ -123,7 +126,7 @@ export function FrappeReportExportDialog({ api, doctype, open, onOpenChange, fie
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{L.title.replace("{0}", title || doctype)}</DialogTitle>
+          <DialogTitle>{L.title.replace("{0}", shownTitle)}</DialogTitle>
           <DialogDescription>{doctype}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm">

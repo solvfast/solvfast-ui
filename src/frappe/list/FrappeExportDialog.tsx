@@ -11,6 +11,7 @@
  * in-dialog FilterGroup; no record-count message (`frappe.db.count`, data_exporter.js:209-238).
  */
 import * as React from "react";
+import { useFrappeTranslate } from "../services/useTranslate";
 import type { DownloadedFile, FrappeApi } from "../client";
 import type { DocPermissions, MetaBundle } from "../contract";
 import { FrappeErrorState } from "../feedback/FrappeErrorState";
@@ -44,7 +45,10 @@ export interface FrappeExportDialogProps {
 
 export function FrappeExportDialog({ api, bundle, open, onOpenChange, selectedNames, filters, levels, importType = "Insert New Records", onDone, labels, defaultRecords: preset }: FrappeExportDialogProps) {
   const doctype = bundle.meta.name;
-  const groups = React.useMemo(() => exportPickerGroups(bundle, { importType, levels }), [bundle, importType, levels]);
+  // Run 1 B-39: the DocType, group and field labels in the session language (provider translations / __messages)
+  const tr = useFrappeTranslate(bundle);
+  const translate = React.useCallback((text: string, context?: string) => (context ? tr(text, context) : tr(text, null)), [tr]);
+  const groups = React.useMemo(() => exportPickerGroups(bundle, { importType, levels, translate }), [bundle, importType, levels, translate]);
   const hasSelection = !!selectedNames?.length;
   // Desk: `blank_template` when exporting for an insert, else `all`; the list's Actions → Export presets `by_filter`
   const defaultRecords = preset ?? (hasSelection ? "by_filter" : importType === "Insert New Records" ? "blank_template" : "all");
@@ -58,7 +62,7 @@ export function FrappeExportDialog({ api, bundle, open, onOpenChange, selectedNa
       open={open}
       onOpenChange={onOpenChange}
       groups={groups}
-      description={doctype}
+      description={translate(doctype)}
       selectedCount={hasSelection ? selectedNames!.length : undefined}
       defaultRecords={defaultRecords}
       showSelectMandatory={importType === "Insert New Records"}

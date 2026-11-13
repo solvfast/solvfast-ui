@@ -57,6 +57,26 @@ Run 1 of the P1 / P2 roadmap (owner authorization 2026-11-13; rows keep their Ph
 - Tests changed with the behaviour: `shell` NotificationPanel test (bell name now counts unread);
   `frappe-lifecycle-rail` steps test selects the list by `data-lifecycle-steps` (its name is translated now).
 
+**Step 3 — one translation path**
+- **B-61 (G58)**: the list layer reads the provider's translations (Desk `__(text, null, doctype)`; `FrappeProvider
+  translations`, boot `__messages`, the meta's own): column / filter labels, child-table labels, Select options and
+  Select cell values (stored values unchanged), the DocType's name (Add, empty states), status words.
+  `useFrappeTranslate(bundle)` (new, `@solvfast/ui/frappe`), `buildFrappeListMeta(…, { translate })`,
+  `useFrappeList().translate`. English sites without a dictionary: unchanged.
+- **B-03 (decision B-D2)**: the Status (indicator) column is **shown by default** (was offered, hidden); as Desk
+  (list_view.js:412-416) the `status` field's own column is then hidden (still offered). `rowMeta` options unchanged.
+- **B-38** bulk workflow actions, **D-54** `FrappeWorkflowActions` / `FrappeStatusIndicator` (default `translate` = the
+  provider's translations; was identity), **B-39** the exporter's DocType, group, ID and field labels, the report export's
+  DocType title: in the session language.
+- **D-41**: a communication's delivery status in the session language (site translation, then the package's `commStatus*`
+  catalogue); the medium as the entry icon (Email / Phone / Meeting / Other — form_timeline.js:227-238).
+  `FrappeTimeline`'s default `translate` is the provider's (was identity).
+- **A-51 dialog base**: the × is named from the catalogue (was "Close" in every language; `DialogContent`, `SheetContent`);
+  new `DialogContent` props `dismissible={false}` (Desk `static`: no Escape / outside close, no ×), `hideClose`,
+  `size` ("sm" | "md" | "lg" | "xl" | "full"; "md" = the unchanged default); `DialogTitle indicator`.
+- Tests changed with the behaviour: `list-query` "spends Desk's Status slot" (the indicator now takes the slot, the
+  status field column is hidden — expected headers unchanged, test renamed).
+
 - Tests changed with the behaviour (old → new): `merged`/sanitizer pins unchanged; comment-edit tests in `record`,
   `social-p36b` (P36B.social.18), `history-p36d` (P36D.history.8) now type into the rich editor; `trace-p36e`
   P36E.trace.11 asserted the Date defect (no clear, no typing) and now asserts the fix.

@@ -18,6 +18,11 @@ export const run1En = {
   navMain: "Main navigation",
   // D-62 lifecycle stepper (screen-reader cues and the list's name)
   lcSteps: "Lifecycle", lcStepDone: "Completed", lcStepNotReached: "Not reached",
+  // D-41 Communication delivery statuses (Communication.delivery_status options) and media
+  commStatusSent: "Sent", commStatusBounced: "Bounced", commStatusOpened: "Opened", commStatusMarkedAsSpam: "Marked As Spam",
+  commStatusRejected: "Rejected", commStatusDelayed: "Delayed", commStatusSoftBounced: "Soft-Bounced", commStatusClicked: "Clicked",
+  commStatusRecipientUnsubscribed: "Recipient Unsubscribed", commStatusError: "Error", commStatusExpired: "Expired",
+  commStatusSending: "Sending", commStatusRead: "Read", commStatusScheduled: "Scheduled",
 };
 export const run1Ar: { [K in keyof typeof run1En]: string } = {
   dtToday: "اليوم",
@@ -33,4 +38,8 @@ export const run1Ar: { [K in keyof typeof run1En]: string } = {
   notificationsUnread: "الإشعارات، {n} غير مقروءة", ntfMarkRead: "تعليم كمقروء", ntfLoading: "جارٍ تحميل الإشعارات…",
   navMain: "التنقل الرئيسي",
   lcSteps: "دورة الحياة", lcStepDone: "مكتملة", lcStepNotReached: "لم تُبلغ بعد",
+  commStatusSent: "مُرسلة", commStatusBounced: "مرتدّة", commStatusOpened: "مفتوحة", commStatusMarkedAsSpam: "مُعلَّمة كرسالة مزعجة",
+  commStatusRejected: "مرفوضة", commStatusDelayed: "متأخرة", commStatusSoftBounced: "مرتدّة مؤقتًا", commStatusClicked: "تم النقر",
+  commStatusRecipientUnsubscribed: "ألغى المستلم الاشتراك", commStatusError: "خطأ", commStatusExpired: "منتهية",
+  commStatusSending: "جارٍ الإرسال", commStatusRead: "مقروءة", commStatusScheduled: "مجدولة",
 };

@@ -48,6 +48,24 @@ export interface TimelineContext {
   userName?: (id: string) => string;
   /** P36d history: link of a Communication (Desk: `/app/communication/<name>`, "Open Communication"). Default: none. */
   communicationHref?: (name: string) => string | undefined;
+  /** Run 1 (D-41): a server word (delivery status) in the session language — Desk `__(status)`. Default: the package
+   *  catalogue's Communication statuses, else the word unchanged. */
+  translate?: (text: string) => string;
+}
+
+const DELIVERY_KEYS: Record<string, MessageKey> = {
+  Sent: "commStatusSent", Bounced: "commStatusBounced", Opened: "commStatusOpened", "Marked As Spam": "commStatusMarkedAsSpam",
+  Rejected: "commStatusRejected", Delayed: "commStatusDelayed", "Soft-Bounced": "commStatusSoftBounced", Clicked: "commStatusClicked",
+  "Recipient Unsubscribed": "commStatusRecipientUnsubscribed", Error: "commStatusError", Expired: "commStatusExpired",
+  Sending: "commStatusSending", Read: "commStatusRead", Scheduled: "commStatusScheduled",
+};
+/** Run 1 (D-41): a delivery status in the session language — the site's translation first, then the package's. */
+export function deliveryStatusLabel(status: string, ctx: Pick<TimelineContext, "t" | "translate">): string {
+  const site = ctx.translate?.(status);
+  if (site && site !== status) return site;
+  const key = DELIVERY_KEYS[status];
+  const ours = key ? ctx.t(key) : undefined;
+  return ours && ours !== key ? ours : status; // a catalogue without the key (e.g. a partial one) keeps the server's word
 }
 
 /** Frappe datetimes are "YYYY-MM-DD HH:mm:ss[.ffffff]" in the server time zone; parsed as local time like the browser does. */
@@ -197,7 +215,7 @@ export function buildTimelineItems(doc: FrappeDoc, docinfo: DocInfo, ctx: Timeli
       actorId: s(c.sender) || undefined, actorImage: imageOf(c.sender),
       summary: [sender, s(c.subject)].filter(Boolean).join(" · "),
       card: true, body: s(c.content), bodyFormat: "html", subject: s(c.subject) || undefined,
-      status: status ? { label: status, tone: deliveryStatusTone(status) } : undefined,
+      status: status ? { label: deliveryStatusLabel(status, ctx), tone: deliveryStatusTone(status) } : undefined,
       attachments: communicationAttachments(c.attachments), ...(href ? { href } : {}),
     });
   }

@@ -8,7 +8,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
 
 import { cn } from "../lib/cn"
-import { usePortalContainer } from "../theme/ThemeProvider"
+import { useLocale, usePortalContainer } from "../theme/ThemeProvider"
 
 const Sheet = SheetPrimitive.Root
 
@@ -66,6 +66,7 @@ const SheetContent = React.forwardRef<
   SheetContentProps
 >(({ side = "right", className, children, returnFocus, onOpenAutoFocus, onCloseAutoFocus, ...props }, ref) => {
   const focus = useReturnFocus({ returnFocus, onOpenAutoFocus, onCloseAutoFocus })
+  const { t } = useLocale()
   return (
   <SheetPortal>
     <SheetOverlay />
@@ -77,7 +78,7 @@ const SheetContent = React.forwardRef<
     >
       <SheetPrimitive.Close className="absolute end-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
         <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
+        <span className="sr-only">{t("close")}</span>
       </SheetPrimitive.Close>
       {children}
     </SheetPrimitive.Content>

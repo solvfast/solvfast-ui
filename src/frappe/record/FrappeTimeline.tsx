@@ -10,7 +10,10 @@
  * docinfo `document_email` shows Desk's "Add to this activity by mailing to {0}" line (form_timeline.js:92-116).
  */
 import * as React from "react";
-import { Copy } from "lucide-react";
+import { CalendarDays, Copy, Mail, MoreHorizontal, Phone } from "lucide-react";
+import { useFrappeTranslate } from "../services/useTranslate";
+
+const MEDIUM_ICON: Record<string, typeof Mail> = { Email: Mail, Phone, Meeting: CalendarDays, Other: MoreHorizontal };
 import { CommentComposer } from "../../record/CommentComposer";
 import { Timeline, type TimelineEntry, type TimelineProps } from "../../record/Timeline";
 import { fmt } from "../../record/format";
@@ -68,7 +71,7 @@ const pageLink = (anchor: string) => (typeof window === "undefined" ? `#${anchor
 
 /** The record’s activity, built from `docinfo` (docs 14 A8) with comment add / edit / delete and “load more communications”. */
 export function FrappeTimeline({
-  doc, user, docinfo, bundle, activity = "all", canComment = true, isSystemManager, canDeleteComment, canSeeField, translate = (s) => s, searchMentions, error, allowPublish = false,
+  doc, user, docinfo, bundle, activity = "all", canComment = true, isSystemManager, canDeleteComment, canSeeField, translate: translateProp, searchMentions, error, allowPublish = false,
   copyLinks = false, communicationHref, showDocumentEmail = true, ...rest
 }: FrappeTimelineProps) {
   const qc = useQueryClient();
@@ -78,6 +81,9 @@ export function FrappeTimeline({
   const q = useRecordDocInfo(doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
   const meta = useRecordMeta(doc.doctype, bundle);
   const info = q.data;
+  // Run 1 (D-41 / D-54): server words in the session language by default (the provider's translations; was identity)
+  const trProvider = useFrappeTranslate(meta.data);
+  const translate = React.useCallback((x: string) => (translateProp ? translateProp(x) : trProvider(x, null)), [translateProp, trProvider]);
   const perms = usePermissions(meta.data, doc, info);
   const comm = useCommunications(doc.__islocal ? undefined : doc.doctype, doc.name, docinfo);
   const comms = comm.communications;
@@ -101,11 +107,17 @@ export function FrappeTimeline({
     if (!info) return [];
     const ctx: TimelineContext = {
       user, t, isSystemManager, canDeleteComment, fieldLabel, activity, isolate: isRTL,
-      milestoneLabel: (f) => fieldLabel(f) ?? f, communicationHref,
+      milestoneLabel: (f) => fieldLabel(f) ?? f, communicationHref, translate,
     };
-    return buildTimelineItems(doc, { ...info, communications: comms }, ctx);
+    // Run 1 D-41: each communication's medium as its icon (form_timeline.js:227-238: mail / call / calendar / dots)
+    const mediumOf = new Map((comms as Array<Record<string, unknown>>).map((c) => [`communication-${String(c.name)}`, String(c.communication_medium ?? "")]));
+    return buildTimelineItems(doc, { ...info, communications: comms }, ctx).map((it) => {
+      const medium = it.kind === "communication" ? mediumOf.get(it.id) : undefined;
+      const Icon = medium ? MEDIUM_ICON[medium] : undefined;
+      return Icon ? { ...it, icon: <Icon {...{ "data-medium": medium }} /> } : it;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info, comms, doc.modified, user, isSystemManager, canDeleteComment, fieldLabel, activity, t, isRTL, communicationHref]);
+  }, [info, comms, doc.modified, user, isSystemManager, canDeleteComment, fieldLabel, activity, t, isRTL, communicationHref, translate]);
 
   const mentionSearch = React.useMemo<(q: string) => Promise<MentionOption[]>>(() => searchMentions ?? mentionSearchWith(c), [c, searchMentions]);
 

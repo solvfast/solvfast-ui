@@ -28,6 +28,7 @@ import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser 
 import { applyColumnSettings, capDefaultColumns, deskColumnLimit, fetchListSettings, listedFields } from "./list/settings";
 import { filtersToUrl, parseUrlFilters, type ParsedUrlFilters } from "./list/urlFilters";
 import { reportExportFields } from "./list/reportExport";
+import { useFrappeTranslate } from "./services/useTranslate";
 
 /**
  * Desk's width-based column limit (`list_view.js:433-444`: 4 at ≤ 1366 px, 10 at ≥ 1920 px, else 6), following the
@@ -68,11 +69,14 @@ export function useFrappeMeta(doctype: string, opts: { client?: FrappeClient; /*
     return restrictMetaToReadable(q.data.meta, q.data.children, levels);
   }, [q.data, roles]);
   const treeKey = (opts.treeDoctypes ?? []).join("\u0000");
-  const meta = React.useMemo(() => (readable ? buildFrappeListMeta(readable.meta, t, readable.children, { treeDoctypes: treeKey ? treeKey.split("\u0000") : [] }) : undefined), [readable, t, treeKey]);
+  // Run 1 B-61: the list layer consults the provider's translations (and the meta's own __messages), as the form does
+  const rawBundle = React.useMemo<MetaBundle | undefined>(() => (q.data ? ({ doctype, meta: q.data.meta, children: q.data.children } as unknown as MetaBundle) : undefined), [q.data, doctype]);
+  const translate = useFrappeTranslate(rawBundle);
+  const meta = React.useMemo(() => (readable ? buildFrappeListMeta(readable.meta, t, readable.children, { treeDoctypes: treeKey ? treeKey.split("\u0000") : [], translate }) : undefined), [readable, t, treeKey, translate]);
   // plain types only: React Query's own types live in @tanstack/query-core, which consumers may not be able to resolve
   const refetch = React.useCallback(async (): Promise<void> => { await q.refetch(); }, [q]);
-  const bundle = React.useMemo<MetaBundle | undefined>(() => (q.data ? ({ doctype, meta: q.data.meta, children: q.data.children } as unknown as MetaBundle) : undefined), [q.data, doctype]);
-  return { meta, bundle, doc: q.data?.meta, userSettings: q.data?.userSettings, loading: q.isPending, error: q.error as Error | null, refetch };
+  const bundle = rawBundle;
+  return { meta, bundle, doc: q.data?.meta, userSettings: q.data?.userSettings, loading: q.isPending, error: q.error as Error | null, refetch, translate };
 }
 
 /** After the app writes (insert, delete, update), reload a DocType's lists and counts — or every Frappe list. */
@@ -186,9 +190,11 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     const cfg: IndicatorConfig = {
       isSubmittable: meta.isSubmittable, workflow, states: meta.states, hasField: meta.hasField, getIndicator: o.getIndicator,
       words: { draft: t("listDraft"), cancelled: t("listCancelled"), submitted: t("listSubmitted"), enabled: t("yes"), disabled: t("no") },
+      // Run 1 B-61 / B-03: status and workflow-state words in the session language (Desk __(status))
+      translate: (x: string) => m.translate(x),
     };
     return hasIndicator(cfg) ? cfg : null;
-  }, [meta, o.rowMeta, workflow, o.getIndicator, t]);
+  }, [meta, o.rowMeta, workflow, o.getIndicator, t, m.translate]);
   const rm = o.rowMeta === false ? {} : typeof o.rowMeta === "object" ? o.rowMeta : {};
   const commentsOff = !!settings?.disable_comment_count;
   const curated = !!o.columns?.length;
@@ -209,11 +215,15 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
       indicator: indicatorCfg, assignees: on("assignees"), comments: on("comments"), likes: on("likes"), tags: on("tags"), userInfo,
       hidden: o.rowMeta === true ? false
         : typeof o.rowMeta === "object" ? (key: string) => (rm as Record<string, boolean | undefined>)[META_KEY[key]] !== true
-        : true,
+        // Run 1 B-03 (decision B-D2): Desk's Status column is shown by default; the other row-metadata columns stay offered
+        : (key: string) => key !== "__indicator",
       labels: { indicator: t("listIndicator"), assigned: t("listAssigned"), comments: t("listComments"), likes: t("listLikes"), tags: t("listTags") },
     });
-    // Desk's order: subject, status indicator, the DocType's own columns, then assignees / comments / likes
-    const withIndicator = extra.indicator ? [merged[0], extra.indicator as unknown as ColumnDef<T>, ...merged.slice(1)].filter(Boolean) : merged;
+    // Desk's order: subject, status indicator, the DocType's own columns, then assignees / comments / likes. While the
+    // indicator column is shown, the `status` field's own column is not (list_view.js:412-416): it stays offered, hidden.
+    const indicatorShown = !!extra.indicator && !extra.indicator.hidden;
+    const statusless = indicatorShown && !curated ? merged.map((c) => (fieldOf(c) === "status" ? { ...c, hidden: true } : c)) : merged;
+    const withIndicator = extra.indicator ? [statusless[0], extra.indicator as unknown as ColumnDef<T>, ...statusless.slice(1)].filter(Boolean) : statusless;
     const all = [...withIndicator, ...(extra.trailing as unknown as ColumnDef<T>[])];
     // cell display = Desk's formatter (docs 12 §9): numbers, currency, dates by the site's formats
     const FORMATTED = new Set(["Int", "Float", "Percent", "Currency", "Date", "Datetime", "Time"]);
@@ -229,6 +239,11 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
           return <span title={key}>{userInfo[key]?.fullname || userNames[key] || formatCtx.linkTitles?.[`User::${key}`] || key}</span>;
         } };
       }
+      // Run 1 B-61: a Select value is shown in the session language (Desk formatters.js Select → __(value)); filtering
+      // and sorting keep the stored value
+      if (!c.render && df?.fieldtype === "Select") {
+        return { ...c, render: (row: T) => { const v = (row as Row)[f]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <span>{m.translate(String(v), meta?.doctype)}</span>; } };
+      }
       if (c.render || !df || !FORMATTED.has(df.fieldtype)) return c;
       return { ...c, render: (row: T) => { const v = (row as Row)[fieldOf(c)]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <span dir="ltr" className="whitespace-nowrap tabular-nums">{formatValue(v, df, row as never, formatCtx)}</span>; } };
     });
@@ -241,7 +256,7 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
       settingsFields: listedFields(settings), uncounted: ["_assign", "_comments", "_liked_by", "_user_tags"],
       nameColumn: !o.hideNameColumn && !!rawTitle && rawTitle !== "name" && meta.hasField(rawTitle),
     });
-  }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, userNames, commentsOff, settings, t, widthCap, widthLimit, deskIndicator, o.hideNameColumn, m.doc]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [formatCtx, meta, o.columns, o.rowMeta, label, indicatorCfg, userInfo, userNames, commentsOff, settings, t, widthCap, widthLimit, deskIndicator, o.hideNameColumn, m.doc, m.translate]); // eslint-disable-line react-hooks/exhaustive-deps
   const filterFields = React.useMemo(() => (meta?.filterFields ?? []).map((f) => ({ ...f, label: label(f.name, f.label) })), [meta, label]);
 
   const [state, setState] = React.useState<ListQueryState | null>(null);
@@ -386,6 +401,8 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     userName: (id: string) => userInfo[id]?.fullname || userNames[id] || id,
     /** Props for `FrappeReportExportDialog` (fields, filters, or_filters, order_by, shownCount, totalCount); null until loaded. */
     reportExport,
+    /** Run 1 (B-61): Desk's `__(text, null, context)` over the provider's translations and the meta's `__messages`. */
+    translate: m.translate,
     /** URL filters read at mount (`urlFilters`): what was applied and which keys were ignored. */
     urlFilters: urlRead,
     listProps: {

@@ -20,6 +20,7 @@ import { lifecycleNext } from "../../record/lifecycle";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../primitives/dialog";
 import { useMetaBundle } from "../hooks/useDoc";
 import { useFrappeApi } from "../FrappeProvider";
+import { useFrappeTranslate } from "../services/useTranslate";
 import { useFormServices } from "../form/services";
 import { checkMandatory, type MandatoryLine } from "../form/model/mandatory";
 import { missingLineText } from "../form/missingLines";
@@ -47,7 +48,8 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "cur
   doc: FrappeDoc;
   user: string;
   roles?: string[];
-  /** Server labels → translations (`translateLabel(bundle, text)`); default identity. */
+  /** Server labels → translations. Default (Run 1 D-54): the provider's translations (Desk `__(action)` /
+   *  `__(state)`, form/workflow.js:77-104); before, identity — Arabic users saw English workflow actions. */
   translate?: (text: string) => string;
   /** Ask before applying: `true` for every action, or a predicate (Desk applies immediately). Default: no confirmation. */
   confirm?: boolean | ((action: string) => boolean);
@@ -86,8 +88,10 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "cur
  */
 let warnedSteps = false;
 
-export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, applyFromRail = false, blockedReason, blockedIcon, frm, checkMandatory: mandatoryCheck = true, ...rest }: FrappeWorkflowActionsProps) {
+export function FrappeWorkflowActions({ doc, user, roles, translate: translateProp, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, applyFromRail = false, blockedReason, blockedIcon, frm, checkMandatory: mandatoryCheck = true, ...rest }: FrappeWorkflowActionsProps) {
   const { t, language } = useLocale();
+  const trProvider = useFrappeTranslate();
+  const translate = translateProp ?? ((x: string) => trProvider(x, null));
   if (variant === "steps" && !warnedSteps) {
     warnedSteps = true;
     console.warn('[@solvfast/ui/frappe] FrappeWorkflowActions variant="steps" is deprecated (0.8.0-dev.5): use variant="actions" in the header and variant="rail" for the Lifecycle card.');

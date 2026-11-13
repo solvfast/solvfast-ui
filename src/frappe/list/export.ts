@@ -75,7 +75,7 @@ export interface ExportPickerGroup extends ExportGroup {
 const NOT_EXPORTABLE = new Set([...NO_VALUE_TYPES, ...TABLE_TYPES]);
 const truthy = (v: unknown) => !!v && v !== "0";
 
-function pickerFields(meta: DocTypeMeta, importType: ImportType, levels: DocPermissions | undefined): ExportPickerField[] {
+function pickerFields(meta: DocTypeMeta, importType: ImportType, levels: DocPermissions | undefined, tr: (text: string, context?: string) => string = (x) => x): ExportPickerField[] {
   const autoname = typeof meta.autoname === "string" && meta.autoname.startsWith("field:") ? meta.autoname.slice("field:".length) : null;
   // the DocType's fields: not layout / display / table, not lft / rgt, not virtual (data_exporter.js:314-326); and, the
   // package's addition, only fields at a permlevel the user may read (the server strips the others — `readableFields`)
@@ -83,8 +83,8 @@ function pickerFields(meta: DocTypeMeta, importType: ImportType, levels: DocPerm
   if (levels?.[0]?.read) fields = readableFields(fields, levels); // same guard as `restrictMetaToReadable`: rights known and level 0 readable
   const mandatory = (df: Pick<FrappeDocField, "fieldname" | "reqd">) =>
     (truthy(df.reqd) && importType === "Insert New Records") || df.fieldname === autoname || df.fieldname === "name";
-  const id: ExportPickerField[] = autoname ? [] : [{ fieldname: "name", label: "ID", fieldtype: "Data", reqd: true, mandatory: true }];
-  return [...id, ...fields.map((df) => ({ fieldname: df.fieldname, label: df.label || df.fieldname, fieldtype: df.fieldtype, reqd: truthy(df.reqd), mandatory: mandatory(df) }))];
+  const id: ExportPickerField[] = autoname ? [] : [{ fieldname: "name", label: tr("ID"), fieldtype: "Data", reqd: true, mandatory: true }];
+  return [...id, ...fields.map((df) => ({ fieldname: df.fieldname, label: df.label ? tr(df.label, meta.name) : df.fieldname, fieldtype: df.fieldtype, reqd: truthy(df.reqd), mandatory: mandatory(df) }))];
 }
 
 /**
@@ -92,12 +92,13 @@ function pickerFields(meta: DocTypeMeta, importType: ImportType, levels: DocPerm
  * child meta in the bundle. `levels` (the user's rights per permlevel) restricts every group to readable fields; without
  * them (roles unknown) every exportable field is offered, as Desk does — the server still strips unreadable ones.
  */
-export function exportPickerGroups(bundle: MetaBundle, o: { importType?: ImportType; levels?: DocPermissions } = {}): ExportPickerGroup[] {
+export function exportPickerGroups(bundle: MetaBundle, o: { importType?: ImportType; levels?: DocPermissions; /** Run 1 B-39: labels in the session language (Desk __(label, null, doctype)). */ translate?: (text: string, context?: string) => string } = {}): ExportPickerGroup[] {
   const importType = o.importType ?? "Insert New Records";
-  const parent: ExportPickerGroup = { key: bundle.meta.name, doctype: bundle.meta.name, label: bundle.meta.name, reqd: true, fields: pickerFields(bundle.meta, importType, o.levels) };
+  const tr = o.translate ?? ((x: string) => x);
+  const parent: ExportPickerGroup = { key: bundle.meta.name, doctype: bundle.meta.name, label: tr(bundle.meta.name), reqd: true, fields: pickerFields(bundle.meta, importType, o.levels, tr) };
   const children = (bundle.meta.fields ?? []).filter((df) => TABLE_TYPES.has(df.fieldtype) && df.options && bundle.children[df.options]).map((df) => {
     const child = bundle.children[df.options!];
-    return { key: df.fieldname, doctype: child.name, label: `${df.label || df.fieldname} (${child.name})`, reqd: truthy(df.reqd), fields: pickerFields(child, importType, o.levels) };
+    return { key: df.fieldname, doctype: child.name, label: `${df.label ? tr(df.label, bundle.meta.name) : df.fieldname} (${tr(child.name)})`, reqd: truthy(df.reqd), fields: pickerFields(child, importType, o.levels, tr) };
   });
   return [parent, ...children];
 }

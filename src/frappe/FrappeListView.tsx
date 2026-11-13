@@ -278,6 +278,8 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
 
   // Create: Desk shows "Add {DocType}" and the empty-state create only with `frappe.model.can_create` (list_view.js:279-296, 497-537)
   const mayCreate = create !== false && perms.can("create");
+  // Run 1 B-61: the DocType's name in the session language (Desk __(doctype)) wherever the list says it
+  const doctypeLabel = f.translate(doctype, null);
   const [creating, setCreating] = React.useState(false);
   const createCfg = typeof create === "object" ? create : undefined;
   // P35 integration: `create` without render / onCreate → Quick Entry (eligible DocType) or the host's full form
@@ -293,7 +295,7 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   } : undefined);
   const startCreate = toFullForm ?? (renderCreate ? () => setCreating(true) : (createCfg?.onCreate ?? onCreate));
   const addButton = mayCreate && createCfg && startCreate ? (
-    <Button className="gap-1.5 shrink-0" onClick={startCreate} data-testid="sf-list-add"><Plus className="h-4 w-4" aria-hidden /> {createCfg.label ?? t("listAddDoctype").replace("{doctype}", doctype)}</Button>
+    <Button className="gap-1.5 shrink-0" onClick={startCreate} data-testid="sf-list-add"><Plus className="h-4 w-4" aria-hidden /> {createCfg.label ?? t("listAddDoctype").replace("{doctype}", doctypeLabel)}</Button>
   ) : undefined;
   const createdNode = mayCreate && renderCreate ? renderCreate({
     open: creating, onOpenChange: setCreating,
@@ -330,9 +332,9 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       loadOptions={rest.loadOptions ?? loadOptions}
       {...rest}
       storage={storage}
-      emptyMessage={rest.emptyMessage ?? t("listEmptyNone").replace("{doctype}", doctype)}
-      emptyFilteredMessage={rest.emptyFilteredMessage ?? t("listEmptyFilteredDoctype").replace("{doctype}", doctype)}
-      emptyAction={rest.emptyAction ?? (mayCreate && startCreate ? { label: t("listCreateFirst").replace("{doctype}", doctype), onClick: startCreate } : undefined)}
+      emptyMessage={rest.emptyMessage ?? t("listEmptyNone").replace("{doctype}", doctypeLabel)}
+      emptyFilteredMessage={rest.emptyFilteredMessage ?? t("listEmptyFilteredDoctype").replace("{doctype}", doctypeLabel)}
+      emptyAction={rest.emptyAction ?? (mayCreate && startCreate ? { label: t("listCreateFirst").replace("{doctype}", doctypeLabel), onClick: startCreate } : undefined)}
       selectable={rest.selectable ?? (bulk ? true : undefined)}
       primaryAction={rest.primaryAction ?? addButton}
       pageSizes={rest.pageSizes ?? DESK_PAGE_SIZES}
