@@ -218,3 +218,21 @@ describe("B-03 the Status (indicator) column: shown by default, words translated
     expect(document.querySelectorAll("tbody [data-indicator]").length).toBe(0);
   });
 });
+
+describe("B-39 the exporter shows Desk's record counts", () => {
+  it("All Records (N) from a count request; the option label carries it", async () => {
+    const seen: string[] = [];
+    mountList(META(), { menu: {} }, (m) => { seen.push(m); return undefined; }, {});
+    await waitFor(() => expect(rows().some((r) => (r.textContent ?? "").trim() !== "")).toBe(true));
+    const before = seen.filter((m) => /count/i.test(m)).length;
+    const more = screen.getByRole("button", { name: defaultMessages.ar.listMenuMore });
+    fireEvent.keyDown(more, { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: new RegExp(defaultMessages.ar.listBulkExport) }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(seen.filter((m) => /count/i.test(m)).length).toBeGreaterThan(before));
+    const typeSelect = within(dialog).getAllByRole("combobox")[1]!;
+    fireEvent.keyDown(typeSelect, { key: "Enter" });
+    const options = await screen.findAllByRole("option");
+    expect(options.map((o) => o.textContent).some((x) => /\(\d+\)/.test(x ?? ""))).toBe(true);
+  });
+});

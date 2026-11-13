@@ -52,6 +52,18 @@ export function FrappeExportDialog({ api, bundle, open, onOpenChange, selectedNa
   const hasSelection = !!selectedNames?.length;
   // Desk: `blank_template` when exporting for an insert, else `all`; the list's Actions → Export presets `by_filter`
   const defaultRecords = preset ?? (hasSelection ? "by_filter" : importType === "Insert New Records" ? "blank_template" : "all");
+  // Run 1 B-39: Desk's record count after "All Records" / "Filtered Records" (data_exporter.js:209-232, frappe.db.count)
+  const [counts, setCounts] = React.useState<{ all?: number; by_filter?: number }>({});
+  const filterKey = JSON.stringify(filters ?? []);
+  React.useEffect(() => {
+    if (!open || typeof (api as { getCount?: unknown }).getCount !== "function") return;
+    let live = true;
+    const withCount = api as unknown as { getCount: (dt: string, a: { filters?: FrappeFilter[] }) => Promise<number> };
+    const count = (dt: string, a: { filters?: FrappeFilter[] }) => withCount.getCount(dt, a);
+    void Promise.all([count(doctype, {}).catch(() => undefined), filters?.length ? count(doctype, { filters }).catch(() => undefined) : Promise.resolve(undefined)])
+      .then(([all, byFilter]) => { if (live) setCounts({ all, by_filter: filters?.length ? byFilter : all }); });
+    return () => { live = false; };
+  }, [open, api, doctype, filterKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const unselectKeeps = React.useMemo(
     () => Object.fromEntries(groups.map((g) => [g.key, importType === "Update Existing Records" && g.fields.some((f) => f.fieldname === "name") ? ["name"] : []])),
     [groups, importType],
@@ -64,6 +76,7 @@ export function FrappeExportDialog({ api, bundle, open, onOpenChange, selectedNa
       groups={groups}
       description={translate(doctype)}
       selectedCount={hasSelection ? selectedNames!.length : undefined}
+      counts={counts}
       defaultRecords={defaultRecords}
       showSelectMandatory={importType === "Insert New Records"}
       unselectKeeps={unselectKeeps}
