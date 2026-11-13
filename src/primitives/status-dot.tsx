@@ -59,18 +59,18 @@ export function resolveStatusColor(color?: string | null): string | undefined {
 }
 
 /**
- * Inline styles for a custom status colour. The dot is the colour itself; text is the colour mixed 45 % with the theme's
- * foreground (darker on light themes, lighter on dark ones, so a configured yellow or navy stays readable); a pill's
- * fill is the colour at 15 %. Pure CSS (`color-mix`): no build step, follows the nearest `.dark` scope.
+ * Inline styles for a custom status colour. The dot is the colour itself; plain `text` (no tint behind it) is the colour
+ * mixed 55 % with the theme's foreground (darker on light themes, lighter on dark ones, so a configured yellow or navy
+ * stays readable); a `pill` is filled with the colour at 15 % and its text mixed 45 % (Run 1 D-64: ≥ 4.5:1 on the tint,
+ * measured on Glass). Pure CSS (`color-mix`): no build step, follows the nearest `.dark` scope.
  */
 export function statusColorStyles(color?: string | null): { dot: React.CSSProperties; text: React.CSSProperties; pill: React.CSSProperties } | undefined {
   const c = resolveStatusColor(color);
   if (!c) return undefined;
-  const text = `color-mix(in oklab, ${c} 45%, hsl(var(--foreground)))`;
   return {
     dot: { backgroundColor: c },
-    text: { color: text },
-    pill: { backgroundColor: `color-mix(in srgb, ${c} 15%, transparent)`, color: text },
+    text: { color: `color-mix(in oklab, ${c} 55%, hsl(var(--foreground)))` },
+    pill: { backgroundColor: `color-mix(in srgb, ${c} 15%, transparent)`, color: `color-mix(in oklab, ${c} 45%, hsl(var(--foreground)))` },
   };
 }
 

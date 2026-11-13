@@ -6,11 +6,19 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0-dev.8 — Run 1: D-64 scope correction
+
+- **D-64 scope**: 0.8.0-dev.7 also moved `statusColorStyles(...).text` (plain text with no tint, e.g. the CRM's rail
+  card status labels) to 45 %; the CRM parity run (`p0-lab/runs/run1-run1c-rail`) showed it as a visible change outside
+  D-64 (decision 8 covers text on a tint). `text` is back to P35's 55 %; only `.pill` (text on its 15 % tint) uses 45 %.
+  Test: `run1-acceptance` "D-64 scope". 0.8.0-dev.7 is superseded (lab only, never published).
+
 ## 0.8.0-dev.7 — Run 1: D-64 contrast correction and acceptance tests
 
 - **D-64 contrast correction (visible, decision 8)**: tinted pills' text is now the colour mixed **45 %** with the
   foreground (was 55 % in 0.8.0-dev.6): `StatusBadge` tone pills, `Badge` success / warning / info and
-  `statusColorStyles` (custom / Desk colours). Measured in a browser on the CRM lab build (`p0-lab/runs/run1-d64-*`), the
+  `statusColorStyles(...).pill` (custom / Desk colours on a tint). `statusColorStyles(...).text` (plain text, no tint)
+  keeps 55 % (unchanged since P35). Measured in a browser on the CRM lab build (`p0-lab/runs/run1-d64-*`), the
   0.8.0-dev.6 info pills on Glass reached only 4.42:1 (the palette calculation had assumed a white card). At 45 % every
   palette colour is ≥ 5.31:1 on the tint over white, Glass (246 / 246 / 248) and a darker panel (236 / 236 / 240), light
   and dark (`p0-lab/run1/d64-contrast-measured.py`). Tests pinning the mix (`core-p35` P35 colour, `run1-step4` D-64) follow.

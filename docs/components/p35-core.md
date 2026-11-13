@@ -52,7 +52,7 @@ description is the 0.6.0 row. The `avatars` variant is unchanged.
   `danger`/`destructive`/`red`, `violet`/`purple`, `teal`, `sky`, `cyan`, `flame`, `orange`, `midnight`, `forest` — they map
   to the theme's HSL variables, so they follow light / dark. Any other string is used as a CSS colour.
 - Contrast: the dot is the colour itself; the pill's fill is the colour at 15 %; the pill's **text** is
-  `color-mix(in oklab, <colour> 45%, hsl(var(--foreground)))` (55 % before Run 1 D-64) — darker than the colour on light themes and lighter on dark
+  `color-mix(in oklab, <colour> 55%, hsl(var(--foreground)))` (a pill's text on its tint: 45 % since Run 1 D-64) — darker than the colour on light themes and lighter on dark
   ones, so a configured yellow or navy stays readable (not measured against WCAG for every colour). Pure CSS: it follows the
   nearest `.dark` scope, no build step, no theme lookup in JS.
 - The label is always shown: colour is never the only carrier.

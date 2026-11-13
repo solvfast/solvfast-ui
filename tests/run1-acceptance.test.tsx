@@ -566,3 +566,13 @@ describe("E-14 the totals row in Arabic uses the package's Arabic digits (jsdom;
   });
   it.todo("E-14 export sends add_totals_row only when the totals row is shown — NOT MET: no Frappe list / report export passes addTotalsRow (reportExport.ts:86 supports it; no caller)");
 });
+
+describe("D-64 scope: only text on a tint changes (jsdom)", () => {
+  it("statusColorStyles: the pill's text is mixed 45 % on its 15 % tint; plain text (no tint) keeps P35's 55 %", async () => {
+    const { statusColorStyles: s } = await import("../src/primitives/status-dot");
+    const st = s("green")!;
+    expect(st.pill.color).toBe("color-mix(in oklab, hsl(var(--success)) 45%, hsl(var(--foreground)))");
+    expect(st.pill.backgroundColor).toBe("color-mix(in srgb, hsl(var(--success)) 15%, transparent)");
+    expect(st.text.color).toBe("color-mix(in oklab, hsl(var(--success)) 55%, hsl(var(--foreground)))");
+  });
+});
