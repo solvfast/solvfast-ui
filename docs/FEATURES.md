@@ -36,7 +36,7 @@ Source: **S** Sear only · **P** PMO only · **B** both, consolidated · **A** a
 | F23 | Conditional row styling | P | `rowClassName` | ✅ tested |
 | F24 | Row actions | A | `rowActions`: Sear's delete-button look, a fixed last column, optional confirm dialog (red for destructive actions; the app's `onSelect` does the work), per-row `hidden` | ✅ tested; parity except the intended Actions difference (below) |
 | F25 | Toolbar slot and control flags | B | `toolbarActions`; `controls.{search,savedFilters,filter,columns}` | ✅ tested |
-| F26 | Alternative views (kanban, gantt, tree) | X | apps build them on `useListState` | — |
+| F26 | Alternative views (kanban, calendar, report, image; gantt, tree) | ✓ partly | Core `KanbanBoard`, `CalendarMonth`, `ViewSwitcher` (`src/list/views`); Frappe `FrappeReportView`, `FrappeKanbanView`, `FrappeCalendarView`, `FrappeImageView`, `FrappeViews` (P35). Gantt, Tree, Dashboard, Map, Inbox: not built (Run 1 I4 correction — the row said "apps build them"; the shipped views are frozen, decision 3) | `docs/components/views.md` |
 | F27 | Loading state | B | Sear's look: skeleton rows | ✅ tested |
 | F28 | Empty state | B | the app's `emptyMessage` (any content: icon, call to action) when nothing exists; the generic message when filters hide everything (PMO's rule) | ✅ tested + parity |
 | F29 | Error state with retry | P | `error` + `onRetry`; no pager or total while erroring; Frappe: the server's message (403, 417, 5xx, network) | ✅ tested |

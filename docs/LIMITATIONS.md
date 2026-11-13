@@ -317,6 +317,23 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
 - Buttons: 180 ms hover / 120 ms press on every variant (Sear's glass buttons use 0.4 s / 0.16 s).
 - List: grouped rows share one table and column layout.
 
+## Run 1 (0.8.0-dev.6) — what stays open or unverified
+
+- **Real site: pending for every server-dependent row** (I5 blocked on the owner's site / users / data permission):
+  Datetime user ↔ system TZ (C-25), translations from a real boot (B-61, D-54), `update_document_title` (C-67),
+  realtime `doc_subscribe` → the newer-on-server banner (C-79), `get_communications` paging with automated messages (D-43),
+  `export_query` with `selected_items` (E-19), session expiry on a real 401 (A-61), awesome-bar boot lists (A-06).
+- C-29: Desk content outside the "desk" allowlist (scripts, iframes, forms, other attributes) is still dropped on display
+  and on the first edit; no mentions / image upload / table editing in the editor.
+- C-24 Date `options` JSON is ignored; C-25 Datetime has no typed entry.
+- A-23: the collapsed rail has no flyout for a group's children; no loading skeleton.
+- A-61: the global session-expiry handler is opt-in (`onSessionExpired`), not a default redirect.
+- E-14: the Report view keeps its own totals card (shipped views frozen); totals are not sent with exports.
+- E-19: no CSV preview; `FrappeReportView` has no `export_query` entry.
+- D-64: tint-pill contrast is computed (≥ 4.73:1 over the card, `p0-lab/run1/d64-contrast-shipped.txt`); glass
+  surfaces behind a pill vary.
+- I2 (Frappe RecordPage adapter): boundary document only, awaiting review.
+
 ## Rendering
 
 - **Navbar on phones (since 0.7.0-dev.4, a default change for every `Navbar` / `AppShell` consumer):** below `md` the

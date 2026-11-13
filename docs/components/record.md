@@ -756,6 +756,37 @@ shortest path) is the reference's display. Workflow semantics (field names, stat
 permissions) are unchanged. Tests: `tests/frappe-lifecycle-rail.test.tsx` (stub client — request / response shapes,
 **simulated**; validation on a real site is pending, P1), `tests/lifecycle-contract.test.tsx`.
 
+### 9.6 The diagram renderer — `@solvfast/ui/lifecycle-diagram` (Run 1 I1)
+
+A separate entry with two **optional peer dependencies**, `reactflow` (11, the CRM's version) and `@dagrejs/dagre`. Core
+never imports it (boundary check). It draws Core's `lifecycleGraph` model with Core's look:
+
+```tsx
+import { LifecycleFlowDialog } from "@solvfast/ui/lifecycle-diagram";
+import "reactflow/dist/style.css";
+import "@solvfast/ui/lifecycle-diagram.css";
+<LifecycleFlowDialog open={open} onOpenChange={setOpen} title="Deal lifecycle · New business"
+  graph={lifecycleGraph(definition, currentId, pathIds)} meta={{ [stateId]: "Omar · Apr 12" }} />
+```
+
+- `LifecycleFlow` (the canvas; fills its positioned parent), `LifecycleFlowDialog` (Core `LifecycleDiagramDialog` + the
+  canvas), `lifecycleFlowLayout` (dagre layout → nodes / edges), `roundedPath`.
+- Port of the CRM's `LifecycleDiagramPopup`: dagre top-to-bottom, rounded orthogonal edges on dagre's waypoints, the path
+  taken highlighted, read-only pan / zoom, fit to view, re-centred on the current state above 10 states.
+- `phaseLabels` (default the catalogue's Open / On Hold / Closed), `currentLabel`, `dir`, `focusCurrentAbove`.
+
+### 9.7 Editing a comment, form shortcuts, the title dialog (Run 1)
+
+- **`CommentRichEditor`** (D-28): an HTML comment is edited in the rich editor ("desk" sanitizer profile + @mentions):
+  formatting, links, images and mentions survive; Ctrl/⌘+Enter saves, Escape cancels. `Timeline` uses it for HTML
+  comments; plain-text comments keep `CommentComposer`; writing a new comment is unchanged.
+- **Form shortcuts** (C-81…C-84): `FrappeRecordMenu shortcuts` — Ctrl/⌘+P Print, Ctrl/⌘+E Email, Shift+D Duplicate,
+  Shift+Ctrl/⌘+D Delete (asks first); `FrappeForm` turns them on (`hotkeys={false}` off). A host with its own menu (the
+  CRM's `useRecordMenu`) does not render `FrappeRecordMenu`, so there is never a second handler.
+- **Title dialog** (C-67): `FrappeFormView onRenameTitle` — the form title opens Desk's title / rename dialog
+  (`update_document_title`); `FrappeForm onRenamed` gets a new name. `EditableTitle` saves asynchronously (pending,
+  revert with the message); `PageHeader titleInShell` makes an editable title the page's one `<h1>`.
+
 ## 10. RecordRail — the CRM record page's right rail
 
 The right rail of the CRM record pages (Deal, Lead, Contact, Organization; Tickets reuse the cards), as DS components.
@@ -932,6 +963,8 @@ section and an embedded `ListView`.
 ### 11.6 Not yet
 
 - The Frappe adapter: `FrappeFormView` rendering this page (header from the doc, sections as `RecordEditableCard`s bound
-  to the form controller's dirty / save). Today `FrappeFormView aside` (§10.6) hosts the rail beside Desk's form.
+  to the form controller's dirty / save). Today `FrappeFormView aside` (§10.6) hosts the rail beside Desk's form. Run 1
+  I2: the boundary is proposed in `docs/specs/FRAPPE-RECORDPAGE-BOUNDARY.md` (a headless form controller + binding
+  hooks, no page component) — **awaiting the owner's review; no hooks are implemented**.
 - Lead, Contact, Organization, Ticket, Service Request, Order: their headers / toolbars / About cards are not on these
   components yet (their rail cards and the edit session are).

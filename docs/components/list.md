@@ -459,6 +459,19 @@ takes `{ global }`), `GroupByOption.groupOf` returning several buckets, `FilterF
 
 ---
 
+## 8a. Run 1 additions (0.8.0-dev.6)
+
+| Prop / behaviour | Row | What |
+|---|---|---|
+| `onResultChange({ rows, visibleColumns, filtered })` | I3 | Client mode reports every matching row (all pages, sorted), the visible columns and whether a filter / search is active; on query / search / sort / column / row changes, never on paging; not for the same result again; never in server mode. |
+| `totals` (`{ label?, defaultShown? }`), `ColumnDef.total`, `ColumnDef.currency` | E-14 | A `<tfoot>` totals row over every filtered row (server mode: loaded rows), per currency; "Show totals row" in the column manager, remembered with the prefs. |
+| `controls.sortMenuOptions` (`options`, `directionToggle`, `clearable`) | B-26 | Desk's sort selector shape; off by default. `FrappeListView` passes `sortOptionsFromMeta` when `sortMenu` is on. |
+| `emptyFilteredAction`, `emptyDescription`, `emptyIllustration` | B-55 | Filtered-empty "Create a new …" beside Clear filters; a description / illustration. |
+| `ColumnDef.href` / `title` | B-02 | A link cell (new tab with Ctrl/⌘ / middle click; a plain click still opens the row). `FrappeListView formHref` (default Desk's `/app/<slug>/<name>`) on the Subject. |
+| Keyboard | B-56 | Rows are one Tab stop (roving tabindex); ↑ / ↓, Space, Shift+↑ / ↓, Enter. |
+| `FrappeListView` | B-03, B-48, B-61, E-19 | Status column shown by default (generated columns); a new document starts with the list's "=" filters; labels, Select values, DocType name and status words from the provider's translations; "Export as report" exports the checked rows. |
+| Dialogs | B-42 | Every list dialog returns focus to the menu / button that opened it. |
+
 ## 9. Known limitations (not reproduced)
 
 - URL filters are opt-in (`urlFilters`); the width-based column cap is on by default in `FrappeListView` but opt-in in `useFrappeList` (`columnLimit`). The default 90-day recency filter on large tables (`disable_automatic_recency_filters`) is not reproduced.
