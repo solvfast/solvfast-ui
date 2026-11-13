@@ -165,7 +165,7 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
-function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, sidebar, onNavigate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, onQueryStateChange, ...rest }: FrappeListViewProps<T>) {
+function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, sidebar, onNavigate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, onQueryStateChange, formHref, ...rest }: FrappeListViewProps<T>) {
   // `columnLimit` defaults ON here: Desk always caps the generated columns by window width (list_view.js:432-444);
   // app-curated `columns` are never capped. `columnLimit={false}` keeps every `in_list_view` column.
   // Like: the session user decides; "Liked by me" narrows the list server-side like Desk's filter (always ANDed)
@@ -176,7 +176,7 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
     () => (likeUser && likedByMe ? [...(baseFilters ?? []), ["_liked_by", "like", `%${likeUser}%`]] : baseFilters),
     [baseFilters, likeUser, likedByMe],
   );
-  const f = useFrappeList<T>({ doctype, columns, baseFilters: effectiveBaseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, treeDoctypes, columnLimit: columnLimit ?? true, hideNameColumn, urlFilters });
+  const f = useFrappeList<T>({ doctype, columns, baseFilters: effectiveBaseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, treeDoctypes, columnLimit: columnLimit ?? true, hideNameColumn, urlFilters, formHref });
   const { quickFilterFields, loadOptions, ...data } = f.listProps;
   const fallbackClient = useFrappeClient();
   const c = client ?? fallbackClient;

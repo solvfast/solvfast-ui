@@ -395,6 +395,10 @@ describe("DataGrid (docs 12 §5)", () => {
     expect(items()).toEqual(["Item 1", "Item 2", ""]);
     const third = document.querySelector('tr[data-row-key="n3"]')!;
     expect(third.querySelectorAll("td")[1]).toHaveTextContent("3");
+    // Run 1 C-57: Add Row opens the new row for editing with its first editor focused (Desk); the required-cell mark
+    // shows once editing stops (before: the new row stayed static and was marked at once)
+    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "edit n3" }));
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     expect(third.querySelectorAll("td")[2].className).toMatch(/ring-destructive/);
     fireEvent.click(screen.getByRole("checkbox", { name: "Select row 1" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select row 3" }));

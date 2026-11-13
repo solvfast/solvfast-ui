@@ -28,6 +28,8 @@ import { COUNT_UPPER_BOUND, reportviewCount, reportviewGet, type ReportviewUser 
 import { applyColumnSettings, capDefaultColumns, deskColumnLimit, fetchListSettings, listedFields } from "./list/settings";
 import { filtersToUrl, parseUrlFilters, type ParsedUrlFilters } from "./list/urlFilters";
 import { reportExportFields } from "./list/reportExport";
+import { deskSlug } from "./search/awesomebar";
+import { DefaultCell } from "../list/parts/ListTable";
 import { useFrappeTranslate } from "./services/useTranslate";
 
 /**
@@ -120,6 +122,10 @@ export interface FrappeListOptions<T> {
    * single columns off (`false`) or shows them by default (`true`, 0.7.0-dev.17); the rest stay offered, hidden.
    */
   rowMeta?: boolean | { indicator?: boolean; assignees?: boolean; comments?: boolean; likes?: boolean; tags?: boolean };
+  /** Run 1 (B-02, Desk list_view.js:1062-1103): the Subject cell is a link to the document — default Desk's form URL
+   *  `/app/<doctype-slug>/<name>`; a function gives the app's URL; `false` = no link. A plain click still opens the row
+   *  in the app (`onRowClick`); Ctrl/⌘ / middle click opens a new tab. */
+  formHref?: false | ((name: string, row: Record<string, unknown>) => string);
   /**
    * The DocType's Workflow, for the indicator. Default: derived from the DocType's active Workflow (getdoctype's
    * `__workflow_docs`, `indicatorWorkflowFromMeta`) as Desk's `frappe.workflow.setup` does; `false` = never show the
@@ -207,7 +213,18 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
     // Desk always puts the Subject (title field, else the ID) first and shows it (list_view.js:375-486). Apps that curate
     // their own columns keep full control.
     const subjectKey = generated.some((c) => c.key === meta?.titleField) ? meta?.titleField : "name";
-    const subject = !o.columns?.length ? generated.filter((c) => c.key === subjectKey).map((c) => ({ ...c, hidden: false })) : [];
+    // Run 1 B-02: the Subject is a link to the document (Desk's /app/<slug>/<name>), titled with its full text; an empty
+    // title shows the document's name (list_view.js:1062-1103)
+    const hrefOf = o.formHref === false ? undefined : (row: T) => {
+      const r = row as Row; const name = r.name == null ? "" : String(r.name);
+      if (!name) return undefined;
+      return typeof o.formHref === "function" ? o.formHref(name, r) : `/app/${encodeURIComponent(deskSlug(o.doctype))}/${encodeURIComponent(name)}`;
+    };
+    const subject = !o.columns?.length ? generated.filter((c) => c.key === subjectKey).map((c) => ({
+      ...c, hidden: false, href: hrefOf,
+      title: (row: T) => { const r = row as Row; const v = r[fieldOf(c)]; return v == null || v === "" ? (r.name == null ? undefined : String(r.name)) : String(v); },
+      ...(subjectKey !== "name" && !c.render ? { render: (row: T) => { const r = row as Row; const v = r[fieldOf(c)]; return v == null || v === "" ? <span className="truncate">{String(r.name ?? "")}</span> : <DefaultCell value={v} col={c} row={row} />; } } : {}),
+    })) : [];
     const rest = subject.length ? generated.filter((c) => c.key !== subjectKey) : generated;
     const merged = mergeColumns(o.columns ?? [], [...subject, ...rest]);
     const on = (k: "assignees" | "comments" | "likes" | "tags") => o.rowMeta !== false && rm[k] !== false && (k !== "comments" || !commentsOff) && !!meta?.hasField(k === "assignees" ? "_assign" : k === "comments" ? "_comments" : k === "tags" ? "_user_tags" : "_liked_by");

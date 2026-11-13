@@ -1,4 +1,6 @@
 import { StatusBadge } from "../../record/StatusBadge";
+import { DESK_INDICATOR_COLOURS } from "../../primitives/status-dot";
+const deskColour = (c?: string) => (c && DESK_INDICATOR_COLOURS.includes(c.toLowerCase()) ? c.toLowerCase() : undefined);
 import { useLocale } from "../../theme/ThemeProvider";
 import { useFrappeTranslate } from "../services/useTranslate";
 import type { FrappeDoc, MetaBundle } from "../contract";
@@ -33,5 +35,6 @@ export function FrappeStatusIndicator({ doc, bundle, workflow, translate: transl
   const label = ind.builtin
     ? t(({ notSaved: "recNotSaved", draft: "recDraft", cancelled: "recCancelledStatus", submitted: "recSubmittedStatus", enabled: "recEnabled", disabled: "recDisabled" } as const)[ind.builtin])
     : translate(ind.label);
-  return <StatusBadge label={label} tone={ind.tone} variant={variant} className={className} />;
+  // Run 1 D-64: Desk's colour (light-blue ≠ blue ≠ cyan) through the themed palette; the tone stays the data-tone
+  return <StatusBadge label={label} tone={ind.tone} color={deskColour(ind.color)} variant={variant} className={className} />;
 }

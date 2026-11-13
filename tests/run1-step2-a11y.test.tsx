@@ -103,11 +103,11 @@ describe("A-27 MobileNav", () => {
     wrap(<MobileNav items={items} currentPath="/sales/leads" onNavigate={nav} />);
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: /More/ })); });
     const sheet = await screen.findByRole("dialog");
-    for (const label of ["Sales", "Deals", "Leads", "Quotes"]) expect(within(sheet).getByRole("button", { name: label })).toBeTruthy();
-    expect(within(sheet).getByRole("button", { name: "Leads" }).getAttribute("aria-current")).toBe("page");
-    expect(within(sheet).getByRole("button", { name: "Sales" }).getAttribute("aria-current")).toBeNull(); // only the deepest is current
-    expect((within(sheet).getByRole("button", { name: "Quotes" }) as HTMLElement).style.paddingInlineStart).not.toBe("");
-    fireEvent.click(within(sheet).getByRole("button", { name: "Quotes" }));
+    for (const label of ["Sales", "Deals", "Leads", "Quotes"]) expect(within(sheet).getByRole("link", { name: label })).toBeTruthy();
+    expect(within(sheet).getByRole("link", { name: "Leads" }).getAttribute("aria-current")).toBe("page");
+    expect(within(sheet).getByRole("link", { name: "Sales" }).getAttribute("aria-current")).toBeNull(); // only the deepest is current
+    expect((within(sheet).getByRole("link", { name: "Quotes" }) as HTMLElement).style.paddingInlineStart).not.toBe("");
+    fireEvent.click(within(sheet).getByRole("link", { name: "Quotes" }));
     expect(nav).toHaveBeenCalledWith("/sales/quotes", expect.objectContaining({ id: "quotes" }));
   });
 

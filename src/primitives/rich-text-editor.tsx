@@ -233,6 +233,11 @@ export interface RichTextEditorProps {
   onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   /** Called after every user input with the editor element (e.g. to look at the text before the caret). */
   onInputCaret?: (el: HTMLDivElement) => void;
+  /** Run 1 (C-08): the editing surface is invalid (aria-invalid + the error ring), required (aria-required) and described
+   *  by this element id. */
+  invalid?: boolean;
+  required?: boolean;
+  describedBy?: string;
 }
 
 /** P35 (G15): the editor's imperative handle (`ref`). Inserted HTML is sanitized like everything the editor emits. */
@@ -267,6 +272,9 @@ export const RichTextEditor = React.forwardRef<RichTextEditorHandle, RichTextEdi
   profile = "basic",
   onKeyDown,
   onInputCaret,
+  invalid,
+  required,
+  describedBy,
 }, handleRef) {
   const { t } = useLocale();
   const ref = React.useRef<HTMLDivElement>(null);
@@ -341,7 +349,7 @@ export const RichTextEditor = React.forwardRef<RichTextEditorHandle, RichTextEdi
   };
 
   return (
-    <div className={cn("sf-field-fill rounded-md focus-within:bg-card focus-within:ring-2 focus-within:ring-ring/60", className)}>
+    <div className={cn("sf-field-fill rounded-md focus-within:bg-card focus-within:ring-2 focus-within:ring-ring/60", invalid && "ring-1 ring-destructive", className)}>
       <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-1.5 py-1" role="toolbar" aria-label={ariaLabel ?? t("textFormatting")}>
         {COMMANDS.map(({ icon: Icon, cmd, label }) => (
           <button
@@ -365,6 +373,9 @@ export const RichTextEditor = React.forwardRef<RichTextEditorHandle, RichTextEdi
         role="textbox"
         aria-multiline="true"
         aria-label={ariaLabel}
+        aria-invalid={invalid || undefined}
+        aria-required={required || undefined}
+        aria-describedby={describedBy}
         suppressContentEditableWarning
         data-placeholder={placeholder}
         onInput={() => { emit(); if (ref.current) onInputCaret?.(ref.current); }}

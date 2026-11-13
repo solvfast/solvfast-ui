@@ -14,6 +14,9 @@ export interface NavItem {
   /** Hrefs under which this item must NOT read as active, even though they are nested under its href
    *  (a sibling owns that sub-tree) — Sear's `exclude`. */
   exclude?: string[];
+  /** Run 1 (A-23): a section — the Sidebar shows its label as a (collapsible) heading over its `children` instead of an
+   *  accordion row. MobileNav lists the children under it. */
+  section?: boolean;
 }
 
 /** Exact match or nested under (`/a` is active for `/a/b`, not for `/ab`). */

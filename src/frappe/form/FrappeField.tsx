@@ -264,7 +264,7 @@ export function FrappeField(props: FrappeFieldProps) {
   // ---- P36e ftypes: Signature, Icon, Barcode (partial), Geolocation (partial) — Read and Write ----
   if (ft === "Signature" || ft === "Icon" || ft === "Barcode" || ft === "Geolocation") {
     const named = onlyInput ? aria : { "aria-labelledby": `${id}-label` };
-    const described = error ? { "aria-describedby": errId } : {};
+    const described = error || description ? { "aria-describedby": errId } : {}; // Run 1 C-08: the description too
     if (ft === "Signature") {
       // signature.js:125-135: each stroke stores the PNG data URL, Reset stores ""
       return shell(<SignatureInput id={id} value={str(value) || null} onChange={(v) => onChange(v)} readOnly={read} invalid={invalid} {...named} {...described} />, { noLabelFor: true });
@@ -291,7 +291,8 @@ export function FrappeField(props: FrappeFieldProps) {
     return shell(<ReadOnlyValue id={id} value={text} align={isNum ? "end" : "start"} multiline={TEXTAREA_TYPES.has(ft)} href={href} bold={!!df.bold} {...(onlyInput ? aria : { "aria-labelledby": `${id}-label` })} />, { noLabelFor: true });
   }
 
-  const common = { id, "aria-invalid": invalid || undefined, "aria-describedby": error ? errId : undefined, ...aria };
+  // Run 1 C-08: required is announced (the * is aria-hidden) and the description is the control's description
+  const common = { id, "aria-invalid": invalid || undefined, "aria-required": required || undefined, "aria-describedby": error || description ? errId : undefined, ...aria };
 
   // ---- links ----
   if (ft === "Link" || ft === "Dynamic Link") {
@@ -364,12 +365,14 @@ export function FrappeField(props: FrappeFieldProps) {
     case "Rating": {
       const max = Number(df.options) || 5;
       return shell(<Rating id={id} value={(num(value) ?? 0) * max} max={max} required={!!df.reqd} onChange={(v) => onChange(v == null ? 0 : v / max)}
+        aria-invalid={invalid || undefined} aria-required={required || undefined} aria-describedby={common["aria-describedby"]}
         {...(onlyInput ? aria : { "aria-labelledby": `${id}-label` })} />, { noLabelFor: true });
     }
     case "Color":
       return shell(<ColorInput {...common} value={str(value) || null} onChange={(v) => onChange(v ?? "")} onUnparsable="clear" invalid={invalid} />);
     case "Text Editor":
-      return shell(<RichTextEditor id={id} ariaLabel={label} value={str(value)} onChange={(html) => onChange(html)} profile="desk" />, { noLabelFor: true });
+      return shell(<RichTextEditor id={id} ariaLabel={label} value={str(value)} onChange={(html) => onChange(html)} profile="desk"
+        invalid={invalid} required={required} describedBy={common["aria-describedby"]} />, { noLabelFor: true });
     case "Autocomplete":
       return shell(<AutocompleteControl {...common} df={df} value={str(value)} onChange={(v) => onChange(v)} translate={(x) => s.translate(bundle, x)} invalid={invalid} placeholder={placeholder} />);
     default:

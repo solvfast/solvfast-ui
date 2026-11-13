@@ -17,9 +17,9 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
         outline: "sf-glass sf-glass--sm text-foreground",
         brand: "border-transparent bg-primary/12 text-primary",
-        success: "border-transparent bg-success/15 text-success",
-        warning: "border-transparent bg-warning/15 text-warning",
-        info: "border-transparent bg-info/15 text-info",
+        success: "border-transparent bg-success/15 text-[color-mix(in_oklab,hsl(var(--success))_55%,hsl(var(--foreground)))]", // Run 1 D-64: ≥ 4.5:1 on the tint
+        warning: "border-transparent bg-warning/15 text-[color-mix(in_oklab,hsl(var(--warning))_55%,hsl(var(--foreground)))]", // Run 1 D-64: ≥ 4.5:1 on the tint
+        info: "border-transparent bg-info/15 text-[color-mix(in_oklab,hsl(var(--info))_55%,hsl(var(--foreground)))]", // Run 1 D-64: ≥ 4.5:1 on the tint
       },
     },
     defaultVariants: {

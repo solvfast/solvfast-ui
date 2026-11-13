@@ -111,13 +111,13 @@ export function FrappeTimeline({
     };
     // Run 1 D-41: each communication's medium as its icon (form_timeline.js:227-238: mail / call / calendar / dots)
     const mediumOf = new Map((comms as Array<Record<string, unknown>>).map((c) => [`communication-${String(c.name)}`, String(c.communication_medium ?? "")]));
-    return buildTimelineItems(doc, { ...info, communications: comms }, ctx).map((it) => {
+    return buildTimelineItems(doc, { ...info, communications: comms, automated_messages: comm.automatedMessages } as DocInfo, ctx).map((it) => {
       const medium = it.kind === "communication" ? mediumOf.get(it.id) : undefined;
       const Icon = medium ? MEDIUM_ICON[medium] : undefined;
       return Icon ? { ...it, icon: <Icon {...{ "data-medium": medium }} /> } : it;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info, comms, doc.modified, user, isSystemManager, canDeleteComment, fieldLabel, activity, t, isRTL, communicationHref, translate]);
+  }, [info, comms, comm.automatedMessages, doc.modified, user, isSystemManager, canDeleteComment, fieldLabel, activity, t, isRTL, communicationHref, translate]);
 
   const mentionSearch = React.useMemo<(q: string) => Promise<MentionOption[]>>(() => searchMentions ?? mentionSearchWith(c), [c, searchMentions]);
 

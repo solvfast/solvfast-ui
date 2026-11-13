@@ -12,6 +12,7 @@ import * as React from "react";
 import { ArrowLeft, MoreHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "../primitives/sheet";
 import { useLocale } from "../theme/ThemeProvider";
+import { navLinkProps } from "./navLink";
 import { deepestActive, defaultIsActive, loc, type IsActive, type Localized, type NavItem } from "./nav";
 
 export interface MobileNavProps {
@@ -59,9 +60,10 @@ export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIs
     walk(parents, 0);
     overflowActive = overflow.some(({ item, depth }) => depth === 0 && isActive(item, currentPath));
   }
+  const hrefOf = (item: NavItem) => item.href ?? item.children?.find((c) => c.href)?.href;
   const go = (item: NavItem) => {
     setMoreOpen(false);
-    const href = item.href ?? item.children?.find((c) => c.href)?.href;
+    const href = hrefOf(item);
     if (href) onNavigate(href, item);
   };
   const brandName = brand ? loc(brand.name, language) : "";
@@ -74,11 +76,11 @@ export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIs
             const active = isActive(item, currentPath);
             const Icon = item.icon;
             return (
-              <button key={item.id} onClick={() => go(item)} aria-current={active ? "page" : undefined}
+              <a key={item.id} {...navLinkProps(hrefOf(item), () => go(item))} aria-current={active ? "page" : undefined}
                 className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 transition-colors ${active ? "text-brand-flame font-medium" : "text-muted-foreground"}`}>
                 {Icon && <Icon className="h-5 w-5 shrink-0" />}
                 <span className="max-w-full truncate text-[10px] leading-none">{loc(item.label, language)}</span>
-              </button>
+              </a>
             );
           })}
           <button onClick={() => setMoreOpen(true)} aria-expanded={moreOpen} aria-haspopup="dialog" aria-controls={moreOpen ? sheetId : undefined}
@@ -108,12 +110,12 @@ export function MobileNav({ items, currentPath, onNavigate, isActive = defaultIs
               const active = tree ? item.id === deepestActive(items, currentPath)?.id : isActive(item, currentPath);
               const Icon = item.icon;
               return (
-                <button key={item.id} onClick={() => go(item)} aria-current={active ? "page" : undefined}
+                <a key={item.id} {...navLinkProps(hrefOf(item), () => go(item))} aria-current={active ? "page" : undefined}
                   style={depth ? { paddingInlineStart: `${0.75 + depth * 1.25}rem` } : undefined}
                   className={`flex w-full items-center gap-3 rounded-md px-3 py-3 text-sm transition-colors ${active ? "bg-brand-flame/10 text-brand-flame font-medium" : "text-foreground hover:bg-muted"}`}>
                   {Icon && <Icon className="h-5 w-5 shrink-0" />}
                   <span>{loc(item.label, language)}</span>
-                </button>
+                </a>
               );
             })}
           </div>

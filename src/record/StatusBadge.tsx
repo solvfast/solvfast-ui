@@ -5,9 +5,15 @@ import { resolveStatusColor, statusColorStyles } from "../primitives/status-dot"
 const DOT: Record<string, string> = {
   neutral: "bg-muted-foreground", success: "bg-success", warning: "bg-warning", danger: "bg-destructive", info: "bg-info", brand: "bg-primary",
 };
+/** Run 1 (D-64): the tinted pills' text is the tone mixed with the foreground (as a configured colour's), so it reads at
+ *  ≥ 4.5:1 on its tint in light and dark (was 1.7–3.4:1 for success / warning / info / danger in light). */
 const PILL: Record<string, string> = {
-  neutral: "bg-muted text-muted-foreground", success: "bg-success/15 text-success", warning: "bg-warning/15 text-warning",
-  danger: "bg-destructive/15 text-destructive", info: "bg-info/15 text-info", brand: "bg-primary/12 text-primary",
+  neutral: "bg-muted text-muted-foreground",
+  success: "bg-success/15 text-[color-mix(in_oklab,hsl(var(--success))_55%,hsl(var(--foreground)))]",
+  warning: "bg-warning/15 text-[color-mix(in_oklab,hsl(var(--warning))_55%,hsl(var(--foreground)))]",
+  danger: "bg-destructive/15 text-[color-mix(in_oklab,hsl(var(--destructive))_55%,hsl(var(--foreground)))]",
+  info: "bg-info/15 text-[color-mix(in_oklab,hsl(var(--info))_55%,hsl(var(--foreground)))]",
+  brand: "bg-primary/12 text-[color-mix(in_oklab,hsl(var(--primary))_55%,hsl(var(--foreground)))]",
 };
 
 export interface StatusBadgeProps {

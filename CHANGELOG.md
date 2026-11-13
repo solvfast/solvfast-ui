@@ -77,6 +77,40 @@ Run 1 of the P1 / P2 roadmap (owner authorization 2026-11-13; rows keep their Ph
 - Tests changed with the behaviour: `list-query` "spends Desk's Status slot" (the indicator now takes the slot, the
   status field column is hidden — expected headers unchanged, test renamed).
 
+**Step 4 — accessibility and navigation**
+- **A-28** `AppShell`: a "Skip to main content" link (en / ar) is the first Tab stop; `<main>` is focusable.
+- **A-29** `AppShell documentTitle` (default on): the tab title is "{page} · {brand}" (function or `false`); restored on unmount.
+- **A-23** `Sidebar`: a named landmark ("Main navigation"); the current item is scrolled into view; `NavItem.section` = a
+  collapsible heading over its items.
+- **A-25** navigation targets are links (`<a href>`): Sidebar items, MobileNav items, AppSwitcher apps — a plain click
+  still goes through `onNavigate`, Ctrl / ⌘ / middle click open a new tab. No visual change.
+- **B-02** `ColumnDef.href` / `title` (Core); `FrappeListView` / `useFrappeList` `formHref`: the Subject is a link to Desk's
+  `/app/<slug>/<name>` (titled, the name when the title is empty); Ctrl/⌘-click on a link no longer opens the row.
+- **B-56** list keyboard: the rows are one Tab stop (roving tabindex); ↑ / ↓ move, Space ticks, Shift+↑ / ↓ extends,
+  Enter opens; ignored inside controls. Table and card layouts.
+- **C-08** `FrappeField`: `aria-required` on required controls, the description is the control's `aria-describedby`;
+  Rating and Text Editor take the invalid / required state; `Input`, `Textarea`, `SelectTrigger` show `aria-invalid`.
+- **C-57** `DataGrid`: one Tab stop per row (its first editable cell); Enter / F2 opens the row with that editor focused;
+  ↑ / ↓ in an editor move to the same column of the previous / next row; Tab past the last editor of the last row adds a
+  row; Add Row opens the new row with its first editor focused.
+- **A-22** `ThemeProvider locale` + `useLocale().locale / setLocale`, `isRtlLanguage`, `RTL_LANGUAGES` (ar, he, fa, ps):
+  the direction follows Frappe's RTL list; chrome stays en / ar. `FrappeProvider` applies `boot.lang`
+  (`applyBootLanguage={false}` opts out).
+- **A-61** `FrappeProvider onSessionExpired` ("redirect" = Desk's `/login?redirect-to=…`, or a function): fired once per
+  burst for any query / mutation answering session expired. Opt-in (no global action by default). `loginRedirectUrl`.
+- **C-79** `FrappeFormView`: a newer server copy while dirty shows "modified after you opened it" + Reload (keeps the
+  edits until Reload); `FrappeForm realtime` (doc_subscribe); `FrappeForm` shows the newer of its save answer and the
+  loaded copy (was: its own save hid a later change).
+- **D-43** communications paging counts automated messages (Desk: 21 of both kinds); no duplicates when paging.
+- **D-64 (intentional visible change, decision 8)**: Desk's indicator colour names all resolve to theme tokens (new
+  `--indicator-blue / -light-blue / -pink / -darkgrey`, light and dark; `DESK_INDICATOR_COLOURS`); the Frappe form header,
+  record chip and list Status pill paint Desk's colour. **Tinted pills' text is darker / lighter for contrast** (≥ 4.5:1
+  on the tint): `StatusBadge` tone pills and `Badge` success / warning / info — visible on every CRM status badge.
+- Tests changed with the behaviour: `shell` / `merged` / `run1-step2` nav items are queried as links (A-25); `list` F22
+  (one Tab stop: other rows `tabindex=-1`, B-56); `fields` DataGrid add test (the new row opens for editing first,
+  C-57). A Sayr-named AppShell test pins the backdrop as the shell's first child: the skip link is placed after it (no
+  Sayr file changed).
+
 - Tests changed with the behaviour (old → new): `merged`/sanitizer pins unchanged; comment-edit tests in `record`,
   `social-p36b` (P36B.social.18), `history-p36d` (P36D.history.8) now type into the rich editor; `trace-p36e`
   P36E.trace.11 asserted the Date defect (no clear, no typing) and now asserts the fix.

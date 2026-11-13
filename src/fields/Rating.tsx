@@ -23,6 +23,10 @@ export interface RatingProps {
   className?: string;
   "aria-label"?: string;
   "aria-labelledby"?: string;
+  /** Run 1 (C-08). */
+  "aria-invalid"?: boolean;
+  "aria-required"?: boolean;
+  "aria-describedby"?: string;
 }
 
 export function Rating({ value, onChange, max = 5, allowHalf = true, required, disabled, readOnly, id, className, ...aria }: RatingProps) {

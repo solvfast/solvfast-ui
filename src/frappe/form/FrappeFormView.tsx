@@ -33,7 +33,8 @@
  *    answer (unknown) → the same explanation marked `data-permissions="unknown"` and no button (rule 9, P3-1);
  *  - Amend: the app's `onAmend`, else a local copy (`amendDoc`: from_amend copy + `amended_from`), disabled when
  *    `alreadyAmended` (`is_document_amended`).
- * Not implemented here (reported): realtime "modified after you opened it", connections (an `extraTabs` slot hosts them). Workflow action buttons
+ * Run 1 C-79: a newer server copy while the form is dirty shows "modified after you opened it" with Reload (FrappeForm's
+ * `realtime` port delivers it; without one it comes with the next read). Connections: an `extraTabs` slot hosts them. Workflow action buttons
  * come from A4's record layer (FrappeForm renders them; FrappeFormView takes `workflowActionsShown`).
  */
 import * as React from "react";
@@ -42,6 +43,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from "../../lib/cn";
 import { useLocale } from "../../theme/ThemeProvider";
 import { Badge } from "../../primitives/badge";
+import { DESK_INDICATOR_COLOURS, statusColorStyles } from "../../primitives/status-dot";
 import { Button } from "../../primitives/button";
 import { Tabs, TabsList, TabsTrigger } from "../../primitives/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../primitives/dialog";
@@ -258,11 +260,16 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   }, [serverTitles, titleCache]);
 
   // ---- an incoming document replaces the local copy (load / reload / external save) ----
+  // Run 1 C-79 (Desk form.js:527-537, 1990-2064): a NEWER server copy while the form has unsaved edits is not applied
+  // silently — the form says so and offers Reload (which discards the edits); a clean form takes it at once (above)
+  const [newerOnServer, setNewerOnServer] = React.useState<FrappeDoc | null>(null);
   React.useEffect(() => {
     const cur = store.getDoc();
     if (docProp === cur) return;
-    if (docProp.name !== cur.name || (docProp.modified !== cur.modified && !store.isDirty())) { store.replace(docProp); setVersion((v) => v + 1); }
+    if (docProp.name !== cur.name || (docProp.modified !== cur.modified && !store.isDirty())) { store.replace(docProp); setVersion((v) => v + 1); setNewerOnServer(null); return; }
+    if (store.isDirty() && docProp.modified && cur.modified && String(docProp.modified) > String(cur.modified)) setNewerOnServer(docProp);
   }, [docProp, store]);
+  const takeNewer = () => { if (!newerOnServer) return; store.replace(newerOnServer); setVersion((v) => v + 1); setNewerOnServer(null); setError(null); };
   const unsaved = !!doc.__unsaved || !!props.alsoSave?.dirty;
   React.useEffect(() => { props.onDirtyChange?.(unsaved); }, [unsaved]); // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
@@ -744,7 +751,9 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const webRoute = !doc.__islocal && route && published ? `/${route}` : null;
   const BUILTIN: Record<string, string> = { notSaved: t("formNotSaved"), draft: t("formDraft"), cancelled: t("formCancelled"), submitted: t("formSubmitted") };
   const TONE_VARIANT = { success: "success", warning: "warning", danger: "destructive", info: "info", brand: "brand", neutral: "outline" } as const;
-  const indicator = ind ? { text: (ind.builtin && BUILTIN[ind.builtin]) || s.translate(bundle, ind.label), variant: TONE_VARIANT[ind.tone] } : null;
+  // Run 1 D-64: Desk's colour name paints the header pill with the themed palette (distinct light-blue / blue / cyan …)
+  const indColour = ind?.colour && DESK_INDICATOR_COLOURS.includes(ind.colour.toLowerCase()) ? ind.colour.toLowerCase() : undefined;
+  const indicator = ind ? { text: (ind.builtin && BUILTIN[ind.builtin]) || s.translate(bundle, ind.label), variant: TONE_VARIANT[ind.tone], style: indColour ? statusColorStyles(indColour)?.pill : undefined, colour: indColour } : null;
   const actionLabel = (a: FormAction) => t(a === "Save" ? "formSave" : a === "Submit" ? "formSubmit" : a === "Update" ? "formUpdate" : a === "Cancel" ? "formCancelDoc" : "formAmend");
 
   const renderField = (df: FrappeDocField) => {
@@ -828,7 +837,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
             )}
           </div>
           </>}
-          {indicator && <Badge variant={indicator.variant}>{indicator.text}</Badge>}
+          {indicator && <Badge variant={indicator.variant} style={indicator.style} data-color={indicator.colour}>{indicator.text}</Badge>}
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
           {!notice && permissionsUnknown && <span role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</span>}
           {props.toolbarExtra}
@@ -861,6 +870,12 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </div>
       )}
 
+      {newerOnServer && newerOnServer.name === doc.name && (
+        <div role="alert" data-newer-on-server="" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">
+          <span>{t("feHintTimestamp")}</span>
+          <Button type="button" size="sm" variant="outline" onClick={takeNewer}>{t("feReload")}</Button>
+        </div>
+      )}
       {error != null && (
         <FrappeErrorState error={error} compact
           onRetry={error instanceof FrappeError && error.kind === "timestamp" && props.onReload ? () => void reload() : undefined} />

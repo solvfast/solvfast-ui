@@ -10,6 +10,8 @@ export interface Indicator {
   /** Set when `label` is one of the built-in words below and must go through the package catalogue. */
   builtin?: "notSaved" | "draft" | "cancelled" | "submitted" | "enabled" | "disabled";
   tone: Tone;
+  /** Run 1 (D-64): Desk's colour name (green, light-blue, …) — StatusBadge `color` paints it with the themed palette. */
+  color?: string;
   /** The list filter Desk attaches (`field,=,value`). */
   filter?: string;
   source: "unsaved" | "workflow" | "draft" | "cancelled" | "meta.states" | "submitted" | "status" | "enabled" | "disabled";
@@ -36,7 +38,7 @@ export function indicatorFor({ doc, meta, workflow, showWorkflowState }: Indicat
     } : null,
   });
   if (!r) return null;
-  return { label: r.label, builtin: r.builtin as Indicator["builtin"], tone: r.tone, filter: r.filter ? `${r.filter[0]},=,${r.filter[1]}` : undefined, source: r.source as Indicator["source"] };
+  return { label: r.label, builtin: r.builtin as Indicator["builtin"], tone: r.tone, color: r.colour, filter: r.filter ? `${r.filter[0]},=,${r.filter[1]}` : undefined, source: r.source as Indicator["source"] };
 }
 // `currentState` re-exported for callers that only import the indicator module.
 export { currentState };

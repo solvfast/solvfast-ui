@@ -16,7 +16,8 @@
  */
 import * as React from "react";
 import { isAdministrator, rolePermissions } from "../services/permissions";
-import type { DocTypeMeta, FrappeDoc } from "../contract";
+import type { DocTypeMeta, FrappeDoc, RealtimePort } from "../contract";
+import { useRealtimeInvalidation } from "../hooks/useRealtime";
 import { useFrappeSettings } from "../FrappeProvider";
 import { useDoc, useMetaBundle } from "../hooks/useDoc";
 import { useDocAction, useSaveDoc } from "../hooks/useDocMutations";
@@ -69,6 +70,9 @@ export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "d
   newDocDefaults?: DefaultsContext;
   /** Quick Entry's "Edit Full Form" / a not-eligible target (P35): route to the full form with this unsaved document. */
   onOpenFullForm?: (doc: FrappeDoc) => void;
+  /** Run 1 (C-79): the realtime port (Socket.IO `doc_subscribe`): another user's save refreshes a clean form and shows
+   *  "modified after you opened it" with Reload on a dirty one. Without it the change shows with the next read. */
+  realtime?: RealtimePort;
 }
 
 const isNewName = (name?: string) => !name || name.startsWith("new-");
@@ -94,7 +98,7 @@ export function canCancelDoctype(meta: DocTypeMeta, session: SessionLike): boole
 export { FormSkeleton } from "./FormSkeleton";
 import { FormSkeleton } from "./FormSkeleton";
 
-export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu, connections, ...rest }: FrappeFormProps) {
+export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu, connections, realtime, ...rest }: FrappeFormProps) {
   const { session, userDefaults } = useFrappeSettings();
   const { t } = useLocale();
   const meta = useMetaBundle(doctype);
@@ -113,7 +117,11 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu
   // P35: a document the menu opened in this form (Duplicate / New) — unsaved, until it is saved or the route changes
   const [local, setLocal] = React.useState<FrappeDoc | null>(null);
   React.useEffect(() => { setLocal(null); }, [doctype, name]);
-  const doc = local ?? (saved && (!loaded.data || saved.modified !== loaded.data.doc.modified) ? saved : loaded.data?.doc ?? fresh);
+  // the newer of the server's answer to a save and the loaded copy (Run 1 C-79: a later change by someone else — a
+  // realtime doc_update, a refetch — is shown, not hidden behind this session's own save)
+  const loadedDoc = loaded.data?.doc;
+  const doc = local ?? (saved && (!loadedDoc || saved.name !== loadedDoc.name || String(saved.modified ?? "") > String(loadedDoc.modified ?? "")) ? saved : loadedDoc ?? fresh);
+  useRealtimeInvalidation(realtime, creating ? undefined : doctype, creating ? undefined : name);
   // the loaded docinfo belongs to the loaded name only (not to a duplicate, a new document or a saved amendment)
   const docinfo = doc && loaded.data && doc.name === loaded.data.doc.name ? loaded.data.docinfo : undefined;
   const permissions = usePermissions(bundle, doc ?? undefined, docinfo);

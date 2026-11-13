@@ -38,7 +38,18 @@ export const STATUS_PALETTE: Readonly<Record<string, string>> = {
   orange: "hsl(var(--brand-orange))",
   midnight: "hsl(var(--brand-midnight))",
   forest: "hsl(var(--brand-forest))",
+  // Run 1 D-64: every colour name Desk's indicators use (indicator.scss:51-75), themed for light and dark
+  blue: "hsl(var(--indicator-blue))",
+  "light-blue": "hsl(var(--indicator-light-blue))",
+  yellow: "hsl(var(--warning))",
+  pink: "hsl(var(--indicator-pink))",
+  darkgrey: "hsl(var(--indicator-darkgrey))",
+  "dark-grey": "hsl(var(--indicator-darkgrey))",
+  black: "hsl(var(--foreground))",
 };
+
+/** Run 1 (D-64): Desk's 12 indicator colour names (the 11 of indicator.scss plus grey) — all resolve to theme tokens. */
+export const DESK_INDICATOR_COLOURS: readonly string[] = ["green", "cyan", "blue", "light-blue", "orange", "yellow", "red", "pink", "purple", "gray", "grey", "darkgrey"];
 
 /** A palette token → its themed colour; any other non-empty string is returned trimmed (a CSS colour); empty → undefined. */
 export function resolveStatusColor(color?: string | null): string | undefined {

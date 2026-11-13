@@ -4,7 +4,7 @@
  */
 
 // Theme
-export { ThemeProvider, useTheme, useLocale, usePortalContainer } from "./theme/ThemeProvider";
+export { ThemeProvider, useTheme, useLocale, usePortalContainer, isRtlLanguage, RTL_LANGUAGES } from "./theme/ThemeProvider";
 export type { Theme, Direction, StorageKeys, ThemeProviderProps } from "./theme/ThemeProvider";
 export { defaultMessages } from "./theme/messages";
 export type { Language, Messages } from "./theme/messages";

@@ -1,6 +1,7 @@
 /** Row cells Desk draws on every list row: indicator pill, assignee avatars, comment count, likes (docs 13 §2.3). */
 import { Heart, MessageSquare } from "lucide-react";
 import { Badge } from "../../primitives/badge";
+import { DESK_INDICATOR_COLOURS, statusColorStyles } from "../../primitives/status-dot";
 import { Avatar, AvatarFallback, AvatarImage } from "../../primitives/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../primitives/tooltip";
 import { useListActions } from "../../list/ListActionsContext";
@@ -22,7 +23,9 @@ export function IndicatorCell({ row, config }: { row: Record<string, unknown>; c
   // P36e submit: Desk's pill title tells the docstatus — with a workflow the pill shows the STATE (list_view.js:1105-1119).
   // Shown for submittable DocTypes only (Desk sets it on every row; on a non-submittable one it always says "draft").
   const ds = config.isSubmittable ? toDocStatus(row.docstatus) : undefined;
-  const badge = <Badge variant={variant} className="font-normal" data-indicator={ind.color} data-docstatus={ds} title={ds === undefined ? undefined : t(DOCSTATUS_DESCRIPTION_KEY[ds])}>{ind.label}</Badge>;
+  // Run 1 D-64: Desk's colour name through the themed palette (distinct light-blue / blue / cyan / pink …)
+  const painted = ind.color && DESK_INDICATOR_COLOURS.includes(ind.color.toLowerCase()) ? statusColorStyles(ind.color.toLowerCase())?.pill : undefined;
+  const badge = <Badge variant={variant} className="font-normal" style={painted} data-indicator={ind.color} data-docstatus={ds} title={ds === undefined ? undefined : t(DOCSTATUS_DESCRIPTION_KEY[ds])}>{ind.label}</Badge>;
   if (!ind.filter || !actions) return badge;
   const [field, value] = ind.filter;
   // filter-on-click, as Desk's pill (it must not open the row)

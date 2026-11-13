@@ -12,3 +12,4 @@ export { resolveIndicator, colourTone, styleColour, styleTone, feedbackTone, toL
 export type { IndicatorInput as ResolveIndicatorInput, IndicatorResult, IndicatorSource as ResolvedIndicatorSource, IndicatorToneName, IndicatorWord } from "./indicator";
 export { readFrappeBoot, formatContextFromBoot } from "./boot";
 export type { FrappeBoot, FrappeBootPayload } from "./boot";
+export { useFrappeTranslate, type FrappeTranslate } from "./useTranslate";

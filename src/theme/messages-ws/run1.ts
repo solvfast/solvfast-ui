@@ -23,6 +23,8 @@ export const run1En = {
   commStatusRejected: "Rejected", commStatusDelayed: "Delayed", commStatusSoftBounced: "Soft-Bounced", commStatusClicked: "Clicked",
   commStatusRecipientUnsubscribed: "Recipient Unsubscribed", commStatusError: "Error", commStatusExpired: "Expired",
   commStatusSending: "Sending", commStatusRead: "Read", commStatusScheduled: "Scheduled",
+  // A-28 skip link
+  skipToContent: "Skip to main content",
 };
 export const run1Ar: { [K in keyof typeof run1En]: string } = {
   dtToday: "اليوم",
@@ -42,4 +44,5 @@ export const run1Ar: { [K in keyof typeof run1En]: string } = {
   commStatusRejected: "مرفوضة", commStatusDelayed: "متأخرة", commStatusSoftBounced: "مرتدّة مؤقتًا", commStatusClicked: "تم النقر",
   commStatusRecipientUnsubscribed: "ألغى المستلم الاشتراك", commStatusError: "خطأ", commStatusExpired: "منتهية",
   commStatusSending: "جارٍ الإرسال", commStatusRead: "مقروءة", commStatusScheduled: "مجدولة",
+  skipToContent: "انتقل إلى المحتوى الرئيسي",
 };
