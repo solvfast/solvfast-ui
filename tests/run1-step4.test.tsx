@@ -10,6 +10,7 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } 
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { AppShell, DataGrid, ListView, Sidebar, StatusBadge, ThemeProvider, isRtlLanguage, resolveStatusColor, useLocale, type ColumnDef, type DataGridColumn, type NavItem } from "../src";
 import { FrappeError, FrappeProvider, createFrappeClient, loginRedirectUrl } from "../src/frappe";
+import { resetBootLanguageForTests } from "../src/frappe/FrappeProvider";
 import { FrappeField, FrappeFormView } from "../src/frappe/form";
 import { useCommunications } from "../src/frappe/record/useCommunications";
 import type { DocTypeMeta, FrappeDoc, FrappeDocField } from "../src/frappe/contract";
@@ -215,6 +216,7 @@ describe("A-22 reading direction and boot.lang", () => {
     expect(document.documentElement.getAttribute("lang")).toBe("he");
   });
   it("FrappeProvider applies boot.lang to the ThemeProvider (fa → rtl; ar → Arabic chrome); applyBootLanguage={false} does not", async () => {
+    resetBootLanguageForTests();
     const Probe = () => { const l = useLocale(); return <span data-testid="p">{`${l.language}|${l.direction}|${l.locale}`}</span>; };
     const boot = (lang: string) => ({ session: { user: "u@x" }, csrfToken: "t", lang } as never);
     const client = createFrappeClient({ transport: async () => ({}) });
@@ -226,6 +228,19 @@ describe("A-22 reading direction and boot.lang", () => {
     r2.unmount();
     render(<ThemeProvider storageKeys={null}><FrappeProvider client={client} boot={boot("ar")} applyBootLanguage={false}><Probe /></FrappeProvider></ThemeProvider>);
     expect(screen.getByTestId("p").textContent).toBe("en|ltr|en");
+  });
+  it("the boot language is applied once per page load: a provider mounted again does not undo the user's switch (review fix)", async () => {
+    resetBootLanguageForTests();
+    const client = createFrappeClient({ transport: async () => ({}) });
+    const boot = { session: { user: "u@x" }, csrfToken: "t", lang: "ar" } as never;
+    const Probe = () => { const l = useLocale(); return <button type="button" data-testid="p" onClick={() => l.setLanguage("en")}>{l.language}</button>; };
+    function Page({ k }: { k: number }) { return <FrappeProvider key={k} client={client} boot={boot}><Probe /></FrappeProvider>; }
+    const { rerender } = render(<ThemeProvider storageKeys={null}><Page k={1} /></ThemeProvider>);
+    await waitFor(() => expect(screen.getByTestId("p").textContent).toBe("ar"));
+    fireEvent.click(screen.getByTestId("p")); // the user switches to English
+    rerender(<ThemeProvider storageKeys={null}><Page k={2} /></ThemeProvider>); // the next page mounts a provider again
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByTestId("p").textContent).toBe("en");
   });
 });
 
@@ -320,5 +335,15 @@ describe("D-64 Desk's indicator colours and pill contrast", () => {
   it("tone pills mix their text with the foreground (≥ 4.5:1 by the palette calculation in the ledger)", () => {
     wrap(<StatusBadge label="Won" tone="success" />);
     expect(screen.getByText("Won").parentElement!.className).toContain("text-[color-mix(in_oklab,hsl(var(--success))_55%,hsl(var(--foreground)))]");
+  });
+});
+
+// Run 1 review fixes (advisor): nav items without href stay buttons; Select cells keep their pill.
+describe("Run 1 review fixes", () => {
+  it("a nav item without href is a button (an <a> without href is neither focusable nor a link)", () => {
+    const nav = vi.fn();
+    wrap(<Sidebar brand={{ name: "Acme" }} items={[{ id: "x", label: "No route" }, { id: "y", href: "/y", label: "Routed" }]} currentPath="/y" onNavigate={nav} collapsed={false} onCollapsedChange={() => {}} />);
+    expect(screen.getByRole("button", { name: "No route" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Routed" }).getAttribute("href")).toBe("/y");
   });
 });

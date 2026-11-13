@@ -239,9 +239,10 @@ export function ListTable<T>({
   const [activeKey, setActiveKey] = React.useState<string | null>(null);
   const firstKey = shown.length ? rowKey(shown[0]!) : null;
   const tabStop = activeKey !== null && shown.some((r) => rowKey(r) === activeKey) ? activeKey : firstKey;
+  const rowIndex = React.useMemo(() => new Map(shown.map((r, i) => [rowKey(r), i])), [shown, rowKey]);
   const onRowKey = (row: T, e: React.KeyboardEvent<HTMLElement>) => {
     if (e.target !== e.currentTarget) return; // a control inside the row has the key
-    const i = shown.findIndex((r) => rowKey(r) === rowKey(row));
+    const i = rowIndex.get(rowKey(row)) ?? -1;
     if (e.key === "Enter") { if (onRowClick) onRowClick(row); return; }
     if (e.key === " " && selection) { e.preventDefault(); selection.toggleRow(row); return; }
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -275,7 +276,7 @@ export function ListTable<T>({
       <tr
         key={group === undefined ? rowKey(row) : `${group}\u0000${rowKey(row)}`}
         tabIndex={focusable ? (rowKey(row) === tabStop ? 0 : -1) : undefined}
-        data-row-index={shown.findIndex((r) => rowKey(r) === rowKey(row))}
+        data-row-index={rowIndex.get(rowKey(row))}
         onFocus={(e) => { if (e.target === e.currentTarget) setActiveKey(rowKey(row)); }}
         onClick={(e) => onRowActivate(row, e)}
         onKeyDown={(e) => onRowKey(row, e)}
@@ -343,7 +344,7 @@ export function ListTable<T>({
       return (
         <li key={group === undefined ? rowKey(row) : `${group}\u0000${rowKey(row)}`} data-card="" data-selected={selection ? String(on) : undefined}
           tabIndex={focusable ? (rowKey(row) === tabStop ? 0 : -1) : undefined} onClick={(e) => onRowActivate(row, e)}
-          data-row-index={shown.findIndex((r) => rowKey(r) === rowKey(row))}
+          data-row-index={rowIndex.get(rowKey(row))}
           onFocus={(e) => { if (e.target === e.currentTarget) setActiveKey(rowKey(row)); }}
           onKeyDown={(e) => onRowKey(row, e)}
           className={cn("flex items-start gap-3 border-b border-border px-3 py-3 last:border-0", onRowClick && "cursor-pointer outline-none hover:bg-accent/50 focus-visible:bg-accent/60", on && "bg-primary/5", rowClassName?.(row))}>

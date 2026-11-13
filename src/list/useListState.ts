@@ -167,8 +167,14 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   onResultRef.current = opts.onResultChange;
   const resultFiltered = appliedQuery.conditions.length > 0 || appliedSearch.trim() !== "";
   const visibleKeyList = visibleKeys.join("\u0000");
+  // reported only when the result really changed: the same rows (by reference, in order), columns and flag do not
+  // re-fire — a host that re-renders with a fresh array of the same rows (and sets state in the callback) cannot loop
+  const lastResult = React.useRef<{ rows: T[]; cols: string; filtered: boolean } | null>(null);
   React.useEffect(() => {
     if (mode === "server" || !onResultRef.current) return;
+    const prev = lastResult.current;
+    if (prev && prev.cols === visibleKeyList && prev.filtered === resultFiltered && prev.rows.length === filtered.length && prev.rows.every((r, i) => r === filtered[i])) return;
+    lastResult.current = { rows: filtered, cols: visibleKeyList, filtered: resultFiltered };
     onResultRef.current({ rows: filtered, visibleColumns: visibleKeyList ? visibleKeyList.split("\u0000") : [], filtered: resultFiltered });
   }, [mode, filtered, visibleKeyList, resultFiltered]);
 

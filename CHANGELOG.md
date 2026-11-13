@@ -159,6 +159,18 @@ column** — the keyboard equivalent of the existing in-column drag (accessibili
   **C-29 styles**: `.sf-rich-text` now styles what the desk profile keeps (h1/h2/h4–h6, tables, images, pre, hr, Quill
   alignment / direction / indent classes).
 
+**Review fixes (before the CRM parity run)**
+- B-61: a translated Select cell keeps its pill (`Badge`), as the untranslated one.
+- C-29: a site-relative URL may not start `/\` (browsers read `/\host` as `//host`) — href and img src.
+- A-25: a navigation item without an `href` stays a button (`NavTarget`: link with href, button without).
+- I3: `onResultChange` does not re-fire for the same result (same row objects, columns, flag) — a host that re-renders
+  with a fresh array and sets state in the callback cannot loop.
+- C-25: Apply without touching the date or time returns the value exactly as it was (never rebuilt through a local Date).
+- A-22: `boot.lang` is applied once per page load and language — a provider mounted again never undoes the user's switch.
+- B-03: with curated columns (`columns`), the indicator column stays offered, hidden (the app decides; no second Status).
+- `.sf-rich-text` Quill bullet lists (`li[data-list=bullet]`) show bullets; the list rows' index map is computed once.
+- `VENDORED.md` lists every Run 1 edit to a vendored primitive (a re-vendor would revert them).
+
 - Tests changed with the behaviour (old → new): `merged`/sanitizer pins unchanged; comment-edit tests in `record`,
   `social-p36b` (P36B.social.18), `history-p36d` (P36D.history.8) now type into the rich editor; `trace-p36e`
   P36E.trace.11 asserted the Date defect (no clear, no typing) and now asserts the fix.

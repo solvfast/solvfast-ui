@@ -330,11 +330,13 @@ export function DateTimeField({
   const [m, setM] = React.useState(committed ? committed.getMinutes() : 30);
   const [pm, setPM] = React.useState(committed ? committed.getHours() >= 12 : false);
   const [timeTouched, setTimeTouched] = React.useState(false);
+  const [dateTouched, setDateTouched] = React.useState(false);
 
   const seed = () => {
     const c = parseDateTimeValue(value);
     setTDate(c);
     setTimeTouched(false);
+    setDateTouched(false);
     if (c) { setH((c.getHours() % 12) || 12); setM(c.getMinutes()); setPM(c.getHours() >= 12); }
   };
 
@@ -349,7 +351,13 @@ export function DateTimeField({
     onChange(withSeconds ? `${v}:${String(seconds).padStart(2, "0")}` : v);
     setOpen(false);
   };
-  const apply = () => { if (preview) emit(preview, timeTouched ? 0 : committedSeconds); };
+  // nothing changed: give back the value as it was (never rebuilt through a local Date — a wall time in the browser's
+  // daylight-saving gap would move by an hour)
+  const apply = () => {
+    if (!preview) return;
+    if (!timeTouched && !dateTouched && value) { onChange(value); setOpen(false); return; }
+    emit(preview, timeTouched ? 0 : committedSeconds);
+  };
   const touch = <T,>(set: (v: T) => void) => (v: T) => { setTimeTouched(true); set(v); };
 
   return (
@@ -371,7 +379,7 @@ export function DateTimeField({
             {isRTL ? "اختر التاريخ والوقت" : "Select date & time"}
           </div>
           <CalendarUI
-            mode="single" selected={tDate} onSelect={setTDate}
+            mode="single" selected={tDate} onSelect={(d) => { setDateTouched(true); setTDate(d); }}
             locale={isRTL ? arSA : undefined} dir={isRTL ? "rtl" : "ltr"} weekStartsOn={weekStartsOn}
           />
           <div className="space-y-2 border-t border-border p-3">

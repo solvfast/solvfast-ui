@@ -74,3 +74,16 @@ describe("I3 onResultChange", () => {
     expect(cb).not.toHaveBeenCalled();
   });
 });
+
+describe("I3 review fix: no re-report for the same result", () => {
+  it("a host that re-renders with a fresh array of the same rows and sets state in the callback does not loop", () => {
+    const seen = vi.fn();
+    function Host() {
+      const [, setN] = React.useState(0);
+      const rows = [...ROWS]; // a fresh array every render, the same row objects
+      return <ListView<Row> rows={rows} columns={COLS} rowKey={(r) => r.id} storage={null} onResultChange={(r) => { seen(r); setN((n) => n + 1); }} />;
+    }
+    render(<ThemeProvider storageKeys={null}><Host /></ThemeProvider>);
+    expect(seen).toHaveBeenCalledTimes(1);
+  });
+});

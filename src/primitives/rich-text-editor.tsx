@@ -49,8 +49,9 @@ const DROPPED_WITH_CONTENT = new Set([
 /** `href` schemes kept on links by "basic" (absolute URLs only). */
 const SAFE_HREF = /^(https?:|mailto:)/i;
 /** "desk": also tel:, site-relative paths (not protocol-relative `//`) and fragments. */
-const DESK_HREF = /^(https?:|mailto:|tel:|\/(?!\/)|#)/i;
-const DESK_SRC = /^(https?:|\/(?!\/)|data:image\/(png|jpeg|jpg|gif|webp);base64,)/i;
+// a site-relative path must not start "//" or "/\" (browsers read "/\host" as "//host")
+const DESK_HREF = /^(https?:|mailto:|tel:|\/(?![\/\\])|#)/i;
+const DESK_SRC = /^(https?:|\/(?![\/\\])|data:image\/(png|jpeg|jpg|gif|webp);base64,)/i;
 const DESK_CLASS = /^(ql-[a-z0-9-]+|table|table-bordered|mention)$/;
 const DESK_STYLE_PROPS = new Set([
   "color", "background-color", "font-size", "font-family", "font-weight", "font-style", "text-align", "direction",

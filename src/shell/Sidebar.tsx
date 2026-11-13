@@ -7,7 +7,7 @@
  * deeper levels reuse the child style with more indent).
  */
 import * as React from "react";
-import { navLinkProps } from "./navLink";
+import { NavTarget } from "./NavTarget";
 import { ArrowLeftToLine, ArrowRightToLine, ChevronDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../primitives/tooltip";
 import { useLocale } from "../theme/ThemeProvider";
@@ -76,10 +76,10 @@ function Group({ item, ctx, active, level }: { item: NavItem; ctx: TreeCtx; acti
             const CIcon = child.icon;
             // Run 1 A-25: a link (new tab, copy link), routed through onNavigate on a plain click
             return (
-              <a key={child.id} {...navLinkProps(child.href, () => child.href && ctx.onNavigate(child.href, child))} aria-current={cactive ? "page" : undefined} className={childClasses(cactive)}>
+              <NavTarget key={child.id} href={child.href} onGo={() => child.href && ctx.onNavigate(child.href, child)} aria-current={cactive ? "page" : undefined} className={childClasses(cactive)}>
                 {CIcon && <CIcon className="h-4 w-4 flex-shrink-0" />}
                 <span className="whitespace-nowrap">{loc(child.label, ctx.language)}</span>
-              </a>
+              </NavTarget>
             );
           })}
         </div>
@@ -115,15 +115,15 @@ function Item({ item, ctx, collapsed }: { item: NavItem; ctx: TreeCtx; collapsed
   const href = firstHref(item);
   const Icon = item.icon;
   const inner = (
-    <a
-      {...navLinkProps(href, () => href && ctx.onNavigate(href, item))}
+    <NavTarget
+      href={href} onGo={() => href && ctx.onNavigate(href, item)}
       className={leafClasses(active, collapsed)}
       aria-current={active ? "page" : undefined}
       aria-label={collapsed ? label : undefined}
     >
       {Icon && <Icon className="h-4 w-4 flex-shrink-0" />}
       {!collapsed && <span className="whitespace-nowrap">{label}</span>}
-    </a>
+    </NavTarget>
   );
   if (!collapsed) return inner;
   return (

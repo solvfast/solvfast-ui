@@ -30,6 +30,7 @@ import { filtersToUrl, parseUrlFilters, type ParsedUrlFilters } from "./list/url
 import { reportExportFields } from "./list/reportExport";
 import { deskSlug } from "./search/awesomebar";
 import { DefaultCell } from "../list/parts/ListTable";
+import { Badge } from "../primitives/badge";
 import { useFrappeTranslate } from "./services/useTranslate";
 
 /**
@@ -232,8 +233,9 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
       indicator: indicatorCfg, assignees: on("assignees"), comments: on("comments"), likes: on("likes"), tags: on("tags"), userInfo,
       hidden: o.rowMeta === true ? false
         : typeof o.rowMeta === "object" ? (key: string) => (rm as Record<string, boolean | undefined>)[META_KEY[key]] !== true
-        // Run 1 B-03 (decision B-D2): Desk's Status column is shown by default; the other row-metadata columns stay offered
-        : (key: string) => key !== "__indicator",
+        // Run 1 B-03 (decision B-D2): Desk's Status column is shown by default with the DocType's own columns; an app that
+        // curates its columns decides (offered, hidden) — no second Status beside its own. Other row-metadata: offered.
+        : (key: string) => key !== "__indicator" || curated,
       labels: { indicator: t("listIndicator"), assigned: t("listAssigned"), comments: t("listComments"), likes: t("listLikes"), tags: t("listTags") },
     });
     // Desk's order: subject, status indicator, the DocType's own columns, then assignees / comments / likes. While the
@@ -259,7 +261,7 @@ export function useFrappeList<T = Row>(o: FrappeListOptions<T>) {
       // Run 1 B-61: a Select value is shown in the session language (Desk formatters.js Select → __(value)); filtering
       // and sorting keep the stored value
       if (!c.render && df?.fieldtype === "Select") {
-        return { ...c, render: (row: T) => { const v = (row as Row)[f]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <span>{m.translate(String(v), meta?.doctype)}</span>; } };
+        return { ...c, render: (row: T) => { const v = (row as Row)[f]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <Badge variant="secondary" className="font-normal">{m.translate(String(v), meta?.doctype)}</Badge>; } };
       }
       if (c.render || !df || !FORMATTED.has(df.fieldtype)) return c;
       return { ...c, render: (row: T) => { const v = (row as Row)[fieldOf(c)]; return v === null || v === undefined || v === "" ? <span className="text-muted-foreground">—</span> : <span dir="ltr" className="whitespace-nowrap tabular-nums">{formatValue(v, df, row as never, formatCtx)}</span>; } };

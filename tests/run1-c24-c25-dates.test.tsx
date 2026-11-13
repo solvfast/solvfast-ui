@@ -163,3 +163,13 @@ describe("C-25 Datetime", () => {
     expect(screen.queryByRole("button", { name: "Now" })).toBeNull(); // aids are opt-in
   });
 });
+
+describe("C-25 review fix: an untouched Apply returns the value as it was", () => {
+  it("never rebuilt through a local Date (a wall time in a daylight-saving gap keeps its hour)", () => {
+    const seen: string[] = [];
+    render(<ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}><DateTimeField value="2026-03-29T02:30:00" withSeconds onChange={(v) => seen.push(v)} /></ThemeProvider>);
+    fireEvent.click(screen.getByRole("button", { name: /Date and time/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(seen).toEqual(["2026-03-29T02:30:00"]);
+  });
+});

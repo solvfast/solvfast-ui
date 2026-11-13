@@ -152,3 +152,11 @@ describe("C-29 FrappeField Text Editor", () => {
     expect(container.innerHTML).not.toMatch(/onerror|<script/);
   });
 });
+
+describe("C-29 review fix: a backslash after the leading slash is not site-relative", () => {
+  it("NEGATIVE: /\\evil.example (browsers read it as //evil.example) is dropped from href and img src", () => {
+    const out = sanitizeHtml('<a href="/\\evil.example/x">a</a><img src="/\\evil.example/p.png"><a href="/files/ok">b</a>', "desk");
+    expect(out).not.toMatch(/evil\.example/);
+    expect(out).toContain('href="/files/ok"');
+  });
+});

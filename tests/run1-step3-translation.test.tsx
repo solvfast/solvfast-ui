@@ -69,6 +69,10 @@ describe("B-61 / B-03 the list reads the provider's translations", () => {
     const statusCells = rows().map((r) => r.textContent ?? "");
     expect(statusCells.some((x) => x.includes("مفتوحة"))).toBe(true);
     expect(statusCells.some((x) => /\bOpen\b/.test(x))).toBe(false);
+    // the Select value keeps its pill (the DefaultCell Badge), only its text is translated (review fix)
+    const pill = [...document.querySelectorAll("tbody td *")].find((el) => el.textContent === "مفتوحة" && el.children.length === 0)!;
+    expect(pill.className).toContain("font-normal");
+    expect(pill.className).toMatch(/rounded/);
     expect(screen.getByTestId("sf-list-add").textContent).toContain("مهمة");
   });
 

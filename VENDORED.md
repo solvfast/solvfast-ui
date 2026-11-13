@@ -111,6 +111,25 @@ made-up rows; `playground/src/showcase/FrappeDemo.tsx`.
 | `src/cards/StatCard.tsx` `StatCard` | DS v0.3.0 (`92fc1cd`) `pages/style-guide/StyleGuide.tsx`, section `data` ("Data display — stat cards"): inline markup, not a DS component | same markup and classes (`glass glass--lg` → `sf-glass sf-glass--lg`); label, value and trend as props; the trend pill keeps the DS's `emerald-*` / `rose-*` utilities verbatim (the DS's own register lists them as off-token, D8); `href` / `onClick` render a link / button with `sf-glass--interactive` and a focus ring (the DS card is static) |
 | `src/cards/StatCard.tsx` `IconStatCard` | Sear `7abc895` (clean at that commit) `sear_studio/components/overview/DefinitionsGrid.tsx` card + `IconSquare` (`size="sm"`) and `CARD` from `overviewShared.tsx` (pinned in `upstream/sear-7abc895-dirty/overview/`) | same markup and classes (`glass-pane` → `sf-glass-pane`); tint `${color}1a` as in Sear for six-digit hex, `color-mix(… 10%)` for other colours; default colour Sear's violet `#512195`; react-router `Link` → `<a href>` / `<button>` (`href` / `onClick`); no `aria-label` on the link (Sear's hid the count from screen readers — the content names it); numbers formatted like Sear's `fmt` (ar-EG / en-US). Sear's palette rotation and its `StatCard` (defined, not rendered on any page) are not carried over |
 
+## Run 1 (0.8.0-dev.6) — package edits to vendored files
+
+`scripts/vendor-primitives.mjs` OVERWRITES `src/primitives/*`: re-running it would silently revert these. Re-apply them
+(or diff against this list) after any re-vendor.
+
+| File | Run 1 edit (row) |
+|---|---|
+| `primitives/dialog.tsx` | opener focus return + `returnFocus` (B-42); close name from the catalogue, `dismissible`, `hideClose`, `size`, `DialogTitle indicator` (A-51) |
+| `primitives/alert-dialog.tsx` | opener focus return + `returnFocus` (B-42) |
+| `primitives/sheet.tsx` | opener focus return + `returnFocus` (B-42); close name from the catalogue (A-51) |
+| `primitives/dropdown-menu.tsx` | `DropdownMenuItem` notes its menu's trigger (B-42) |
+| `primitives/input.tsx`, `textarea.tsx`, `select.tsx` (`SelectTrigger`) | `aria-invalid` ring (C-08) |
+| `primitives/badge.tsx` | success / warning / info text mixed with the foreground (≥ 4.5:1 on the tint, D-64) |
+| `primitives/date-time-field.tsx` | `DateField` clearable / Today / typed entry / invalid (C-24); `DateTimeField` exact minute, seconds, Clear / Now, untouched Apply returns the value (C-25) |
+| `primitives/rich-text-editor.tsx` | sanitizer profiles ("desk"), `replaceBeforeCaret`, `onKeyDown` / `onInputCaret`, `invalid` / `required` / `describedBy` (C-29, D-28, C-08) |
+| `primitives/editable-title.tsx` | async save (pending / revert / error), `className` (A-42) |
+| `primitives/page-header.tsx` | a node title in a shell is an `<h2>`; `titleInShell` (G19) |
+| `primitives/status-dot.tsx` | Desk's indicator colour names in `STATUS_PALETTE`, `DESK_INDICATOR_COLOURS` (D-64) |
+
 ## Not carried over (Sear-specific or dead)
 `sear-studio.css`: the `Agency` font face (file doesn't exist), `.glass-morphism`, `.glass-card`, `.gradient-border-*`,
 `.senaiy-*`, `.transition-smooth`, form-builder container queries, chat-sheet rule,

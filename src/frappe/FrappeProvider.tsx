@@ -108,16 +108,26 @@ export interface FrappeProviderProps {
   children: React.ReactNode;
 }
 
+/** Boot languages already applied in this page load (A-22). */
+const appliedBootLanguages = new Set<string>();
+/** For tests: forget which boot languages were applied. */
+export function resetBootLanguageForTests(): void { appliedBootLanguages.clear(); }
+
 /** Desk's login redirect (desk.js `redirect_to_login`): `/login?redirect-to=<path + query>`. */
 export function loginRedirectUrl(loc: Pick<Location, "pathname" | "search"> = typeof location !== "undefined" ? location : { pathname: "/", search: "" }): string {
   return `/login?redirect-to=${encodeURIComponent(loc.pathname + loc.search)}`;
 }
 
 export function FrappeProvider({ client, queryClient, session, translations, formatContext, boot, userDefaults, serverMessages = "show", onAlert, applyBootLanguage = true, onSessionExpired, children }: FrappeProviderProps) {
-  // Run 1 A-22: the boot language reaches the ThemeProvider once per value (the user may still switch afterwards)
+  // Run 1 A-22: the boot language reaches the ThemeProvider ONCE per page load and language (several providers, or one
+  // remounted per page, never reset a language the user switched to afterwards)
   const { setLocale } = useLocale();
   const bootLang = boot?.lang;
-  React.useEffect(() => { if (applyBootLanguage && bootLang) setLocale(bootLang); }, [applyBootLanguage, bootLang, setLocale]);
+  React.useEffect(() => {
+    if (!applyBootLanguage || !bootLang || appliedBootLanguages.has(bootLang)) return;
+    appliedBootLanguages.add(bootLang);
+    setLocale(bootLang);
+  }, [applyBootLanguage, bootLang, setLocale]);
   const existing = React.useContext(QueryClientContext);
   const [own] = React.useState(() => queryClient ?? (existing ? undefined : createFrappeQueryClient()));
   // one FrappeApi per client: hooks (useFrappeApi) and the server-message subscription then share the same object,
