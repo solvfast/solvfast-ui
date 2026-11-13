@@ -334,7 +334,7 @@ describe("D-64 Desk's indicator colours and pill contrast", () => {
   });
   it("tone pills mix their text with the foreground (≥ 4.5:1 by the palette calculation in the ledger)", () => {
     wrap(<StatusBadge label="Won" tone="success" />);
-    expect(screen.getByText("Won").parentElement!.className).toContain("text-[color-mix(in_oklab,hsl(var(--success))_55%,hsl(var(--foreground)))]");
+    expect(screen.getByText("Won").parentElement!.className).toContain("text-[color-mix(in_oklab,hsl(var(--success))_45%,hsl(var(--foreground)))]");
   });
 });
 

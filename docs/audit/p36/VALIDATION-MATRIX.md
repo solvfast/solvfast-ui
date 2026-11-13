@@ -32,8 +32,8 @@ Frappe behaviour is cited from Frappe 15.110.0, apps/frappe commit ab7e5ae (sour
 
 | Category | Form | List | Total |
 |---|---:|---:|---:|
-| (a) package unit tests | 52 | 44 | **96** |
-| (b) simulator only | 69 | 34 | **103** |
+| (a) package unit tests | 51 | 44 | **95** |
+| (b) simulator only | 70 | 34 | **104** |
 | (c) needs real-server validation | 50 | 34 | **84** |
 | (d) BLOCKED (real-site behaviour by definition) | 2 | 3 | **5** |
 | (e) not validatable now — real-site read / render, or infrastructure | 8 | 5 | **13** |
@@ -45,7 +45,7 @@ Frappe behaviour is cited from Frappe 15.110.0, apps/frappe commit ab7e5ae (sour
 | P35 status × category | (a) | (b) | (c) | (d) | (e) |
 |---|---:|---:|---:|---:|---:|
 | COMPLETE | 74 | 95 | 78 | 0 | 11 |
-| PARTIAL | 16 | 4 | 6 | 0 | 2 |
+| PARTIAL | 15 | 5 | 6 | 0 | 2 |
 | MISSING | 6 | 4 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 5 | 0 |
 
@@ -140,7 +140,7 @@ Catalogue: **96 tests** — 82 API (run by `run-matrix.mjs`; 20 read, 62 write /
 | FV.A2 | Link | COMPLETE | simulator; recorded-real (API shape) | (b) | — | — (not in real-site scope) |  |
 | FV.A3 | Select | COMPLETE | unit | (a) | F-META-1 | BLOCKED (not run) |  |
 | FV.A4 | Date | COMPLETE | unit | (a) | F-META-1 | BLOCKED (not run) |  |
-| FV.A5 | Datetime | PARTIAL | unit | (a) | — | — (not in real-site scope) |  |
+| FV.A5 | Datetime | PARTIAL | unit + simulator (TZ) | (b) | — | — (not in real-site scope) |  |
 | FV.A6 | Time | COMPLETE | unit | (a) | F-META-1 | BLOCKED (not run) |  |
 | FV.A7 | Check | COMPLETE | simulator (+real meta) | (b) | F-META-1 | BLOCKED (not run) |  |
 | FV.A8 | Int / Long Int | COMPLETE | unit | (a) | F-META-1 | BLOCKED (not run) |  |

@@ -330,8 +330,9 @@ Documented with screenshots in docs/VALIDATION.md and docs/FEATURES.md.
 - A-61: the global session-expiry handler is opt-in (`onSessionExpired`), not a default redirect.
 - E-14: the Report view keeps its own totals card (shipped views frozen); totals are not sent with exports.
 - E-19: no CSV preview; `FrappeReportView` has no `export_query` entry.
-- D-64: tint-pill contrast is computed (≥ 4.73:1 over the card, `p0-lab/run1/d64-contrast-shipped.txt`); glass
-  surfaces behind a pill vary.
+- D-64: tint-pill text is mixed 45 % with the foreground (0.8.0-dev.7): ≥ 5.31:1 computed over white, Glass and a darker
+  panel, light and dark, and measured in a browser on the CRM lab build (`p0-lab/runs/run1-d64-*`). A pill placed on a
+  surface darker than the safety backdrop (236 / 236 / 240) in light mode, or a custom CSS colour, is not guaranteed.
 - I2 (Frappe RecordPage adapter): boundary document only, awaiting review.
 
 ## Rendering

@@ -9,11 +9,11 @@ const DOT: Record<string, string> = {
  *  ≥ 4.5:1 on its tint in light and dark (was 1.7–3.4:1 for success / warning / info / danger in light). */
 const PILL: Record<string, string> = {
   neutral: "bg-muted text-muted-foreground",
-  success: "bg-success/15 text-[color-mix(in_oklab,hsl(var(--success))_55%,hsl(var(--foreground)))]",
-  warning: "bg-warning/15 text-[color-mix(in_oklab,hsl(var(--warning))_55%,hsl(var(--foreground)))]",
-  danger: "bg-destructive/15 text-[color-mix(in_oklab,hsl(var(--destructive))_55%,hsl(var(--foreground)))]",
-  info: "bg-info/15 text-[color-mix(in_oklab,hsl(var(--info))_55%,hsl(var(--foreground)))]",
-  brand: "bg-primary/12 text-[color-mix(in_oklab,hsl(var(--primary))_55%,hsl(var(--foreground)))]",
+  success: "bg-success/15 text-[color-mix(in_oklab,hsl(var(--success))_45%,hsl(var(--foreground)))]",
+  warning: "bg-warning/15 text-[color-mix(in_oklab,hsl(var(--warning))_45%,hsl(var(--foreground)))]",
+  danger: "bg-destructive/15 text-[color-mix(in_oklab,hsl(var(--destructive))_45%,hsl(var(--foreground)))]",
+  info: "bg-info/15 text-[color-mix(in_oklab,hsl(var(--info))_45%,hsl(var(--foreground)))]",
+  brand: "bg-primary/12 text-[color-mix(in_oklab,hsl(var(--primary))_45%,hsl(var(--foreground)))]",
 };
 
 export interface StatusBadgeProps {

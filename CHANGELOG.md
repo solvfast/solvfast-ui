@@ -6,6 +6,18 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0-dev.7 — Run 1: D-64 contrast correction and acceptance tests
+
+- **D-64 contrast correction (visible, decision 8)**: tinted pills' text is now the colour mixed **45 %** with the
+  foreground (was 55 % in 0.8.0-dev.6): `StatusBadge` tone pills, `Badge` success / warning / info and
+  `statusColorStyles` (custom / Desk colours). Measured in a browser on the CRM lab build (`p0-lab/runs/run1-d64-*`), the
+  0.8.0-dev.6 info pills on Glass reached only 4.42:1 (the palette calculation had assumed a white card). At 45 % every
+  palette colour is ≥ 5.31:1 on the tint over white, Glass (246 / 246 / 248) and a darker panel (236 / 236 / 240), light
+  and dark (`p0-lab/run1/d64-contrast-measured.py`). Tests pinning the mix (`core-p35` P35 colour, `run1-step4` D-64) follow.
+- Tests: `tests/run1-acceptance.test.tsx` asserts the audit acceptance items the ledger reconciliation found unasserted
+  (A-25, A-29, B-02, B-26, B-38, B-42, B-55, B-56, B-61, C-25, C-79, C-81…C-84, D-08, D-41, D-54, D-64, E-14). No
+  behaviour change. E-14 "export sends add_totals_row" stays open (`it.todo`).
+
 ## 0.8.0-dev.6 — Run 1: P1 / P2 closures
 
 Run 1 of the P1 / P2 roadmap (owner authorization 2026-11-13; rows keep their Phase-30 ids, `docs/specs/` and

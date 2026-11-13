@@ -69,7 +69,7 @@ describe("CORE.G17 StatusBadge / StatusDot custom colour", () => {
     expect(el.getAttribute("data-tone")).toBe("info");
     expect(el.className).not.toContain("bg-info/15");
     expect(el.style.backgroundColor).toContain("color-mix");
-    expect(el.style.color).toBe("color-mix(in oklab, #f59e0b 55%, hsl(var(--foreground)))");
+    expect(el.style.color).toBe("color-mix(in oklab, #f59e0b 45%, hsl(var(--foreground)))");
     const dot = el.querySelector("[aria-hidden]") as HTMLElement;
     expect(dot.className).not.toContain("bg-info");
     expect(dot.style.backgroundColor).toBe("rgb(245, 158, 11)");
