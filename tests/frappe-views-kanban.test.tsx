@@ -140,3 +140,39 @@ describe("LV.H2 FrappeKanbanView (SIMULATED Kanban Board)", () => {
     expect(screen.getByRole("note").textContent).toBe("You cannot move cards: no write permission on Project Task");
   });
 });
+
+// Run 1 · E-59 (tests + the keyboard way to reorder inside a column): a same-column drop reorders and sends Desk's
+// update_order_for_single_card with from = to; Alt+↑ / ↓ do the same from the keyboard. SIMULATED for the server part.
+describe("Run 1 E-59 moves within a column", () => {
+  it("Core: a drop before a card of the same column reorders it (onMove from = to, the new index)", () => {
+    const onMove = vi.fn(() => Promise.resolve());
+    const rows = [...CARDS, { id: "4", t: "Four", col: "todo" }];
+    render(theme(<KanbanBoard columns={COLS} rows={rows} rowKey={(c) => c.id} columnOf={(c) => c.col} title={(c) => c.t} onMove={onMove} />));
+    const dt = { data: {} as Record<string, string>, setData(k: string, v: string) { this.data[k] = v; }, getData(k: string) { return this.data[k]; } };
+    fireEvent.dragStart(column("To do").querySelector('[data-card-key="4"]')!, { dataTransfer: dt });
+    fireEvent.drop(column("To do").querySelector('[data-card-key="1"]')!, { dataTransfer: dt });
+    expect(onMove).toHaveBeenLastCalledWith(expect.objectContaining({ key: "4", from: "todo", to: "todo", fromIndex: 2, toIndex: 0 }));
+    expect(cardsIn("To do")).toEqual(["4", "1", "2"]);
+  });
+  it("Core: Alt+↓ / Alt+↑ move the focused card within its column; at the edge nothing happens", () => {
+    const onMove = vi.fn(() => Promise.resolve());
+    render(theme(<KanbanBoard columns={COLS} rows={CARDS} rowKey={(c) => c.id} columnOf={(c) => c.col} title={(c) => c.t} onMove={onMove} />));
+    const one = within(column("To do")).getByRole("button", { name: "One" });
+    expect(one.getAttribute("aria-keyshortcuts")).toContain("Alt+ArrowDown");
+    fireEvent.keyDown(one, { key: "ArrowDown", altKey: true });
+    expect(onMove).toHaveBeenLastCalledWith(expect.objectContaining({ key: "1", from: "todo", to: "todo", toIndex: 1 }));
+    onMove.mockClear();
+    fireEvent.keyDown(within(column("Doing")).getByRole("button", { name: "Three" }), { key: "ArrowUp", altKey: true });
+    expect(onMove).not.toHaveBeenCalled();
+  });
+  it("Frappe: a within-column move sends update_order_for_single_card with from_colname = to_colname (SIMULATED)", async () => {
+    const moved = vi.fn();
+    const { calls } = mount({ onCardMoved: moved });
+    const spec = await screen.findByRole("button", { name: "Write spec" });
+    fireEvent.keyDown(spec, { key: "ArrowUp", altKey: true });
+    await waitFor(() => expect(calls("frappe.desk.doctype.kanban_board.kanban_board.update_order_for_single_card")).toHaveLength(1));
+    const args = calls("frappe.desk.doctype.kanban_board.kanban_board.update_order_for_single_card")[0].args;
+    expect(args).toMatchObject({ board_name: "Task Board", docname: "T-1", from_colname: "Open", to_colname: "Open", old_index: 1, new_index: 0 });
+    expect(cardsIn("Open")).toEqual(["T-1", "T-6"]);
+  });
+});

@@ -138,6 +138,12 @@ Run 1 of the P1 / P2 roadmap (owner authorization 2026-11-13; rows keep their Ph
 - Tests changed with the behaviour: `merged` PageHeader test (a node title in a shell is an `<h2>`, not a second
   `<h1>`); `frappe-form-integration` FV.K4 picks `/^Print/` (the item now carries its Ctrl+P hint).
 
+**Step 6 — tests-only closures** (the behaviour existed; now asserted): A-05 awesome-bar new tab (Ctrl/⌘-click,
+Ctrl+Enter); A-06 Dashboard rows, frequent links, "Find x in Y"; C-69 the beforeunload guard; D-08 a refused Done shown
+inline; D-13 the share dialog in Arabic / RTL; E-01 the view switcher by keyboard (en / ar); E-59 moves within a Kanban
+column (drop + Desk's update_order args). One addition with E-59: **`KanbanBoard` Alt+↑ / ↓ reorder a card within its
+column** — the keyboard equivalent of the existing in-column drag (accessibility; the shipped view otherwise unchanged).
+
 - Tests changed with the behaviour (old → new): `merged`/sanitizer pins unchanged; comment-edit tests in `record`,
   `social-p36b` (P36B.social.18), `history-p36d` (P36D.history.8) now type into the rich editor; `trace-p36e`
   P36E.trace.11 asserted the Date defect (no clear, no typing) and now asserts the fix.
