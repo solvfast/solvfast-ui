@@ -6,7 +6,7 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-## 0.8.0-dev.6 (in progress) — Run 1: P1 / P2 closures
+## 0.8.0-dev.6 — Run 1: P1 / P2 closures
 
 Run 1 of the P1 / P2 roadmap (owner authorization 2026-11-13; rows keep their Phase-30 ids, `docs/specs/` and
 `p0-lab/run1/LEDGER.md` hold the per-row record). Real site: every server-dependent row is simulator-tested only (I5 pending).

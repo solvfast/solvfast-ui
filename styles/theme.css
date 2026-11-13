@@ -424,3 +424,6 @@
 :where(.sf-theme) .sf-rich-text .ql-indent-1 { padding-inline-start: 3em; }
 :where(.sf-theme) .sf-rich-text .ql-indent-2 { padding-inline-start: 6em; }
 :where(.sf-theme) .sf-rich-text .ql-indent-3 { padding-inline-start: 9em; }
+:where(.sf-theme) .sf-rich-text li[data-list="bullet"] { list-style-type: disc; }
+:where(.sf-theme) .sf-rich-text li[data-list="checked"],
+:where(.sf-theme) .sf-rich-text li[data-list="unchecked"] { list-style-type: none; }
