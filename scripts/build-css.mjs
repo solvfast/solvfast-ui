@@ -18,7 +18,7 @@ import { createRequire } from "node:module";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(root, "dist/styles");
 fs.mkdirSync(out, { recursive: true });
-for (const f of ["theme.css", "glass.css", "base.css"]) fs.copyFileSync(path.join(root, "styles", f), path.join(out, f));
+for (const f of ["theme.css", "glass.css", "base.css", "lifecycle-diagram.css"]) fs.copyFileSync(path.join(root, "styles", f), path.join(out, f));
 
 // The preset is TypeScript; esbuild (via vite) has already produced nothing for it yet, so load it with jiti
 // through Tailwind's own loader (the same path a consumer's tailwind.config.ts takes).

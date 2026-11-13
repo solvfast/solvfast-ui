@@ -144,6 +144,21 @@ inline; D-13 the share dialog in Arabic / RTL; E-01 the view switcher by keyboar
 column (drop + Desk's update_order args). One addition with E-59: **`KanbanBoard` Alt+↑ / ↓ reorder a card within its
 column** — the keyboard equivalent of the existing in-column drag (accessibility; the shipped view otherwise unchanged).
 
+**Step 7 — initiative P1**
+- **I1 `@solvfast/ui/lifecycle-diagram`** (new entry, owner decision E3 option B): `LifecycleFlow`, `LifecycleFlowDialog`,
+  `lifecycleFlowLayout`, `roundedPath` — the CRM's React Flow + dagre diagram ported onto Core's `lifecycleGraph`
+  contract and look. **New optional peer dependencies `reactflow` ^11.11.4 and `@dagrejs/dagre` ^3.1.3** (dev-installed at
+  the CRM's exact versions); only this entry imports them (boundary check: Core and the other entries never do).
+  Stylesheet `@solvfast/ui/lifecycle-diagram.css` (the zoom controls on the theme tokens; load after
+  `reactflow/dist/style.css`). Phase words `lcPhaseOpen / OnHold / Closed` (en / ar).
+- **I3 `ListView onResultChange`** (docs/specs/LISTVIEW-API.md §4): client mode reports `{ rows, visibleColumns, filtered }`
+  (every matching row, sorted, all pages) on query / search / sort / column / row changes; never on paging; never in
+  server mode.
+- **D-64 fix-up**: the four new indicator tokens moved to `styles/src/sf-components.css` (`styles/theme.css` is
+  generated: the step 4 edit was regenerated away by the build and never shipped; the tests could not see CSS variables).
+  **C-29 styles**: `.sf-rich-text` now styles what the desk profile keeps (h1/h2/h4–h6, tables, images, pre, hr, Quill
+  alignment / direction / indent classes).
+
 - Tests changed with the behaviour (old → new): `merged`/sanitizer pins unchanged; comment-edit tests in `record`,
   `social-p36b` (P36B.social.18), `history-p36d` (P36D.history.8) now type into the rich editor; `trace-p36e`
   P36E.trace.11 asserted the Date defect (no clear, no typing) and now asserts the fix.

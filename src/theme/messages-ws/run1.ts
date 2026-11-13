@@ -33,6 +33,8 @@ export const run1En = {
   r35Title: "Title", titleEditHint: "Edit the title", titleSaveFailed: "Could not save the title",
   // E-14 totals row
   listTotalsRow: "Total", listShowTotals: "Show totals row",
+  // I1 lifecycle diagram (the CRM's phase words)
+  lcPhaseOpen: "Open", lcPhaseOnHold: "On Hold", lcPhaseClosed: "Closed",
 };
 export const run1Ar: { [K in keyof typeof run1En]: string } = {
   dtToday: "اليوم",
@@ -57,4 +59,5 @@ export const run1Ar: { [K in keyof typeof run1En]: string } = {
   statNotAvailable: "غير متاح", statLoading: "جارٍ التحميل…", statError: "تعذّر تحميل القيمة",
   r35Title: "العنوان", titleEditHint: "تعديل العنوان", titleSaveFailed: "تعذّر حفظ العنوان",
   listTotalsRow: "الإجمالي", listShowTotals: "إظهار صف الإجماليات",
+  lcPhaseOpen: "مفتوح", lcPhaseOnHold: "معلّق", lcPhaseClosed: "مغلق",
 };
