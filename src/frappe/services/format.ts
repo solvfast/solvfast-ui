@@ -257,6 +257,48 @@ export function convertZone(p: Parts, from: string, to: string): Parts {
   }
 }
 
+/**
+ * Run 1 (C-24): a date typed in the user's date format → "YYYY-MM-DD" (Desk date.js `parse`, frappe.datetime.user_to_str).
+ * The pattern's tokens (YYYY, YY, MM, M, DD, D) are matched in order against the digit groups of the text; any separator
+ * is accepted. Null when the groups do not fit or the date does not exist (31-02).
+ */
+export function parseUserDate(text: string, ctx: FormatContext = {}): string | null {
+  const tokens = (ctx.dateFormat || defaultFormatContext.dateFormat).toUpperCase().match(/YYYY|YY|MM|M|DD|D/g) ?? [];
+  const groups = text.trim().match(/\d+/g) ?? [];
+  if (tokens.length !== 3 || groups.length !== 3) return null;
+  let y = 0, mo = 0, d = 0;
+  tokens.forEach((tok, i) => {
+    const n = Number(groups[i]);
+    if (tok === "YYYY") y = groups[i]!.length === 4 ? n : NaN;
+    else if (tok === "YY") y = groups[i]!.length <= 2 ? 2000 + n : NaN;
+    else if (tok[0] === "M") mo = n;
+    else d = n;
+  });
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (!Number.isFinite(y) || dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return `${pad(y, 4)}-${pad(mo)}-${pad(d)}`;
+}
+
+/** Run 1 (C-25): a stored Datetime ("YYYY-MM-DD HH:mm:ss", system time zone) → the editor's wall time in the user's zone
+ *  ("YYYY-MM-DDTHH:mm:ss"), as Desk datetime.js `set_formatted_input` (convert_to_user_tz). "" when unparsable. */
+export function datetimeToUserInput(value: unknown, ctx: FormatContext = {}): string {
+  let p = value ? parseDate(String(value)) : null;
+  if (!p) return "";
+  const { system, user } = ctx.timeZone ?? {};
+  if (system && user && system !== user) p = convertZone(p, system, user);
+  return `${pad(p.y, 4)}-${pad(p.mo)}-${pad(p.d)}T${pad(p.h)}:${pad(p.mi)}:${pad(p.s)}`;
+}
+
+/** Run 1 (C-25): the editor's wall time (user zone, "YYYY-MM-DDTHH:mm[:ss]") → the stored "YYYY-MM-DD HH:mm:ss" in the
+ *  system zone (Desk datetime.js `parse`, convert_to_system_tz). Null for "". */
+export function datetimeFromUserInput(value: string, ctx: FormatContext = {}): string | null {
+  let p = value ? parseDate(value) : null;
+  if (!p) return null;
+  const { system, user } = ctx.timeZone ?? {};
+  if (system && user && system !== user) p = convertZone(p, user, system);
+  return `${pad(p.y, 4)}-${pad(p.mo)}-${pad(p.d)} ${pad(p.h)}:${pad(p.mi)}:${pad(p.s)}`;
+}
+
 export function formatDate(value: unknown, ctx: FormatContext = {}): string {
   if (!value) return "";
   const p = parseDate(String(value));

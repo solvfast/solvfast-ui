@@ -359,7 +359,9 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
         filters={f.request?.filters} levels={perms.known ? perms.levels : undefined} labels={ioLabels} />
     )}
     {f.bundle && f.reportExport && reportExporting && (
-      <FrappeReportExportDialog api={api} doctype={doctype} open onOpenChange={(o) => !o && setReportExporting(false)} {...f.reportExport} offerTranslate={language !== "en"} />
+      <FrappeReportExportDialog api={api} doctype={doctype} open onOpenChange={(o) => !o && setReportExporting(false)} {...f.reportExport} offerTranslate={language !== "en"}
+        // Run 1 E-19: the checked rows are exported as selected_items (report_view.js:1646-1723), not every matching row
+        selectedNames={sa.selectedNames.length ? sa.selectedNames : undefined} />
     )}
     </>
   );

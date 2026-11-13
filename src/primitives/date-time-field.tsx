@@ -79,6 +79,7 @@ function TimeSelects({
 }) {
   const mins: number[] = [];
   for (let i = 0; i < 60; i += interval) mins.push(i);
+  if (!mins.includes(m)) { mins.push(m); mins.sort((x, y) => x - y); } // C-25: an off-interval minute is kept, not rounded
   return (
     <div className="flex items-center gap-1.5">
       <Select value={String(h)} onValueChange={(v) => onH(Number(v))}>
@@ -124,41 +125,84 @@ type CalendarOptions = {
 
 type WeekDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
+/** Run 1 (C-24 / C-25): opt-in editing aids. Off by default, so existing fields keep their markup and behaviour. */
+type EditingAids = {
+  /** A Clear button in the popover (and clicking the selected day again) empties the value: `onChange("")`. */
+  clearable?: boolean;
+  /** Mark the trigger invalid (`aria-invalid` + the error border) without an error text, e.g. a required empty field. */
+  invalid?: boolean;
+};
+
+function AidButtons({ children }: { children: React.ReactNode }) {
+  return <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">{children}</div>;
+}
+
 export function DateField({
-  value, onChange, placeholder, disabled, error, className, id, captionLayout, startMonth, endMonth, weekStartsOn, formatDisplay, ...rest
-}: BaseProps & CalendarOptions & {
+  value, onChange, placeholder, disabled, error, className, id, captionLayout, startMonth, endMonth, weekStartsOn, formatDisplay,
+  clearable, invalid, showToday, parseDisplay, parseHint, ...rest
+}: BaseProps & CalendarOptions & EditingAids & {
   value: string; onChange: (v: string) => void; placeholder?: string;
   /** The text shown for a selected value ("YYYY-MM-DD" in), e.g. a site's date format so the field reads the same as its
    *  read-only display. Display only: the value, `onChange` and the calendar are unchanged. Default: the DS format. */
   formatDisplay?: (value: string) => string;
+  /** A Today button in the popover (C-24). */
+  showToday?: boolean;
+  /** Typed entry (C-24): a text box in the popover; Enter parses the text with this function ("YYYY-MM-DD" or null). */
+  parseDisplay?: (text: string) => string | null;
+  /** The typed box's placeholder (e.g. the site's format "dd-mm-yyyy"). */
+  parseHint?: string;
 }) {
-  const { isRTL } = useLocale();
+  const { isRTL, t } = useLocale();
   const [open, setOpen] = React.useState(false);
+  const [typed, setTyped] = React.useState("");
+  const [typedError, setTypedError] = React.useState(false);
   const selected = parseDateValue(value);
   const shown = selected ? (formatDisplay?.(toDateValue(selected)) || formatDate(selected, isRTL)) : null;
   const label = shown ?? (placeholder ?? (isRTL ? "اختر تاريخًا" : "Pick a date"));
   const a11y = triggerA11y(id, rest["aria-label"], isRTL ? "التاريخ" : "Date", shown);
+  const bad = !!error || !!invalid;
+  const commit = (v: string) => { onChange(v); setOpen(false); };
+  const onTypedKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const text = typed.trim();
+    if (!text) { if (clearable) commit(""); return; }
+    const v = parseDisplay?.(text) ?? null;
+    if (v) commit(v); else setTypedError(true);
+  };
+  const aids = clearable || showToday;
 
   return (
     <div className={className}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={(o) => { if (o) { setTyped(shown && parseDisplay ? shown : ""); setTypedError(false); } setOpen(o); }}>
         <PopoverTrigger asChild>
           <button
             type="button" id={id} disabled={disabled}
             {...a11y}
-            aria-invalid={!!error || undefined}
-            className={cn(TRIGGER, error && "!border-destructive/60")}
+            aria-invalid={bad || undefined}
+            className={cn(TRIGGER, bad && "!border-destructive/60")}
           >
             <span id={id ? `${id}-value` : undefined} className={selected ? "truncate text-foreground" : "text-muted-foreground"}>{label}</span>
-            <CalendarIcon className={cn("size-4 shrink-0", error ? "text-destructive" : "text-muted-foreground")} aria-hidden />
+            <CalendarIcon className={cn("size-4 shrink-0", bad ? "text-destructive" : "text-muted-foreground")} aria-hidden />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-auto p-0">
+          {parseDisplay ? (
+            <div className="border-b border-border p-2">
+              <input
+                type="text" value={typed} placeholder={parseHint} aria-label={t("dtTypeDate")} aria-invalid={typedError || undefined}
+                aria-describedby={typedError && id ? `${id}-typed-error` : undefined}
+                onChange={(e) => { setTyped(e.target.value); setTypedError(false); }} onKeyDown={onTypedKey}
+                className={cn("sf-field-fill h-8 w-full rounded-md px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring", typedError && "!border-destructive/60")}
+              />
+              {typedError ? <p id={id ? `${id}-typed-error` : undefined} role="alert" className="mt-1 text-xs text-destructive">{t("dtInvalidDate")}</p> : null}
+            </div>
+          ) : null}
           <CalendarUI
             mode="single"
             selected={selected}
             defaultMonth={selected}
-            onSelect={(d) => { if (d) { onChange(toDateValue(d)); setOpen(false); } }}
+            onSelect={(d) => { if (d) commit(toDateValue(d)); else if (clearable) commit(""); }}
             locale={isRTL ? arSA : undefined}
             dir={isRTL ? "rtl" : "ltr"}
             captionLayout={captionLayout}
@@ -166,6 +210,12 @@ export function DateField({
             endMonth={endMonth}
             weekStartsOn={weekStartsOn}
           />
+          {aids ? (
+            <AidButtons>
+              {showToday ? <Button variant="ghost" size="sm" onClick={() => commit(toDateValue(new Date()))}>{t("dtToday")}</Button> : <span />}
+              {clearable && selected ? <Button variant="ghost" size="sm" onClick={() => commit("")}>{t("dtClear")}</Button> : null}
+            </AidButtons>
+          ) : null}
         </PopoverContent>
       </Popover>
       <FieldError error={error} />
@@ -260,21 +310,32 @@ export function DateTimeFieldPreview({ defaultValue = "", ...rest }: { defaultVa
 /* ---- DateTimeField — replaces <input type="datetime-local"> ------------------------------ */
 
 export function DateTimeField({
-  value, onChange, interval = 15, disabled, error, className, id, weekStartsOn, ...rest
-}: BaseProps & Pick<CalendarOptions, "weekStartsOn"> & { value: string; onChange: (v: string) => void; interval?: number }) {
-  const { isRTL } = useLocale();
+  value, onChange, interval = 15, disabled, error, className, id, weekStartsOn, clearable, invalid, showNow, withSeconds, ...rest
+}: BaseProps & Pick<CalendarOptions, "weekStartsOn"> & EditingAids & {
+  value: string; onChange: (v: string) => void; interval?: number;
+  /** A Now button in the popover (C-25). */
+  showNow?: boolean;
+  /** The value carries seconds: "YYYY-MM-DDTHH:mm:ss" in and out (C-25). Applying without changing the time keeps the
+   *  seconds; changing the hour, minute or meridiem sets them to 0. */
+  withSeconds?: boolean;
+}) {
+  const { isRTL, t } = useLocale();
   const [open, setOpen] = React.useState(false);
   const committed = parseDateTimeValue(value);
+  const committedSeconds = withSeconds ? Number(/T\d{2}:\d{2}:(\d{2})/.exec(value ?? "")?.[1] ?? 0) : 0;
 
+  // C-25: the committed minute is kept exactly (it is added to the list when it is off the interval), never rounded down
   const [tDate, setTDate] = React.useState<Date | undefined>(committed);
   const [h, setH] = React.useState(committed ? (committed.getHours() % 12) || 12 : 10);
-  const [m, setM] = React.useState(committed ? committed.getMinutes() - (committed.getMinutes() % interval) : 30);
+  const [m, setM] = React.useState(committed ? committed.getMinutes() : 30);
   const [pm, setPM] = React.useState(committed ? committed.getHours() >= 12 : false);
+  const [timeTouched, setTimeTouched] = React.useState(false);
 
   const seed = () => {
     const c = parseDateTimeValue(value);
     setTDate(c);
-    if (c) { setH((c.getHours() % 12) || 12); setM(c.getMinutes() - (c.getMinutes() % interval)); setPM(c.getHours() >= 12); }
+    setTimeTouched(false);
+    if (c) { setH((c.getHours() % 12) || 12); setM(c.getMinutes()); setPM(c.getHours() >= 12); }
   };
 
   const preview = tDate
@@ -282,8 +343,14 @@ export function DateTimeField({
     : null;
   const label = committed ? formatDateTime(committed, isRTL) : (isRTL ? "اختر التاريخ والوقت" : "Select date and time");
   const a11y = triggerA11y(id, rest["aria-label"], isRTL ? "التاريخ والوقت" : "Date and time", committed ? label : null);
-
-  const apply = () => { if (preview) { onChange(toDateTimeValue(preview)); setOpen(false); } };
+  const bad = !!error || !!invalid;
+  const emit = (d: Date, seconds: number) => {
+    const v = toDateTimeValue(d);
+    onChange(withSeconds ? `${v}:${String(seconds).padStart(2, "0")}` : v);
+    setOpen(false);
+  };
+  const apply = () => { if (preview) emit(preview, timeTouched ? 0 : committedSeconds); };
+  const touch = <T,>(set: (v: T) => void) => (v: T) => { setTimeTouched(true); set(v); };
 
   return (
     <div className={className}>
@@ -292,11 +359,11 @@ export function DateTimeField({
           <button
             type="button" id={id} disabled={disabled}
             {...a11y}
-            aria-invalid={!!error || undefined}
-            className={cn(TRIGGER, error && "!border-destructive/60")}
+            aria-invalid={bad || undefined}
+            className={cn(TRIGGER, bad && "!border-destructive/60")}
           >
             <span id={id ? `${id}-value` : undefined} className={committed ? "truncate text-foreground" : "text-muted-foreground"}>{label}</span>
-            <CalendarIcon className={cn("size-4 shrink-0", error ? "text-destructive" : "text-muted-foreground")} aria-hidden />
+            <CalendarIcon className={cn("size-4 shrink-0", bad ? "text-destructive" : "text-muted-foreground")} aria-hidden />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-auto p-0">
@@ -311,11 +378,13 @@ export function DateTimeField({
             <Label className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               {isRTL ? "الوقت" : "Time"}
             </Label>
-            <TimeSelects h={h} m={m} pm={pm} interval={interval} onH={setH} onM={setM} onPM={setPM} isAr={isRTL} />
+            <TimeSelects h={h} m={m} pm={pm} interval={interval} onH={touch(setH)} onM={touch(setM)} onPM={touch(setPM)} isAr={isRTL} />
             <p className="text-xs text-muted-foreground" aria-live="polite">
               {preview ? formatDateTime(preview, isRTL) : (isRTL ? "لم يُحدَّد تاريخ" : "No date selected")}
             </p>
             <div className="flex justify-end gap-2 pt-1">
+              {showNow ? <Button variant="ghost" size="sm" className="me-auto" onClick={() => { const now = new Date(); emit(now, now.getSeconds()); }}>{t("dtNow")}</Button> : null}
+              {clearable && committed ? <Button variant="ghost" size="sm" onClick={() => { onChange(""); setOpen(false); }}>{t("dtClear")}</Button> : null}
               <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>{isRTL ? "إلغاء" : "Cancel"}</Button>
               <Button size="sm" onClick={apply} disabled={!preview}>{isRTL ? "تطبيق" : "Apply"}</Button>
             </div>

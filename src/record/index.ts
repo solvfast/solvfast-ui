@@ -2,6 +2,8 @@ export { Timeline, filterItems, sortItems, renderIsolated } from "./Timeline";
 export type { TimelineProps, TimelineLabels, TimelineFilter } from "./Timeline";
 export { CommentComposer, draftToHtml, htmlToDraft } from "./CommentComposer";
 export type { CommentComposerProps, CommentComposerLabels, CommentDraft } from "./CommentComposer";
+export { CommentRichEditor } from "./CommentRichEditor";
+export type { CommentRichEditorProps } from "./CommentRichEditor";
 export { AssigneeGroup, AssignPicker } from "./AssigneeGroup";
 export { AssignDialog } from "./AssignDialog";
 export type { AssignDialogProps, AssignDialogLabels } from "./AssignDialog";

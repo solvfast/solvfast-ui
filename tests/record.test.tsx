@@ -79,9 +79,11 @@ describe("Timeline", () => {
     const edit = vi.fn().mockResolvedValue(undefined);
     wrap(<Timeline items={items} onEditComment={edit} now={NOW} />);
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    const ta = screen.getByRole("textbox") as HTMLTextAreaElement;
-    expect(ta.value).toContain("@Bob");
-    fireEvent.change(ta, { target: { value: "Hi @Bob" } });
+    // Run 1 D-28: an HTML comment is edited in the rich editor; the existing mention span is kept as markup
+    const ta = screen.getByRole("textbox");
+    expect(ta.textContent).toContain("@Bob");
+    expect(ta.querySelector('span.mention[data-id="bob@x.com"]')).not.toBeNull();
+    ta.insertBefore(document.createTextNode("Hi "), ta.firstChild); fireEvent.input(ta);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(edit).toHaveBeenCalled());
     expect(edit.mock.calls[0][1]).toContain('data-id="bob@x.com"');

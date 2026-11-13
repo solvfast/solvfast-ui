@@ -6,6 +6,41 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0-dev.6 (in progress) — Run 1: P1 / P2 closures
+
+Run 1 of the P1 / P2 roadmap (owner authorization 2026-11-13; rows keep their Phase-30 ids, `docs/specs/` and
+`p0-lab/run1/LEDGER.md` hold the per-row record). Real site: every server-dependent row is simulator-tested only (I5 pending).
+
+**Step 1 — data loss and P1 defects**
+- **C-29 Text Editor (data loss)**: `sanitizeHtml(html, profile)` / `RichText profile` / `RichTextEditor profile` — new
+  `"desk"` profile keeps what Desk's Text Editor (Quill 2) stores: headings, tables, images (http(s), `/files/…`,
+  png/jpeg/gif/webp data URLs), colours / alignment / direction (a listed set of CSS properties; no `url()`, expressions,
+  escapes or positioning), Quill's `ql-*` classes and `data-list` / `data-row`, mention spans, site-relative links.
+  `FrappeField` Text Editor (edit and read) uses it. The default `"basic"` profile is **unchanged** (CRM `RichTextEditor`,
+  `EmailComposer`). The editor never emits on mount or on a synced value. New handle method `replaceBeforeCaret`, props
+  `onKeyDown` / `onInputCaret`.
+- **C-24 Date**: `DateField` opt-in aids `clearable` (Clear button; the selected day again clears), `showToday`,
+  `parseDisplay` + `parseHint` (typed entry in the popover), `invalid`. `FrappeField` Date uses them (typed in the site's
+  `date_format` via `parseUserDate`); a required empty Date is `aria-invalid`. Without the props the DS field is unchanged.
+- **C-25 Datetime (data loss)**: the minute is never rounded down to the interval any more (an off-interval minute is kept
+  in the list) — **behaviour fix for every `DateTimeField`**, including the CRM's call forms (10:37 stayed 10:30 on Apply).
+  Opt-in `withSeconds` (value `YYYY-MM-DDTHH:mm:ss`; Apply without touching the time keeps the seconds), `showNow`,
+  `clearable`, `invalid`. `FrappeField` Datetime: every minute, seconds kept, Clear / Now, edited in the user's time zone
+  and stored in the system's (`datetimeToUserInput` / `datetimeFromUserInput`; simulator only).
+- **D-28 comment edit (data loss)**: an HTML comment is edited in `CommentRichEditor` (new export: `RichTextEditor` with the
+  "desk" profile + @mentions): formatting, links, images and mentions survive; image-only comments can be saved.
+  Plain-text comments (`bodyFormat: "text"`) keep `CommentComposer`. New comments are still written in `CommentComposer`.
+- **C-71 save freeze (data loss)**: `FrappeFormView`'s fields are `inert` + `aria-busy` while saving / cancelling; a value
+  written during the request is re-applied over the server's answer (the form stays Not Saved).
+- **D-55 / K1**: `FrappeWorkflowActions` outside `FrappeForm`: `frm` (the host form's controller) runs Desk's sequence
+  (check_mandatory → before_workflow_action → apply → after_workflow_action); without it, the document is checked against
+  its meta's mandatory fields (Missing Fields dialog; `checkMandatory={false}` opts out).
+- **E-19 report export**: the list's "Export as report" sends the checked rows as `selected_items`; the dialog's labels
+  come from the catalogue (`rx*`, en / ar; `reportExportLabels(t)`).
+- Tests changed with the behaviour (old → new): `merged`/sanitizer pins unchanged; comment-edit tests in `record`,
+  `social-p36b` (P36B.social.18), `history-p36d` (P36D.history.8) now type into the rich editor; `trace-p36e`
+  P36E.trace.11 asserted the Date defect (no clear, no typing) and now asserts the fix.
+
 ## 0.8.0-dev.5 — P0: RecordTabs, RecordSectionCard, the Lifecycle contract, a second-domain showcase, the ListView spec
 
 Additive; nothing changes for existing code.

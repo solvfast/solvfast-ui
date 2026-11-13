@@ -17,6 +17,13 @@ import { useWorkflow } from "./useWorkflow";
 import { lifecycleActions, lifecycleStates, workflowLifecycle } from "./workflow";
 import { LifecycleActions } from "../../record/LifecycleActions";
 import { lifecycleNext } from "../../record/lifecycle";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../primitives/dialog";
+import { useMetaBundle } from "../hooks/useDoc";
+import { useFrappeApi } from "../FrappeProvider";
+import { useFormServices } from "../form/services";
+import { checkMandatory, type MandatoryLine } from "../form/model/mandatory";
+import { missingLineText } from "../form/missingLines";
+import type { FormController } from "../form/events";
 
 export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "currentMarker" | "actionLabels" | "className" | "showCurrentEntry"> {
   /** `compact` = state badge + Actions menu (Desk's form toolbar); `actions` = the Actions menu alone (LifecycleActions:
@@ -55,6 +62,17 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "cur
   beforeApply?: (action: string) => boolean | Promise<boolean>;
   /** Runs after the server applied the action and `onApplied` ran (Desk: `after_workflow_action`). */
   afterApply?: (action: string, doc: FrappeDoc) => void | Promise<void>;
+  /** Run 1 (D-55 / K1): the form whose document this is (`FrappeFormView controllerRef`). The action then runs Desk's
+   *  sequence on it (form/workflow.js:96-121): `frm.selectedWorkflowAction` → `check_mandatory` (Missing Fields) →
+   *  `before_workflow_action` (false stops it) → `apply_workflow` → `after_workflow_action`. Ignored when `beforeApply`
+   *  is given (FrappeForm wires its own). A ref is read when the action runs. */
+  frm?: FormController | null | React.RefObject<FormController | null>;
+  /** Run 1 (D-55 / K1): without `frm` and `beforeApply`, the DocType's meta is loaded and its mandatory fields
+   *  (`reqd`, `mandatory_depends_on`; child rows too) are checked on `doc` before `apply_workflow` — a missing one opens
+   *  Desk's Missing Fields dialog and nothing is sent (the server does not check `mandatory_depends_on`). Default true;
+   *  false skips the check (the host checks itself). When the meta cannot be loaded the action proceeds (the server
+   *  still checks `reqd`). */
+  checkMandatory?: boolean;
 }
 
 /**
@@ -68,7 +86,7 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "cur
  */
 let warnedSteps = false;
 
-export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, applyFromRail = false, blockedReason, blockedIcon, ...rest }: FrappeWorkflowActionsProps) {
+export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, applyFromRail = false, blockedReason, blockedIcon, frm, checkMandatory: mandatoryCheck = true, ...rest }: FrappeWorkflowActionsProps) {
   const { t, language } = useLocale();
   if (variant === "steps" && !warnedSteps) {
     warnedSteps = true;
@@ -77,6 +95,12 @@ export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, 
   const w = useWorkflow({ doc, user, roles });
   const withHistory = variant === "steps" || variant === "rail";
   const info = useRecordDocInfo(withHistory && !doc.__islocal ? doc.doctype : undefined, doc.name, docinfo);
+  const formOf = (): FormController | null => (frm && "current" in frm ? frm.current : (frm as FormController | null | undefined) ?? null);
+  const ownCheck = !beforeApply && !frm && mandatoryCheck && !doc.__islocal;
+  const bundle = useMetaBundle(ownCheck ? doc.doctype : undefined);
+  const services = useFormServices();
+  const api = useFrappeApi();
+  const [missing, setMissing] = React.useState<MandatoryLine[] | null>(null);
   if (doc.__islocal) return <>{fallback}</>;
   if (w.isLoading && !w.workflow) return <Skeleton className="h-8 w-40" />;
   if (!w.workflow) return <>{fallback}</>;
@@ -85,14 +109,29 @@ export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, 
   const states = entries ? base.map((b) => ({ ...b, by: entries.get(b.id)?.by, at: entries.get(b.id)?.at })) : base;
   const actions = lifecycleActions(w.transitions, translate, (tr) => (typeof confirm === "function" ? confirm(tr.action) : confirm));
   const runAction = async (actionId: string) => {
+    const form = beforeApply ? null : formOf();
     if (beforeApply) {
       let go = false;
       try { go = await beforeApply(actionId); } catch { go = false; }
       if (!go) return;
+    } else if (form) {
+      // Desk form/workflow.js:96-108 on the host's form
+      form.selectedWorkflowAction = actionId;
+      let go = false;
+      try { go = form.checkMandatory() && (await form.trigger("before_workflow_action")); } catch { go = false; }
+      if (!go) { form.selectedWorkflowAction = null; return; }
+    } else if (ownCheck) {
+      // the meta may still be loading when the user acts: read it now (the server still checks `reqd` if it fails)
+      const b = bundle.data ?? (await api.getMetaBundle(doc.doctype).catch(() => undefined));
+      if (b) {
+        const check = checkMandatory(b, doc, { ...services.evaluator, translate: (l) => services.translate(b, l) });
+        if (!check.ok) { setMissing(check.lines); return; }
+      }
     }
     const saved = await w.apply(actionId);
     onApplied?.(saved, actionId);
     await afterApply?.(actionId, saved);
+    if (form) { form.selectedWorkflowAction = null; await form.trigger("after_workflow_action"); }
   };
   if (variant === "actions") {
     const blocked = blockedReason ?? (w.needsSave ? t("recSaveBeforeAction") : undefined);
@@ -150,7 +189,21 @@ export function FrappeWorkflowActions({ doc, user, roles, translate = (s) => s, 
   );
   return wrapStatus(bar);
 
-  function wrapStatus(el: React.ReactElement) {
+  function wrapStatus(inner: React.ReactElement) {
+    const el = !ownCheck ? inner : (
+      <>
+        {inner}
+        <Dialog open={!!missing} onOpenChange={(o) => { if (!o) setMissing(null); }}>
+          <DialogContent data-workflow-missing="">
+            <DialogHeader>
+              <DialogTitle>{t("formMissingFields")}</DialogTitle>
+              <DialogDescription>{t("formMissingIntro")}</DialogDescription>
+            </DialogHeader>
+            <ul className="list-disc space-y-1 ps-5 text-sm">{missing?.map((l, i) => <li key={i}>{missingLineText(l, t as (key: string) => string)}</li>)}</ul>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
     if (w.error) {
       return (
         <div className="flex flex-col gap-2" data-workflow-actions="unavailable">

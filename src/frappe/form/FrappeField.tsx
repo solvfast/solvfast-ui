@@ -33,6 +33,7 @@ import { Textarea } from "../../primitives/textarea";
 import { Button } from "../../primitives/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
 import { DateField, DateTimeField } from "../../primitives/date-time-field";
+import { datetimeFromUserInput, datetimeToUserInput, parseUserDate } from "../services/format";
 import { RichTextEditor, RichText, sanitizeHtml } from "../../primitives/rich-text-editor";
 import { FieldShell, FIELD_INPUT, FIELD_INVALID, interpolate } from "../../fields/FieldShell";
 import { NumberInput } from "../../fields/NumberInput";
@@ -191,8 +192,6 @@ function AutocompleteControl({ df, value, onChange, translate, invalid, placehol
   );
 }
 const num = (v: unknown): number | null => { if (v == null || v === "") return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
-const toDsDatetime = (v: unknown) => { const s = str(v); return s ? s.slice(0, 16).replace(" ", "T") : ""; };
-const fromDsDatetime = (v: string) => (v ? `${v.replace("T", " ")}:00`.slice(0, 19) : null);
 
 export function FrappeField(props: FrappeFieldProps) {
   const { df, value, onChange, doc, parent, bundle, onlyInput, markMissing = true, error, className } = props;
@@ -284,7 +283,7 @@ export function FrappeField(props: FrappeFieldProps) {
   // ---- read-only display ----
   if (read && ft !== "Link" && ft !== "Dynamic Link") {
     if (ft === "Check") return shell(<Checkbox id={id} checked={!!Number(value)} disabled aria-readonly {...aria} />, { inline: true });
-    if (ft === "Text Editor") return shell(<RichText value={str(value)} />, { noLabelFor: true });
+    if (ft === "Text Editor") return shell(<RichText value={str(value)} profile="desk" />, { noLabelFor: true });
     if (ft === "Rating") { const max = Number(df.options) || 5; return shell(<Rating id={id} value={(num(value) ?? 0) * max} max={max} onChange={() => {}} readOnly {...aria} aria-labelledby={onlyInput ? undefined : `${id}-label`} />, { noLabelFor: true }); }
     const text = s.formatValue(value, df, rowDoc);
     const isNum = NUMBER_KIND[ft] != null;
@@ -348,10 +347,15 @@ export function FrappeField(props: FrappeFieldProps) {
     case "Date":
       // the editable field shows the site's date format, like its read-only display (Desk: both through the user's
       // date_format); the value stays "YYYY-MM-DD" (no Date/timezone conversion on the way in or out)
-      return shell(<DateField {...common} value={str(value).slice(0, 10)} onChange={(v) => onChange(v || null)} error={undefined}
+      // Run 1 C-24: Desk's date control can be cleared, typed in the user's format and set to Today (date.js:138-179)
+      return shell(<DateField {...common} value={str(value).slice(0, 10)} onChange={(v) => onChange(v || null)} error={undefined} invalid={invalid}
+        clearable showToday parseDisplay={(text) => parseUserDate(text, fc)} parseHint={(fc.dateFormat || "yyyy-mm-dd")}
         formatDisplay={(v) => s.formatValue(v, df, rowDoc)} weekStartsOn={weekStartsOn(fc.firstDayOfWeek)} />);
     case "Datetime":
-      return shell(<DateTimeField {...common} value={toDsDatetime(value)} onChange={(v) => onChange(fromDsDatetime(v))} weekStartsOn={weekStartsOn(fc.firstDayOfWeek)} />);
+      // Run 1 C-25: every minute, seconds kept, Clear / Now; edited in the user's time zone, stored in the system's
+      // (datetime.js:1-102) — the conversion is simulator-tested only (real site: pending)
+      return shell(<DateTimeField {...common} value={datetimeToUserInput(value, fc)} onChange={(v) => onChange(datetimeFromUserInput(v, fc))}
+        interval={1} withSeconds clearable showNow invalid={invalid} weekStartsOn={weekStartsOn(fc.firstDayOfWeek)} />);
     case "Time":
       return shell(<TimeInput {...common} value={str(value) || null} onChange={(v) => onChange(v)} onUnparsable="clear" hour12={/a/i.test(str(fc.timeFormat))} invalid={invalid} />);
     case "Duration":
@@ -365,7 +369,7 @@ export function FrappeField(props: FrappeFieldProps) {
     case "Color":
       return shell(<ColorInput {...common} value={str(value) || null} onChange={(v) => onChange(v ?? "")} onUnparsable="clear" invalid={invalid} />);
     case "Text Editor":
-      return shell(<RichTextEditor id={id} ariaLabel={label} value={str(value)} onChange={(html) => onChange(html)} />, { noLabelFor: true });
+      return shell(<RichTextEditor id={id} ariaLabel={label} value={str(value)} onChange={(html) => onChange(html)} profile="desk" />, { noLabelFor: true });
     case "Autocomplete":
       return shell(<AutocompleteControl {...common} df={df} value={str(value)} onChange={(v) => onChange(v)} translate={(x) => s.translate(bundle, x)} invalid={invalid} placeholder={placeholder} />);
     default:

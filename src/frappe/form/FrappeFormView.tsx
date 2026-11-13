@@ -60,7 +60,7 @@ import { createDocStore, type DocStore, type FieldChange } from "./model/docStor
 import { analyzeDependencies, resolveFields, sectionCollapsed, type DependsIssue, type EffectiveField, type FieldOverrides } from "./model/depends";
 import { buildFetchMap, fetchUpdates, isReadOnlyByFetch, type FetchEntry } from "./model/fetch";
 import { buildLayout, sectionFields, type LayoutSection, type LayoutTab } from "./model/layout";
-import { checkMandatory, commaAnd, type MandatoryLine, type MandatoryResult } from "./model/mandatory";
+import { checkMandatory, type MandatoryLine, type MandatoryResult } from "./model/mandatory";
 import { formActions, type FormAction } from "./model/actions";
 import { fieldErrorsFromFrappeError } from "./model/errors";
 import { controlStatus, ladderStatus } from "./model/status";
@@ -73,6 +73,7 @@ import { FrappeField, type FrappeFieldProps } from "./FrappeField";
 import type { TableController } from "./FrappeChildTable";
 import { FrappeFormImage } from "./FrappeFormImage";
 import { FrappeAttachHost, type FrappeAttachHostValue } from "./attachHost";
+import { missingLineText } from "./missingLines";
 
 /** What the form needs from `usePermissions` (foundation). */
 export interface FormPermissions {
@@ -559,8 +560,17 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       if (!mandatoryOk()) return false;
       const current = store.getDoc();
       setFieldErrors({});
-      const saved = action === "Save" && !store.isDirty() ? current : await onSave(current, action);
+      // Run 1 C-71: Desk freezes the page while saving (save.js:4-111). The fields are inert while `saving`; a value
+      // still written during the request (a late Link fetch, a host's setValue) is re-applied on top of the server's
+      // document instead of being silently replaced by it.
+      const late = new Map<string, unknown>();
+      const stopLate = store.onFieldChange((c) => { if (!c.parentfield && !c.unchanged) late.set(c.fieldname, c.value); });
+      let saved: FrappeDoc;
+      try {
+        saved = action === "Save" && !store.isDirty() ? current : await onSave(current, action);
+      } finally { stopLate(); }
       store.replace(saved);
+      for (const [f, v] of late) store.setValue(f, v);
       setVersion((v) => v + 1);
       if (also?.dirty) await also.save();
       flash(t(action === "Submit" ? "formSubmitted" : "formSaved"));
@@ -792,14 +802,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   React.useEffect(() => {
     props.onTabsChange?.(visibleTabs.map((tab) => ({ key: tab.key, label: tabLabel(tab) })));
   }, [tabsSignature]); // eslint-disable-line react-hooks/exhaustive-deps
-  const lineText = (l: MandatoryLine) => {
-    switch (l.kind) {
-      case "field": return interpolate(t("formFieldRequired"), { label: l.label });
-      case "every": return interpolate(t("formRowsEvery"), { table: l.table, label: l.label });
-      case "rows": return interpolate(t(l.single ? "formRowsOne" : "formRowsList"), { table: l.table, label: l.label, rows: commaAnd(l.ranges, t("formAnd")) });
-      case "count": return interpolate(t("formRowsCount"), { table: l.table, label: l.label, n: l.count });
-    }
-  };
+  const lineText = (l: MandatoryLine) => missingLineText(l, t as (key: string) => string);
 
   const liveCtx = (): FrappeFormMenuContext => ({
     frm: frmRef.current!, doc, dirty: unsaved, reload: props.onReload ? () => reload() : undefined, showTab: (key) => setActiveTab(key),
@@ -893,7 +896,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </Tabs>
       )}
       {activeExtra && <div className="space-y-8" role="tabpanel" data-extra-tab-panel={activeExtra.key}>{activeExtra.render()}</div>}
-      {currentTab && <div className="space-y-8" role={tabCount > 1 ? "tabpanel" : undefined}>{currentTab.sections.map(renderSection)}</div>}
+      {currentTab && <div className="space-y-8" role={tabCount > 1 ? "tabpanel" : undefined} data-form-fields="" aria-busy={saving ? true : undefined}
+        data-saving={saving ? "" : undefined} {...({ inert: saving ? "" : undefined } as Record<string, unknown>)}>{currentTab.sections.map(renderSection)}</div>}
 
       <Dialog open={!!missing} onOpenChange={(o) => { if (!o) setMissing(null); }}>
         <DialogContent>
