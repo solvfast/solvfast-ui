@@ -44,23 +44,67 @@ function CardRoot({ href, onClick, base, interactive, className, children }: Car
   return <div className={cn(base, className)}>{children}</div>;
 }
 
-export interface StatCardProps extends CardAction {
+/** Run 1 (A-33, Desk number_card_widget.js:30-279): what a number card can also show. All optional: without them the card
+ *  is unchanged. */
+export interface StatCardExtras {
+  /** "loading" (a skeleton value, aria-busy), "empty" (Desk's "NA": no value), "error" (the value could not be read). */
+  state?: "loading" | "empty" | "error";
+  /** The error line for `state="error"` (default: "Could not load the value"). */
+  errorText?: React.ReactNode;
+  /** Format a number value (e.g. the site's currency / number format). Default: the language's digits. */
+  format?: (value: number) => string;
+  /** Shorten large numbers (1.2K, 3.4M — Desk's `shorten_number`). Ignored with `format`. */
+  compact?: boolean;
+  /** A menu at the card's top end (e.g. Refresh / Edit), outside the card's own link / button. */
+  menu?: React.ReactNode;
+}
+
+export interface StatCardProps extends CardAction, StatCardExtras {
   label: Localized;
   value: number | string;
   /** The trend pill: up is green, down is red (as in the Design System). */
   trend?: { value: number | string; direction: "up" | "down" };
 }
 
+/** The value shown by a number card (Run 1 A-33). */
+function useCardValue(value: number | string, x: StatCardExtras): React.ReactNode {
+  const { language, t } = useLocale();
+  if (x.state === "loading") return <span className="inline-block h-[0.8em] w-16 animate-pulse rounded bg-muted align-middle" aria-hidden />;
+  if (x.state === "empty") return <span className="text-muted-foreground">{t("statNotAvailable")}</span>;
+  if (x.state === "error") return <span className="text-muted-foreground">—</span>;
+  if (typeof value === "number" && x.format) return x.format(value);
+  if (typeof value === "number" && x.compact) {
+    return new Intl.NumberFormat(language === "ar" ? "ar-EG" : "en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+  }
+  return fmt(value, language);
+}
+
+/** The card's state line and menu around a card root (Run 1 A-33). */
+function CardFrame({ x, children }: { x: StatCardExtras; children: React.ReactNode }) {
+  const { t } = useLocale();
+  if (!x.menu && !x.state) return <>{children}</>;
+  return (
+    <div className="relative" data-stat-state={x.state} aria-busy={x.state === "loading" || undefined}>
+      {children}
+      {x.state === "loading" ? <span className="sr-only" role="status">{t("statLoading")}</span> : null}
+      {x.state === "error" ? <p role="alert" className="mt-1 px-1 text-xs text-destructive">{x.errorText ?? t("statError")}</p> : null}
+      {x.menu ? <div className="absolute end-3 top-3" data-stat-menu="">{x.menu}</div> : null}
+    </div>
+  );
+}
+
 /** The Design System's stat card: liquid glass, label, large value, optional trend. */
-export function StatCard({ label, value, trend, href, onClick, className }: StatCardProps) {
+export function StatCard({ label, value, trend, href, onClick, className, ...x }: StatCardProps) {
   const { language } = useLocale();
   const up = trend?.direction === "up";
+  const shown = useCardValue(value, x);
   return (
+    <CardFrame x={x}>
     <CardRoot href={href} onClick={onClick} className={className} interactive="sf-glass--interactive"
       base="sf-glass sf-glass--lg rounded-[20px] p-5 text-card-foreground">
       <p className="text-sm text-muted-foreground">{loc(label, language)}</p>
       <div className="mt-1 flex items-end justify-between">
-        <span className="font-brand text-4xl font-bold leading-none">{fmt(value, language)}</span>
+        <span className="font-brand text-4xl font-bold leading-none">{shown}</span>
         {trend && (
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${up ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"}`}>
             {up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}{fmt(trend.value, language)}
@@ -68,6 +112,7 @@ export function StatCard({ label, value, trend, href, onClick, className }: Stat
         )}
       </div>
     </CardRoot>
+    </CardFrame>
   );
 }
 
@@ -75,7 +120,7 @@ export function StatCard({ label, value, trend, href, onClick, className }: Stat
 const tint = (color: string) =>
   /^#[0-9a-f]{6}$/i.test(color) ? `${color}1a` : `color-mix(in srgb, ${color} 10%, transparent)`;
 
-export interface IconStatCardProps extends CardAction {
+export interface IconStatCardProps extends CardAction, StatCardExtras {
   label: Localized;
   value: number | string;
   /** Default: Layers (as in Sear). */
@@ -92,9 +137,11 @@ const isTrendObject = (t: unknown): t is { value: number | string; direction: "u
   typeof t === "object" && t !== null && !React.isValidElement(t) && "direction" in t && "value" in t;
 
 /** Sear Studio's overview card: a tinted icon square, a name and a total. */
-export function IconStatCard({ label, value, icon: Icon = Layers, color = "#512195", trend, href, onClick, className }: IconStatCardProps) {
+export function IconStatCard({ label, value, icon: Icon = Layers, color = "#512195", trend, href, onClick, className, ...x }: IconStatCardProps) {
   const { language, t } = useLocale();
+  const shown = useCardValue(value, x);
   return (
+    <CardFrame x={x}>
     <CardRoot href={href} onClick={onClick} className={className}
       base={cn("sf-glass-pane sf-glass-pane--airy rounded-[20px] text-card-foreground", "block p-4 transition-colors hover:bg-muted/30")}>
       <div className="flex items-center gap-2.5">
@@ -104,10 +151,10 @@ export function IconStatCard({ label, value, icon: Icon = Layers, color = "#5121
         <p className="text-sm font-semibold text-foreground truncate min-w-0">{loc(label, language)}</p>
       </div>
       {trend == null || trend === false ? (
-        <p className="mt-3 text-2xl font-bold leading-none tabular-nums text-foreground">{fmt(value, language)}</p>
+        <p className="mt-3 text-2xl font-bold leading-none tabular-nums text-foreground">{shown}</p>
       ) : (
         <div className="mt-3 flex items-end justify-between gap-2">
-          <p className="text-2xl font-bold leading-none tabular-nums text-foreground">{fmt(value, language)}</p>
+          <p className="text-2xl font-bold leading-none tabular-nums text-foreground">{shown}</p>
           {isTrendObject(trend) ? (
             <span data-trend={trend.direction} className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs ${trend.direction === "up" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"}`}>
               {trend.direction === "up" ? <TrendingUp className="size-3" aria-hidden /> : <TrendingDown className="size-3" aria-hidden />}
@@ -118,5 +165,6 @@ export function IconStatCard({ label, value, icon: Icon = Layers, color = "#5121
         </div>
       )}
     </CardRoot>
+    </CardFrame>
   );
 }

@@ -13,6 +13,7 @@ import { useFrappeClient } from "./FrappeProvider";
 import { useLocale } from "../theme/ThemeProvider";
 import { usePermissions } from "./hooks/usePermissions";
 import { invalidateFrappeList, useFrappeList, type FrappeListOptions } from "./useFrappeList";
+import { sortOptionsFromMeta } from "./meta";
 import type { FrappeBulkOptions } from "./list/FrappeBulkActions";
 import { useFrappeSelectionActions } from "./list/useFrappeSelectionActions";
 import { useListRealtime } from "./list/realtime";
@@ -165,6 +166,9 @@ export function FrappeListView<T = Record<string, unknown>>(props: FrappeListVie
   return hasQueryClient ? <Inner {...props} /> : <FrappeProvider client={props.client}><Inner {...props} /></FrappeProvider>;
 }
 
+/** `frappe.model.std_fields_list` + child-table fields (model.js:6-20): never prefilled from a filter. */
+const STD_FIELDS = new Set(["name", "owner", "creation", "modified", "modified_by", "_user_tags", "_comments", "_assign", "_liked_by", "docstatus", "idx", "parent", "parentfield", "parenttype"]);
+
 function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, searchFields, groupByFields, chunkSize, pageSize, fieldLabels, client, fiscalYears, rowMeta, workflow, getIndicator, listSettings, formatContext, serverStorage, bulk, onCreate, create, sidebar, onNavigate, realtime, realtimeDebounceMs, rowKey, onImport, menu, ioLabels, treeDoctypes, columnLimit, hideNameColumn, urlFilters, onQueryStateChange, formHref, ...rest }: FrappeListViewProps<T>) {
   // `columnLimit` defaults ON here: Desk always caps the generated columns by window width (list_view.js:432-444);
   // app-curated `columns` are never capped. `columnLimit={false}` keeps every `in_list_view` column.
@@ -281,7 +285,23 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
   // Run 1 B-61: the DocType's name in the session language (Desk __(doctype)) wherever the list says it
   const doctypeLabel = f.translate(doctype, null);
   const [creating, setCreating] = React.useState(false);
-  const createCfg = typeof create === "object" ? create : undefined;
+  const createCfgRaw = typeof create === "object" ? create : undefined;
+  // Run 1 B-48 (Desk list_view.js:308-326 make_new_doc): a new document starts with the list's "=" / tree filters on
+  // editable non-standard fields; the app's own route options win
+  const filterOptions = React.useMemo(() => {
+    const out: Record<string, unknown> = {};
+    const fields = new Map(((f.bundle?.meta.fields ?? []) as { fieldname: string; read_only?: unknown }[]).map((df) => [df.fieldname, df]));
+    for (const flt of (f.request?.filters ?? []) as unknown[]) {
+      if (!Array.isArray(flt) || flt.length < 3) continue;
+      // [doctype, field, op, value] or the 3-item [field, op, value] form
+      const [dt, field, op, value] = (flt.length >= 4 ? flt : [doctype, ...flt]) as [string, string, string, unknown];
+      if (dt !== doctype || !["=", "descendants of (inclusive)", "descendants of", "ancestors of"].includes(String(op))) continue;
+      const df = fields.get(String(field));
+      if (df && !Number(df.read_only ?? 0) && !STD_FIELDS.has(String(field))) out[String(field)] = value;
+    }
+    return out;
+  }, [f.request?.filters, f.bundle, doctype]);
+  const createCfg = createCfgRaw ? { ...createCfgRaw, defaults: { ...createCfgRaw.defaults, routeOptions: { ...filterOptions, ...createCfgRaw.defaults?.routeOptions } } } : undefined;
   // P35 integration: `create` without render / onCreate → Quick Entry (eligible DocType) or the host's full form
   const qeDefault = !!createCfg && !createCfg.render && !createCfg.onCreate && !onCreate;
   const qeEligible = qeDefault && f.bundle ? quickEntryFields(f.bundle.meta).eligible : undefined;
@@ -331,10 +351,18 @@ function Inner<T>({ like = true, onLikeError, doctype, columns, baseFilters, sea
       quickFilterFields={rest.quickFilterFields ?? quickFilterFields}
       loadOptions={rest.loadOptions ?? loadOptions}
       {...rest}
+      // Run 1 B-26: with the Sort-by menu on, its options are Desk's (sort_selector.js), not just the visible columns
+      controls={rest.controls?.sortMenu && !rest.controls.sortMenuOptions?.options && f.bundle
+        ? { ...rest.controls, sortMenuOptions: { ...rest.controls.sortMenuOptions, options: sortOptionsFromMeta(f.bundle.meta as never, t, (x, c) => f.translate(x, c)) } }
+        : rest.controls}
       storage={storage}
       emptyMessage={rest.emptyMessage ?? t("listEmptyNone").replace("{doctype}", doctypeLabel)}
       emptyFilteredMessage={rest.emptyFilteredMessage ?? t("listEmptyFilteredDoctype").replace("{doctype}", doctypeLabel)}
       emptyAction={rest.emptyAction ?? (mayCreate && startCreate ? { label: t("listCreateFirst").replace("{doctype}", doctypeLabel), onClick: startCreate } : undefined)}
+      // Run 1 B-55 (decision B-D5): the filtered-empty state also offers "Create a new …" to a user who may create;
+      // the DocType's description under the first-record message
+      emptyFilteredAction={rest.emptyFilteredAction ?? (mayCreate && startCreate ? { label: t("formCreateNew").replace("{doctype}", doctypeLabel), onClick: startCreate } : undefined)}
+      emptyDescription={rest.emptyDescription ?? (f.bundle?.meta.description ? f.translate(String(f.bundle.meta.description), null) : undefined)}
       selectable={rest.selectable ?? (bulk ? true : undefined)}
       primaryAction={rest.primaryAction ?? addButton}
       pageSizes={rest.pageSizes ?? DESK_PAGE_SIZES}

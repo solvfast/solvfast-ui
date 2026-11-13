@@ -118,6 +118,24 @@ export interface ListTableProps<T> {
    * click, groups, likes and the selection header work in both.
    */
   layout?: "table" | "cards" | "auto";
+  /** Run 1 (E-14): a totals row (`<tfoot>`) over these rows: a "Total" row header, then the sum of each total column
+   *  (`ColumnDef.total`, default numeric fieldtypes), per currency when the column has `currency`. */
+  totals?: { rows: T[]; label?: React.ReactNode };
+}
+
+const NUMERIC_TYPES = new Set(["Int", "Float", "Currency", "Percent"]);
+/** Run 1 (E-14): the columns a totals row sums. */
+export const totalColumn = <T,>(c: ColumnDef<T>) => c.total ?? (NUMERIC_TYPES.has(c.fieldtype ?? "") || c.type === "number");
+/** Run 1 (E-14): a column's sum over rows, per currency ("" = none). Non-numbers are skipped. */
+export function columnSums<T>(c: ColumnDef<T>, rows: T[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    const v = Number((r as Record<string, unknown>)[fieldOf(c)]);
+    if ((r as Record<string, unknown>)[fieldOf(c)] == null || (r as Record<string, unknown>)[fieldOf(c)] === "" || !Number.isFinite(v)) continue;
+    const cur = c.currency?.(r) ?? "";
+    out.set(cur, (out.get(cur) ?? 0) + v);
+  }
+  return out;
 }
 
 /** "Select all {n} matching" in the selection header (D-crm G5). */
@@ -171,7 +189,7 @@ function usePhone(enabled: boolean): boolean {
  */
 export function ListTable<T>({
   columns, rows, rowKey, sort, onSortToggle, onRowClick, rowClassName, selection, loading, error, onRetry, empty, className,
-  groups, partial, like, selectionHeader, layout = "table",
+  groups, partial, like, selectionHeader, layout = "table", totals,
 }: ListTableProps<T>) {
   const { language, t } = useLocale();
   const phone = usePhone(layout === "auto");
@@ -471,6 +489,28 @@ export function ListTable<T>({
               )}
             </tbody>
           ) : groups ? groups.map(renderGroup) : <tbody>{rows.map((r) => renderRow(r))}</tbody>}
+          {totals && any ? (
+            <tfoot className="border-t-2 border-border bg-muted/30 text-sm font-semibold" data-totals-row="">
+              <tr>
+                {selection && <td className="px-3 py-3" />}
+                {columns.map((c, i) => {
+                  if (i === 0) return <th key={c.key} scope="row" className="px-4 py-3 text-start">{totals.label ?? t("listTotalsRow")}</th>;
+                  if (!totalColumn(c)) return <td key={c.key} className="px-4 py-3" />;
+                  const sums = [...columnSums(c, totals.rows)];
+                  return (
+                    <td key={c.key} className={cn("px-4 py-3", c.align === "end" && "text-end")} data-total-for={c.key}>
+                      {sums.length === 0 ? <span className="text-muted-foreground">—</span> : sums.map(([cur, v], k) => (
+                        <span key={cur || k} className="block whitespace-nowrap" data-currency={cur || undefined}>
+                          <DefaultCell value={v} col={{ ...c, render: undefined }} />{cur ? <span className="ms-1 text-xs font-normal text-muted-foreground">{cur}</span> : null}
+                        </span>
+                      ))}
+                    </td>
+                  );
+                })}
+                {like && <td className={likeCell} />}
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </div>
     </Card>

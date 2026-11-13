@@ -111,6 +111,33 @@ Run 1 of the P1 / P2 roadmap (owner authorization 2026-11-13; rows keep their Ph
   C-57). A Sayr-named AppShell test pins the backdrop as the shell's first child: the skip link is placed after it (no
   Sayr file changed).
 
+**Step 5 — CRM-evidenced completion**
+- **C-81…C-84 form shortcuts (decision 10)**: `FrappeRecordMenu shortcuts` binds Ctrl/⌘+P Print, Ctrl/⌘+E Email, Shift+D
+  Duplicate, Shift+Ctrl/⌘+D Delete (asks first) — topmost menu only, not while typing or with a dialog open, only for the
+  entries offered. `FrappeForm` turns it on (off with `hotkeys={false}` / `menu={{ shortcuts: false }}`). A host with its
+  own menu (the CRM's `useRecordMenu`, which binds on `window`) gets no package binding: no double handlers. Print shows
+  its Ctrl+P hint.
+- **B-26** `ListView controls.sortMenuOptions` (`options` independent of the visible columns, `directionToggle`,
+  `clearable`), `SortMenu directionToggle / clearable`; `sortOptionsFromMeta` (Desk's sort-selector options) — passed by
+  `FrappeListView` when the host turns `sortMenu` on. Off by default (decision B-D3).
+- **B-48** `FrappeListView`: a new document starts with the list's "=" / tree filters on editable non-standard fields (Desk
+  make_new_doc); the app's `create.defaults.routeOptions` win.
+- **B-55** `ListView emptyFilteredAction`, `emptyDescription`, `emptyIllustration`; `FrappeListView` offers "Create a new
+  {DocType}" in the filtered-empty state to a user who may create (decision B-D5) and the DocType's description.
+- **A-33** `StatCard` / `IconStatCard`: `state` ("loading" | "empty" N/A | "error"), `errorText`, `format`, `compact`
+  (1.2M), `menu`. Without them: unchanged. (The Frappe Number Card binding stays deferred: decision 5.)
+- **A-42 / C-67** `EditableTitle`: an async `onSave` shows the new title busy and reverts with the message on failure;
+  `className`. `PageHeader`: inside an AppShell a node title is an `<h2>` (one `<h1>` per page — G19); `titleInShell`
+  makes it the top bar's `<h1>` (e.g. an EditableTitle). `RenameDialog title / allowNameChange`. `FrappeFormView
+  onRenameTitle` + `FrappeForm onRenamed`: the form title opens Desk's title / rename dialog
+  (`frappe.model.rename_doc.update_document_title`; simulator handler added).
+- **E-14** `ListView totals`: a `<tfoot>` totals row (a "Total" row header; numeric columns or `ColumnDef.total`; summed
+  over every filtered row; per currency with `ColumnDef.currency`), the user's "Show totals row" switch in the column
+  manager remembered with the prefs (`ListPrefs.showTotals`). The Report view's own totals card is unchanged (shipped
+  views frozen, decision 3).
+- Tests changed with the behaviour: `merged` PageHeader test (a node title in a shell is an `<h2>`, not a second
+  `<h1>`); `frappe-form-integration` FV.K4 picks `/^Print/` (the item now carries its Ctrl+P hint).
+
 - Tests changed with the behaviour (old → new): `merged`/sanitizer pins unchanged; comment-edit tests in `record`,
   `social-p36b` (P36B.social.18), `history-p36d` (P36D.history.8) now type into the rich editor; `trace-p36e`
   P36E.trace.11 asserted the Date defect (no clear, no typing) and now asserts the fix.

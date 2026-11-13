@@ -602,7 +602,9 @@ describe("PageHeader inside AppShell — one page title (Sear's pattern)", () =>
     expect(h1s().map((h) => h.textContent)).toEqual(["Fixed"]);
     unmount();
     render(<Shell><PageHeader title={<span>Rich <b>title</b></span>} /></Shell>);
-    expect(h1s().map((h) => h.textContent)).toEqual(["Projects", "Rich title"]);
+    // Run 1 G19 (A-42): one <h1> per page — a node title stays in the page as a sub-heading (was a second <h1>)
+    expect(h1s().map((h) => h.textContent)).toEqual(["Projects"]);
+    expect(screen.getByRole("heading", { level: 2, name: "Rich title" })).toBeTruthy();
     cleanup();
     inLang("ar", <PageHeader title={{ en: "Tasks", ar: "المهام" }} />);
     expect(h1s().map((h) => h.textContent)).toEqual(["المهام"]);

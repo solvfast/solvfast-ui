@@ -55,6 +55,8 @@ export interface UseListStateOptions<T> {
   groupByOptions?: GroupByOption<T>[];
   /** Fields shown as quick filters until the user changes them. */
   quickFilterFields?: string[];
+  /** Run 1 (E-14): whether the totals row starts shown (the user's choice, stored with the prefs, wins). Default true. */
+  totalsDefaultShown?: boolean;
   /** Persistence key for prefs + saved filters. Omit to keep state in memory only. */
   viewKey?: string;
   /** Default: localStorage (`sf:list:<viewKey>:…`). `null` disables. */
@@ -191,6 +193,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   }, [viewKey, savedStore]);
 
   // ---- API ---------------------------------------------------------------------------------------------------------
+  const [showTotals, setShowTotalsState] = React.useState<boolean>(() => initial.showTotals ?? opts.totalsDefaultShown ?? true);
   const setQuery = (q: FilterQuery) => { setQueryState(q); setPage(0); if (prefsStore?.persistQuery) persist({ query: q }); };
   const setSearch = (v: string) => { setSearchState(v); setPage(0); };
   const setSort = (s: SortState) => { setSortState(s); persist({ sort: s }); };
@@ -211,6 +214,9 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
     sort, setSort, toggleSort,
     groupBy, setGroupBy, groupByOptions: opts.groupByOptions ?? [], groups, grouped,
     rows: pageRows, total, page, setPage, pageSize, setPageSize,
+    /** Run 1 (E-14): every row the totals cover — client mode: all filtered rows; server mode: the loaded rows. */
+    totalRows: mode === "server" ? rows : filtered,
+    showTotals, setShowTotals: (on: boolean) => { setShowTotalsState(on); persist({ showTotals: on }); },
     hasPrev: !grouped && page > 0,
     hasNext: !grouped && (page + 1) * pageSize < total,
     quickFields, setQuickFields,

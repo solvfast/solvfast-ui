@@ -80,7 +80,16 @@ export function AppShell({
 
   const brandName = loc(brand.name, language);
   const active = deepestActive(items, currentPath);
-  const [publishedTitle, titleApi] = useShellTitleHost();
+  const [publishedTitle, titleApiBase] = useShellTitleHost();
+  // Run 1 G19: a PageHeader's node title (titleInShell) is portalled into the top bar's <h1>; while claimed, the
+  // shell's own text is not shown (one title)
+  const [titleSlot, setTitleSlot] = React.useState<HTMLElement | null>(null);
+  const [claims, setClaims] = React.useState<string[]>([]);
+  const titleApi = React.useMemo(() => ({
+    ...titleApiBase, slot: titleSlot,
+    claim: (id: string) => setClaims((c) => (c.includes(id) ? c : [...c, id])),
+    release: (id: string) => setClaims((c) => c.filter((x) => x !== id)),
+  }), [titleApiBase, titleSlot]);
   const pageTitle = title ? loc(title, language)
     : publishedTitle ? loc(publishedTitle, language)
     : active ? loc(active.label, language) : brandName;
@@ -120,7 +129,7 @@ export function AppShell({
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="absolute inset-x-0 top-0 z-50">
           <Navbar
-            title={pageTitle} help={help} search={search} notifications={notifications}
+            title={<><span ref={setTitleSlot} data-title-slot="" className="contents" />{claims.length ? null : pageTitle}</>} help={help} search={search} notifications={notifications}
             showLanguageToggle={showLanguageToggle} showThemeToggle={showThemeToggle} actions={actions}
             companyLogo={companyLogo} user={user}
             logo={brand.logoSrc ? { src: brand.logoSrc, alt: brandName, onClick: brand.href ? () => onNavigate(brand.href!) : undefined } : undefined}

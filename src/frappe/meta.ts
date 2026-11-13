@@ -215,3 +215,26 @@ export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => str
     known, fieldtypes,
   };
 }
+
+/**
+ * Run 1 (B-26): Desk's sort-selector options (sort_selector.js:120-160): Last Updated On, the DocType's sort field, the
+ * title field, ID, Created On, Index, then every bold / mandatory / in-list-view value field — de-duplicated, labels in the
+ * session language. For `ListView controls.sortMenuOptions.options` (`FrappeListView` passes them when `sortMenu` is on).
+ */
+export function sortOptionsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string, tr: MetaTranslate = same): { key: string; label: string }[] {
+  const byName = new Map((meta.fields || []).map((df) => [df.fieldname, df]));
+  const label = (f: string) => {
+    const std = STANDARD.find((s) => s.name === f);
+    if (std) return t(std.key);
+    if (f === "idx") return t("sortIndex");
+    const df = byName.get(f);
+    return df?.label ? tr(df.label, meta.name) : f;
+  };
+  const sortField = (meta.sort_field || "modified").split(",")[0]!.trim().split(/\s+/)[0]!;
+  const keys = ["modified", sortField, ...(meta.title_field ? [meta.title_field] : []), "name", "creation", "idx"];
+  for (const df of meta.fields || []) {
+    const valueType = !SKIP.has(df.fieldtype) && TYPE_MAP[df.fieldtype];
+    if (valueType && (df.reqd || (df as { bold?: number }).bold || df.in_list_view)) keys.push(df.fieldname);
+  }
+  return [...new Set(keys)].filter((k) => k === "modified" || k === "name" || k === "creation" || k === "idx" || byName.has(k)).map((k) => ({ key: k, label: label(k) }));
+}

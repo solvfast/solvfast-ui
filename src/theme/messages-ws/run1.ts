@@ -25,6 +25,14 @@ export const run1En = {
   commStatusSending: "Sending", commStatusRead: "Read", commStatusScheduled: "Scheduled",
   // A-28 skip link
   skipToContent: "Skip to main content",
+  // B-26 sort direction
+  sortAscending: "Ascending", sortDescending: "Descending", sortToggleDirection: "Sort direction: {dir}", sortIndex: "Index",
+  // A-33 number cards (Desk number_card_widget.js: "NA", loading, error)
+  statNotAvailable: "N/A", statLoading: "Loading…", statError: "Could not load the value",
+  // C-67 / A-42 title rename
+  r35Title: "Title", titleEditHint: "Edit the title", titleSaveFailed: "Could not save the title",
+  // E-14 totals row
+  listTotalsRow: "Total", listShowTotals: "Show totals row",
 };
 export const run1Ar: { [K in keyof typeof run1En]: string } = {
   dtToday: "اليوم",
@@ -45,4 +53,8 @@ export const run1Ar: { [K in keyof typeof run1En]: string } = {
   commStatusRecipientUnsubscribed: "ألغى المستلم الاشتراك", commStatusError: "خطأ", commStatusExpired: "منتهية",
   commStatusSending: "جارٍ الإرسال", commStatusRead: "مقروءة", commStatusScheduled: "مجدولة",
   skipToContent: "انتقل إلى المحتوى الرئيسي",
+  sortAscending: "تصاعدي", sortDescending: "تنازلي", sortToggleDirection: "اتجاه الترتيب: {dir}", sortIndex: "الترتيب",
+  statNotAvailable: "غير متاح", statLoading: "جارٍ التحميل…", statError: "تعذّر تحميل القيمة",
+  r35Title: "العنوان", titleEditHint: "تعديل العنوان", titleSaveFailed: "تعذّر حفظ العنوان",
+  listTotalsRow: "الإجمالي", listShowTotals: "إظهار صف الإجماليات",
 };

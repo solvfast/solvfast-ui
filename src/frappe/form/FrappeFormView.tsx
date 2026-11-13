@@ -76,6 +76,7 @@ import type { TableController } from "./FrappeChildTable";
 import { FrappeFormImage } from "./FrappeFormImage";
 import { FrappeAttachHost, type FrappeAttachHostValue } from "./attachHost";
 import { missingLineText } from "./missingLines";
+import { RenameDialog } from "../../record/RenameDialog";
 
 /** What the form needs from `usePermissions` (foundation). */
 export interface FormPermissions {
@@ -175,6 +176,10 @@ export interface FrappeFormViewProps extends FormEventsConfig {
    *  (desk.js `trigger_primary_action`), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo (outside text inputs).
    *  Default true; false registers nothing. */
   hotkeys?: boolean;
+  /** Run 1 (C-67, Desk toolbar.js:116-288): the title opens a dialog to change the title field and / or rename the
+   *  document (`frappe.model.rename_doc.update_document_title`). Offered with the write right on a saved document whose
+   *  title field is an editable Data field, or a DocType that allows renaming. `FrappeForm` wires it. */
+  onRenameTitle?: (args: { docname: string; name: string; title?: string; merge: boolean }) => Promise<unknown>;
   /** P36b attachimage: be the Attach / Attach Image controls' form (Desk's `frm`, attach.js:36-46, 137-144) — after an
    *  upload or a Clear the form saves (`Update` on a submitted document). Default true; false (Quick Entry: Desk's
    *  dialog controls have no `frm`) makes them only set their value. */
@@ -263,6 +268,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   // Run 1 C-79 (Desk form.js:527-537, 1990-2064): a NEWER server copy while the form has unsaved edits is not applied
   // silently — the form says so and offers Reload (which discards the edits); a clean form takes it at once (above)
   const [newerOnServer, setNewerOnServer] = React.useState<FrappeDoc | null>(null);
+  const [titleDialog, setTitleDialog] = React.useState(false);
   React.useEffect(() => {
     const cur = store.getDoc();
     if (docProp === cur) return;
@@ -725,6 +731,12 @@ export function FrappeFormView(props: FrappeFormViewProps) {
 
   // ---- rendering ----
   const titleField = meta.title_field ? doc[meta.title_field] : undefined;
+  // Run 1 C-67: Desk's is_title_editable / can_rename (toolbar.js:82-104)
+  const titleDf = meta.title_field ? fieldsByName.get(meta.title_field) : undefined;
+  const writeRight = !permissionsUnknown && can("write") && !doc.__islocal && !!props.onRenameTitle;
+  const nameRenamable = writeRight && !!meta.allow_rename;
+  const titleEditable = writeRight && !!titleDf && titleDf.fieldtype === "Data" && !titleDf.read_only && !titleDf.set_only_once
+    && !(String(meta.autoname ?? "") === `field:${meta.title_field}` && !meta.allow_rename);
   const docLabel = s.translate(bundle, meta.name);
   // toolbar.js:44-67: the title field's HTML is stripped (a Text Editor title shows as text)
   const title = props.title ?? (doc.__islocal ? interpolate(t("formNewDoc"), { doctype: docLabel }) : htmlToText(String(titleField || "")) || doc.name);
@@ -828,7 +840,11 @@ export function FrappeFormView(props: FrappeFormViewProps) {
               setValue={(v) => store.setValue(imageField, v, undefined, { record: true })} save={() => fns.current.save()} />
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-lg font-semibold">{title}</h2>
+            <h2 className="truncate text-lg font-semibold">{titleEditable || nameRenamable ? (
+              // Run 1 C-67 (Desk toolbar.js:82-110): the title opens the title / rename dialog
+              <button type="button" onClick={() => setTitleDialog(true)} title={t("titleEditHint")} data-title-edit=""
+                className="max-w-full truncate rounded-sm text-start hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{title}</button>
+            ) : title}</h2>
             {!doc.__islocal && !!titleField && titleField !== doc.name && meta.autoname !== "hash" && <p className="truncate text-xs text-muted-foreground">{doc.name}</p>}
             {webRoute && (
               <a href={webRoute} target="_blank" rel="noopener noreferrer" data-web-link className="inline-flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline">
@@ -914,6 +930,13 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       {currentTab && <div className="space-y-8" role={tabCount > 1 ? "tabpanel" : undefined} data-form-fields="" aria-busy={saving ? true : undefined}
         data-saving={saving ? "" : undefined} {...({ inert: saving ? "" : undefined } as Record<string, unknown>)}>{currentTab.sections.map(renderSection)}</div>}
 
+      {(titleEditable || nameRenamable) && props.onRenameTitle && (
+        <RenameDialog open={titleDialog} onOpenChange={setTitleDialog} name={doc.name} allowNameChange={nameRenamable}
+          title={titleEditable ? { value: String(doc[meta.title_field!] ?? ""), label: s.translate(bundle, fieldsByName.get(meta.title_field!)?.label || meta.title_field!) } : undefined}
+          onRename={async ({ newName, merge, title: nextTitle }) => {
+            await props.onRenameTitle!({ docname: doc.name, name: nameRenamable ? newName : doc.name, title: nextTitle, merge });
+          }} />
+      )}
       <Dialog open={!!missing} onOpenChange={(o) => { if (!o) setMissing(null); }}>
         <DialogContent>
           <DialogHeader>

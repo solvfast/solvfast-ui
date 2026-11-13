@@ -5,6 +5,7 @@
 // Inside an AppShell (Sear's pattern: the glass top bar's title IS the page title, pages have no heading of their own)
 // a text title goes to the top bar instead of an in-page <h1>.
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "../lib/cn";
 import { loc, type Localized } from "../lib/localized";
@@ -16,6 +17,11 @@ import { Button } from "./button";
 interface ShellTitleApi {
   publish: (id: string, title: Localized) => void;
   unpublish: (id: string) => void;
+  /** Run 1 (A-42 / G19): the top bar's title element, for a PageHeader whose node title (e.g. an EditableTitle) becomes
+   *  the page's one title (`titleInShell`); `claim` hides the shell's own text while it is there. */
+  slot?: HTMLElement | null;
+  claim?: (id: string) => void;
+  release?: (id: string) => void;
 }
 /** Provided by AppShell around the page content. Internal (not exported from the package). */
 export const ShellTitleContext = React.createContext<ShellTitleApi | null>(null);
@@ -49,8 +55,13 @@ const useIsoLayoutEffect = typeof window !== "undefined" ? React.useLayoutEffect
 /* ---- PageHeader ------------------------------------------------------------------------------------------------- */
 
 export interface PageHeaderProps {
-  /** The page title: text (`string` or `{ en, ar }`), or any node. Inside an AppShell, text goes to the top bar. */
+  /** The page title: text (`string` or `{ en, ar }`), or any node. Inside an AppShell, text goes to the top bar; a node
+   *  stays in the page as a sub-heading (`<h2>`, Run 1 G19: the top bar's `<h1>` is the page's one title) unless
+   *  `titleInShell`. */
   title: React.ReactNode | Localized;
+  /** Run 1 (A-42 / G19): inside an AppShell, a node title (e.g. an `EditableTitle`) is shown AS the top bar's title — the
+   *  page's single `<h1>` — instead of the shell's text. */
+  titleInShell?: boolean;
   subtitle?: React.ReactNode;
   /** A details row under the title (status, dates, owner…). */
   meta?: React.ReactNode;
@@ -69,7 +80,7 @@ export interface PageHeaderProps {
  * <h1>) while this header is mounted, and the header shows only the back button, subtitle, meta and actions — nothing
  * when none is set. A non-text title (a node) always stays in place. AppShell's own `title` prop still wins.
  */
-export function PageHeader({ title, subtitle, meta, actions, onBack, backLabel, className }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, meta, actions, onBack, backLabel, className, titleInShell }: PageHeaderProps) {
   const { t, isRTL, language } = useLocale();
   const shell = React.useContext(ShellTitleContext);
   const id = React.useId();
@@ -84,9 +95,19 @@ export function PageHeader({ title, subtitle, meta, actions, onBack, backLabel, 
     return () => shell.unpublish(id);
   }, [shell, key, id]);
 
+  // Run 1 G19: a node title can be the shell's title (portal into the top bar's <h1>)
+  const nodeToShell = !!shell?.slot && text === null && !!titleInShell && title != null;
+  useIsoLayoutEffect(() => {
+    if (!nodeToShell || !shell?.claim) return;
+    shell.claim(id);
+    return () => shell.release?.(id);
+  }, [nodeToShell, shell, id]);
+  const portal = nodeToShell ? createPortal(<>{title as React.ReactNode}</>, shell!.slot!) : null;
+  const inShell = !!shell;
+
   const Back = isRTL ? ArrowRight : ArrowLeft;
   const label = backLabel ?? t("back");
-  if (toShell && !onBack && !subtitle && !meta && !actions) return null;
+  if ((toShell || nodeToShell) && !onBack && !subtitle && !meta && !actions) return portal;
 
   return (
     <div className={cn("flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-4 md:px-6", className)}>
@@ -97,12 +118,16 @@ export function PageHeader({ title, subtitle, meta, actions, onBack, backLabel, 
           </Button>
         )}
         <div className="min-w-0">
-          {!toShell && <h1 className="truncate text-lg font-semibold tracking-tight">{text !== null ? loc(text, language) : (title as React.ReactNode)}</h1>}
+          {!toShell && !nodeToShell && (inShell
+            // inside a shell the top bar's <h1> is the page title: a node title here is a sub-heading (Run 1 G19)
+            ? <h2 className="truncate text-lg font-semibold tracking-tight">{title as React.ReactNode}</h2>
+            : <h1 className="truncate text-lg font-semibold tracking-tight">{text !== null ? loc(text, language) : (title as React.ReactNode)}</h1>)}
           {subtitle && <p className={cn("truncate text-sm text-muted-foreground", !toShell && "mt-0.5")}>{subtitle}</p>}
           {meta && <div className={cn(!(toShell && !subtitle) && "mt-1.5")}>{meta}</div>}
         </div>
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {portal}
     </div>
   );
 }
