@@ -69,9 +69,11 @@ recorded behaviour / visual change.
   `statusColorStyles(...).text` stays at 55 %.
 - B-03: the list's Status (indicator) column is shown by default (the `status` field's own column is then hidden).
 - C-25: `DateTimeField` no longer rounds the minute down to the interval.
-- `FrappeWorkflowActions variant="rail"` is read-only by default (0.8.0-dev.5; `applyFromRail` restores the clickable rail).
 - Dialog / sheet focus returns to the opener; navigation items are links (`<a href>`); `PageHeader` renders a node title
-  inside an `AppShell` as `<h2>`; the `RecordHeaderCard` page header's `data-record-header` reads `"page"`.
+  inside an `AppShell` as `<h2>`.
+
+**For users of the 0.8.0 pre-releases** (not in 0.7.0): since 0.8.0-dev.5, `FrappeWorkflowActions variant="rail"` (added in
+0.8.0-dev.1) is read-only by default (`applyFromRail` restores the clickable rail).
 
 ## 0.8.0-dev.10 — removal of the legacy lifecycle component — **BREAKING (0.8.0 pre-release line)**
 
