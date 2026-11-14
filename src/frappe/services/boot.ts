@@ -10,6 +10,7 @@
  *     time_zone: { system, user },
  *     currencies: { <name>: { symbol, symbol_on_right, number_format, fraction_units } },
  *     translations: { <source>: <translated> },
+ *     translated_doctypes: [<DocType>],                     (Desk boot.translated_doctypes: link values shown translated)
  *     defaults: { <key>: value | [values] },                 (P35: frappe.defaults.get_defaults(user), Desk boot.user.defaults)
  *     user_permissions: { <DocType>: [{ doc, is_default }] } } (P35: user_permission.get_user_permissions(user))
  *
@@ -32,6 +33,9 @@ export interface FrappeBootPayload {
   time_zone?: { system?: string; user?: string };
   currencies?: Record<string, CurrencyInfo>;
   translations?: TranslationDictionary;
+  /** DocTypes whose names are shown translated in links (`frappe.translate.get_translated_doctypes`, Desk
+   *  `boot.translated_doctypes`; e.g. Country). */
+  translated_doctypes?: string[];
   /** User defaults (`frappe.defaults.get_defaults(user)` — utils/user.py:196, Desk `frappe.boot.user.defaults`). */
   defaults?: Record<string, unknown>;
   /** User Permissions by DocType (`frappe.core.doctype.user_permission.user_permission.get_user_permissions`). */
@@ -47,6 +51,8 @@ export interface FrappeBoot {
   csrfToken?: string;
   formatContext: FormatContext;
   translations?: TranslationDictionary;
+  /** DocTypes whose names links show translated (Desk `boot.translated_doctypes`). */
+  translatedDoctypes?: string[];
   /** The raw sysdefaults that were sent (e.g. `first_day_of_the_week`, `link_field_results_limit`). */
   sysdefaults: Record<string, unknown>;
   isGuest: boolean;
@@ -126,6 +132,7 @@ export function readFrappeBoot(source: unknown = (globalThis as { __sf_boot?: un
     csrfToken: isGuest ? undefined : str(p.csrf_token),
     formatContext: formatContextFromBoot({ ...p, translations }),
     translations: translations && Object.keys(translations).length ? translations : undefined,
+    ...(Array.isArray(p.translated_doctypes) ? { translatedDoctypes: p.translated_doctypes.filter((d): d is string => typeof d === "string") } : {}),
     sysdefaults: p.sysdefaults && typeof p.sysdefaults === "object" ? p.sysdefaults : {},
     isGuest,
     ...(userDefaultsFromBoot(p) ? { userDefaults: userDefaultsFromBoot(p) } : {}),

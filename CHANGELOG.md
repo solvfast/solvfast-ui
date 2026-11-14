@@ -6,6 +6,16 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.23 — links show translated DocTypes in the UI language
+
+Additive. jsdom tests only.
+
+- `FrappeLinkField`: a Link to a translated DocType (Desk `boot.translated_doctypes`, e.g. Country) shows its value
+  and its search results translated (`__()` of the name, from the provider's translations), as Desk's link control does.
+  Other DocTypes keep the name or the title.
+- `FrappeProvider` / `FrappeSettings` `translatedDoctypes`; `readFrappeBoot` reads `translated_doctypes` from the page
+  boot (`FrappeBoot.translatedDoctypes`).
+
 ## 0.7.0-dev.22 — a family's extra registry columns and the new record's form hooks
 
 Additive. jsdom tests only.

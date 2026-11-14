@@ -34,6 +34,7 @@ import { FrappeListView, FrappeForm } from "@solvfast/ui/frappe";
 | `@tanstack/react-query` ^5 (optional peer dependency; needed only for this entry) | caching, retries, chunked loading |
 | `ThemeProvider` from the core package above it | language, direction and messages |
 | `session.roles` (from the boot, `readFrappeBoot`) | permission-aware UI. **Without roles nothing is granted** (rule 9): actions, menu entries and create buttons stay hidden. The server stays the authority either way |
+| `translated_doctypes` in the boot (`frappe.translate.get_translated_doctypes()`, read by `readFrappeBoot`), or `translatedDoctypes` on `FrappeProvider` | Links to those DocTypes (Country, …) show their value translated, from the provider's `translations`, as Desk's link control does |
 
 No secrets live in browser code: there is no API key or token in the package or its examples. Another auth scheme (token,
 cross-origin) plugs in as a custom `transport` (`createFrappeClient({ transport })`); none is provided.
