@@ -6,6 +6,73 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0 — 2026-11-14
+
+Stable release of the 0.8.0 line (owner-approved). **0.8.0 is byte-for-byte the 0.8.0-dev.10 source**: the only changes
+are the version (`package.json`, the root entries of `package-lock.json`) and this entry. The per-step detail is in the
+0.8.0-dev.1 … 0.8.0-dev.10 entries below; this entry summarises the line relative to the last published release,
+**0.7.0**. One **BREAKING** change (the legacy lifecycle stepper, below); everything else is additive or an intentional,
+recorded behaviour / visual change.
+
+**BREAKING — removed**
+- **`LifecycleBar`** and its type **`LifecycleBarProps`** (`@solvfast/ui`) — the old vertical stepper, deprecated since
+  0.8.0-dev.5.
+- **`FrappeWorkflowActions variant="steps"`** (`@solvfast/ui/frappe`) and its stepper-only props **`currentMarker`** and
+  **`showCurrentEntry`**. `FrappeWorkflowActionsProps["variant"]` is now `"compact" | "actions" | "rail"` (a JavaScript
+  caller still passing `"steps"` gets the compact badge + menu).
+- The stepper's six message keys (en + ar): `recCurrentState`, `lcSteps`, `lcStepDone`, `lcStepNotReached`,
+  `coreStepSkipped`, `coreStepFailed`.
+
+**Retained lifecycle API** (unchanged by the removal)
+- Core contract (framework-free): `LifecycleDefinition` + `lifecycleTone`, `lifecycleRoots`, `lifecyclePath`,
+  `lifecycleTransitionsFrom`, `lifecycleNext`, `lifecycleGraph`.
+- Components: `LifecycleRail`; `LifecycleActions` (the header Actions menu, built on `ActionBar`);
+  `LifecycleDiagramDialog`, `LifecycleStateCard`, `LifecycleEdgeLabel`, `LifecycleDiagramLegend`,
+  `LIFECYCLE_DIAGRAM_COLORS`, `LifecycleStepDot`; `ActionBar`, `StatusBadge`, type `LifecycleStep`, `lifecycleStates` /
+  `LifecycleStateItem`, `stateEntries`.
+- `@solvfast/ui/lifecycle-diagram`: `LifecycleFlowDialog` (with `LifecycleFlow`, `lifecycleFlowLayout`, `roundedPath`).
+- `FrappeWorkflowActions`: `variant="compact"` (the default; FrappeForm's toolbar — same DOM and classes as before,
+  proven against the 0.8.0-dev.9 capture), `variant="actions"`, `variant="rail"`. Frappe workflow semantics are unchanged.
+
+**Migration**
+- The stepper (`<LifecycleBar variant="steps">`) → **`LifecycleRail`** (`path`, `next`, `ended`, `onViewAll`); for the
+  full diagram, **`lifecycleGraph`** with **`LifecycleFlowDialog`** (`@solvfast/ui/lifecycle-diagram`).
+- The stepper's actions → **`LifecycleActions`** or, on Frappe data, **`FrappeWorkflowActions variant="actions"`**.
+- `<LifecycleBar variant="compact">` (badge + menu) → `StatusBadge` + `ActionBar` side by side, or on Frappe data
+  `FrappeWorkflowActions` with the default `variant="compact"`.
+- A Frappe Lifecycle card → **`FrappeWorkflowActions variant="rail"`** (read-only by default; `applyFromRail` to run
+  transitions from it).
+- Callers of **`FrappeWorkflowActions variant="steps"`** → **`variant="rail"`**. `currentMarker` / `showCurrentEntry`
+  have no replacement (the rail marks the current state itself; `railLabels.current`).
+
+**Added since 0.7.0** (additive; see the dev entries)
+- The Sayr families line (`@solvfast/ui/sayr`; entries labelled 0.7.0-dev.8 … 0.7.0-dev.22, built after 0.7.0 and never
+  published) and `RecordRail` with its rail modules (0.8.0-dev.1); `FrappeWorkflowActions variant="rail"`,
+  `FrappeFormView` / `FrappeForm` `aside`.
+- The record page: `RecordPage` (`surface` "glass" | "plain"), `RecordHeaderCard variant="page"` (`"crm"` kept as a
+  deprecated alias), `RecordTabs` (`overflow`, `hidden` tabs), `RecordSectionCard`, `RecordEditSession` and the About
+  cards (0.8.0-dev.2 … dev.5).
+- The Lifecycle contract, `LifecycleActions`, `FrappeWorkflowActions variant="actions"`, `workflowLifecycle`
+  (0.8.0-dev.5); the new entry **`@solvfast/ui/lifecycle-diagram`** with **new optional peer dependencies `reactflow`
+  ^11.11.4 and `@dagrejs/dagre` ^3.1.3** (only that entry imports them) and its stylesheet
+  `@solvfast/ui/lifecycle-diagram.css` (0.8.0-dev.6).
+- Run 1 P1 / P2 closures (0.8.0-dev.6): data-loss fixes (Text Editor "desk" sanitizer profile, Datetime, comment edit,
+  save freeze), accessibility and navigation work, one translation path for the list layer, `ListView` totals /
+  `onResultChange` / sort-menu options, form shortcuts, and more.
+- Phase 4 CRM parity additions (0.8.0-dev.9): `BulkEditDialog`, `BulkTagsDialog`, `BulkAction.preflight`,
+  `printListDocument` / `printList`, the XLSX writer and reader, `RecordMenu bindShortcuts`, `RecordRailAssignment team`
+  changes, `fuzzyMatch` / `fuzzySearch` / `fillTemplate` / `createRouteHistory` in Core.
+
+**Behaviour and visual changes to note when upgrading from 0.7.0** (each recorded in its dev entry)
+- D-64 (0.8.0-dev.6 … dev.8): Desk indicator colours resolve to theme tokens; tinted pills' text (`StatusBadge` tone
+  pills, `Badge` success / warning / info, `statusColorStyles(...).pill`) is mixed 45 % with the foreground for contrast;
+  `statusColorStyles(...).text` stays at 55 %.
+- B-03: the list's Status (indicator) column is shown by default (the `status` field's own column is then hidden).
+- C-25: `DateTimeField` no longer rounds the minute down to the interval.
+- `FrappeWorkflowActions variant="rail"` is read-only by default (0.8.0-dev.5; `applyFromRail` restores the clickable rail).
+- Dialog / sheet focus returns to the opener; navigation items are links (`<a href>`); `PageHeader` renders a node title
+  inside an `AppShell` as `<h2>`; the `RecordHeaderCard` page header's `data-record-header` reads `"page"`.
+
 ## 0.8.0-dev.10 — removal of the legacy lifecycle component — **BREAKING (0.8.0 pre-release line)**
 
 Owner-approved cleanup. The CRM uses only the new lifecycle implementation (`LifecycleRail`, `LifecycleActions`,
