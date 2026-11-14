@@ -170,48 +170,53 @@ describe("FrappeWorkflowActions (0.8.0-dev.5, E2): read-only rail by default + t
   });
 });
 
-describe("FrappeWorkflowActions variant=\"steps\" (deprecated 0.8.0-dev.5)", () => {
-  it("still renders the stepper with the Actions menu (unchanged), and warns once", async () => {
+// 0.8.0-dev.10: the deprecated variant="steps" (LifecycleBar's stepper) and its props (currentMarker, showCurrentEntry) are
+// removed. The rail is the Lifecycle card; the compact badge + menu is unchanged (tests/workflow-actions-compact-dom.test.tsx).
+describe("FrappeWorkflowActions variant=\"steps\" removed (0.8.0-dev.10)", () => {
+  it("is not a variant any more (types); a JS caller still passing it gets the compact badge + Actions menu, no stepper, no warning", async () => {
     stub(); const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // @ts-expect-error — "steps" was removed from FrappeWorkflowActionsProps["variant"]
     const { container } = mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
-    await waitFor(() => expect(container.querySelector('ol[data-lifecycle-steps]') /* Run 1 D-62: the list is named "Lifecycle" (translated); selected by its data attribute */).not.toBeNull());
     expect(await screen.findByRole("button", { name: "Actions" })).toBeTruthy();
-    cleanup(); mount(<FrappeWorkflowActions doc={doc} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Actions" })).toBeTruthy());
-    expect(warn.mock.calls.filter((c) => String(c[0]).includes('variant="steps" is deprecated')).length).toBe(1);
+    expect(container.querySelector("ol")).toBeNull();
+    expect(container.querySelector("[data-lifecycle-steps]")).toBeNull();
+    expect((container.firstElementChild as HTMLElement).className).toBe("flex flex-col gap-3");
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes("FrappeWorkflowActions"))).toEqual([]);
     warn.mockRestore();
+  });
+  it("the stepper-only props are gone from the type", () => {
+    // @ts-expect-error — currentMarker was a stepper-only prop
+    const a: import("../src/frappe/record").FrappeWorkflowActionsProps = { doc, user: "x", currentMarker: "Current phase" };
+    // @ts-expect-error — showCurrentEntry was a stepper-only prop
+    const b: import("../src/frappe/record").FrappeWorkflowActionsProps = { doc, user: "x", showCurrentEntry: true };
+    expect([a, b].length).toBe(2);
   });
 });
 
-// Run 1 · D-62 (P1): the deprecated stepper ticks only the states the record entered (branching workflows).
-describe("Run 1 D-62 — FrappeWorkflowActions variant=\"steps\" marks only entered states", () => {
+// Run 1 · D-62 (P1), ported from the removed stepper to the rail: only the states the record entered are on its path
+// (branching workflows: a Rejected record never shows Approved as reached).
+describe("Run 1 D-62 — FrappeWorkflowActions variant=\"rail\" shows only entered states", () => {
   const branchDocs = [
     { ...wfDocs[0], states: [{ state: "Draft", doc_status: "0", allow_edit: "Sales User" }, { state: "Approved", doc_status: "1", allow_edit: "Sales Manager" }, { state: "Rejected", doc_status: "0", allow_edit: "Sales Manager" }],
       transitions: [{ state: "Draft", action: "Approve", next_state: "Approved", allowed: "Sales Manager", allow_self_approval: 1 }, { state: "Draft", action: "Reject", next_state: "Rejected", allowed: "Sales Manager", allow_self_approval: 1 }] },
     ...wfDocs.slice(1), { doctype: "Workflow State", name: "Rejected", style: "Danger" },
   ];
   const logs = { ...info, workflow_logs: [{ owner: "bob@x", creation: "2026-11-02 10:00:00", content: "Draft" }, { owner: "bob@x", creation: "2026-11-03 10:00:00", content: "Rejected" }] };
-  it("a Rejected record: Draft is past, Approved (never entered) is skipped — not ticked — and Rejected is current", async () => {
+  it("a Rejected record: the path is Draft (past) → Rejected (current); Approved (never entered) is not on it", async () => {
     stub({ getMetaBundle: vi.fn(async () => withWf(branchDocs)) as never, getWorkflowTransitions: vi.fn(async () => []) as never, getDocInfo: vi.fn(async () => logs) as never });
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Rejected" }} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
-    await waitFor(() => expect(container.querySelectorAll("ol[data-lifecycle-steps] li").length).toBe(3));
-    await waitFor(() => expect([...container.querySelectorAll("ol[data-lifecycle-steps] li")].map((l) => l.getAttribute("data-step"))).toEqual(["past", "skipped", "current"]));
-    expect(container.querySelector("ol[data-lifecycle-steps] li[data-step=skipped]")?.textContent).toContain("Skipped");
+    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Rejected" }} user="boss@x" roles={["Sales Manager"]} variant="rail" />);
+    await waitFor(() => expect(container.querySelectorAll("li[data-step]").length).toBe(2));
+    const rows = [...container.querySelectorAll("li[data-step]")];
+    expect(rows.map((l) => l.getAttribute("data-step"))).toEqual(["past", "current"]);
+    expect(rows[0].textContent).toContain("Draft");
+    expect(rows[1].textContent).toContain("Rejected");
+    expect(container.querySelector("[data-lifecycle-rail]")!.textContent).not.toContain("Approved");
   });
-  it("NEGATIVE: without any history (no logs / versions) the order decides, as before", async () => {
+  it("NEGATIVE: without any history (no logs / versions) the path is the current state alone", async () => {
     stub({ getMetaBundle: vi.fn(async () => withWf(branchDocs)) as never, getWorkflowTransitions: vi.fn(async () => []) as never, getDocInfo: vi.fn(async () => ({ ...info, versions: [], workflow_logs: [] })) as never });
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Rejected" }} user="boss@x" roles={["Sales Manager"]} variant="steps" />);
-    await waitFor(() => expect(container.querySelectorAll("ol[data-lifecycle-steps] li").length).toBe(3));
-    expect([...container.querySelectorAll("ol[data-lifecycle-steps] li")].map((l) => l.getAttribute("data-step"))).toEqual(["past", "past", "current"]);
-  });
-  it("the stepper list is named in the UI language and every step carries its state for screen readers (ar)", async () => {
-    const { LifecycleBar } = await import("../src/record/LifecycleBar");
-    const { container } = render(<ThemeProvider defaultLanguage="ar" storageKeys={null}><LifecycleBar states={[{ id: "a", label: "A" }, { id: "b", label: "B" }, { id: "c", label: "C" }]} current="b" /></ThemeProvider>);
-    expect(container.querySelector("ol")?.getAttribute("aria-label")).toBe("دورة الحياة");
-    const texts = [...container.querySelectorAll("li")].map((l) => l.querySelector(".sr-only")?.textContent ?? "");
-    expect(texts[0]).toContain("مكتملة");
-    expect(texts[2]).toContain("لم تُبلغ بعد");
+    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Rejected" }} user="boss@x" roles={["Sales Manager"]} variant="rail" />);
+    await waitFor(() => expect(container.querySelectorAll("li[data-step]").length).toBe(1));
+    expect(container.querySelector("li[data-step]")!.getAttribute("data-step")).toBe("current");
+    expect(container.querySelector("li[data-step]")!.textContent).toContain("Rejected");
   });
 });

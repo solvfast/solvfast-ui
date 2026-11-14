@@ -8,7 +8,7 @@ import * as React from "react";
 import { ArrowRight, Plus, RadioTower } from "lucide-react";
 import {
   ActionBar, Alert, AlertDescription, AlertTitle, AssigneeGroup, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, CommentComposer,
-  LifecycleBar, Skeleton, StatusBadge, ThemeProvider, useLocale, useTheme, type Assignee, type ColumnDef, type LifecycleActionItem, type MentionOption, type UserOption,
+  LifecycleActions, LifecycleRail, Skeleton, StatusBadge, ThemeProvider, useLocale, useTheme, type Assignee, type ColumnDef, type LifecycleActionItem, type MentionOption, type UserOption,
 } from "@ui";
 import {
   DATA_IMPORT_METHODS, DOWNLOAD_TEMPLATE_METHOD, FrappeAssignTo, FrappeExportDialog, FrappeForm, FrappeListView, FrappeStatusIndicator, FrappeTimeline,
@@ -41,7 +41,7 @@ const GALLERY: { name: string; row: string; purpose: L; status: MatrixStatus; se
   { name: "FrappeTimeline · CommentComposer", row: "34, 39", purpose: l("The record's activity: comments with mentions, versions, assignments, lifecycle state changes.", "نشاط السجل: التعليقات مع الإشارات والإصدارات والإسنادات وتغييرات حالة دورة الحياة."), status: "simulated", section: "frappe-record" },
   { name: "FrappeStatusIndicator", row: "35", purpose: l("The status chip with frappe.get_indicator's precedence.", "شارة الحالة بترتيب أسبقية frappe.get_indicator."), status: "simulated", section: "frappe-record" },
   { name: "FrappeWorkflowActions · useWorkflow", row: "32", purpose: l("Lifecycle state and the transitions the user may apply.", "حالة دورة الحياة والانتقالات التي يمكن للمستخدم تطبيقها."), status: "simulated", section: "frappe-workflow" },
-  { name: "LifecycleBar · ActionBar · StatusBadge", row: "41", purpose: l("Generic stepper, actions menu and status chip (no Frappe).", "متتبّع خطوات وقائمة إجراءات وشارة حالة عامة (بلا فرابيه)."), status: "generic", section: "frappe-workflow" },
+  { name: "LifecycleRail · LifecycleActions · ActionBar · StatusBadge", row: "41", purpose: l("Generic lifecycle card, actions menu and status chip (no Frappe).", "بطاقة دورة حياة وقائمة إجراءات وشارة حالة عامة (بلا فرابيه)."), status: "generic", section: "frappe-workflow" },
   { name: "FrappeAssignTo", row: "33", purpose: l("ToDo-based assignment: add / remove through assign_to.", "الإسناد عبر ToDo: إضافة وإزالة من خلال assign_to."), status: "partial", section: "frappe-assign" },
   { name: "AssigneeGroup · AssignPicker", row: "40", purpose: l("Generic assignees with a searchable picker (no Frappe).", "مُسنَد إليهم عامّون مع منتقٍ قابل للبحث (بلا فرابيه)."), status: "generic", section: "frappe-assign" },
   { name: "usePermissions · canImport · canExport", row: "7", purpose: l("Desk's frm.perm ladder in the client; field display status per permlevel (dev.32).", "سلّم frm.perm في العميل؛ حالة عرض الحقل لكل permlevel ‏(dev.32)."), status: "simulated", section: "frappe-permissions" },
@@ -348,7 +348,9 @@ function GenericLifecycleDemo() {
   const [idx, setIdx] = React.useState(1);
   const [history, setHistory] = React.useState<Record<string, { by: string; at: number }>>({ new: { by: "Sara Q", at: Date.now() - 3 * 864e5 }, qualified: { by: "Khaled Q", at: Date.now() - 36e5 } });
   const [log, setLog] = React.useState("");
-  const states = DEAL_STATES.map((s) => ({ id: s.id, label: tr(s.label), tone: s.tone, by: history[s.id]?.by, at: history[s.id]?.at }));
+  const day = new Intl.DateTimeFormat(tr(l("en", "ar")), { month: "short", day: "numeric" });
+  // the path: the states entered up to the current one, with who · when
+  const path = DEAL_STATES.slice(0, idx + 1).map((s) => ({ id: s.id, label: tr(s.label), meta: history[s.id] ? `${history[s.id].by} · ${day.format(history[s.id].at)}` : undefined }));
   const next = DEAL_STATES[idx + 1];
   const actions: LifecycleActionItem[] = [
     ...(next ? [{ id: next.id, label: tr(l(`Move to ${next.label.en}`, `نقل إلى ${next.label.ar}`)), confirm: next.id === "won" ? tr(l("Close this deal as won?", "إغلاق هذه الصفقة كرابحة؟")) : undefined }] : []),
@@ -365,7 +367,10 @@ function GenericLifecycleDemo() {
   };
   return (
     <div className="space-y-6">
-      <LifecycleBar states={states} current={DEAL_STATES[idx].id} actions={actions} onAction={run} variant="steps" currentMarker={tr(l("Current phase", "المرحلة الحالية"))} />
+      <div className="flex flex-wrap items-start gap-6">
+        <div className="w-72"><LifecycleRail path={path} next={next ? [{ id: next.id, label: tr(next.label) }] : []} ended={!next} /></div>
+        <LifecycleActions actions={actions} onAction={(id) => run(actions.find((a) => a.id === id)!)} />
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-xs text-muted-foreground">{tr(l("ActionBar alone, variant=\"buttons\":", "ActionBar وحده، variant=\"buttons\":"))}</span>
         <ActionBar actions={actions} onAction={run} variant="buttons" />
@@ -400,7 +405,7 @@ function WorkflowBulkDemo() {
 export function FrappeWorkflowPage() {
   const site = useSimSite({}, []);
   // Seed: comments + an edit, then Reject (Pending → Draft) and Request Approval (Draft → Pending) through the simulator's
-  // apply_workflow, so both past states carry a Workflow log (actor and time under the stepper).
+  // apply_workflow, so both past states carry a Workflow log (who · when on the Lifecycle rail).
   const [ready, setReady] = React.useState(false);
   React.useEffect(() => {
     let live = true;
@@ -417,7 +422,7 @@ export function FrappeWorkflowPage() {
   const [log, setLog] = React.useState("");
   return (
     <div className="space-y-12">
-      <StatusStrip parts={[["FrappeWorkflowActions · useWorkflow · workflow.ts helpers (32)", "simulated"], ["apply_workflow (write)", "simulated"], ["LifecycleBar · ActionBar · StatusBadge (41)", "generic"]]}
+      <StatusStrip parts={[["FrappeWorkflowActions · useWorkflow · workflow.ts helpers (32)", "simulated"], ["apply_workflow (write)", "simulated"], ["LifecycleRail · LifecycleActions · ActionBar · StatusBadge (41)", "generic"]]}
         note={l("Sada has no Frappe Workflow, so nothing here touched a real response; the Approval Flow (Draft → Pending → Approved) is an authored demo lifecycle (a Workflow record) served by the simulator's getdoctype (__workflow_docs) and applied by its apply_workflow. The server's `condition` is never evaluated client-side.", "لا يوجد Workflow فرابيه في سدى، لذا لم يمسّ شيء هنا استجابة حقيقية؛ Approval Flow ‏(مسودة → معلّقة → معتمدة) دورة حياة تجريبية (سجل Workflow) يقدّمها getdoctype في المحاكي (__workflow_docs) ويطبّقها apply_workflow فيه. شرط الخادم `condition` لا يُقيَّم في العميل أبداً.")} />
       <Section title={l("Approval Memo AM-1 on the Approval Flow", "مذكرة الاعتماد AM-1 على Approval Flow")} description={l("AM-1 is Pending: Approve moves it to Approved (docstatus 1), Reject sends it back to Draft. The Lifecycle card shows the states it entered with who moved it and when, and where it can go next.", "AM-1 معلّقة: «اعتماد» ينقلها إلى «معتمدة» (docstatus 1)، و«رفض» يعيدها إلى «مسودة». تعرض بطاقة دورة الحياة الحالات التي دخلتها مع من نقلها ومتى، وإلى أين يمكن أن تنتقل.")}>
         <Example code={`<FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} variant="actions" confirm
@@ -432,10 +437,11 @@ export function FrappeWorkflowPage() {
           <WorkflowBulkDemo />
         </Example>
       </Section>
-      <Section title={l("Generic LifecycleBar and ActionBar", "LifecycleBar و ActionBar العامّان")} description={l("Frappe-free: states, actions and callbacks are props. \"Mark lost\" rejects on purpose to show the inline error and retry.", "بلا فرابيه: الحالات والإجراءات والاستدعاءات كلها خصائص. «تعليم كخاسرة» يرفض عمداً ليُظهر الخطأ المضمّن وإعادة المحاولة.")}>
-        <Example code={`<LifecycleBar states={[{ id: "new", label: "New", by: "Sara", at }, …]} current="qualified" variant="steps"
-  actions={[{ id: "proposal", label: "Move to Proposal sent" }, { id: "won", label: "Move to Won", confirm: "Close this deal as won?" }]}
-  onAction={async (a) => api.apply(a.id)} />`}>
+      <Section title={l("Generic LifecycleRail, LifecycleActions and ActionBar", "LifecycleRail و LifecycleActions و ActionBar العامّة")} description={l("Frappe-free: the path, the ways forward, the actions and callbacks are props. \"Mark lost\" rejects on purpose to show the inline error and retry.", "بلا فرابيه: المسار والطرق التالية والإجراءات والاستدعاءات كلها خصائص. «تعليم كخاسرة» يرفض عمداً ليُظهر الخطأ المضمّن وإعادة المحاولة.")}>
+        <Example code={`<LifecycleRail path={[{ id: "new", label: "New", meta: "Sara · Nov 11" }, { id: "qualified", label: "Qualified" }]}
+  next={[{ id: "proposal", label: "Proposal sent" }]} />
+<LifecycleActions actions={[{ id: "proposal", label: "Move to Proposal sent" }, { id: "won", label: "Move to Won", confirm: "Close this deal as won?" }]}
+  onAction={async (id) => api.apply(id)} />`}>
           <GenericLifecycleDemo />
         </Example>
       </Section>

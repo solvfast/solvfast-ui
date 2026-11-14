@@ -137,7 +137,8 @@ export function standardActionsUnderWorkflow(wf: RecordWorkflow | null, actionsA
 /** Workflow State.style → tone (indicator.js). No style → gray; Inverse (black) → neutral. */
 export function toneForStyle(style: string | undefined): Tone { return styleTone(style); }
 
-/** The ordered states for `LifecycleBar` (workflow row order, duplicates removed). */
+/** The workflow's states in row order (duplicates removed), each with its Workflow State style as the tone — the label and
+ *  tone of FrappeWorkflowActions' state badge (`compact`) and the rail's state names. */
 export function lifecycleStates(wf: RecordWorkflow, translate: (s: string) => string = (s) => s): LifecycleStateItem[] {
   const seen = new Set<string>();
   const out: LifecycleStateItem[] = [];

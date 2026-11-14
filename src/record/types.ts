@@ -49,9 +49,11 @@ export type LifecycleStep = "past" | "current" | "future" | "skipped" | "failed"
 
 export interface LifecycleStateItem {
   id: string; label: string; tone?: Tone;
-  /** Who moved the record INTO this state, and when (epoch ms). Shown under past states (and the current one with `showCurrentEntry`). */
+  /** Who moved the record INTO this state, and when (epoch ms) — data for the host's own lifecycle UI; no package
+   *  component renders it (the Lifecycle rail takes `LifecycleRailStep.meta`). */
   by?: string; at?: number;
-  /** P35 (G7): explicit step state; overrides the position-based one (before `current` = past, after = future). */
+  /** P35 (G7): explicit step state (`LifecycleStepDot`'s `step`) — data for the host's own lifecycle UI; no package
+   *  component reads it. */
   step?: LifecycleStep;
 }
 export interface LifecycleActionItem {

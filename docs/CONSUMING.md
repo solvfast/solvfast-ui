@@ -385,7 +385,7 @@ System-Manager list menu entries and the permission-gated Link "Create a new X".
 **Core (`@solvfast/ui`)** — record and list building blocks without a backend: `RecordMenu`, `RenameDialog`,
 `ReminderDialog`, `ConnectionsPanel`, `EmailComposer`, `PrintPreviewFrame`; `GroupBySidebar` (`ListView aside`); views
 `ViewSwitcher`, `ImageView`, `KanbanBoard`, `CalendarMonth`; fields `FileDropzone`, `MonthInput`; `EmptyState`; and new
-props: `StatusBadge color`, `LifecycleStateItem.step`, `SearchCombobox options / multiple`, `Timeline onItemSelect`,
+props: `StatusBadge color`, `SearchCombobox options / multiple`, `Timeline onItemSelect`,
 `IconStatCard trend`, `Stepper overflowCue`, `ListView pageSizes / selectAllMatching / layout="cards"`.
 
 ```tsx

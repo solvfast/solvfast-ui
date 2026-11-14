@@ -1,9 +1,11 @@
-/** Generic record pieces (src/record): Timeline, CommentComposer, AssigneeGroup/AssignPicker, LifecycleBar/ActionBar/StatusBadge. Frappe-free. */
+/** Generic record pieces (src/record): Timeline, CommentComposer, AssigneeGroup/AssignPicker, ActionBar/StatusBadge. Frappe-free.
+ *  (LifecycleBar was removed in 0.8.0-dev.10: its stepper → LifecycleRail, tests/lifecycle.test.tsx; its compact badge + menu
+ *  → FrappeWorkflowActions compact, tests/workflow-actions-compact-dom.test.tsx.) */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
-  ActionBar, AssigneeGroup, CommentComposer, LifecycleBar, StatusBadge, Timeline, draftToHtml, htmlToDraft, sanitizeCommentHtml, sortItems,
+  ActionBar, AssigneeGroup, CommentComposer, StatusBadge, Timeline, draftToHtml, htmlToDraft, sanitizeCommentHtml, sortItems,
   type TimelineItem,
 } from "../src/record";
 import { ThemeProvider } from "../src";
@@ -188,24 +190,10 @@ describe("AssigneeGroup", () => {
   });
 });
 
-describe("LifecycleBar / ActionBar / StatusBadge", () => {
-  const states = [{ id: "d", label: "Draft" }, { id: "p", label: "Pending", tone: "warning" as const }, { id: "a", label: "Approved", tone: "success" as const }];
-  it("marks past / current / future steps and the current badge", () => {
-    const { container } = wrap(<LifecycleBar states={states} current="p" />);
-    expect(Array.from(container.querySelectorAll("[data-step]")).map((e) => e.getAttribute("data-step"))).toEqual(["past", "current", "future"]);
+describe("ActionBar / StatusBadge", () => {
+  it("StatusBadge: the tone is carried as data-tone next to the label", () => {
+    const { container } = wrap(<StatusBadge label="Pending" tone="warning" />);
     expect(container.querySelector("[data-tone='warning']")?.textContent).toBe("Pending");
-  });
-  it("shows who and when under past states only (current only on request)", () => {
-    const st = [{ id: "d", label: "Draft", by: "Ann", at: NOW - 3_600_000 }, { id: "p", label: "Pending", by: "Bob", at: NOW - 60_000 }, { id: "a", label: "Approved" }];
-    const { container, rerender } = wrap(<LifecycleBar states={st} current="p" now={NOW} />);
-    expect(Array.from(container.querySelectorAll("[data-entry]")).map((e) => e.textContent)).toEqual(["Ann · 1h ago"]);
-    rerender(<ThemeProvider><LifecycleBar states={st} current="p" now={NOW} showCurrentEntry /></ThemeProvider>);
-    expect(container.querySelectorAll("[data-entry]")).toHaveLength(2);
-  });
-  it("falls back to currentLabel for an unknown state, compact variant has no steps", () => {
-    const { container } = wrap(<LifecycleBar states={states} current="zzz" currentLabel="Legacy" variant="compact" />);
-    expect(screen.getByText("Legacy")).toBeTruthy();
-    expect(container.querySelector("ol")).toBeNull();
   });
   it("asks for confirmation, then runs; failure is shown and retryable", async () => {
     const run = vi.fn().mockRejectedValueOnce(new Error("Self approval is not allowed")).mockResolvedValue(undefined);

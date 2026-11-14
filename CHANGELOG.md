@@ -6,6 +6,47 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0-dev.10 — removal of the legacy lifecycle component — **BREAKING (0.8.0 pre-release line)**
+
+Owner-approved cleanup. The CRM uses only the new lifecycle implementation (`LifecycleRail`, `LifecycleActions`,
+`lifecycleGraph` / `lifecycleNext` / `lifecyclePath` / `lifecycleTone`, `LifecycleFlowDialog`, the docstatus helpers); the
+old vertical stepper, deprecated since 0.8.0-dev.5, is removed. No runtime dependency change.
+
+**Removed (BREAKING)**
+- **`LifecycleBar`** and its type **`LifecycleBarProps`** (`@solvfast/ui`; `src/record/LifecycleBar.tsx`).
+- **`FrappeWorkflowActions variant="steps"`** (`@solvfast/ui/frappe`) and its stepper-only props **`currentMarker`** and
+  **`showCurrentEntry`**. `FrappeWorkflowActionsProps["variant"]` is now `"compact" | "actions" | "rail"`; the console
+  deprecation warning is gone with it. (A JavaScript caller still passing `"steps"` gets the compact badge + menu.)
+- The stepper's chrome strings, now unused (en + ar): `recCurrentState`, `lcSteps`, `lcStepDone`, `lcStepNotReached`,
+  `coreStepSkipped`, `coreStepFailed`.
+
+**Migration**
+- The stepper (`<LifecycleBar variant="steps">`, `FrappeWorkflowActions variant="steps"`) → **`LifecycleRail`** (generic:
+  `path` = the states entered with `meta` "who · when", `next`, `ended`, `onViewAll`) or, on Frappe data,
+  **`FrappeWorkflowActions variant="rail"`** (path from the workflow log, read-only by default; `applyFromRail` to run
+  transitions from it).
+- The menu inside the stepper → **`LifecycleActions`** (generic header Actions menu) or **`FrappeWorkflowActions
+  variant="actions"`**.
+- `<LifecycleBar variant="compact">` (badge + menu) → `StatusBadge` + `ActionBar` side by side (both unchanged), or on
+  Frappe data **`FrappeWorkflowActions`** with the default `variant="compact"`.
+- `currentMarker` / `showCurrentEntry`: no replacement (the rail marks the current state itself; `railLabels.current`).
+
+**Unchanged**
+- `FrappeWorkflowActions variant="compact"` (the default; FrappeForm's toolbar) renders the same DOM and classes as before
+  (`StatusBadge` + `ActionBar`, now rendered by FrappeWorkflowActions itself): proven against HTML captured on 0.8.0-dev.9
+  (`tests/fixtures/workflow-actions-compact.before.json`, 17 scenarios). `actions` and `rail` are unchanged. Frappe
+  workflow semantics (apply_workflow, transitions, roles / permissions, docstatus, confirm, beforeApply / afterApply,
+  mandatory checks) are unchanged.
+- Kept: `ActionBar`, `StatusBadge`, `LifecycleStepDot`, type `LifecycleStep`, `lifecycleStates` / `LifecycleStateItem`
+  (the compact badge's label and tone; `by` / `at` / `step` stay on the type as host data — no package component renders
+  them), `stateEntries` (the rail's who · when).
+
+Tests: `tests/workflow-actions-compact-dom.test.tsx` (compact DOM = the dev.9 capture; compact / actions / rail apply
+through the simulated fixture transport), `tests/lifecycle-legacy-removed.test.ts` (not exported from `.` / `./frappe`,
+the retained API is, dist scan). Stepper-only tests removed; their retained assertions ported to the rail and the dot atom.
+Docs: `record.md` §1, §2.1, §2.5, §3.1, §3.6, §8.3, §9.5; `p35-core.md` G7; `CONSUMING.md`. Showcase: the stepper demos
+are now `LifecycleRail` / `LifecycleActions`.
+
 ## 0.8.0-dev.9 — Phase 4: CRM parity proposals (Core, additive)
 
 Owner-approved Phase 4 of the CRM parity plan (gap ids from the CRM parity gap audit §3). Everything is **additive**: no

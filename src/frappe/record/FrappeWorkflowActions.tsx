@@ -1,8 +1,9 @@
 import * as React from "react";
-import { LifecycleBar, type LifecycleBarProps } from "../../record/LifecycleBar";
+import { cn } from "../../lib/cn";
+import { ActionBar, type ActionBarLabels } from "../../record/ActionBar";
+import { StatusBadge } from "../../record/StatusBadge";
 import { LifecycleRail, type LifecycleRailLabels, type LifecycleRailNext, type LifecycleRailStep } from "../../record/LifecycleRail";
-import type { LifecycleActionItem, LifecycleStep } from "../../record/types";
-import type { ActionBarLabels } from "../../record/ActionBar";
+import type { LifecycleActionItem } from "../../record/types";
 import { errorText, fmt } from "../../record/format";
 import { Skeleton } from "../../primitives/skeleton";
 import {
@@ -26,13 +27,15 @@ import { checkMandatory, type MandatoryLine } from "../form/model/mandatory";
 import { missingLineText } from "../form/missingLines";
 import type { FormController } from "../form/events";
 
-export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "currentMarker" | "actionLabels" | "className" | "showCurrentEntry"> {
-  /** `compact` = state badge + Actions menu (Desk's form toolbar); `actions` = the Actions menu alone (LifecycleActions:
-   *  a record page header's menu; blocked with a reason while the document is unsaved or `blockedReason` is set);
-   *  `rail` = the record's Lifecycle card (LifecycleRail: the states it went through with who · when, where it can go
-   *  next, End of lifecycle) — read-only unless `applyFromRail`; `steps` = **deprecated** (0.8.0-dev.5): LifecycleBar's
-   *  stepper with the menu inside it — use `actions` in the header with `rail` (kept for existing code). */
-  variant?: LifecycleBarProps["variant"] | "rail" | "actions";
+export interface FrappeWorkflowActionsProps {
+  /** `compact` (default) = state badge + Actions menu (StatusBadge + ActionBar: Desk's form toolbar); `actions` = the
+   *  Actions menu alone (LifecycleActions: a record page header's menu; blocked with a reason while the document is
+   *  unsaved or `blockedReason` is set); `rail` = the record's Lifecycle card (LifecycleRail: the states it went through
+   *  with who · when, where it can go next, End of lifecycle) — read-only unless `applyFromRail`. */
+  variant?: "compact" | "actions" | "rail";
+  /** The Actions menu's strings (ActionBar / LifecycleActions; default from the ThemeProvider's language). */
+  actionLabels?: ActionBarLabels;
+  className?: string;
   /** `rail`: its ways forward are buttons that apply the transition (the 0.8.0-dev.1–dev.4 rail). Default false: a
    *  read-only rail showing every state the workflow leads to from here (whoever may perform it), the transitions
    *  being run from the Actions menu (`variant="actions"`). */
@@ -55,7 +58,7 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "cur
   confirm?: boolean | ((action: string) => boolean);
   /** Called with the document the server returned (after the cache was updated). */
   onApplied?: (doc: FrappeDoc, action: string) => void;
-  /** Page-held docinfo; otherwise fetched (steps variant only: it supplies actor and time per state). */
+  /** Page-held docinfo; otherwise fetched (`rail` only: it supplies the path and who · when per state). */
   docinfo?: DocInfo;
   /** Rendered instead of nothing when the DocType has no workflow. */
   fallback?: React.ReactNode;
@@ -86,18 +89,12 @@ export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "cur
  * user is unknown (only `allow_self_approval` transitions can then be offered). A refused `apply_workflow` (403
  * `PermissionError`, `WorkflowTransitionError`, self-approval) is shown by the action bar; nothing is applied locally.
  */
-let warnedSteps = false;
-
 export function FrappeWorkflowActions({ doc, user, roles, translate: translateProp, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, applyFromRail = false, blockedReason, blockedIcon, frm, checkMandatory: mandatoryCheck = true, ...rest }: FrappeWorkflowActionsProps) {
   const { t, language } = useLocale();
   const trProvider = useFrappeTranslate();
   const translate = translateProp ?? ((x: string) => trProvider(x, null));
-  if (variant === "steps" && !warnedSteps) {
-    warnedSteps = true;
-    console.warn('[@solvfast/ui/frappe] FrappeWorkflowActions variant="steps" is deprecated (0.8.0-dev.5): use variant="actions" in the header and variant="rail" for the Lifecycle card.');
-  }
   const w = useWorkflow({ doc, user, roles });
-  const withHistory = variant === "steps" || variant === "rail";
+  const withHistory = variant === "rail";
   const info = useRecordDocInfo(withHistory && !doc.__islocal ? doc.doctype : undefined, doc.name, docinfo);
   const formOf = (): FormController | null => (frm && "current" in frm ? frm.current : (frm as FormController | null | undefined) ?? null);
   const ownCheck = !beforeApply && !frm && mandatoryCheck && !doc.__islocal;
@@ -110,16 +107,6 @@ export function FrappeWorkflowActions({ doc, user, roles, translate: translatePr
   if (!w.workflow) return <>{fallback}</>;
   const base = lifecycleStates(w.workflow, translate);
   const entries = withHistory ? stateEntries({ doc, docinfo: info.data, stateField: w.workflow.workflow_state_field, states: base.map((b) => b.id), translate }) : undefined;
-  // Run 1 D-62: the (deprecated) stepper ticks only the states the record actually entered (workflow logs / versions);
-  // a state before the current one that it never entered is "skipped" (a branching workflow: Rejected does not tick
-  // Approved). Without any history the order decides, as before.
-  const curIdx = base.findIndex((b) => b.id === w.state);
-  const stepFor = (id: string, i: number): LifecycleStep | undefined => {
-    if (variant !== "steps" || !entries || entries.size === 0 || id === w.state) return undefined;
-    if (entries.has(id)) return "past";
-    return curIdx >= 0 && i < curIdx ? "skipped" : "future";
-  };
-  const states = entries ? base.map((b, i) => ({ ...b, by: entries.get(b.id)?.by, at: entries.get(b.id)?.at, step: stepFor(b.id, i) ?? b.step })) : base;
   const actions = lifecycleActions(w.transitions, translate, (tr) => (typeof confirm === "function" ? confirm(tr.action) : confirm));
   const runAction = async (actionId: string) => {
     const form = beforeApply ? null : formOf();
@@ -192,13 +179,19 @@ export function FrappeWorkflowActions({ doc, user, roles, translate: translatePr
     );
     return wrapStatus(railEl);
   }
+  // `compact` (default): the current state's badge (its Workflow State style as the tone; a state the workflow does not
+  // list shows its translated name, neutral) and the Actions menu for the user's transitions.
+  const cur = base.find((b) => b.id === w.state);
   const bar = (
-    <LifecycleBar
-      {...rest} variant={variant} states={states} current={w.state} currentLabel={w.state ? translate(w.state) : undefined}
-      actions={actions} busy={w.applying}
-      actionsDisabled={w.needsSave} actionsDisabledReason={w.needsSave ? t("recSaveBeforeAction") : undefined}
-      onAction={(a) => runAction(a.id)}
-    />
+    <div className={cn("flex flex-col gap-3", rest.className)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <StatusBadge label={cur?.label ?? (w.state ? translate(w.state) : undefined) ?? w.state ?? "—"} tone={cur?.tone ?? "neutral"} />
+        {actions.length > 0 ? (
+          <ActionBar actions={actions} onAction={(a) => runAction(a.id)} busy={w.applying} disabled={w.needsSave}
+            disabledReason={w.needsSave ? t("recSaveBeforeAction") : undefined} labels={rest.actionLabels} />
+        ) : null}
+      </div>
+    </div>
   );
   return wrapStatus(bar);
 

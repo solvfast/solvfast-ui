@@ -37,10 +37,10 @@ server-sent text (state and action names, "Workflow Status", "Not a valid Workfl
 
 ```tsx
 <FrappeWorkflowActions
-  doc={doc} user={session.user} roles={session.roles} variant="steps" translate={(s) => translateLabel(bundle, s)}
-  currentMarker="Current status"
+  doc={doc} user={session.user} roles={session.roles} variant="actions" translate={(s) => translateLabel(bundle, s)}
   actionLabels={{ actions: "Actions", none: "No actions from this status" }}
 />
+<FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} variant="rail" translate={(s) => translateLabel(bundle, s)} />
 <FrappeAssignTo doc={doc} user={session.user} single variant="list" heading="Assignee"
   labels={{ assignedTo: "Assignee", none: "No assignee", add: "Set assignee", confirm: "Assign" }} />
 ```
@@ -54,7 +54,9 @@ server-sent text (state and action names, "Workflow Status", "Not a valid Workfl
 `Tone` = `neutral | success | warning | danger | info | brand`. `TimelineItem` = `{ id, kind, at (epoch ms), actor?, actorId?, summary?,
 body?, bodyFormat?, changes?, canEdit?, canDelete?, href?, icon? }` with `kind` one of `comment, change, assignment, attachment, state,
 created, modified, info, like, communication, custom`. `Assignee` = `{ id, name, image?, description? }`. `UserOption` =
-`{ id, label, image?, description? }`. `MentionOption` = `{ id, label, isGroup? }`. `LifecycleStateItem` = `{ id, label, tone?, by?, at? }`.
+`{ id, label, image?, description? }`. `MentionOption` = `{ id, label, isGroup? }`. `LifecycleStateItem` = `{ id, label, tone?, by?, at?, step? }`
+(`lifecycleStates` returns it: label and tone feed `FrappeWorkflowActions`' state badge; `by` / `at` / `step` are data for a host's own
+lifecycle UI — no package component renders them).
 `LifecycleActionItem` = `{ id, label, tone?, confirm?, disabled? }` (`confirm`: `true` = default text, a string = the body text).
 
 ### 2.2 `Timeline`
@@ -124,30 +126,22 @@ server answers it with "Already in …"; the Table MultiSelect refuses repeats w
 note says so); re-picking the same group or clearing it changes nothing; a refused search or members read is shown under the field
 (`role="alert"`) and the list is kept. Strings: `sbAssignGroup`, `sbAssignGroupSearch`, `sbAssignGroupEmpty`, `sbAssignGroupMembers`.
 
-### 2.5 `LifecycleBar`, `ActionBar`, `StatusBadge`
+### 2.5 `ActionBar`, `StatusBadge`
 
 `StatusBadge { label, tone, variant: "pill" | "dot", title }`: the label is always shown; colour is never the only carrier.
 
-`LifecycleBar { states, current, currentLabel, actions, onAction, variant: "steps" | "compact", busy, actionsDisabled,
-actionsDisabledReason, actionLabels, currentMarker, showCurrentEntry, now }`:
-
-- `states` in lifecycle order; each may carry `by` and `at` (who moved the record into it, and when). The stepper marks past / current /
-  future (`aria-current="step"`, `data-step`), and shows "actor · relative time" under **past** states (current too with `showCurrentEntry`),
-  like the CRM's rail widget.
-- If `current` is not among `states`, `currentLabel` is shown in the badge.
-- `compact` shows only the badge and the actions.
+The record's lifecycle is shown by `LifecycleRail` (where it is, where it can go: §8–9.4) with the header's `LifecycleActions`
+(§9.4), both built on these two.
 
 `ActionBar { actions, onAction, variant: "menu" | "buttons", busy, disabled, disabledReason, labels }`: an action with `confirm` opens an
 alert dialog first. `onAction` may return a promise; a rejection is shown under the bar (`role="alert"`) and the action can be retried.
 `labels`: `actions, none, confirmTitle ("… {0} …"), confirmBody, confirm, cancel, working`.
 
 ```tsx
-<LifecycleBar
-  states={[{ id: "new", label: "New", by: "Ann", at: Date.now() - 3.6e6 }, { id: "won", label: "Won", tone: "success" }]}
-  current="new" variant="steps"
-  actions={[{ id: "win", label: "Mark won", confirm: "Close this deal as won?" }]}
-  onAction={async (a) => api.apply(a.id)}
-/>
+<div className="flex items-center justify-between gap-2">
+  <StatusBadge label="New" tone="info" />
+  <ActionBar actions={[{ id: "win", label: "Mark won", confirm: "Close this deal as won?" }]} onAction={async (a) => api.apply(a.id)} />
+</div>
 ```
 
 ---
@@ -170,10 +164,11 @@ and assignment writes invalidate docinfo and list). The wrappers never touch the
 
 ### 3.1 `FrappeWorkflowActions`, `useWorkflow`, `useWorkflowDefinition`
 
-`<FrappeWorkflowActions doc user roles? variant? translate? confirm? onApplied? fallback? docinfo? currentMarker? actionLabels? showCurrentEntry? className? />`
+`<FrappeWorkflowActions doc user roles? variant? translate? confirm? onApplied? fallback? docinfo? actionLabels? className? />`
 
-- Renders the current state (badge, tone from the Workflow State `style`) and the actions the user may apply now. `variant="steps"` adds the
-  stepper with actor/time (see 3.6); `"compact"` (default) is badge + Actions.
+- `"compact"` (default) renders the current state (`StatusBadge`, tone from the Workflow State `style`; a state the workflow does not list
+  shows its translated name, neutral) and the actions the user may apply now (`ActionBar`) — Desk's form toolbar (`FrappeForm`).
+  `"actions"` is the header Actions menu alone and `"rail"` the Lifecycle card (§9.5); `docinfo` feeds the rail's who · when (3.6).
 - Nothing for a new document (`__islocal`); `fallback` for a DocType without a workflow; a skeleton while loading.
 - **Unsaved edits** (`__unsaved`): transitions are not fetched and the actions are disabled with a reason, because `apply_workflow`
   reloads the document from the database and discards posted edits (Desk hides them). Save first.
@@ -207,7 +202,7 @@ Rules implemented (pure functions in `workflow.ts`, all exported):
 | `isReadOnlyState(wf, doc, roles?, user?)` | read-only when none of the user's roles equals the state's `allow_edit`; new docs never; roles unknown → read-only (rule 9); the Administrator never (same rule as `isWorkflowReadOnly`) |
 | `workflowLockedFields` | the state field and every `update_field` stay read-only |
 | `canCancelDocument`, `standardActionsUnderWorkflow` | Submit is never offered; Save only when dirty; Cancel only if no transition leads to a docstatus-2 state; the primary/secondary buttons give way to the workflow actions |
-| `toneForStyle`, `lifecycleStates`, `lifecycleActions` | mapping to `LifecycleBar` items |
+| `toneForStyle`, `lifecycleStates`, `lifecycleActions` | mapping to the state badge / rail labels (`LifecycleStateItem`) and the Actions menu items (`LifecycleActionItem`) |
 
 APIs: `getdoctype` (definition), `frappe.model.workflow.get_transitions`, `frappe.model.workflow.apply_workflow` (via `RecordApi`).
 Permissions: the user needs read on the document for transitions; the role per transition (`allowed`) is enforced by the server.
@@ -313,8 +308,8 @@ adapter (returns tone, label, list filter, source); built-in words go through th
 
 ### 3.6 `stateEntries` — actor and time per workflow state
 
-`stateEntries({ doc, docinfo, stateField, states, translate? }) → Map<state, { by, at }>` feeds `LifecycleBar` (`variant="steps"` in
-`FrappeWorkflowActions` calls it for you).
+`stateEntries({ doc, docinfo, stateField, states, translate? }) → Map<state, { by, at }>` feeds the Lifecycle rail's path and its
+who · when (`FrappeWorkflowActions variant="rail"` calls it for you).
 
 1. `docinfo.workflow_logs`: `apply_workflow` adds a Comment of type Workflow whose content is the state entered; owner = actor,
    creation = time. The latest per state wins. The server translates the content (`_()`), so both the state and `translate(state)` are matched.
@@ -703,11 +698,10 @@ transitions, roles, logs) and the graph engine for the diagram.
 | Future dot, dashed connectors | `muted-foreground/40` stroke on `background` (`/35` dashed) |
 | Back tag, options box | `border`, `muted`, `muted-foreground` |
 | Labels / meta | `foreground` / `muted-foreground` |
-| Skipped / failed (LifecycleBar) | dashed `muted-foreground/50` / `destructive` |
+| Skipped / failed (`LifecycleStepDot step`) | dashed `muted-foreground/50` / `destructive` |
 | Phase icon (diagram) | open `info`, on hold `warning`, closed `success` |
 
-`LifecycleBar` (§2.5) uses the same dot and connector atoms (`LifecycleStepDot`): past states are `success` (was `primary`),
-the current label is `primary`, future connectors are dashed. Its API and `data-step` markup are unchanged.
+`LifecycleStepDot` (exported) is the rail's dot atom; it also draws `skipped` / `failed` for a host's own lifecycle UI.
 
 ### 9.4 The Lifecycle contract and the Actions menu (Core, 0.8.0-dev.5)
 
@@ -746,8 +740,7 @@ badge tone comes from `lifecycleTone`.
   every state the **workflow** leads to from here (`workflowLifecycle` + `lifecycleNext`: whoever may run it); End of
   lifecycle when no transition leaves the state. `onViewAll`, `railLabels` pass through.
   `applyFromRail` restores the 0.8.0-dev.1–dev.4 rail whose ways forward are buttons applying this user's transitions.
-- `variant="compact"` (badge + menu; FrappeForm's toolbar) is unchanged. **`variant="steps"` is deprecated**
-  (0.8.0-dev.5): use `actions` in the header with `rail` — it is kept, unchanged, for existing code.
+- `variant="compact"` (default; badge + menu; FrappeForm's toolbar) is unchanged.
 - `workflowLifecycle(workflow, translate)` maps a Workflow to a `LifecycleDefinition` (Frappe states carry no phase:
   `"open"`; `allowed` → `roles`).
 

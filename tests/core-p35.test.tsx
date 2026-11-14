@@ -7,7 +7,7 @@ import * as React from "react";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { Users } from "lucide-react";
 import {
-  Stepper, type StepperStep, MonthInput, formatMonthValue, parseMonthValue, RichTextEditor, type RichTextEditorHandle, LinkInput, IconStatCard, EmptyState, Button, type Suggestion, Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleBar, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
+  Stepper, type StepperStep, MonthInput, formatMonthValue, parseMonthValue, RichTextEditor, type RichTextEditorHandle, LinkInput, IconStatCard, EmptyState, Button, type Suggestion, Timeline, type TimelineItem, SearchCombobox, AssigneeGroup, FileDropzone, fileMatchesAccept, formatFileSize, validateFiles, LifecycleStepDot, StatusBadge, StatusDot, ThemeProvider, resolveStatusColor, statusColorStyles,
   type LifecycleStateItem,
 } from "../src";
 
@@ -103,42 +103,20 @@ describe("CORE.G17 StatusBadge / StatusDot custom colour", () => {
   });
 });
 
-describe("CORE.G7 LifecycleBar per-step state", () => {
-  const deal: LifecycleStateItem[] = [
-    { id: "lead", label: "Lead", step: "past" },
-    { id: "qual", label: "Qualified", step: "past" },
-    { id: "won", label: "Won", step: "skipped" },
-    { id: "lost", label: "Lost", step: "failed", by: "Ann", at: Date.UTC(2026, 10, 3, 11) },
-  ];
-  it("CORE.G7 a Lost deal does not show Won ticked: skipped and failed states", () => {
-    const { container } = wrap(<LifecycleBar states={deal} current="lost" now={Date.UTC(2026, 10, 3, 12)} />);
-    const items = Array.from(container.querySelectorAll("li[data-step]"));
-    expect(items.map((e) => e.getAttribute("data-step"))).toEqual(["past", "past", "skipped", "failed"]);
-    const won = items[2];
+// CORE.G7: the LifecycleBar stepper that rendered `LifecycleStateItem.step` was removed in 0.8.0-dev.10 (LifecycleRail
+// replaces it). The step type and its dot atom stay public: a host's own lifecycle UI draws a skipped / failed state.
+describe("CORE.G7 LifecycleStep atoms (skipped / failed)", () => {
+  it("CORE.G7 a skipped state is not ticked (dashed, minus); a failed one is destructive with an X", () => {
+    const deal: LifecycleStateItem[] = [{ id: "won", label: "Won", step: "skipped" }, { id: "lost", label: "Lost", step: "failed" }];
+    const { container } = wrap(<>{deal.map((s) => <LifecycleStepDot key={s.id} step={s.step!} />)}</>);
+    const [won, lost] = Array.from(container.querySelectorAll("[data-dot]"));
+    expect(won.getAttribute("data-dot")).toBe("skipped");
     expect(won.querySelector(".lucide-check")).toBeNull();
-    expect(won.textContent).toContain("Skipped");
-    const lost = items[3];
-    expect(lost.getAttribute("aria-current")).toBe("step");
+    expect(won.querySelector(".lucide-minus")).toBeTruthy();
+    expect(won.className).toContain("border-dashed");
+    expect(lost.getAttribute("data-dot")).toBe("failed");
     expect(lost.querySelector(".lucide-x")).toBeTruthy();
-    expect(lost.textContent).toContain("Failed");
-    // the badge falls back to the danger tone for a failed current state without a tone
-    expect(container.querySelector("[data-tone='danger']")?.textContent).toBe("Lost");
-  });
-  it("CORE.G7 without `step` the position decides (0.6.0 behaviour)", () => {
-    const st = deal.map(({ step: _s, ...rest }) => rest);
-    const { container } = wrap(<LifecycleBar states={st} current="won" />);
-    expect(Array.from(container.querySelectorAll("li[data-step]")).map((e) => e.getAttribute("data-step"))).toEqual(["past", "past", "current", "future"]);
-  });
-  it("CORE.G7 explicit `step` mixes with positional ones (only some states set)", () => {
-    const st: LifecycleStateItem[] = [{ id: "a", label: "A" }, { id: "b", label: "B", step: "skipped" }, { id: "c", label: "C" }, { id: "d", label: "D" }];
-    const { container } = wrap(<LifecycleBar states={st} current="c" />);
-    expect(Array.from(container.querySelectorAll("li[data-step]")).map((e) => e.getAttribute("data-step"))).toEqual(["past", "skipped", "current", "future"]);
-  });
-  it("CORE.G7 Arabic screen-reader text for skipped / failed", () => {
-    const { container } = wrap(<LifecycleBar states={deal} current="lost" />, "ar");
-    const items = container.querySelectorAll("li[data-step]");
-    expect(items[2].textContent).toContain("تم تخطّيها");
-    expect(items[3].textContent).toContain("فشلت");
+    expect(lost.className).toContain("bg-destructive");
   });
 });
 

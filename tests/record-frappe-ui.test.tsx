@@ -175,11 +175,11 @@ describe("FrappeTimeline field visibility", () => {
   });
 });
 
-describe("FrappeWorkflowActions steps", () => {
+describe("FrappeWorkflowActions rail: who · when per entered state (was the removed steps variant, 0.8.0-dev.10)", () => {
   it("shows actor and time per past state from workflow_logs", async () => {
     stub({ getDocInfo: vi.fn(async () => ({ ...info, workflow_logs: [{ owner: "bob@x", creation: "2026-11-02 10:00:00", content: "Draft" }] })) as never });
-    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Approved", docstatus: 1 }} user="x" variant="steps" />);
-    await waitFor(() => expect(container.querySelector("[data-entry]")?.textContent).toContain("Bob Ray"));
+    const { container } = mount(<FrappeWorkflowActions doc={{ ...doc, workflow_state: "Approved", docstatus: 1 }} user="x" variant="rail" />);
+    await waitFor(() => expect(container.querySelector("li[data-step='past'] [data-meta]")?.textContent).toContain("Bob Ray"));
   });
 });
 

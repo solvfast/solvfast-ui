@@ -169,10 +169,10 @@ export { createLocalStorageAdapter } from "./list/model/storage";
 export type { ListPrefs, ListPrefsStorage, SavedFilter, SavedFiltersStorage } from "./list/model/storage";
 
 // 0.4.0 — generic record pieces (Frappe-free). docs/CONTRACT-0.4.md §1
-export { Timeline, filterItems, sortItems, CommentComposer, CommentRichEditor, draftToHtml, htmlToDraft, AssigneeGroup, AssignPicker, AssignDialog, LifecycleBar, ActionBar, StatusBadge, LikeToggle } from "./record";
+export { Timeline, filterItems, sortItems, CommentComposer, CommentRichEditor, draftToHtml, htmlToDraft, AssigneeGroup, AssignPicker, AssignDialog, ActionBar, StatusBadge, LikeToggle } from "./record";
 export type {
   TimelineProps, TimelineLabels, TimelineFilter, CommentComposerProps, CommentComposerLabels, CommentDraft, CommentRichEditorProps, AssigneeGroupProps, AssignPickerProps,
-  AssignLabels, AssignDialogProps, AssignDialogLabels, LifecycleBarProps, ActionBarProps, ActionBarLabels, StatusBadgeProps, LikeToggleProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
+  AssignLabels, AssignDialogProps, AssignDialogLabels, ActionBarProps, ActionBarLabels, StatusBadgeProps, LikeToggleProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
   Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./record";
 

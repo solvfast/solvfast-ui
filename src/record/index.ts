@@ -8,8 +8,6 @@ export { AssigneeGroup, AssignPicker } from "./AssigneeGroup";
 export { AssignDialog } from "./AssignDialog";
 export type { AssignDialogProps, AssignDialogLabels } from "./AssignDialog";
 export type { AssigneeGroupProps, AssignPickerProps, AssignLabels } from "./AssigneeGroup";
-export { LifecycleBar } from "./LifecycleBar";
-export type { LifecycleBarProps } from "./LifecycleBar";
 export { LifecycleRail } from "./LifecycleRail";
 export { LifecycleActions } from "./LifecycleActions";
 export type { LifecycleActionsProps, LifecycleActionsItem } from "./LifecycleActions";

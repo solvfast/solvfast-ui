@@ -3,8 +3,8 @@ import { cn } from "../lib/cn";
 import type { LifecycleStep } from "./types";
 
 /**
- * Shared visual atoms of the Lifecycle components (LifecycleBar, LifecycleRail, LifecycleStateCard). One mapping, both
- * themes, semantic tokens only:
+ * Shared visual atoms of the Lifecycle components (LifecycleRail; `LifecycleStepDot` is also exported for a consumer's
+ * own lifecycle UI). One mapping, both themes, semantic tokens only:
  *   past / done  → success (check on a solid success dot; solid success connector)
  *   current      → primary (solid dot with a soft primary halo; the row / card is tinted primary)
  *   future       → border + muted-foreground (hollow dot; dashed connector)

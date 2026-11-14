@@ -1,5 +1,6 @@
 /**
- * Who moved the record into each workflow state, and when - for the stepper (LifecycleBar `by` / `at`).
+ * Who moved the record into each workflow state, and when - for the Lifecycle rail (FrappeWorkflowActions variant="rail":
+ * the record's path and the "who · when" under each state).
  * Source 1: docinfo `workflow_logs` (Comment type "Workflow": content = the state entered, translated by the server's `_()`; owner = actor;
  * creation = time; apply_workflow adds it, model/workflow.py:148).
  * Source 2 (no log for that state): Version rows whose `changed` contains the workflow state field -> [field, old, new]; the NEW value is the entry.

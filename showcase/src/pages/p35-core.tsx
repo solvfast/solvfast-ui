@@ -4,8 +4,8 @@ import * as React from "react";
 import { Briefcase, FileText, Mail, Phone, Users } from "lucide-react";
 import {
   AssignDialog, AssigneeGroup, Button, ColorInput, MonthInput, RichTextEditor, Stepper, type RichTextEditorHandle, type StepperStep, DataGrid, DurationInput, EmptyState, FieldShell, FileDropzone, IconStatCard,
-  LifecycleBar, LifecycleRail, LifecycleDiagramDialog, LifecycleStateCard, LifecycleEdgeLabel, LikeToggle, LinkInput, NumberInput, Rating, SearchCombobox, StatusBadge, StatusDot, TagInput, TimeInput, Timeline,
-  formatFileSize, useLocale, type Assignee, type ComboOption, type DataGridColumn, type LifecycleStateItem, type Suggestion, type TimelineItem,
+  LifecycleRail, LifecycleDiagramDialog, LifecycleStateCard, LifecycleEdgeLabel, LikeToggle, LinkInput, NumberInput, Rating, SearchCombobox, StatusBadge, StatusDot, TagInput, TimeInput, Timeline,
+  formatFileSize, useLocale, type Assignee, type ComboOption, type DataGridColumn, type LifecycleRailStep, type Suggestion, type TimelineItem,
   type UserOption,
 } from "@ui";
 import { Example, Props, Section } from "../doc/Doc";
@@ -146,7 +146,7 @@ export function RecordExtrasPage() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// P35 record capabilities: AssigneeGroup description, StatusBadge colour (G17), LifecycleBar steps (G7), Timeline (G13)
+// P35 record capabilities: AssigneeGroup description, StatusBadge colour (G17), a Lost deal's path (G7), Timeline (G13)
 // ---------------------------------------------------------------------------------------------------------------------
 
 const NOW = Date.now();
@@ -158,12 +158,12 @@ export function RecordP35Page() {
     { id: "rana", name: "Rana Haddad", description: tr(l("Account Executive", "مسؤولة حسابات")) },
     { id: "omar", name: "Omar Saleh", description: tr(l("2026-11-20 · High · Call back", "2026-11-20 · عالية · معاودة الاتصال")) },
   ];
-  const deal: LifecycleStateItem[] = [
-    { id: "new", label: tr(l("New", "جديدة")), step: "past", by: "Rana", at: NOW - 86_400_000 * 6 },
-    { id: "qualified", label: tr(l("Qualified", "مؤهّلة")), step: "past", by: "Rana", at: NOW - 86_400_000 * 4 },
-    { id: "proposal", label: tr(l("Proposal", "عرض")), step: "past", by: "Omar", at: NOW - 86_400_000 * 2 },
-    { id: "won", label: tr(l("Won", "مكسوبة")), step: "skipped" },
-    { id: "lost", label: tr(l("Lost", "خاسرة")), step: "failed", by: "Omar", at: NOW - 3_600_000 },
+  const day = new Intl.DateTimeFormat(tr(l("en", "ar")), { month: "short", day: "numeric" });
+  const deal: LifecycleRailStep[] = [
+    { id: "new", label: tr(l("New", "جديدة")), meta: `Rana · ${day.format(NOW - 86_400_000 * 6)}` },
+    { id: "qualified", label: tr(l("Qualified", "مؤهّلة")), meta: `Rana · ${day.format(NOW - 86_400_000 * 4)}` },
+    { id: "proposal", label: tr(l("Proposal", "عرض")), meta: `Omar · ${day.format(NOW - 86_400_000 * 2)}` },
+    { id: "lost", label: tr(l("Lost", "خاسرة")), meta: `Omar · ${day.format(NOW - 3_600_000)}` },
   ];
   const feed: TimelineItem[] = [
     { id: "m", kind: "communication", at: NOW - 600_000, actor: "Rana", summary: tr(l("sent the proposal by email", "أرسلت العرض بالبريد")), icon: <Mail />, tone: "info" },
@@ -192,13 +192,12 @@ export function RecordP35Page() {
           </div>
         </Example>
       </Section>
-      <Section title={l("LifecycleBar: per-step state (G7)", "LifecycleBar: حالة كل خطوة (G7)")} description={l("`step` on a state overrides its position: a Lost deal shows Won as skipped (no tick) and Lost as failed. States without `step` keep the positional past / current / future.", "‏`step` على الحالة يتجاوز موضعها: الصفقة الخاسرة تُظهر «مكسوبة» متخطّاة (دون علامة) و«خاسرة» متعثّرة. الحالات دون `step` تبقى سابقة / حالية / لاحقة حسب الموضع.")}>
-        <Example code={`<LifecycleBar current="lost" states={[
-  { id: "proposal", label: "Proposal", step: "past" },
-  { id: "won", label: "Won", step: "skipped" },
-  { id: "lost", label: "Lost", step: "failed", by: "Omar", at },
+      <Section title={l("LifecycleRail: a Lost deal's path (G7)", "LifecycleRail: مسار صفقة خاسرة (G7)")} description={l("The rail shows only the states the record entered, oldest first: a Lost deal's path never shows Won as reached. No way leads on from Lost: End of lifecycle.", "يعرض الشريط الحالات التي دخلها السجل فقط، الأقدم أولاً: مسار الصفقة الخاسرة لا يُظهر «مكسوبة» أبداً. لا طريق بعد «خاسرة»: نهاية دورة الحياة.")}>
+        <Example code={`<LifecycleRail ended path={[
+  { id: "proposal", label: "Proposal", meta: "Omar · Nov 12" },
+  { id: "lost", label: "Lost", meta: "Omar · Nov 14" },
 ]} />`}>
-          <div className="max-w-sm"><LifecycleBar states={deal} current="lost" showCurrentEntry /></div>
+          <div className="max-w-sm"><LifecycleRail path={deal} ended /></div>
         </Example>
       </Section>
       <Section title={l("LifecycleRail: where the record is and what can happen next", "LifecycleRail: أين السجل وما الذي يمكن أن يحدث تالياً")} description={l("The shared CRM / Tickets lifecycle card. Past states (success), the current state (primary, tinted row), then one way forward as a dashed row, several in a box (back-moves tagged), or End of lifecycle. The consumer walks its lifecycle graph and passes the view model; View full lifecycle opens LifecycleDiagramDialog.", "بطاقة دورة الحياة المشتركة في CRM والتذاكر. الحالات السابقة (نجاح)، والحالة الحالية (أساسي، صف مظلّل)، ثم طريق واحد للأمام كصف متقطّع، أو عدة طرق في صندوق (مع وسم الرجوع)، أو نهاية دورة الحياة. يمرّ المستهلك على مخطط دورة الحياة ويمرّر نموذج العرض؛ «عرض دورة الحياة كاملة» يفتح LifecycleDiagramDialog.")}>
