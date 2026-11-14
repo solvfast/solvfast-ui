@@ -219,12 +219,48 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     mount(adapter, "en", { wizard: { on: true, onChange } });
     await screen.findByRole("tab", { name: "Step 2 · Extra" });
     fireEvent.click(screen.getByRole("switch", { name: "Wizard mode" }));
+    // Steps exist: it asks first; Cancel keeps them.
+    expect(await screen.findByText("Turn off Wizard mode?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText("Turn off Wizard mode?")).toBeNull());
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: "Step 2 · Extra" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("switch", { name: "Wizard mode" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Turn off" }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(false));
     fireEvent.click(screen.getByRole("button", { name: "Save form" }));
     await waitFor(() => expect(adapter.save).toHaveBeenCalled());
     const saved = adapter.save.mock.calls[0][0] as DesignerItem[];
     expect(saved.some((i) => i.kind === "tab_break")).toBe(false);
     expect(saved.map((i) => i.id)).toEqual([...LOADED.map((i) => i.id), "custom_extra"]);
+  });
+
+  it("FD.ui.7d with wizard mode on, a step the author added moves (buttons or drag) with its fields; the first step stays first", async () => {
+    const adapter = memoryAdapter({ items: [
+      ...LOADED,
+      brk("@tab::One", "tab_break", { label: "One", own: true }), f("custom_one", { label: "One Field", own: true, fieldtype: "Data" }),
+      brk("@tab::Two", "tab_break", { label: "Two", own: true }), f("custom_two", { label: "Two Field", own: true, fieldtype: "Data" }),
+    ] });
+    mount(adapter, "en", { wizard: { on: true, onChange: vi.fn() } });
+    const two = await screen.findByRole("tab", { name: "Step 3 · Two" });
+    expect(screen.getByRole("tab", { name: /^Step 1/ }).getAttribute("draggable")).toBe("false");
+    fireEvent.click(two);
+    fireEvent.click(within(panel()).getByRole("button", { name: "Move earlier" }));
+    expect(await screen.findByRole("tab", { name: "Step 2 · Two" })).toBeTruthy();
+    expect((within(panel()).getByRole("button", { name: "Move earlier" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Save form" }));
+    await waitFor(() => expect(adapter.save).toHaveBeenCalled());
+    const saved = (adapter.save.mock.calls[0][0] as DesignerItem[]).map((i) => i.id);
+    expect(saved.slice(-4)).toEqual(["@tab::Two", "custom_two", "@tab::One", "custom_one"]);
+    // Dragging works too: "One" (now step 3) dropped on step 2.
+    fireEvent.dragStart(await screen.findByRole("tab", { name: "Step 3 · One" }), { dataTransfer: { setData: () => {}, effectAllowed: "" } });
+    fireEvent.drop(screen.getByRole("tab", { name: "Step 2 · Two" }));
+    expect(await screen.findByRole("tab", { name: "Step 2 · One" })).toBeTruthy();
+  });
+
+  it("FD.ui.7e the Wizard mode help says what it does", async () => {
+    mount(memoryAdapter(), "en", { wizard: { on: false, onChange: vi.fn() } });
+    expect(await screen.findByText("Split the form into ordered steps, shown one after another when a record is created.")).toBeTruthy();
   });
 
   it("FD.ui.7c with wizard mode on, a field dropped on another step moves there", async () => {

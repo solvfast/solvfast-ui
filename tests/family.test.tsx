@@ -207,12 +207,14 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     mount(s, <FrappeNewFamilyRecord family={FAMILY} defaultType="Complaint" onCreated={onCreated} />);
     const title = await screen.findByRole("textbox", { name: /Title/ }, { timeout: 3000 });
     await waitFor(() => expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(document.querySelector("[data-step-of]")?.textContent).toBe("Step 1 of 2");
     expect(screen.queryByRole("textbox", { name: /Booking Reference/ })).toBeNull();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByRole("button", { name: "Create" })).toBeNull();
     fireEvent.focus(title); fireEvent.change(title, { target: { value: "Late reply" } }); fireEvent.blur(title);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     const booking = await screen.findByRole("textbox", { name: /Booking Reference/ });
+    expect(document.querySelector("[data-step-of]")?.textContent).toBe("Step 2 of 2");
     fireEvent.focus(booking); fireEvent.change(booking, { target: { value: "BK-1" } }); fireEvent.blur(booking);
     expect(screen.getByRole("button", { name: "Back" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Create" }));

@@ -302,10 +302,10 @@ What it added elsewhere (additive, defaults unchanged): `FrappeFormView` / `Frap
 | Wizard mode | Type's Form section (`FieldDesigner` with `wizard`) | New record | Record page |
 |---|---|---|---|
 | Off | One list: every section in order, no tabs, no Add tab | One form | `SayrRecordPage oneForm`: one form |
-| On | Steps: "Step N · name", Add step, rename / remove a step the type added; drop a field on a step to move it there | Steps with Back / Next | The steps as the full-width tab bar |
+| On | Steps: "Step N · name", Add step, rename / remove a step the type added; drop a field on a step to move it there; move a step the type added (drag it onto another step, or Move earlier / later) — the first step stays first | "Step N of M", a stepper, Back / Next, Create on the last | The steps as the full-width tab bar |
 
-Turning wizard mode off removes the steps added on the type (the type's Save saves it): their fields join the step
-before, in the same order. Steps that belong to the DocType itself (Sayr's own tab, marked `native`) stay, and are just
+Turning wizard mode off removes the steps added on the type (the type's Save saves it): it asks first ("Turn off
+Wizard mode?") when there are any, then their fields join the step before, in the same order. Steps that belong to the DocType itself (Sayr's own tab, marked `native`) stay, and are just
 not shown as tabs. A host passes `oneForm` from the type's `wizard_mode`.
 
 ## 15. Field cards show their control (0.7.0-dev.16)

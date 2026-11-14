@@ -6,6 +6,20 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.24 — Wizard mode: steps move, turning it off asks first
+
+Hosts that pass `FieldDesigner`'s `wizard` / show family records. jsdom tests only.
+
+- `FieldDesigner` with wizard mode on: a step the author added moves to another place, with all its sections and
+  fields: drag it onto another step, or select it and use Move earlier / Move later. The first step (the form's
+  standard fields) stays first. Core `moveTab(items, from, to)` in the layout helpers.
+- Turning wizard mode off when the author added steps asks first ("Turn off Wizard mode?"); Turn off merges their
+  sections into one form in step order, Cancel keeps the steps.
+- The Wizard mode help reads "Split the form into ordered steps, shown one after another when a record is created."
+- `FrappeNewFamilyRecord`: a wizard type's creation page says "Step N of M" above its stepper.
+- Messages: `fdMoveStepEarlier`, `fdMoveStepLater`, `fdConfirmMergeTitle`, `fdConfirmMergeBody`, `fdConfirmMergeAction`,
+  `famStepOf`; `fdWizardHint` reworded.
+
 ## 0.7.0-dev.23 — links show translated DocTypes in the UI language
 
 Additive. jsdom tests only.

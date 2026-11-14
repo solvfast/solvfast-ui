@@ -29,7 +29,7 @@ export { FieldInspector } from "./FieldInspector";
 export type { FieldInspectorProps, LinkTargetOption, LinkTargetField } from "./FieldInspector";
 export { INSPECTED_PROPERTIES, LINK_OPERATORS, keyFromLabel, deriveKey, ownKeys, retype, definitionProblem } from "./fieldDefinition";
 export type { FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./fieldDefinition";
-export { toLayout, fromLayout, insertItem, moveItem, stepItem, locateField, insertSectionAfter, appendTab, removeSection, removeTab, previousId, kindOfFieldtype } from "./fieldLayout";
+export { toLayout, fromLayout, insertItem, moveItem, moveTab, stepItem, locateField, insertSectionAfter, appendTab, removeSection, removeTab, previousId, kindOfFieldtype } from "./fieldLayout";
 export type { DesignerItem, DesignerKind, DropSlot, LayoutTab, LayoutSection, LayoutColumn } from "./fieldLayout";
 export { ActionBar } from "./ActionBar";
 export type { ActionBarProps, ActionBarLabels } from "./ActionBar";
