@@ -7,7 +7,8 @@
  * closes it.
  *
  * `FrappeExportDialog` renders this dialog with the DocType's groups and the server's `download_template`; an app with
- * its own data passes its fields and writes the file itself (`buildCsv`, or a spreadsheet library for XLSX).
+ * its own data passes its fields and writes the file itself (`buildCsv`; for "Excel" `buildXlsx` — 0.8.0-dev.9 — or a
+ * spreadsheet library).
  */
 import * as React from "react";
 import { AlertCircle } from "lucide-react";

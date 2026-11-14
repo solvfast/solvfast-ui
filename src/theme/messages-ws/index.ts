@@ -31,6 +31,8 @@ import { recordEditSessionEn, recordEditSessionAr } from "./recordEditSession";
 import { recordAboutEn, recordAboutAr } from "./recordAbout";
 // Run 1 (P1 / P2 closures)
 import { run1En, run1Ar } from "./run1";
+// 0.8.0-dev.9 Phase 4 (BulkEditDialog, BulkTagsDialog, bulk pre-flight, Assignment team change)
+import { parityEn, parityAr } from "./parity";
 
-export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn, ...recordRailEn, ...recordEditSessionEn, ...recordAboutEn, ...run1En };
-export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr, ...recordRailAr, ...recordEditSessionAr, ...recordAboutAr, ...run1Ar };
+export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn, ...recordRailEn, ...recordEditSessionEn, ...recordAboutEn, ...run1En, ...parityEn };
+export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr, ...recordRailAr, ...recordEditSessionAr, ...recordAboutAr, ...run1Ar, ...parityAr };

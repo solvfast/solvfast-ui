@@ -9,6 +9,8 @@ import { Badge } from "../primitives/badge";
 import { Checkbox } from "../primitives/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "../primitives/popover";
 import { Sheet, SheetContent } from "../primitives/sheet";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "../primitives/dropdown-menu";
+import { loc, type Localized } from "../lib/localized";
 
 /**
  * RecordRail — a record page's right rail: "Customize sections", a pinned first card (e.g. the Lifecycle), the visible
@@ -305,8 +307,10 @@ export function RecordRailFooter({ lines, seenBy, className }: RecordRailFooterP
 export interface RecordRailAssignmentProps {
   /** The assignee UI: the package's AssigneeGroup (`variant="list" withDetails`), or FrappeAssignTo on Frappe data. */
   children: React.ReactNode;
-  /** A detail row under the assignees (e.g. Team · Reservations). */
-  team?: { label: string; value: string };
+  /** A detail row under the assignees (e.g. Team · Reservations). 0.8.0-dev.9 (AS-06): with `onChange` and `options`
+   *  the row also offers "Change team" (a menu of the options, the current one checked; `changeLabel` names it). Without
+   *  `onChange` the row is the static one, unchanged. */
+  team?: { label: string; value: string; onChange?: (value: string) => void; options?: { value: string; label: string }[]; changeLabel?: Localized };
   /** "Auto-assign" (e.g. when the record's type has an assignment profile). */
   autoAssign?: { label: string; onClick: () => void };
   /** Anything after (e.g. the open assignments' ToDo details). */
@@ -319,6 +323,7 @@ export interface RecordRailAssignmentProps {
 /** Assignment module body (put it in a `single` RecordRailSection): assignees, the team row, auto-assign, details. */
 export function RecordRailAssignment({ children, team, autoAssign, footer, icons, className }: RecordRailAssignmentProps) {
   const TeamIcon = icons?.team ?? User, AutoIcon = icons?.autoAssign ?? Sparkles;
+  const { t, language } = useLocale();
   return (
     <div data-record-rail-assignment="" className={cn("space-y-2.5 text-xs", className)}>
       {children}
@@ -327,6 +332,7 @@ export function RecordRailAssignment({ children, team, autoAssign, footer, icons
           <TeamIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="text-muted-foreground flex-1">{team.label}</span>
           <span className="text-foreground font-medium truncate max-w-[55%] text-end">{team.value}</span>
+          {team.onChange && team.options?.length ? <TeamChange value={team.value} options={team.options} onChange={team.onChange} label={team.changeLabel != null ? loc(team.changeLabel, language) : t("rrChangeTeam")} /> : null}
         </div>
       )}
       {autoAssign && (
@@ -336,6 +342,27 @@ export function RecordRailAssignment({ children, team, autoAssign, footer, icons
       )}
       {footer}
     </div>
+  );
+}
+
+/** AS-06: the team row's "Change team" control — a small button opening the options as a radio menu. */
+function TeamChange({ value, options, onChange, label }: { value: string; options: { value: string; label: string }[]; onChange: (value: string) => void; label: string }) {
+  const current = options.find((o) => o.value === value) ?? options.find((o) => o.label === value);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="icon-sm" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+          aria-label={label} title={label} data-record-rail-team-change="">
+          <Pencil className="h-3 w-3" aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[11rem]">
+        <DropdownMenuLabel className="text-xs">{label}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={current?.value ?? ""} onValueChange={(v) => { if (v !== current?.value) onChange(v); }}>
+          {options.map((o) => <DropdownMenuRadioItem key={o.value} value={o.value} data-team={o.value}>{o.label}</DropdownMenuRadioItem>)}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

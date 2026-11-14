@@ -60,8 +60,8 @@ export type {
   Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem, Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./types";
 // P35 record
-export { RecordMenu, groupMenuItems } from "./RecordMenu";
-export type { RecordMenuProps, RecordMenuItem, RecordMenuConfirm, RecordMenuLabels } from "./RecordMenu";
+export { RecordMenu, groupMenuItems, parseShortcut, shortcutMatches } from "./RecordMenu";
+export type { RecordMenuProps, RecordMenuItem, RecordMenuConfirm, RecordMenuLabels, ParsedShortcut } from "./RecordMenu";
 export { RenameDialog } from "./RenameDialog";
 export type { RenameDialogProps } from "./RenameDialog";
 export { PrintPreviewFrame, printSrcDoc } from "./PrintPreviewFrame";
@@ -108,6 +108,9 @@ export {
 export type { PrintPageSpec, PrintOrientation, ComposePrintOptions } from "./printDocument";
 export { printHtmlDocument, PRINT_FRAME_ATTR } from "./browserPrint";
 export type { PrintHtmlOptions } from "./browserPrint";
+// 0.8.0-dev.9 (L-05): a clean list printout
+export { printListDocument, printList } from "./printList";
+export type { PrintListOptions, PrintListColumn } from "./printList";
 export { PrintDocumentsDialog, printPageOf, BACKGROUND_PRINT_ID } from "./PrintDocumentsDialog";
 export type { PrintDocumentsDialogProps, PrintDocumentsValue, PrintOption } from "./PrintDocumentsDialog";
 export { PrintView, PrintViewDialog } from "./PrintView";

@@ -1,7 +1,7 @@
 /**
  * RecordMenu — a record's "⋯" menu (Desk: the form toolbar's menu, `page.add_menu_item`, toolbar.js:340-530), Frappe-free.
  * Items are grouped (a separator between groups, in order of first appearance), may show a keyboard-shortcut hint
- * (display only — the menu does not bind keys), may be `hidden` or `disabled` (with a reason as the item's title), and
+ * (display only, unless `bindShortcuts` — 0.8.0-dev.9, M-07 — binds them), may be `hidden` or `disabled` (with a reason as the item's title), and
  * may ask first (`confirm`, an AlertDialog). A destructive item is styled as such. An item's action may return a
  * promise: the trigger shows a spinner meanwhile, and a rejection is shown under the trigger (role="alert") — the
  * caller's error, never a success the server did not give.
@@ -26,7 +26,8 @@ export interface RecordMenuItem {
   label: string;
   /** Items of one group are kept together; groups are separated. Default: one group. */
   group?: string;
-  /** A shortcut hint shown at the end of the item (e.g. "Ctrl+E"). Display only. */
+  /** A shortcut hint shown at the end of the item (e.g. "Ctrl+E", "Shift+D", "Shift+Ctrl+D"). Display only, unless the
+   *  menu's `bindShortcuts` is on (then the key runs the item; "Ctrl" also matches ⌘). */
   shortcut?: string;
   destructive?: boolean;
   disabled?: boolean;
@@ -64,7 +65,52 @@ export interface RecordMenuProps {
   /** "stacked" (default): the trigger in a column with the error under it; "inline": the trigger alone in its row (e.g. a
    *  record page's toolbar), the error after it. */
   layout?: "stacked" | "inline";
+  /**
+   * 0.8.0-dev.9 (M-07): make each item's `shortcut` work. The key runs the item exactly as a click does (its `confirm`
+   * first). Ignored while typing (input, textarea, select, contenteditable), while a dialog or menu is open, while the
+   * menu is `disabled` or busy, and for `hidden` or `disabled` items; the modifiers must match exactly ("Shift+D" does not
+   * fire on Shift+Ctrl+D); "Ctrl" matches Ctrl or ⌘. With several bound menus mounted, the last mounted answers. Removed
+   * on unmount. Default false (hints only). Do not enable it on a menu whose keys the host already binds.
+   */
+  bindShortcuts?: boolean;
 }
+
+/** A parsed `shortcut` ("Shift+Ctrl+D" → { mod, shift, alt, key: "d" }); null when it cannot be bound. */
+export interface ParsedShortcut { mod: boolean; shift: boolean; alt: boolean; key: string }
+export function parseShortcut(text: string | undefined): ParsedShortcut | null {
+  if (!text) return null;
+  const parts = text.split("+").map((p) => p.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const out: ParsedShortcut = { mod: false, shift: false, alt: false, key: "" };
+  for (const [i, raw] of parts.entries()) {
+    const p = raw.toLowerCase();
+    const last = i === parts.length - 1;
+    if (!last && ["ctrl", "control", "cmd", "command", "meta", "mod", "⌘"].includes(p)) out.mod = true;
+    else if (!last && ["shift", "⇧"].includes(p)) out.shift = true;
+    else if (!last && ["alt", "option", "opt", "⌥"].includes(p)) out.alt = true;
+    else if (last) out.key = p === "esc" ? "escape" : p === "del" ? "delete" : p === "space" ? " " : p;
+    else return null;
+  }
+  return out.key ? out : null;
+}
+/** Does the key event match the parsed shortcut (exact modifiers; letters / digits also by physical key, so a non-Latin
+ *  layout still matches)? */
+export function shortcutMatches(s: ParsedShortcut, e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">): boolean {
+  if ((e.ctrlKey || e.metaKey) !== s.mod || e.shiftKey !== s.shift || e.altKey !== s.alt) return false;
+  const k = (e.key ?? "").toLowerCase();
+  if (k === s.key) return true;
+  if (/^[a-z]$/.test(s.key)) return e.code === `Key${s.key.toUpperCase()}`;
+  if (/^[0-9]$/.test(s.key)) return e.code === `Digit${s.key}`;
+  return false;
+}
+const typingIn = (el: EventTarget | null): boolean => {
+  const n = el as HTMLElement | null;
+  if (!n || typeof n.closest !== "function") return false;
+  if (n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "SELECT" || n.isContentEditable) return true;
+  return !!n.closest('[contenteditable=""],[contenteditable="true"],[contenteditable="plaintext-only"]');
+};
+/** Bound menus in mount order: only the last (topmost) answers. */
+const boundMenus: object[] = [];
 
 /** Visible items grouped in order of first appearance (pure; exported for tests and custom renderers). */
 export function groupMenuItems(items: RecordMenuItem[]): RecordMenuItem[][] {
@@ -79,7 +125,7 @@ export function groupMenuItems(items: RecordMenuItem[]): RecordMenuItem[][] {
   return order.map((g) => by.get(g)!);
 }
 
-export function RecordMenu({ items, onSelect, onError, disabled, busy, align = "end", labels, trigger, className, contentClassName, shortcutDir = "ltr", layout = "stacked" }: RecordMenuProps) {
+export function RecordMenu({ items, onSelect, onError, disabled, busy, align = "end", labels, trigger, className, contentClassName, shortcutDir = "ltr", layout = "stacked", bindShortcuts = false }: RecordMenuProps) {
   const { t } = useLocale();
   const L = {
     menu: labels?.menu ?? t("r35Menu"), confirmTitle: labels?.confirmTitle ?? t("r35ConfirmTitle"), confirmBody: labels?.confirmBody ?? t("r35ConfirmBody"),
@@ -105,6 +151,31 @@ export function RecordMenu({ items, onSelect, onError, disabled, busy, align = "
     finally { if (mounted.current) setRunning(false); }
   };
   const choose = (it: RecordMenuItem) => { if (it.confirm) setPending(it); else void run(it); };
+
+  // M-07: the items' shortcuts, through the same `choose` (confirm first) as a click
+  const latest = React.useRef({ items, choose, blocked: !!disabled || isBusy, hasDefault: !!onSelect });
+  latest.current = { items, choose, blocked: !!disabled || isBusy, hasDefault: !!onSelect };
+  React.useEffect(() => {
+    if (!bindShortcuts || typeof document === "undefined") return;
+    const token = {};
+    boundMenus.push(token);
+    const onKey = (e: KeyboardEvent) => {
+      if (boundMenus[boundMenus.length - 1] !== token || e.defaultPrevented || e.repeat || typingIn(e.target)) return;
+      const cur = latest.current;
+      if (cur.blocked) return;
+      if (document.querySelector('[role="dialog"],[role="alertdialog"],[role="menu"]')) return;
+      const it = cur.items.find((x) => { if (x.hidden) return false; const s = parseShortcut(x.shortcut); return !!s && shortcutMatches(s, e); });
+      if (!it || it.disabled || (!it.onSelect && !cur.hasDefault)) return;
+      e.preventDefault();
+      cur.choose(it);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      const i = boundMenus.indexOf(token);
+      if (i >= 0) boundMenus.splice(i, 1);
+    };
+  }, [bindShortcuts]);
 
   const confirm = pending?.confirm;
   const c: RecordMenuConfirm = typeof confirm === "object" ? confirm : typeof confirm === "string" ? { body: confirm } : {};

@@ -326,3 +326,26 @@ export type {
   DocStatus, DocMessage, SubmitMessageKey, DocstatusAction, DocstatusResult, WorkflowDocAction, WorkflowDocResult,
   WorkflowStateDoc, WorkflowTransitionDoc, DocstatusField,
 } from "./record";
+
+// 0.8.0-dev.9 — Phase 4 (CRM parity proposals; docs/components/list.md §Bulk edit / tags, record.md, search.md)
+// L-01 / L-03: Core bulk edit and bulk tags dialogs; L-02: BulkAction.preflight (type below)
+export { BulkEditDialog, BulkEditValueInput, bulkEditTypedValue } from "./list/bulk/BulkEditDialog";
+export type { BulkEditDialogProps, BulkEditField, BulkEditFieldType, BulkEditLabelKey } from "./list/bulk/BulkEditDialog";
+export { BulkTagsDialog, countTags } from "./list/bulk/BulkTagsDialog";
+export type { BulkTagsDialogProps, BulkTagCount, BulkTagsLabelKey } from "./list/bulk/BulkTagsDialog";
+export type { BulkActionPreflight } from "./list/parts/ListFooter";
+// L-05: the list printout (a complete HTML document) and its browser print
+export { printListDocument, printList } from "./record";
+export type { PrintListOptions, PrintListColumn } from "./record";
+// L-06 / L-07: a dependency-free XLSX writer / reader, and the import file hint from `accept`
+export { buildXlsx, buildXlsxBytes, parseXlsx, xlsxParts, xlsxColumnName, xlsxSheetName, zipStored, readZipEntries, crc32 } from "./list/io/xlsx";
+export type { BuildXlsxOptions, XlsxCell, ZipEntryInput, ZipEntry } from "./list/io/xlsx";
+export { importFileHint, DEFAULT_IMPORT_ACCEPT } from "./list/io/importLabels";
+// M-07: RecordMenu bindShortcuts (prop) and its shortcut parser
+export { parseShortcut, shortcutMatches } from "./record";
+export type { ParsedShortcut } from "./record";
+// S-07: Desk's fuzzy ranking and a framework-free route history (the Frappe entry re-exports the same fuzzy functions)
+export { fuzzyMatch, fuzzySearch, fillTemplate } from "./lib/fuzzy";
+export type { FuzzyHit } from "./lib/fuzzy";
+export { createRouteHistory } from "./lib/routeHistory";
+export type { RouteHistory, RouteHistoryOptions, RouteHistoryStorage } from "./lib/routeHistory";

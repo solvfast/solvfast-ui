@@ -6,6 +6,45 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.8.0-dev.9 — Phase 4: CRM parity proposals (Core, additive)
+
+Owner-approved Phase 4 of the CRM parity plan (gap ids from the CRM parity gap audit §3). Everything is **additive**: no
+existing API changes, no visual change to an existing component unless the host opts in, no new dependency. Core stays
+Frappe-free (`check:boundaries`). Tests: `tests/phase4-parity-dev9.test.tsx`, `tests/phase4-io-dev9.test.ts`. Docs:
+`list.md` §6c and §8b, `record.md` §5.1 and §10.3, `search.md` API.
+
+- **L-01 `BulkEditDialog`** (new): set values on every selected record — several [Field][Value] rows (each field once;
+  `multiple={false}` = Desk's single field), the field type's own value control (select, check, date, datetime, time,
+  int / float / currency, text, long-text, link via `search`), typed values to `onApply` (numbers, booleans, empty → `null`);
+  Apply disabled until a row has a field; a rejected `onApply` is shown in the dialog. Also `BulkEditValueInput`,
+  `bulkEditTypedValue`. `FrappeBulkActions`' Edit is unchanged.
+- **L-03 `BulkTagsDialog`** (new): `mode="add"` (the package `TagInput`, suggestions as a list or a search) and
+  `mode="remove"` ("tag · n" checkboxes from `existing`; with no tags it says so and Apply is disabled with that reason).
+  `countTags(tagLists)` builds `existing`.
+- **L-02 `BulkAction.preflight`** (new, optional): `preflight(ctx) → { blocked: { key, reason }[] }`. When it blocks any
+  selected key the runner lists them with reasons, its button counts what will run ("Delete 2"), only Close is offered when
+  nothing may run, `run` receives only the allowed keys (rows too with the new optional `rowKey`), then `onSkipped(keys)`.
+  Actions without `preflight` run exactly as before.
+- **L-05 `printListDocument` / `printList`** (new): a clean list printout — heading, optional subtitle, "{n} records", one
+  table with exactly the given columns and every given row, escaped, no app chrome; printed through `printHtmlDocument`.
+- **L-06 XLSX writer** (new): `buildXlsx(headers, rows, { sheetName?, rtl? }): Blob` — one sheet, inline strings and
+  numbers, stored ZIP with CRC-32, deterministic (`buildXlsxBytes`, `xlsxParts`, `zipStored`, `crc32` exported too). A host
+  passes `ExportDialog fileTypes={["Excel", "CSV"]}` and writes Excel with it.
+- **L-07 XLSX reader and import hint**: `parseXlsx(file): Promise<string[][]>` (first sheet; shared / inline strings,
+  numbers, booleans; deflated entries through the platform's `DecompressionStream`; `.xls` refused). `DataImportDialog`'s
+  file hint now names what `adapter.accept` lists (`importFileHint`: ".csv" → "CSV", ".csv,.xlsx" → "CSV or XLSX", en / ar;
+  known types in a fixed order) unless `labels.fileHint` is given; the default accept, and ".csv,.xlsx,.xls", keep
+  "CSV, XLS or XLSX". The hint paragraph gains a `data-import-file-hint` attribute.
+- **M-07 `RecordMenu bindShortcuts`** (new, opt-in): the items' `shortcut` hints become working keys through the same
+  confirm as a click; not while typing, while a dialog / menu is open, for hidden / disabled items or a disabled / busy
+  menu; exact modifiers, "Ctrl" also ⌘; removed on unmount. `parseShortcut`, `shortcutMatches` exported.
+- **AS-06 `RecordRailAssignment team`**: `team` also takes `onChange`, `options`, `changeLabel` → a "Change team" menu on
+  the team row. Without `onChange` the row's markup is unchanged.
+- **S-07** Core now exports `fuzzyMatch`, `fuzzySearch`, `fillTemplate` (moved from the Frappe layer to `src/lib/fuzzy.ts`;
+  `@solvfast/ui/frappe` re-exports the same functions) and the new framework-free `createRouteHistory({ max, storage?,
+  key?, equals? })` (`record`, `list`, `recent`, `clear`).
+- Strings: new catalogue keys `bke*`, `btg*`, `bpf*`, `rrChangeTeam` (en / ar).
+
 ## 0.8.0-dev.8 — Run 1: D-64 scope correction
 
 - **D-64 scope**: 0.8.0-dev.7 also moved `statusColorStyles(...).text` (plain text with no tint, e.g. the CRM's rail
