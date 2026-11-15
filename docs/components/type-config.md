@@ -72,8 +72,9 @@ adds a description, an introductory box or a banner of its own; `notice` shows w
 ## 2. The Form section and the field library
 
 `TypeFormSection` = heading, the **library button** (opens `TypeFieldPicker` inline), the **wizard switch**
-(`TypeWizardToggle`), the **label problems** (`TypeFormIssues`), then the app's form designer as `children` (the app's
-own, or `FieldDesigner` for a Frappe app). The designer stays the app's: its form model (steps → sections → columns →
+(`TypeWizardToggle`), the **label problems** (`TypeFormIssues`), then the **form builder**: `builder={{ value, onChange, … }}`
+renders the package `FormBuilder` (docs/components/form-builder.md) and the section's wizard switch drives it; or another
+designer as `children` (`FieldDesigner` for a Frappe registry). The designer stays the app's: its form model (steps → sections → columns →
 fields) is the app's data; the rules below work on any model with these properties:
 
 ```ts

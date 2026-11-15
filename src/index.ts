@@ -242,6 +242,8 @@ export { FieldDesigner, toLayout as designerLayout, fromLayout as designerItems,
 export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval, DesignerPending, DesignerItem, DesignerKind } from "./record";
 export { FieldInspector, INSPECTED_PROPERTIES, ownKeys as designerKeys } from "./record";
 export type { FieldInspectorProps, FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./record";
+// Form builder (steps → sections → fields, the field types, field properties) — docs/components/form-builder.md
+export * from "./record/form-builder";
 // Type configuration page (Lead Type, Deal Type, Task Type…) — docs/components/type-config.md
 export {
   TypeConfigPage, TypeConfigSection, TypeAppearanceSection, TypeSettingsGrid, TypeSettingField, TypeConfigFooter,

@@ -35,6 +35,8 @@ import { run1En, run1Ar } from "./run1";
 import { parityEn, parityAr } from "./parity";
 // Type configuration page (TypeConfigPage, TypeFieldPicker)
 import { typeConfigEn, typeConfigAr } from "./typeConfig";
+// Form builder (FormBuilder, FieldTypePicker, FormFieldInspector)
+import { formBuilderEn, formBuilderAr } from "./formBuilder";
 
-export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn, ...recordRailEn, ...recordEditSessionEn, ...recordAboutEn, ...run1En, ...parityEn, ...typeConfigEn };
-export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr, ...recordRailAr, ...recordEditSessionAr, ...recordAboutAr, ...run1Ar, ...parityAr, ...typeConfigAr };
+export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn, ...recordRailEn, ...recordEditSessionEn, ...recordAboutEn, ...run1En, ...parityEn, ...typeConfigEn, ...formBuilderEn };
+export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr, ...recordRailAr, ...recordEditSessionAr, ...recordAboutAr, ...run1Ar, ...parityAr, ...typeConfigAr, ...formBuilderAr };

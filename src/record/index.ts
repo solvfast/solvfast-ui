@@ -143,3 +143,5 @@ export type {
   TypeFormFieldLike, TypeFormSectionLike, TypeFormStepLike, TypeFormLike, ReservedLabel, FieldImportMode, FieldImportStatus,
   FieldImportPlan, PlanFieldImportArgs, TypeFieldConflict, TypeSaveBlock, TypeSaveState,
 } from "./typeConfig";
+// Form builder (steps → sections → fields, field types, field properties) — docs/components/form-builder.md
+export * from "./form-builder";

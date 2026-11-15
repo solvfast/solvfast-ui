@@ -6,6 +6,40 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.9.0-dev.2 — the form builder (Core, additive)
+
+The type form builder of the SOLV FAST Field Library / CRM type pages, extracted as a package capability and plugged
+into the type configuration page. docs/components/form-builder.md
+
+- **`FormBuilder`** — steps (wizard mode: add, rename, icon, show-when condition, reorder by drag or Alt + Arrow, move
+  sections onto a step, delete with "move sections to…" or delete), sections (add at the end or between, rename,
+  description, 1–3 field columns — 4 with `advancedFieldTypes` — side by side in rows of up to 3 by dropping on an edge,
+  collapsible / starts collapsed, reorder by drag or Arrow keys, delete with "move fields to…" or delete — standard
+  fields are always rescued), fields (add into a column, move between sections and columns, reorder by drag or Arrow
+  keys, full width, delete; standard `core` fields locked with `lockCore`), empty-step warning. Controlled
+  (`value` / `onChange`, `{ wizard, steps }`), glass surfaces (`sf-form-builder`).
+- **`FieldTypePicker`** ("Add a field") — the 28 Field Library types in 9 groups with icons, names and descriptions
+  (en / ar), search; Table and Display Value with `advanced`. Registry `FORM_FIELD_TYPES` (capabilities per type),
+  `FORM_FIELD_GROUPS`, `fieldTypeInfo`, `pickFieldTypes`, `tableColumnTypes`.
+- **`FormFieldInspector`** — the property sections each type takes: Basics (title, helper, placeholder / search hint,
+  required, type-aware default value), Value from, Table (rows source, columns: type, user-entered / derived, options,
+  one nested level), Choices (options; Arabic labels and live sources with `advanced`), Link target (object, inline
+  "Limit the records shown" rules), Validation (unique, max length, min / max), Conditions (show / required / read-only
+  when), Auto-fill, Display (list view, print, closed, filter, search, bold, hidden, read only, translatable).
+- **App data in, no app code**: `linkTargets`, `sources`, `stepIcons`, `renderCondition`, `renderTitleInput`,
+  `renderFieldProperties`, `renderSectionProperties`, `labels`.
+- **Model** (pure, exported): `newFormField`, `newSection`, `newStep`, `normalizeForm`, `setWizard` / `enableWizard` /
+  `disableWizard`, `addSection`, `deleteSection`, `moveSection`, `placeAside`, `setSectionColumns`, `nudgeSection`,
+  `addField`, `removeField`, `updateField`, `moveField`, `nudgeField`, `addStep`, `updateStep`, `reorderStep`,
+  `removeStep`, `rowGroups`, `rowCountOf`, `maxFieldCols`, … and the types `FormBuilderValue` / `FormBuilderStep` /
+  `FormBuilderSection` / `FormBuilderField`.
+- **`TypeFormSection builder`** renders the builder; its wizard switch drives it. `TypeWizardToggle` = `WizardToggle`.
+- **Glass**: the record page's surface rules (glass.css, from styles/src/sf-record-page.css) now also apply inside
+  `TypeConfigPage` (`sf-type-config`) and `FormBuilder` (`sf-form-builder`) — the CRM's surfaces in both themes, with no
+  new values. Inside the CRM both rule sets apply with identical declarations.
+- Messages `fb*` (en + ar). Showcase: *Type configuration* uses the builder; *FormBuilder on its own*.
+- Tests: `tests/form-builder.test.tsx`.
+
 ## 0.9.0-dev.1 — the type configuration page (Core, additive)
 
 A type's settings page (Lead Type, Deal Type, Task Type, Asset Type…) as reusable parts, extracted from the CRM's

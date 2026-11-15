@@ -6,7 +6,6 @@ import { Checkbox } from "../primitives/checkbox";
 import { Input } from "../primitives/input";
 import { Label } from "../primitives/label";
 import { PageHeader } from "../primitives/page-header";
-import { Switch } from "../primitives/switch";
 import { ToggleGroup, ToggleGroupItem } from "../primitives/toggle-group";
 import { IconColorPicker, type IconColorPickerProps } from "../fields/IconColorPicker";
 import { useLocale } from "../theme/ThemeProvider";
@@ -14,6 +13,9 @@ import type { typeConfigEn } from "../theme/messages-ws/typeConfig";
 import { loc, type Localized } from "../lib/localized";
 import { cn } from "../lib/cn";
 import type { FieldImportMode, FieldImportPlan, FieldImportStatus, TypeFieldConflict } from "./typeConfig";
+import { WizardToggle, type WizardToggleProps } from "./form-builder/WizardToggle";
+import { FormBuilder, type FormBuilderProps } from "./form-builder/FormBuilder";
+import { setWizard } from "./form-builder/model";
 
 type Key = keyof typeof typeConfigEn;
 export type TypeConfigLabels = Partial<Record<Key, Localized>>;
@@ -186,28 +188,9 @@ export function TypeConfigFooter({ onCancel, onSave, mode = "edit", saveLabel, c
 
 // ── form section ────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export interface TypeWizardToggleProps {
-  checked: boolean;
-  onCheckedChange: (on: boolean) => void;
-  label?: React.ReactNode;
-  description?: React.ReactNode;
-  labels?: TypeConfigLabels;
-}
-
+export type TypeWizardToggleProps = WizardToggleProps;
 /** Wizard mode: a new record walks the form's steps in order. */
-export function TypeWizardToggle({ checked, onCheckedChange, label, description, labels }: TypeWizardToggleProps) {
-  const L = useL(labels);
-  const id = React.useId();
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-border p-2.5">
-      <div>
-        <Label htmlFor={id} className="text-xs">{label ?? L("tcWizard")}</Label>
-        <p id={`${id}-desc`} className="text-[11px] text-muted-foreground">{description ?? L("tcWizardHint")}</p>
-      </div>
-      <Switch id={id} aria-describedby={`${id}-desc`} checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
-  );
-}
+export const TypeWizardToggle = WizardToggle;
 
 export interface TypeFormIssuesProps {
   /** Blocking label conflicts (`typeFormConflicts`). */
@@ -462,14 +445,19 @@ export interface TypeFormSectionProps {
     /** Close the picker after an import (default true). */
     closeOnImport?: boolean;
   };
-  /** The form designer: the app's, or the package `FieldDesigner` for a Frappe app. */
-  children: React.ReactNode;
+  /** The package form builder for this type's form: the section renders `FormBuilder` with these props, and its wizard
+   *  switch (unless `wizard` is given) turns the builder's wizard mode on and off. */
+  builder?: FormBuilderProps<any>;
+  /** Another designer instead of `builder` (an app's own, or `FieldDesigner` for a Frappe registry). */
+  children?: React.ReactNode;
   labels?: TypeConfigLabels;
 }
 
-/** The type's Form section: heading, library button + picker, wizard switch, label problems, then the app's designer. */
-export function TypeFormSection({ title, description, wizard, issues, library, children, labels }: TypeFormSectionProps) {
+/** The type's Form section: heading, library button + picker, wizard switch, label problems, then the form builder
+ *  (`builder`) or the app's designer (`children`). */
+export function TypeFormSection({ title, description, wizard, issues, library, builder, children, labels }: TypeFormSectionProps) {
   const L = useL(labels);
+  const wizardSwitch = wizard ?? (builder ? { checked: builder.value.wizard, onCheckedChange: (on: boolean) => builder.onChange(setWizard(builder.value, on)) } : undefined);
   const [picking, setPicking] = React.useState(false);
   const trigger = library && !picking ? (
     <Button type="button" size="sm" onClick={() => setPicking(true)} className={library.triggerClassName}>
@@ -479,12 +467,13 @@ export function TypeFormSection({ title, description, wizard, issues, library, c
   ) : null;
   return (
     <TypeConfigSection title={title ?? L("tcForm")} description={description} actions={library ? trigger : undefined}>
-      {wizard ? <TypeWizardToggle {...wizard} labels={labels} /> : null}
+      {wizardSwitch ? <TypeWizardToggle {...wizardSwitch} labels={labels} /> : null}
       {issues ? <TypeFormIssues {...issues} labels={labels} /> : null}
       {library && picking ? (
         <TypeFieldPicker {...library} labels={labels} onClose={() => setPicking(false)}
           onImport={(choice) => { if (library.closeOnImport !== false) setPicking(false); library.onImport(choice); }} />
       ) : null}
+      {builder ? <FormBuilder {...builder} wizardToggle={false} /> : null}
       {children}
     </TypeConfigSection>
   );
