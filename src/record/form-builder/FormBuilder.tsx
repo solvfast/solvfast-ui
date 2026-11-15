@@ -129,18 +129,20 @@ export function FormBuilder<S extends FormBuilderSection = FormBuilderSection>(p
           commit(moveField(steps, drag.current.id, section.id, (f.column ?? 1) as FieldCol, f.id)); endDrag();
         }}>
         <div className="flex items-start gap-2">
-          <button type="button" draggable aria-label={`${L("fbReorderField")}: ${(ar ? f.titleAr || f.title : f.title) || typeName}`}
+          {/* a span (not a <button>): Firefox starts no drag from a draggable button */}
+          <span role="button" tabIndex={0} draggable aria-label={`${L("fbReorderField")}: ${(ar ? f.titleAr || f.title : f.title) || typeName}`}
             aria-pressed={selected}
             className="mt-1 cursor-grab text-muted-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:text-primary"
             onDragEnd={endDrag}
             onDragStart={(e) => { startDrag({ kind: "field", id: f.id }); e.dataTransfer?.setData?.("text/plain", f.id); e.stopPropagation(); }}
             onClick={(e) => { e.stopPropagation(); setAdding(null); setSel({ kind: "field", id: f.id }); }}
             onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setAdding(null); setSel({ kind: "field", id: f.id }); }
               if (e.key === "ArrowUp") { e.preventDefault(); commit(nudgeField(steps, f.id, -1)); }
               if (e.key === "ArrowDown") { e.preventDefault(); commit(nudgeField(steps, f.id, 1)); }
             }}>
             <GripVertical className="h-4 w-4" aria-hidden />
-          </button>
+          </span>
           <div className="min-w-0 flex-1"><FormFieldPreview field={f} fieldTypes={fieldTypes} sources={ext.sources} labels={labels} /></div>
           {f.core ? (
             <span className="inline-flex" role="img" aria-label={L("fbStandardField")} title={L("fbStandardFieldTip", { entity })}>
@@ -186,16 +188,17 @@ export function FormBuilder<S extends FormBuilderSection = FormBuilderSection>(p
             </>
           ) : null}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/30 cursor-pointer" onClick={() => { setAdding(null); setSel({ kind: "section", id: section.id }); }}>
-            <button type="button" draggable aria-label={`${L("fbReorderSection")}: ${sectionTitle(section)}`} className="cursor-grab text-muted-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:text-primary"
+            <span role="button" tabIndex={0} draggable aria-label={`${L("fbReorderSection")}: ${sectionTitle(section)}`} className="cursor-grab text-muted-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:text-primary"
               onDragEnd={endDrag}
               onDragStart={(e) => { startDrag({ kind: "section", id: section.id }); e.dataTransfer?.setData?.("text/plain", section.id); e.stopPropagation(); }}
               onClick={(e) => { e.stopPropagation(); setAdding(null); setSel({ kind: "section", id: section.id }); }}
               onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setAdding(null); setSel({ kind: "section", id: section.id }); }
                 if (e.key === "ArrowUp") { e.preventDefault(); commit(nudgeSection(steps, section.id, -1)); }
                 if (e.key === "ArrowDown") { e.preventDefault(); commit(nudgeSection(steps, section.id, 1)); }
               }}>
               <GripVertical className="h-4 w-4" aria-hidden />
-            </button>
+            </span>
             {section.collapsible ? (
               <button type="button" aria-label={collapsed ? L("fbExpandSection") : L("fbCollapseSection")} aria-expanded={!collapsed} className="text-muted-foreground"
                 onClick={(e) => { e.stopPropagation(); update(section.id, { startCollapsed: !section.startCollapsed } as Partial<S>); }}>

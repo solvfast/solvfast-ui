@@ -4,7 +4,8 @@ Apps that sort records into **types** (Lead Type, Deal Type, Task Type, Asset Ty
 where an admin names it, gives it an icon and colour, links its settings (lifecycle, SLA, assignment…), designs the form
 a new record of that type shows, and saves. These parts are that page. They hold **no data and no business rules**: the
 app passes the values, its own controls, its labels, its permissions and its save; the package gives the layout, the
-field-library picker, the import rules, the label checks and the save gate.
+form builder (`FormBuilder`, docs/components/form-builder.md), the field-library picker, the import rules, the label
+checks and the save gate.
 
 | Layer | What | Entry |
 |---|---|---|
@@ -51,7 +52,7 @@ const block = typeSaveBlock({ name, dirty, requireChange: true, conflicts: confl
     </TypeSettingsGrid>
   </TypeConfigSection>
   <TypeFormSection wizard={…} issues={{ conflicts }} library={{ groups, onImport }}>
-    {/* the app's form designer */}
+    {/* builder={{ value: form, onChange: setForm, lockCore: true, … }} — the package FormBuilder */}
   </TypeFormSection>
   {/* the app's own sections (statuses per stage, availability…) as TypeConfigSection */}
 </TypeConfigPage>
@@ -74,8 +75,8 @@ adds a description, an introductory box or a banner of its own; `notice` shows w
 `TypeFormSection` = heading, the **library button** (opens `TypeFieldPicker` inline), the **wizard switch**
 (`TypeWizardToggle`), the **label problems** (`TypeFormIssues`), then the **form builder**: `builder={{ value, onChange, … }}`
 renders the package `FormBuilder` (docs/components/form-builder.md) and the section's wizard switch drives it; or another
-designer as `children` (`FieldDesigner` for a Frappe registry). The designer stays the app's: its form model (steps → sections → columns →
-fields) is the app's data; the rules below work on any model with these properties:
+designer as `children` (`FieldDesigner` for a Frappe registry). The form's data stays the app's (it persists the value);
+the rules below work on the builder's model and on any model with these properties:
 
 ```ts
 interface TypeFormFieldLike { id: string; title?: string; titleAr?: string; core?: boolean }   // core = a standard field
@@ -137,5 +138,5 @@ Field Library"). There is **no default subtitle or section description** — pas
 ## 4. What the app keeps
 
 Entity data and stores, permissions, which settings a type has and their options, defaults (e.g. an app-level default
-lifecycle), the form designer and its field properties, extra sections (e.g. statuses per lifecycle stage, availability),
+lifecycle), the form's persistence, its objects and sources for the builder (`linkTargets`, `sources`), extra sections (e.g. statuses per lifecycle stage, availability),
 navigation, the unsaved-changes guard, toasts.

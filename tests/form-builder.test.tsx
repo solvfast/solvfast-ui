@@ -526,6 +526,22 @@ describe("independence and package surface", () => {
   });
 });
 
+describe("FormBuilder — handles", () => {
+  it("field and section handles are focusable role=button spans (draggable in every browser) that select with Enter", () => {
+    render(<ThemeProvider storageKeys={null}><Harness initial={start()} /></ThemeProvider>);
+    const h = screen.getByRole("button", { name: "Reorder field: X" });
+    expect(h.tagName).toBe("SPAN");
+    expect(h.getAttribute("tabindex")).toBe("0");
+    expect(h.getAttribute("draggable")).toBe("true");
+    fireEvent.keyDown(h, { key: "Enter" });
+    expect(screen.getByRole("heading", { name: "Text Input" })).toBeTruthy();
+    const sh = screen.getByRole("button", { name: "Reorder section: B" });
+    expect(sh.tagName).toBe("SPAN");
+    fireEvent.keyDown(sh, { key: " " });
+    expect(screen.getByRole("heading", { name: "Section" })).toBeTruthy();
+  });
+});
+
 describe("FormBuilder — picker reset", () => {
   it("each Add field opens a fresh picker (its search starts empty)", () => {
     render(<ThemeProvider storageKeys={null}><Harness initial={start()} /></ThemeProvider>);
