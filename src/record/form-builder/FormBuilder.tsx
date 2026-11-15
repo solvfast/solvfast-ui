@@ -21,6 +21,7 @@ import {
 } from "./model";
 import { FORM_FIELD_TYPES, fieldTypeInfo, type FormFieldTypeInfo } from "./fieldTypes";
 import { FieldTypePicker, FormFieldPreview } from "./FieldTypePicker";
+import { FieldLivePreview } from "./FieldLivePreview";
 import {
   FormFieldInspector, useFbL, type FormBuilderConditionProps, type FormBuilderExtensions, type FormBuilderLabels,
 } from "./FormFieldInspector";
@@ -52,6 +53,9 @@ export interface FormBuilderProps<S extends FormBuilderSection = FormBuilderSect
   entityLabel?: Localized;
   /** Show the wizard switch above the canvas (default true; `TypeFormSection` shows its own). */
   wizardToggle?: boolean;
+  /** Fields on the canvas are real controls to try (default true): what is entered there stays in the preview and never
+   *  reaches `value`. `false`: decorative previews. */
+  interactivePreviews?: boolean;
   /** Icons a step may take (Lucide components by name; default: the package's appearance icons). */
   stepIcons?: Readonly<Record<string, LucideIcon>>;
   /** More controls in a section's panel (e.g. an app's renderer hint). */
@@ -69,7 +73,7 @@ export interface FormBuilderProps<S extends FormBuilderSection = FormBuilderSect
 export function FormBuilder<S extends FormBuilderSection = FormBuilderSection>(props: FormBuilderProps<S>) {
   const {
     value, onChange, fieldTypes = FORM_FIELD_TYPES, advancedFieldTypes = false, maxColumns, lockCore = false, entityLabel,
-    wizardToggle = true, stepIcons = APPEARANCE_ICONS, renderSectionProperties, labels, className, ...ext
+    wizardToggle = true, interactivePreviews = true, stepIcons = APPEARANCE_ICONS, renderSectionProperties, labels, className, ...ext
   } = props;
   const L = useFbL(labels);
   const { language, isRTL } = useLocale();
@@ -143,7 +147,11 @@ export function FormBuilder<S extends FormBuilderSection = FormBuilderSection>(p
             }}>
             <GripVertical className="h-4 w-4" aria-hidden />
           </span>
-          <div className="min-w-0 flex-1"><FormFieldPreview field={f} fieldTypes={fieldTypes} sources={ext.sources} labels={labels} /></div>
+          <div className="min-w-0 flex-1">
+            {interactivePreviews
+              ? <FieldLivePreview field={f} fieldTypes={fieldTypes} sources={ext.sources} linkTargets={ext.linkTargets} labels={labels} />
+              : <FormFieldPreview field={f} fieldTypes={fieldTypes} sources={ext.sources} labels={labels} />}
+          </div>
           {f.core ? (
             <span className="inline-flex" role="img" aria-label={L("fbStandardField")} title={L("fbStandardFieldTip", { entity })}>
               <Lock className="h-3.5 w-3.5 text-muted-foreground/70" aria-hidden />
@@ -276,7 +284,10 @@ export function FormBuilder<S extends FormBuilderSection = FormBuilderSection>(p
               <Lock className="h-3 w-3 mt-0.5 shrink-0" aria-hidden />{lockCore ? L("fbLockedTypeForm", { entity }) : L("fbLockedCore")}
             </p>
           ) : null}
+          {interactivePreviews ? <p className="mb-3 text-[11px] text-muted-foreground" data-fb-preview-hint="">{L("fbPreviewHint")}</p> : null}
           <SwitchRow label={L("fbFullWidth")} checked={!!f.fullWidth} onChange={(v) => commit(updateField(steps, f.id, { fullWidth: v } as Partial<S["fields"][number]>, lockCore))} />
+          <MoveFieldControl steps={steps} fieldId={f.id} sectionTitle={sectionTitle} labels={labels}
+            onMove={(sectionId, column) => commit(moveField(steps, f.id, sectionId, column))} />
           <FormFieldInspector key={f.id} field={f} siblings={sectionOfField(steps, f.id)?.fields ?? []} fieldTypes={fieldTypes} advanced={advancedFieldTypes} labels={labels}
             onChange={(patch) => commit(updateField(steps, f.id, patch as Partial<S["fields"][number]>, lockCore))} {...ext} />
         </PanelShell>
@@ -315,6 +326,14 @@ export function FormBuilder<S extends FormBuilderSection = FormBuilderSection>(p
             <TextArea label={L("fbDescription")} value={(ar ? s.descriptionAr : s.description) ?? ""} placeholder={L("fbOptionalHelper")}
               onChange={(v) => update(s.id, (ar ? { descriptionAr: v } : { description: v }) as Partial<S>)} />
             {renderSectionProperties?.(s, (patch) => update(s.id, patch))}
+            <MoveSectionControl steps={steps} sectionId={s.id} wizard={wizard} sectionTitle={sectionTitle} stepTitle={stepTitle} labels={labels}
+              onMoveToStep={(stepId) => commit(moveSection(steps, s.id, stepId))}
+              onBeside={(targetId) => commit(placeAside(steps, s.id, targetId, "end"))}
+              onOwnRow={() => {
+                const st = steps.find((x) => x.sections.some((y) => y.id === s.id))!;
+                const i = st.sections.findIndex((y) => y.id === s.id);
+                commit(moveSection(steps, s.id, st.id, st.sections[i + 1]?.id));
+              }} />
             {capCols.length > 1 ? (
               <div className="space-y-1.5">
                 <Label className="text-xs">{L("fbFieldColumns")}</Label>
@@ -565,6 +584,73 @@ function StepIconPicker({ value, icons, onChange, labels }: { value?: string; ic
         })}
         {names.length === 0 ? <p className="text-[11px] text-muted-foreground py-2 px-1">{L("fbNoMatchingIcons")}</p> : null}
       </div>
+    </div>
+  );
+}
+
+/** Move a field without dragging (any browser, keyboard): its section and, for a multi-column section, its column. */
+function MoveFieldControl<S extends FormBuilderSection>({ steps, fieldId, sectionTitle, onMove, labels }: {
+  steps: FormBuilderStep<S>[]; fieldId: string; sectionTitle: (s: S) => string; onMove: (sectionId: string, column: FieldCol) => void; labels?: FormBuilderLabels;
+}) {
+  const L = useFbL(labels);
+  const cur = sectionOfField(steps, fieldId);
+  const field = findField(steps, fieldId);
+  if (!cur || !field) return null;
+  const sections = allSections(steps);
+  return (
+    <div className="space-y-1.5 mb-3" role="group" aria-label={L("fbMoveTo")} data-fb-move-field="">
+      <Label className="text-xs">{L("fbMoveTo")}</Label>
+      <div className="flex gap-2">
+        <Select value={cur.id} onValueChange={(v) => onMove(v, 1)}>
+          <SelectTrigger aria-label={L("fbMoveFieldSection")} className="h-9 flex-1"><SelectValue /></SelectTrigger>
+          <SelectContent>{sections.map((x) => <SelectItem key={x.id} value={x.id}>{sectionTitle(x)}</SelectItem>)}</SelectContent>
+        </Select>
+        {cur.columns > 1 ? (
+          <Select value={String(field.column ?? 1)} onValueChange={(v) => onMove(cur.id, Number(v) as FieldCol)}>
+            <SelectTrigger aria-label={L("fbColumnN", { n: "" }).trim()} className="h-9 w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>{COLS.slice(0, cur.columns).map((c) => <SelectItem key={c} value={String(c)}>{L("fbColumnN", { n: c })}</SelectItem>)}</SelectContent>
+          </Select>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** Move a section without dragging: to another step (wizard), beside another section of its step, or onto its own row. */
+function MoveSectionControl<S extends FormBuilderSection>({ steps, sectionId, wizard, sectionTitle, stepTitle, onMoveToStep, onBeside, onOwnRow, labels }: {
+  steps: FormBuilderStep<S>[]; sectionId: string; wizard: boolean; sectionTitle: (s: S) => string; stepTitle: (s: FormBuilderStep<S>, i: number) => string;
+  onMoveToStep: (stepId: string) => void; onBeside: (targetId: string) => void; onOwnRow: () => void; labels?: FormBuilderLabels;
+}) {
+  const L = useFbL(labels);
+  const step = steps.find((x) => x.sections.some((y) => y.id === sectionId));
+  const sec = step?.sections.find((y) => y.id === sectionId);
+  if (!step || !sec) return null;
+  const OWN = "__own__";
+  const rowMates = step.sections.filter((y) => y.id !== sectionId && y.rowId && y.rowId === sec.rowId);
+  const others = step.sections.filter((y) => y.id !== sectionId);
+  return (
+    <div className="space-y-3" data-fb-move-section="">
+      {wizard && steps.length > 1 ? (
+        <div className="space-y-1.5">
+          <Label className="text-xs">{L("fbMoveSectionStep")}</Label>
+          <Select value={step.id} onValueChange={(v) => { if (v !== step.id) onMoveToStep(v); }}>
+            <SelectTrigger aria-label={L("fbMoveSectionStep")} className="h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>{steps.map((x, i) => <SelectItem key={x.id} value={x.id}>{stepTitle(x, i)}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+      ) : null}
+      {others.length > 0 ? (
+        <div className="space-y-1.5">
+          <Label className="text-xs">{L("fbPlaceBeside")}</Label>
+          <Select value={rowMates[0]?.id ?? OWN} onValueChange={(v) => (v === OWN ? onOwnRow() : onBeside(v))}>
+            <SelectTrigger aria-label={L("fbPlaceBeside")} className="h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={OWN}>{L("fbOwnRow")}</SelectItem>
+              {others.map((x) => <SelectItem key={x.id} value={x.id}>{sectionTitle(x)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
     </div>
   );
 }

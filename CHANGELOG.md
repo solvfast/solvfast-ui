@@ -6,6 +6,20 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.9.0-dev.3 — form builder: interactive previews, moving without dragging (Core, additive)
+
+- **Interactive canvas previews** (`FormBuilder interactivePreviews`, default on): each field on the canvas is its real
+  control to try — type, pick, tick, rate, format text — as in the Field Library builder. What is entered there lives
+  only in the preview (`FieldLivePreview`): it starts from the field's default value, starts over when the type or the
+  default changes, and has no way to change the field or the form; configuration stays in `FormFieldInspector`, whose
+  panel says so. `interactivePreviews={false}`: the decorative previews of 0.9.0-dev.2.
+- **Moving without dragging** (any browser, keyboard): a field's panel has **Move to** (section, column); a section's
+  panel has **Move to step** (wizard) and **Place beside** (another section of its step, or its own row). Together with
+  the Arrow / Alt + Arrow handles, every drag action has a non-drag path.
+- Field and section handles are focusable `role="button"` spans (Enter / Space select, arrows reorder): Firefox starts no
+  drag from a draggable `<button>`.
+- Messages: `fbPreview*`, `fbMove*`, `fbPlaceBeside`, `fbOwnRow`, … (en + ar).
+
 ## 0.9.0-dev.2 — the form builder (Core, additive)
 
 The type form builder of the SOLV FAST Field Library / CRM type pages, extracted as a package capability and plugged

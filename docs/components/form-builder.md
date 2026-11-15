@@ -71,6 +71,18 @@ never removed — a deleted section or step hands them to a surviving section.
 | Step | pill: its properties (title, description, icon, show-when, delete → move sections to… / delete with sections); drag onto another pill | pill + Alt + Arrow left / right (follows reading direction) |
 | Add | "Add field" in a column → **Add a field** panel (search, groups); "Add section" (end) / "Add section here" (between, on hover or focus); "Add step" | — |
 
+### Previews and moving without dragging
+
+- **Interactive previews** (default): each field on the canvas is its real control to try (type, pick, tick, rate,
+  format text). Those values are a preview: they live only in the canvas, start from the field's default value, start
+  over when its type or default changes, and never reach `value` — the field's configuration is the panel's (which says
+  so). `interactivePreviews={false}` draws decorative previews instead.
+- **Every drag has a non-drag path**: a field's panel → **Move to** (section, column); a section's panel → **Move to
+  step** (wizard), **Place beside** (a section of its step, or its own row); handles → Arrow up / down (fields, sections),
+  Alt + Arrow (steps).
+- **Browsers**: drag and drop is HTML5 drag; handles are focusable `role="button"` spans (Firefox starts no drag from a
+  draggable `<button>`). Verified in Chromium; where a browser's drag fails, the panel controls and the keys do the same.
+
 ## 4. Field types and properties
 
 `FORM_FIELD_TYPES` — Text Input, Long Text, Rich Text · Dropdown, Radio Buttons, Multi Select, Checkbox, Rating, Color
@@ -115,8 +127,8 @@ the CRM's look — and band strips the top bar's glass. Needs glass.css (as the 
 
 ## 7. Differences from the Field Library builder it replaces
 
-- The canvas previews are drawn by the package `FieldPreview` (decorative); the Field Library's were live inputs you
-  could type into. The card, not the preview, is what is selected and dragged.
+- Typing in a field's title keeps focus, and a property section stays open after an edit (the Field Library's panel
+  was re-created on every change, so its title input lost focus after one keystroke and sections closed).
 - Keyboard: sections (Arrow keys) and steps (Alt + Arrow) can also be moved without a mouse; drag handles are buttons.
 - A standard field's Required switch is shown disabled (it was a switch that snapped back on).
 - Choosing a field or section while the Add a field panel is open shows that element (the panel used to stay open).

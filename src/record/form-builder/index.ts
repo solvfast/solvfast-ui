@@ -2,6 +2,8 @@
 export { FormBuilder } from "./FormBuilder";
 export type { FormBuilderProps } from "./FormBuilder";
 export { FieldTypePicker, FormFieldPreview } from "./FieldTypePicker";
+export { FieldLivePreview } from "./FieldLivePreview";
+export type { FieldLivePreviewProps } from "./FieldLivePreview";
 export type { FieldTypePickerProps } from "./FieldTypePicker";
 export { FormFieldInspector, SourcePicker, fieldChoices } from "./FormFieldInspector";
 export type {

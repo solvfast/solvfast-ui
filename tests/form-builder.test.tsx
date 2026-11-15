@@ -554,3 +554,67 @@ describe("FormBuilder — picker reset", () => {
     expect(screen.getByRole("button", { name: /Text Input/ })).toBeTruthy();
   });
 });
+
+describe("FormBuilder — interactive previews", () => {
+  const withTypes = (): FormBuilderValue => ({ wizard: false, steps: [{ id: "m", title: "", sections: [
+    sec("p", [fld("t", "Serial"), fld("c", "Critical", { type: "checkbox" }), fld("r", "Score", { type: "rating" }),
+      { ...fld("ms", "Tags", { type: "multi_select" }), options: [{ id: "o1", label: "Red" }, { id: "o2", label: "Blue" }] }]),
+  ] }] });
+  it("canvas fields are real controls to try; nothing typed there reaches the form value", () => {
+    const onValue = vi.fn();
+    wrap(<Harness initial={withTypes()} onValue={onValue} />);
+    const text = screen.getByRole("textbox", { name: "Preview of Serial — not saved" });
+    fireEvent.change(text, { target: { value: "SN-1" } });
+    expect((text as HTMLInputElement).value).toBe("SN-1");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Preview of Critical — not saved" }));
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "Preview of Score — not saved" })).getByRole("radio", { name: "4" }));
+    const tags = () => within(screen.getByRole("group", { name: "Preview of Tags — not saved" })).getByRole("button", { name: "Blue" });
+    fireEvent.click(tags());
+    expect(tags().getAttribute("aria-pressed")).toBe("true");
+    expect(onValue).not.toHaveBeenCalled();                    // clicking a preview selects the field (as before) — never a change
+  });
+  it("the preview starts from the default value and starts over when the default changes; the panel says what is saved", () => {
+    let last: FormBuilderValue | undefined;
+    wrap(<Harness initial={withTypes()} onValue={(v) => { last = v; }} />);
+    const text = () => screen.getByRole("textbox", { name: "Preview of Serial — not saved" }) as HTMLInputElement;
+    fireEvent.change(text(), { target: { value: "typed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reorder field: Serial" }));
+    expect(screen.getByText(/what you enter there is a preview and is not saved/)).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: "Default value" }), { target: { value: "N/A" } });
+    expect(allFields(last!.steps)[0].defaultValue).toBe("N/A");
+    expect(text().value).toBe("N/A");
+  });
+  it("interactivePreviews={false} draws the decorative previews", () => {
+    wrap(<Harness initial={withTypes()} interactivePreviews={false} />);
+    expect(screen.queryByRole("textbox", { name: "Preview of Serial — not saved" })).toBeNull();
+    expect(document.querySelector("[data-fb-live-preview]")).toBeNull();
+  });
+});
+
+describe("FormBuilder — moving without dragging", () => {
+  const pick = (trigger: HTMLElement, option: string) => {
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    fireEvent.click(screen.getByRole("option", { name: option }));
+  };
+  it("a field moves to another section from its panel", () => {
+    let last: FormBuilderValue | undefined;
+    wrap(<Harness initial={start()} onValue={(v) => { last = v; }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Reorder field: X" }));
+    pick(screen.getByRole("combobox", { name: "Section" }), "B");
+    expect(ids(last!.steps)).toEqual(["a:n,y | b:z,x"]);
+  });
+  it("a section is placed beside another, back on its own row, and moved to another step", () => {
+    let last: FormBuilderValue | undefined;
+    wrap(<Harness initial={start()} onValue={(v) => { last = v; }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Reorder section: B" }));
+    pick(screen.getByRole("combobox", { name: "Place beside" }), "A");
+    expect(rowCountOf(last!.steps[0].sections, "a")).toBe(2);
+    pick(screen.getByRole("combobox", { name: "Place beside" }), "Its own row");
+    expect(rowCountOf(last!.steps[0].sections, "a")).toBe(1);
+    expect(last!.steps[0].sections.map((s) => s.id)).toEqual(["a", "b"]);
+    fireEvent.click(screen.getByRole("switch", { name: "Wizard mode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reorder section: A" }));
+    pick(screen.getByRole("combobox", { name: "Move to step" }), "B");
+    expect(last!.steps.map((s) => s.sections.map((x) => x.id))).toEqual([[], ["b", "a"]]);
+  });
+});
