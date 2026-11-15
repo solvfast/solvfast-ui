@@ -524,6 +524,18 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     expect(calls.at(-1)).toMatchObject({ method: "sear_product.apis.field_library.deployments.doctype_deployment", args: { target_doctype: "SRF Ticket Brand New" } });
   });
 
+  it("FD.sayr.9 a hidden field of the type's own (a system link) is left off the canvas and out of the saved order", async () => {
+    const { api, calls } = recordingApi({
+      "sear_product.apis.field_library.deployments.doctype_deployment": () => ({ ...SCREEN,
+        target_fields: [...SCREEN.target_fields, { fieldname: "source_message", label: "Source Message", fieldtype: "Link", hidden: 1 }] }),
+    });
+    const adapter = createSayrFieldDesignerAdapter(api, "SRF Ticket Refund Request");
+    const { items } = await adapter.load();
+    expect(items.some((i) => i.id === "source_message")).toBe(false);
+    await adapter.save(items);
+    expect(JSON.parse(calls.find((c) => c.method.endsWith("save_field_order"))!.args.order as string)).not.toContain("source_message");
+  });
+
   it("FD.sayr.5 no right → a refusal, not an error; a removal says how many records hold values", async () => {
     const denied = recordingApi({ "sear_product.apis.field_library.deployments.doctype_deployment": () => { throw Object.assign(new Error("Not permitted"), { status: 403 }); } });
     expect((await createSayrFieldDesignerAdapter(denied.api, "X", { language: "ar" }).load()).refusal).toMatch(/مسؤول منصة سير/);

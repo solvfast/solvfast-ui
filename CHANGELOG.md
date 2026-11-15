@@ -6,6 +6,12 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.31 — The type form designer leaves hidden fields out
+
+A type's own hidden fields (a system link, a derived title) are no longer shown on the designer's canvas as locked
+fields: nobody places them. They stay out of the saved order too, and Sayr keeps them after the arranged fields.
+A field added in the designer and set hidden stays on the canvas. Test FD.sayr.9.
+
 ## 0.7.0-dev.30 — A new type's form keeps the fields its DocType was made with
 
 Fix. A new type is made with more than its shared fields (e.g. the SLA section its Configuration deploys), which its

@@ -30,7 +30,7 @@ interface Screen {
   refusal: string | null;
   deployment: null | { name: string; status: string; fields: DeploymentRow[]; own_fields?: SayrFieldRow[] };
   family: null | { role: "child" | "parent"; shared?: string[] };
-  target_fields: { fieldname: string; label?: string; fieldtype: string }[];
+  target_fields: { fieldname: string; label?: string; fieldtype: string; hidden?: 0 | 1 | boolean }[];
 }
 interface Registry {
   types: { key: string; label_en: string; label_ar: string; group: string; props: FieldTypeProperty[] }[];
@@ -240,7 +240,9 @@ export function createSayrFieldDesignerAdapter(api: SayrApi, target: string | Sa
     };
     const byField = new Map(rows.filter((r) => r.fieldname).map((r) => [r.fieldname as string, r]));
     const shared = new Set(s.family?.role === "child" ? s.family.shared ?? [] : []);
-    let items: DesignerItem[] = s.target_fields.map((f) => {
+    // A hidden field of the DocType's own (a system link, a derived title) is nobody's to place: it is left off the
+    // canvas, and Sayr keeps it in the order after the arranged fields.
+    let items: DesignerItem[] = s.target_fields.filter((f) => !f.hidden || byField.has(f.fieldname)).map((f) => {
       const kind = kindOfFieldtype(f.fieldtype);
       const label = f.label === f.fieldname ? "" : f.label;
       const row = byField.get(f.fieldname);
