@@ -80,7 +80,9 @@ export function FormBuilder<S extends FormBuilderSection = FormBuilderSection>(p
   const cap: FieldCol = maxColumns ?? (advancedFieldTypes ? 4 : 3);
 
   const [sel, setSel] = React.useState<Sel>({ kind: "none" });
-  const [adding, setAdding] = React.useState<{ sectionId: string; column: FieldCol } | null>(null);
+  // `n`: each "Add field" opens a fresh picker (its search starts empty), as in the Field Library builder.
+  const [adding, setAdding] = React.useState<{ sectionId: string; column: FieldCol; n: number } | null>(null);
+  const addSeq = React.useRef(0);
   const [deleting, setDeleting] = React.useState<{ sectionId: string; target: string } | null>(null);
   const [deletingStep, setDeletingStep] = React.useState<{ stepId: string; target: string } | null>(null);
   const [stepIdx, setStepIdx] = React.useState(0);
@@ -156,7 +158,7 @@ export function FormBuilder<S extends FormBuilderSection = FormBuilderSection>(p
       onDragOver={(e) => { if (drag.current?.kind === "field") e.preventDefault(); }}
       onDrop={(e) => { if (drag.current?.kind !== "field") return; e.preventDefault(); commit(moveField(steps, drag.current.id, section.id, column)); endDrag(); }}>
       <button type="button" className="inline-flex items-center gap-1 hover:text-primary" aria-label={section.columns > 1 ? `${L("fbAddField")} (${column})` : L("fbAddField")}
-        onClick={(e) => { e.stopPropagation(); setSel({ kind: "none" }); setAdding({ sectionId: section.id, column }); }}>
+        onClick={(e) => { e.stopPropagation(); setSel({ kind: "none" }); setAdding({ sectionId: section.id, column, n: ++addSeq.current }); }}>
         <Plus className="h-3 w-3" aria-hidden />{L("fbAddField")}
       </button>
     </div>
@@ -247,7 +249,7 @@ export function FormBuilder<S extends FormBuilderSection = FormBuilderSection>(p
     if (adding) {
       return (
         <PanelShell title={L("fbAddAField")} onClose={() => setAdding(null)} closeLabel={L("fbClose")}>
-          <FieldTypePicker fieldTypes={fieldTypes} advanced={advancedFieldTypes} onPick={pickType} labels={labels} />
+          <FieldTypePicker key={adding.n} fieldTypes={fieldTypes} advanced={advancedFieldTypes} onPick={pickType} labels={labels} />
         </PanelShell>
       );
     }

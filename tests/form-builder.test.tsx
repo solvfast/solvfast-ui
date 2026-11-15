@@ -525,3 +525,16 @@ describe("independence and package surface", () => {
     }
   });
 });
+
+describe("FormBuilder — picker reset", () => {
+  it("each Add field opens a fresh picker (its search starts empty)", () => {
+    render(<ThemeProvider storageKeys={null}><Harness initial={start()} /></ThemeProvider>);
+    const addB = () => within(document.querySelector('[data-fb-section="b"]') as HTMLElement).getByRole("button", { name: "Add field" });
+    fireEvent.click(addB());
+    fireEvent.change(screen.getByRole("textbox", { name: "Search field types…" }), { target: { value: "zzz" } });
+    expect(screen.getByText("No matching field types")).toBeTruthy();
+    fireEvent.click(addB());
+    expect((screen.getByRole("textbox", { name: "Search field types…" }) as HTMLInputElement).value).toBe("");
+    expect(screen.getByRole("button", { name: /Text Input/ })).toBeTruthy();
+  });
+});
