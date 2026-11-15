@@ -6,6 +6,27 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.9.0 — 2026-11-15
+
+Stable release of the 0.9.0 line (owner-approved). **0.9.0 is the verified 0.9.0-dev.3 source**: the only changes are
+the version (`package.json`, the root entries of `package-lock.json`) and this entry. Additive — no 0.8.0 export changed
+or was removed; the public API is the dev.3 API, names unchanged (owner decision). The detail is in the dev.1–dev.3
+entries below.
+
+- **Type configuration page** — `TypeConfigPage` and its parts; the field library in two modes (**All fields**,
+  **Selected fields**); import and label rules (`planFieldImport`, `typeFormConflicts`, `typeSaveBlock`, …). No default
+  page subtitle or section description. docs/components/type-config.md
+- **Form builder** — `FormBuilder` (wizard steps, sections side by side, 1–4 field columns, 28 field types, every
+  Field Library property, locked standard fields, drag and drop with keyboard / panel alternatives, interactive canvas
+  previews that are never saved), `FieldTypePicker`, `FormFieldInspector`, `FieldLivePreview`, the field-type registry
+  and a pure model. `TypeFormSection builder` renders it. docs/components/form-builder.md
+- **Glass** — the record page's surface rules also apply inside `TypeConfigPage` and `FormBuilder` (no new values).
+- **Docs** — `CONSUMING.md`: a `PageHeader` subtitle inside `AppShell` is its own strip; only for content the design has.
+
+Upgrade from 0.8.0: no change needed. Verified: CRM Lead / Deal / Task Type pages migrated in the lab and compared with
+0.8.0 behaviour; drag and drop verified in Chromium (Firefox / WebKit not available in the lab — every drag action also
+has a panel / keyboard path).
+
 ## 0.9.0-dev.3 — form builder: interactive previews, moving without dragging (Core, additive)
 
 - **Interactive canvas previews** (`FormBuilder interactivePreviews`, default on): each field on the canvas is its real
