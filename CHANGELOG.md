@@ -6,6 +6,29 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.9.0-dev.1 — the type configuration page (Core, additive)
+
+A type's settings page (Lead Type, Deal Type, Task Type, Asset Type…) as reusable parts, extracted from the CRM's
+Lead / Deal / Task Type pages, which now use them. No existing export changed. docs/components/type-config.md
+
+- **UI** (`@solvfast/ui`): `TypeConfigPage` (one header: the app's title, a subtitle only when passed; ordered sections;
+  action row), `TypeConfigSection`, `TypeAppearanceSection` (the `IconColorPicker`, or the app's picker), `TypeSettingsGrid`,
+  `TypeSettingField` (label, required mark, manage link, the app's control, hint lines), `TypeFormSection` (library
+  button + picker, wizard switch, label problems, then the app's form designer), `TypeWizardToggle`, `TypeFormIssues`,
+  `TypeConfigFooter`, and **`TypeFieldPicker`** — field selection in two modes: **All fields** (a whole library group in
+  one click) and **Selected fields** (fields picked one by one across groups, with search; fields that cannot be added
+  are shown with the reason). `useFieldImportSummary` words an import's result.
+- **Rules** (pure, structural types — any steps → sections → fields model fits): `planFieldImport` (one-time copy; standard
+  fields never; reserved and present labels skipped and counted; new ids; side-by-side rows kept; empty sections dropped;
+  `mode: "all" | "selected"`), `appendImportedSections`, `fieldImportStatus`, `typeFormConflicts` (blocking label clashes,
+  with an `exempt` predicate), `typeFormReservedWarnings`, `typeFormFields`, `typeSaveBlock` (`busy` / `name` /
+  `conflicts` / `unchanged`), `normLabel`.
+- **Messages**: `tc*` (en + ar). No default page subtitle or section description.
+- **Showcase**: Patterns → *Type configuration* (an Asset Type page; the picker alone).
+- Tests: `tests/type-config.test.tsx` (rules, parts, both picker modes, a whole non-CRM type page).
+- Docs: `docs/CONSUMING.md` — a `PageHeader` `subtitle` / `meta` inside `AppShell` is its own strip under the top bar; pass
+  one only when the page's design has that content, never a made-up page description.
+
 ## 0.8.0 — 2026-11-14
 
 Stable release of the 0.8.0 line (owner-approved). **0.8.0 is byte-for-byte the 0.8.0-dev.10 source**: the only changes

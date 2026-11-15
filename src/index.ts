@@ -242,6 +242,20 @@ export { FieldDesigner, toLayout as designerLayout, fromLayout as designerItems,
 export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval, DesignerPending, DesignerItem, DesignerKind } from "./record";
 export { FieldInspector, INSPECTED_PROPERTIES, ownKeys as designerKeys } from "./record";
 export type { FieldInspectorProps, FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./record";
+// Type configuration page (Lead Type, Deal Type, Task Type…) — docs/components/type-config.md
+export {
+  TypeConfigPage, TypeConfigSection, TypeAppearanceSection, TypeSettingsGrid, TypeSettingField, TypeConfigFooter,
+  TypeWizardToggle, TypeFormIssues, TypeFieldPicker, TypeFormSection, useFieldImportSummary,
+  planFieldImport, appendImportedSections, fieldImportStatus, typeFormConflicts, typeFormReservedWarnings, typeFormFields,
+  typeSaveBlock, normLabel,
+} from "./record";
+export type {
+  TypeConfigPageProps, TypeConfigSectionProps, TypeAppearanceSectionProps, TypeSettingFieldProps, TypeConfigFooterProps,
+  TypeWizardToggleProps, TypeFormIssuesProps, TypeFieldPickerProps, TypeFieldGroup, TypeFieldOption, TypeFieldImport,
+  TypeFormSectionProps, TypeConfigLabels,
+  TypeFormFieldLike, TypeFormSectionLike, TypeFormStepLike, TypeFormLike, ReservedLabel, FieldImportMode, FieldImportStatus,
+  FieldImportPlan, PlanFieldImportArgs, TypeFieldConflict, TypeSaveBlock, TypeSaveState,
+} from "./record";
 export { EmptyState } from "./primitives/empty-state";
 export type { EmptyStateProps } from "./primitives/empty-state";
 export type { RichTextEditorHandle } from "./primitives/rich-text-editor";

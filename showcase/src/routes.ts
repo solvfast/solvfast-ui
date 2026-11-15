@@ -311,3 +311,17 @@ const p36bSocial = () => import("./pages/p36b-social");
   group.pages.push(page);
   PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
 }
+
+// 0.9.0-dev.1 — the type configuration page (TypeConfigPage, TypeFieldPicker: all fields / selected fields)
+{
+  const typeConfig = () => import("./pages/type-config");
+  const group = GROUPS.find((g) => g.id === "patterns")!;
+  const page: Page = {
+    id: "type-config",
+    title: l("Type configuration", "إعداد النوع"),
+    description: l("A type's settings page (Lead Type, Task Type, Asset Type…): appearance, settings, the Form section with the field library — all fields or selected fields — label checks and the save gate.", "صفحة إعداد النوع (نوع العميل المحتمل، نوع المهمة، نوع الأصل…): المظهر والإعدادات وقسم النموذج مع مكتبة الحقول — كل الحقول أو حقول محددة — وفحص التسميات وشرط الحفظ."),
+    Component: from(typeConfig, "TypeConfigDemoPage"),
+  };
+  group.pages.push(page);
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}

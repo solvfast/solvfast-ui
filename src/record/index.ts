@@ -124,3 +124,22 @@ export type {
   DocStatus, DocMessage, SubmitMessageKey, DocstatusAction, DocstatusResult, WorkflowDocAction, WorkflowDocResult,
   WorkflowStateDoc, WorkflowTransitionDoc, DocstatusField,
 } from "./docstatus";
+// Type configuration page (Lead Type, Deal Type, Task Type…): page parts, field library picker, import planner, label
+// conflicts, save rules. docs/components/type-config.md
+export {
+  TypeConfigPage, TypeConfigSection, TypeAppearanceSection, TypeSettingsGrid, TypeSettingField, TypeConfigFooter,
+  TypeWizardToggle, TypeFormIssues, TypeFieldPicker, TypeFormSection, useFieldImportSummary,
+} from "./TypeConfig";
+export type {
+  TypeConfigPageProps, TypeConfigSectionProps, TypeAppearanceSectionProps, TypeSettingFieldProps, TypeConfigFooterProps,
+  TypeWizardToggleProps, TypeFormIssuesProps, TypeFieldPickerProps, TypeFieldGroup, TypeFieldOption, TypeFieldImport,
+  TypeFormSectionProps, TypeConfigLabels,
+} from "./TypeConfig";
+export {
+  planFieldImport, appendImportedSections, fieldImportStatus, typeFormConflicts, typeFormReservedWarnings, typeFormFields,
+  typeSaveBlock, normLabel,
+} from "./typeConfig";
+export type {
+  TypeFormFieldLike, TypeFormSectionLike, TypeFormStepLike, TypeFormLike, ReservedLabel, FieldImportMode, FieldImportStatus,
+  FieldImportPlan, PlanFieldImportArgs, TypeFieldConflict, TypeSaveBlock, TypeSaveState,
+} from "./typeConfig";
