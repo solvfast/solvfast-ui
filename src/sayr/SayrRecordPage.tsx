@@ -189,7 +189,6 @@ export function SayrRecordPage({
   );
 
   const cards: Record<string, React.ReactNode> = {
-    ...Object.fromEntries((extraCards ?? []).map((c) => [c.id, <RailCard id={c.id} icon={c.icon} title={c.label}>{c.render(doc)}</RailCard>])),
     assignment: (
       <RailCard id="assignment" icon={ShieldCheck} title={t("rpAssignment")}>
         {doc && session?.user ? (
@@ -239,6 +238,8 @@ export function SayrRecordPage({
         <FrappeAttachments doctype={doctype} name={name} doc={doc} bundle={meta.data} docinfo={docinfo} readOnly={!canWrite} />
       </RailCard>
     ),
+    // The app's own cards; one with a built-in card's id replaces it.
+    ...Object.fromEntries((extraCards ?? []).map((c) => [c.id, <RailCard id={c.id} icon={c.icon} title={c.title ?? c.label} action={c.action}>{c.render(doc)}</RailCard>])),
   };
 
   return (

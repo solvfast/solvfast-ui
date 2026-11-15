@@ -6,6 +6,16 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.26 — SayrRecordPage: an app card can replace a built-in card, with a title and an action
+
+Additive (nothing changes for an app that passes no such card). jsdom tests only.
+
+- `RecordRailExtraCard` takes `title` (the card's header, e.g. with a count; `label` stays its Customize sections name)
+  and `action` (beside the title, e.g. an Add button).
+- An app card whose `id` is a built-in card's (`assignment`, `sla`, `playbook`, `tasks`, `notes`, `attachments`) replaces
+  that card in its place; `railOrder` no longer lists it twice. `SayrNewRecordPage` keeps the built-in preview.
+- Test RP.cards.6.
+
 ## 0.7.0-dev.25 — SchedulingCalendar: guests' events on one grid, a meeting's time picked on it
 
 Additive (new component; nothing else changes). jsdom tests only.

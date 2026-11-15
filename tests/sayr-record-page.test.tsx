@@ -169,6 +169,22 @@ describe("RP.cards — empty states, tasks, customize", () => {
     await waitFor(() => expect(container.querySelector("[data-rail-card='contact']")).toBeNull());
   });
 
+  it("RP.cards.6 an app card with a built-in card's id replaces it in its place, with its title and action", async () => {
+    const notes: RecordRailExtraCard = {
+      id: "notes", label: "Pinned Notes", title: "Pinned Notes (2)", icon: User,
+      action: <button type="button">Add note</button>, render: (doc) => <p>Notes of {String(doc?.name ?? "")}</p>,
+    };
+    const { container } = mount(PAGE(), "en", [], [notes]);
+    await waitFor(() => expect(screen.getByText("Notes of TKT-00008")).toBeTruthy());
+    const order = [...container.querySelectorAll("[data-rail-card]")].map((c) => c.getAttribute("data-rail-card"));
+    expect(order).toEqual(["lifecycle", "assignment", "sla", "playbook", "tasks", "notes", "attachments"]);
+    const card = container.querySelector("[data-rail-card='notes']") as HTMLElement;
+    expect(card.textContent).toContain("Pinned Notes (2)");
+    expect(card.querySelector("button")?.textContent).toBe("Add note");
+    fireEvent.click(screen.getByRole("button", { name: "Customize sections" }));
+    await waitFor(() => expect(document.querySelectorAll("[data-rail-toggle='notes']").length).toBe(1));
+  });
+
   it("RP.cards.4 Arabic labels", async () => {
     mount(PAGE({ sla: { deployed: false } }), "ar");
     await waitFor(() => expect(screen.getByText("لا توجد اتفاقية خدمة منشورة")).toBeTruthy());

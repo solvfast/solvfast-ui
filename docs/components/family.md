@@ -271,6 +271,10 @@ Every other prop is `FrappeForm`'s and goes to the form.
   Customize sections and hidden like the others (`railOrder(extraCards)` gives the order). ServeFast passes the
   record's CRM Contact and Organization. `SayrNewRecordPage` takes the same prop and shows them as "Available after the
   record is created".
+  Since 0.7.0-dev.26 a card may carry a `title` (e.g. with a count; `label` stays its name in Customize sections) and an
+  `action` beside the title (e.g. an Add button), and a card whose `id` is a built-in one (`notes`, `attachments`, …)
+  replaces that card in its place: ServeFast's own Pinned Notes and Attachments (its `SRF Note` / `SRF Attachment`)
+  take the place of Frappe's comments and files there. The new-record page keeps its built-in preview for such ids.
 - **Data**: one call to Sayr's `sear_product.apis.tickets.tickets.record_page` (header, lifecycle, SLA, the assign
   comment, ToDos); assignment, comments and attachments read Frappe's docinfo.
 
