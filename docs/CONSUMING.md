@@ -460,6 +460,12 @@ Unreleased; additive except the points below (full list: CHANGELOG.md 0.7.0-dev.
   `GlobalSearchBar` (with `useFrappeGlobalSearch` in a Frappe app; put it in the header with `Navbar search={{ slot }}`),
   `FrappeFormSidebar` (the host places it next to `FrappeForm`). All their server paths are simulator-only.
 
+## 11. SchedulingCalendar (0.7.0-dev.25)
+
+Additive. `SchedulingCalendar` (Core) shows several guests' events on one Day / Week / Month grid and lets the user pick
+a new meeting's time on it (click, drag, move, resize, keyboard); the parent owns the slot through `proposal` /
+`onProposalChange`. See `docs/components/scheduling-calendar.md`.
+
 ## Known limitations
 The full list is in docs/LIMITATIONS.md. The ones most likely to matter:
 - The Frappe layer has been tested against recorded real Frappe 15.110 responses (read paths) and the in-package

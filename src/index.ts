@@ -248,6 +248,10 @@ export type {
   KanbanBoardProps, KanbanColumn, KanbanMove, CalendarMonthProps, CalendarEvent,
 } from "./list/views";
 
+// Scheduling — several people's events on one grid, and a new meeting's time picked on it. docs/components/scheduling-calendar.md
+export { SchedulingCalendar, toLocalDate, slotFromDrag, moveSlot, resizeSlot, shiftSlot, slotOnDay } from "./calendar";
+export type { SchedulingCalendarProps, SchedulingCalendarLabels, ScheduleGuest, ScheduleEvent, ScheduleSlot, ScheduleView } from "./calendar";
+
 // P35 list
 export { GroupBySidebar } from "./list/parts/GroupBySidebar";
 export type { GroupBySidebarProps, GroupBySidebarSection, GroupBySidebarItem } from "./list/parts/GroupBySidebar";

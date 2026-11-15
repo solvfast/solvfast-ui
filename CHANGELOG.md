@@ -6,6 +6,23 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.25 — SchedulingCalendar: guests' events on one grid, a meeting's time picked on it
+
+Additive (new component; nothing else changes). jsdom tests only.
+
+- `SchedulingCalendar` (Core, `src/calendar/`): every guest's events on one shared Day / Week time grid (side by side
+  where they overlap, in the guest's colour, "Busy" without a title) or a Month grid of chips ("+N more"); the meeting
+  being scheduled (`proposal`) on top in the primary colour. Click a slot, drag across slots, drag the proposal or its
+  bottom edge, or use the arrow keys on it (Shift resizes): each gives a new slot snapped to `slotMinutes` through
+  `onProposalChange` only. A month day click keeps the proposal's times and opens Day view. Toolbar (Today, previous /
+  next mirrored in RTL, range, Day | Week | Month, Working hours only), a legend and a resizable height (pointer and
+  keyboard). View, date, working-hours switch and height are controlled or not. docs/components/scheduling-calendar.md.
+- Slot helpers: `toLocalDate`, `slotFromDrag`, `moveSlot`, `resizeSlot`, `shiftSlot`, `slotOnDay`; types `ScheduleGuest`,
+  `ScheduleEvent`, `ScheduleSlot`, `ScheduleView`, `SchedulingCalendarProps`, `SchedulingCalendarLabels`.
+- Messages (`messages-ws/schedule.ts`): `schedToday`, `schedPrev`, `schedNext`, `schedDay`, `schedWeek`, `schedMonth`,
+  `schedView`, `schedWorkingHoursOnly`, `schedBusy`, `schedMore`, `schedLegend`, `schedProposal`, `schedProposalHint`,
+  `schedResizeProposal`, `schedResizePanel`, `schedGrid`.
+
 ## 0.7.0-dev.24 — Wizard mode: steps move, turning it off asks first
 
 Hosts that pass `FieldDesigner`'s `wizard` / show family records. jsdom tests only.

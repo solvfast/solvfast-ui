@@ -24,6 +24,8 @@ import { familyEn, familyAr } from "./family";
 import { designerEn, designerAr } from "./designer";
 // SayrRecordPage (record header and side cards)
 import { recordPageEn, recordPageAr } from "./recordPage";
+// SchedulingCalendar
+import { scheduleEn, scheduleAr } from "./schedule";
 
-export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn };
-export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr };
+export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn, ...scheduleEn };
+export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr, ...scheduleAr };
