@@ -102,8 +102,11 @@ A type: the registry's own form, so every field the registry has is shown (an ap
 
 - **Configuration** (Linked Lifecycle, SLA Policy, Assignment Profile) is shown by default; the server deploys what they
   name onto the type's DocType when the type is saved. `configuration={false}` hides it.
-- **`designer`** renders under the form once the type has its DocType (a saved type; a new type has none until it is
-  saved, so a new type has no Form section until its first Save): `designer={(typeDoctype, ctx) => <MyDesigner …/>}`.
+- **`designer`** renders under the form: `designer={(typeDoctype, ctx) => <MyDesigner …/>}`. A saved type passes its
+  DocType. A new type has none yet (since 0.7.0-dev.29): `typeDoctype` is `null` and `ctx.newType` is
+  `{ parent, doctype() }`, so its form is designed on the creation page: `SayrFieldDesigner` starts from the family's
+  shared fields (Sayr's `new_type_deployment(parent)`: locked, movable, as on a saved type), and the same Save creates
+  the type, then `doctype()` reads the DocType it made (the registry row's link) and the form is saved onto it.
 - **One Save.** `ctx.onPendingChange` hands the designer's unsaved changes to the type's form (`FrappeForm` `alsoSave`):
   the type shows "Not Saved" while they are pending, and its Save saves the type first, then the designer. With only
   designer changes, the type's own validate / before_save events and mandatory check still run, but nothing is sent
@@ -201,7 +204,7 @@ that changed since it was saved shows a note to redeploy it from the Field Libra
 
 ```tsx
 <FrappeTypeForm family={TICKETS} name={name} defaults={defaults}
-  designer={(doctype, { wizard, onPendingChange }) => <SayrFieldDesigner doctype={doctype} wizard={wizard} onPendingChange={onPendingChange} />} />
+  designer={(doctype, { wizard, onPendingChange, newType }) => <SayrFieldDesigner doctype={doctype} newType={newType} wizard={wizard} onPendingChange={onPendingChange} />} />
 ```
 
 `FrappeFormView` / `FrappeForm` gained what the steps need: `activeTab` (the tab shown, by key), `hideTabBar` and

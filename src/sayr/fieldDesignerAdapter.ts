@@ -39,6 +39,9 @@ interface Registry {
 }
 
 export type SayrApi = Pick<FrappeApi, "call" | "getList">;
+/** A type not created yet: its family's parent DocType (whose shared fields it will start with), and its DocType once
+ *  the type's Save has made it (asked when the form is saved). */
+export interface SayrNewType { parent: string; doctype: () => Promise<string> }
 export interface SayrFieldDesignerOptions { language?: "en" | "ar" }
 
 /** `@tab::<label>`, `@section::<label>`, `@own::<key>`, `@<set>::__section`, `@<set>::<key>`: how Sayr names a row
@@ -135,10 +138,12 @@ function effective(rows: Planned[]): Planned[] {
   }
 }
 
-/** A FieldDesigner adapter for one type DocType (a family type, or any DocType Sayr's Field Library can deploy on).
- *  Needs the Sear Platform Administrator role; without it `load` resolves to a refusal. */
-export function createSayrFieldDesignerAdapter(api: SayrApi, doctype: string, options: SayrFieldDesignerOptions = {}): FieldDesignerAdapter {
+/** A FieldDesigner adapter for one type DocType (a family type, or any DocType Sayr's Field Library can deploy on), or
+ *  for a family type not created yet (`SayrNewType`: it starts with the family's shared fields, and its Save deploys onto
+ *  the DocType the type's Save made). Needs the Sear Platform Administrator role; without it `load` resolves to a refusal. */
+export function createSayrFieldDesignerAdapter(api: SayrApi, target: string | SayrNewType, options: SayrFieldDesignerOptions = {}): FieldDesignerAdapter {
   const ar = options.language === "ar";
+  let doctype: string | null = typeof target === "string" ? target : null;
   let screen: Screen | null = null;
   let rows: DeploymentRow[] = [];
   let loadedPayload = "";
@@ -188,7 +193,9 @@ export function createSayrFieldDesignerAdapter(api: SayrApi, doctype: string, op
   const load = async (): Promise<DesignerState> => {
     let s: Screen;
     try {
-      s = await call<Screen>(`${METHODS}.doctype_deployment`, { target_doctype: doctype });
+      s = doctype || typeof target === "string"
+        ? await call<Screen>(`${METHODS}.doctype_deployment`, { target_doctype: doctype })
+        : await call<Screen>(`${METHODS}.new_type_deployment`, { parent: target.parent });
     } catch (e) {
       const status = (e as { status?: number }).status;
       if (status === 403) return { items: [], refusal: ar ? "يتطلب تصميم النموذج دور مسؤول منصة سير." : "Designing this form needs the Sear Platform Administrator role." };
@@ -289,6 +296,7 @@ export function createSayrFieldDesignerAdapter(api: SayrApi, doctype: string, op
     makeSection: (label: string): DesignerItem => ({ id: `@section::${label}`, kind: "section_break", label, own: true }),
 
     async save(items: DesignerItem[]): Promise<DesignerState> {
+      if (!doctype && typeof target !== "string") doctype = await target.doctype();
       const { wanted, own, order } = plan(items, await types());
       const deployment = screen?.deployment ?? null;
       const isLive = !!live();

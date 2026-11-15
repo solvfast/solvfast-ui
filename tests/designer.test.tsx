@@ -497,6 +497,28 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     expect(JSON.parse(calls.find((c) => c.method.endsWith("save_field_order"))!.args.order as string).slice(0, 2)).toEqual(["sear_state", "title"]);
   });
 
+  it("FD.sayr.8 a new type: designed from its family's shared fields, then saved onto the DocType its Save made", async () => {
+    const NEW = { refusal: null, deployment: null, family: { role: "child", parent: "SRF Ticket", shared: ["title"] },
+      target_fields: [{ fieldname: "title", label: "Title", fieldtype: "Data" }] };
+    const { api, calls } = recordingApi({
+      "sear_product.apis.field_library.deployments.new_type_deployment": () => NEW,
+      "frappe.client.insert": () => ({}),
+      "sear_product.apis.field_library.deployments.doctype_deployment": (a) => ({ ...NEW, target_doctype: a.target_doctype }),
+    });
+    const made = vi.fn(async () => "SRF Ticket Brand New");
+    const adapter = createSayrFieldDesignerAdapter(api, { parent: "SRF Ticket", doctype: made });
+    const { items } = await adapter.load();
+    expect(items).toEqual([{ id: "title", kind: "field", label: "Title", fieldtype: "Data", native: true, movable: true }]);
+    expect(calls[0]).toMatchObject({ method: "sear_product.apis.field_library.deployments.new_type_deployment", args: { parent: "SRF Ticket" } });
+    expect(made).not.toHaveBeenCalled();
+    await adapter.save([...items, { id: "@SET-1::iban", kind: "field" as const, label: "IBAN" }]);
+    expect(made).toHaveBeenCalledTimes(1);
+    const inserted = JSON.parse(calls.find((c) => c.method === "frappe.client.insert")!.args.doc as string);
+    expect(inserted.target_doctype).toBe("SRF Ticket Brand New");
+    expect(calls.find((c) => c.method.endsWith("save_field_order"))!.args.target_doctype).toBe("SRF Ticket Brand New");
+    expect(calls.at(-1)).toMatchObject({ method: "sear_product.apis.field_library.deployments.doctype_deployment", args: { target_doctype: "SRF Ticket Brand New" } });
+  });
+
   it("FD.sayr.5 no right → a refusal, not an error; a removal says how many records hold values", async () => {
     const denied = recordingApi({ "sear_product.apis.field_library.deployments.doctype_deployment": () => { throw Object.assign(new Error("Not permitted"), { status: 403 }); } });
     expect((await createSayrFieldDesignerAdapter(denied.api, "X", { language: "ar" }).load()).refusal).toMatch(/مسؤول منصة سير/);

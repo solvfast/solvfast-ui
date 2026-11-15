@@ -6,6 +6,17 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.29 — A new type's form is designed on its creation page
+
+Additive for apps; one signature widens. jsdom tests only. Needs Sayr's `deployments.new_type_deployment`.
+
+- `FrappeTypeForm`'s `designer` is called for a new type too, with `typeDoctype` `null` and `context.newType`
+  (`{ parent, doctype() }`): the designer starts from the family's shared fields (locked, movable) and Wizard mode, and
+  the same Save creates the type, then saves the form onto the DocType it made. `designer`'s first argument is now
+  `string | null` (**BREAKING** for a host typed `(doctype: string) => …`).
+- `SayrFieldDesigner` takes `doctype: string | null` and `newType`; `createSayrFieldDesignerAdapter(api, target)` takes a
+  DocType or a `SayrNewType`. Tests FD.sayr.8, FAM.screens.6.
+
 ## 0.7.0-dev.28 — SayrRecordPage: a page tab keeps what was just typed
 
 Fix. A page tab opens on mouse-down, before the focused field loses focus and commits what was typed; the form's body

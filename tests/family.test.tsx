@@ -288,14 +288,15 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     expect(screen.queryByText("Assignment Profile")).toBeNull();
   });
 
-  it("FAM.screens.6 FrappeTypeForm hands a saved type's DocType to `designer`; a new type gets none", async () => {
-    const designer = vi.fn((doctype: string) => <p>designer for {doctype}</p>);
+  it("FAM.screens.6 FrappeTypeForm hands a saved type's DocType to `designer`; a new type gets its family's parent to design from", async () => {
+    const designer = vi.fn((doctype: string | null, ctx: TypeDesignerContext) =>
+      <p>{doctype ? `designer for ${doctype}` : `new type of ${ctx.newType?.parent}`}</p>);
     const saved = mount(site(), <FrappeTypeForm family={FAMILY} name="Refund Request" designer={designer} />);
     expect(await screen.findByText("designer for Ticket Refund Request")).toBeTruthy();
+    expect(designer.mock.calls.at(-1)?.[1].newType).toBeUndefined();
     saved.unmount();
     designer.mockClear();
     mount(site(), <FrappeTypeForm family={FAMILY} designer={designer} />);
-    await screen.findByText("Arabic Name", {}, { timeout: 3000 });
-    expect(designer).not.toHaveBeenCalled();
+    expect(await screen.findByText(`new type of ${FAMILY.parent}`, {}, { timeout: 3000 })).toBeTruthy();
   });
 });
