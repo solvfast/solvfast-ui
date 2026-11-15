@@ -200,6 +200,18 @@ describe("RP.cards — empty states, tasks, customize", () => {
     await waitFor(() => expect(container.querySelector("[data-page-tab-panel]")).toBeNull());
   });
 
+  it("RP.tabs.3 an unsaved edit stays while another page tab is open, even typed just before the click", async () => {
+    const activities: RecordPageTab = { id: "activities", label: "Activities", icon: User, render: () => <p>Activities panel</p> };
+    const { container } = mount(PAGE(), "en", [], undefined, { pageTabs: [activities] });
+    const title = await waitFor(() => screen.getByDisplayValue("Login does nothing") as HTMLInputElement);
+    title.focus();
+    fireEvent.change(title, { target: { value: "Edited, not saved" } });
+    fireEvent.mouseDown(container.querySelector("[data-page-tab='activities']") as HTMLElement);
+    await waitFor(() => expect(screen.getByText("Activities panel")).toBeTruthy());
+    fireEvent.mouseDown(container.querySelector("[data-page-tab='about']") as HTMLElement);
+    await waitFor(() => expect(screen.getByDisplayValue("Edited, not saved")).toBeTruthy());
+  });
+
   it("RP.tabs.2 the app opens a tab itself (controlled), and with no page tabs there is no tab bar", async () => {
     const activities: RecordPageTab = { id: "activities", label: "Activities", icon: User, render: () => <p>Opened from the rail</p> };
     mount(PAGE(), "en", [], undefined, { pageTabs: [activities], pageTab: "activities" });

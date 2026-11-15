@@ -119,7 +119,12 @@ export function SayrRecordPage({
   const [formKey, setFormKey] = React.useState(0);
   const [ownTab, setOwnTab] = React.useState("about");
   const openTab = pageTab ?? ownTab;
-  const showTab = (id: string) => { setOwnTab(id); onPageTabChange?.(id); };
+  const showTab = (id: string) => {
+    // A field keeps what is typed until it loses focus; a tab opens on mouse-down, before that, and would drop it.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setOwnTab(id);
+    onPageTabChange?.(id);
+  };
 
   const page = useSayrCall<RecordPageData>(RECORD_PAGE_METHOD, { doctype, name }, `${doctype}\u0001${name}`);
   const refresh = page.reload;

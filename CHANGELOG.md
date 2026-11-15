@@ -6,6 +6,11 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.28 — SayrRecordPage: a page tab keeps what was just typed
+
+Fix. A page tab opens on mouse-down, before the focused field loses focus and commits what was typed; the form's body
+then left with it and the edit was lost. The tab now takes focus off the field first. Test RP.tabs.3.
+
 ## 0.7.0-dev.27 — SayrRecordPage: page tabs (About, History, the app's own)
 
 Additive (a page given no `pageTabs` is unchanged). jsdom tests only.
