@@ -11,7 +11,7 @@ import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import type { DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
 import { createFixtureTransport } from "../src/frappe/testing";
 import { AssignDialog } from "../src/record/AssignDialog";
-import { RECORD_PAGE_METHOD, SayrNewRecordPage, SayrRecordPage, TRANSITION_METHOD, TYPE_PREVIEW_METHOD, WALK_TREE_METHOD, type RecordPageData, type RecordRailExtraCard, type TypePreviewData } from "../src/sayr";
+import { RECORD_PAGE_METHOD, SayrNewRecordPage, SayrRecordPage, TRANSITION_METHOD, TYPE_PREVIEW_METHOD, WALK_TREE_METHOD, type RecordPageData, type RecordPageTab, type RecordRailExtraCard, type SayrRecordPageProps, type TypePreviewData } from "../src/sayr";
 import type { FamilyDescriptor } from "../src/frappe";
 import { User } from "lucide-react";
 
@@ -72,13 +72,13 @@ function site(page: RecordPageData, calls: string[] = []) {
   return createFrappeClient({ transport: t });
 }
 
-function mount(page: RecordPageData, language: "en" | "ar" = "en", calls: string[] = [], extraCards?: RecordRailExtraCard[]) {
+function mount(page: RecordPageData, language: "en" | "ar" = "en", calls: string[] = [], extraCards?: RecordRailExtraCard[], tabs?: Pick<SayrRecordPageProps, "pageTabs" | "pageTab" | "onPageTabChange">) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <FrappeProvider client={site(page, calls)} queryClient={qc} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
         <ThemeProvider defaultLanguage={language} storageKeys={null}>
-          <SayrRecordPage doctype="Ticket Bug" name="TKT-00008" typeLabel="Bug" onBack={() => {}} extraCards={extraCards} />
+          <SayrRecordPage doctype="Ticket Bug" name="TKT-00008" typeLabel="Bug" onBack={() => {}} extraCards={extraCards} {...tabs} />
         </ThemeProvider>
       </FrappeProvider>
     </QueryClientProvider>,
@@ -183,6 +183,30 @@ describe("RP.cards — empty states, tasks, customize", () => {
     expect(card.querySelector("button")?.textContent).toBe("Add note");
     fireEvent.click(screen.getByRole("button", { name: "Customize sections" }));
     await waitFor(() => expect(document.querySelectorAll("[data-rail-toggle='notes']").length).toBe(1));
+  });
+
+  it("RP.tabs.1 page tabs: About is the form, History the timeline, the app's tab its own panel; the form keeps its place", async () => {
+    const activities: RecordPageTab = { id: "activities", label: "Activities", icon: User, render: (d) => <p>Activities of {String(d?.name ?? "")}</p> };
+    const { container } = mount(PAGE(), "en", [], undefined, { pageTabs: [activities] });
+    await waitFor(() => expect(container.querySelector("[data-page-tabs]")).toBeTruthy());
+    expect([...container.querySelectorAll("[data-page-tab]")].map((tab) => tab.getAttribute("data-page-tab"))).toEqual(["about", "history", "activities"]);
+    expect(container.querySelector("[data-page-tab-panel]")).toBeNull();
+    fireEvent.mouseDown(container.querySelector("[data-page-tab='activities']") as HTMLElement);
+    await waitFor(() => expect(screen.getByText("Activities of TKT-00008")).toBeTruthy());
+    expect(container.querySelector("[data-record-header]")).toBeTruthy();
+    fireEvent.mouseDown(container.querySelector("[data-page-tab='history']") as HTMLElement);
+    await waitFor(() => expect(container.querySelector("[data-page-tab-panel] [data-timeline], [data-page-tab-panel] ol, [data-page-tab-panel] ul")).toBeTruthy());
+    fireEvent.mouseDown(container.querySelector("[data-page-tab='about']") as HTMLElement);
+    await waitFor(() => expect(container.querySelector("[data-page-tab-panel]")).toBeNull());
+  });
+
+  it("RP.tabs.2 the app opens a tab itself (controlled), and with no page tabs there is no tab bar", async () => {
+    const activities: RecordPageTab = { id: "activities", label: "Activities", icon: User, render: () => <p>Opened from the rail</p> };
+    mount(PAGE(), "en", [], undefined, { pageTabs: [activities], pageTab: "activities" });
+    await waitFor(() => expect(screen.getByText("Opened from the rail")).toBeTruthy());
+    const plain = mount(PAGE());
+    await waitFor(() => expect(plain.container.querySelector("[data-record-header]")).toBeTruthy());
+    expect(plain.container.querySelector("[data-page-tabs]")).toBeNull();
   });
 
   it("RP.cards.4 Arabic labels", async () => {

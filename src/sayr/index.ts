@@ -4,7 +4,7 @@ export type { SayrApi, SayrFieldDesignerOptions } from "./fieldDesignerAdapter";
 export { SayrFieldDesigner } from "./SayrFieldDesigner";
 export type { SayrFieldDesignerProps } from "./SayrFieldDesigner";
 export { SayrRecordPage } from "./SayrRecordPage";
-export type { SayrRecordPageProps } from "./SayrRecordPage";
+export type { RecordPageTab, SayrRecordPageProps } from "./SayrRecordPage";
 export { RECORD_RAIL_CARDS, railOrder } from "./rail";
 export type { RecordRailCard, RecordRailExtraCard } from "./rail";
 export { RECORD_PAGE_METHOD, TRANSITION_METHOD, defaultLifecycleHref } from "./recordPage";

@@ -6,6 +6,18 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.27 — SayrRecordPage: page tabs (About, History, the app's own)
+
+Additive (a page given no `pageTabs` is unchanged). jsdom tests only.
+
+- `SayrRecordPage` takes `pageTabs` (`RecordPageTab`: `{ id, label, icon, render(doc) }`): a full-width tab bar under the
+  header card, **About** (the form, its own tab bar below), **History** (`FrappeTimeline`: comments and changes), then
+  the app's tabs (rendered only while open). `pageTab` / `onPageTabChange` let the app open one (e.g. from a rail card).
+  The form stays mounted while another tab is open, so unsaved edits are kept.
+- `FrappeFormView` / `FrappeForm`: `pageTabBar` (under `header`) and `pageTabPanel` (shown instead of the form's tab bar
+  and fields while set).
+- Messages: `rpAbout`, `rpHistory`, `rpPageTabs`. Tests RP.tabs.1–2.
+
 ## 0.7.0-dev.26 — SayrRecordPage: an app card can replace a built-in card, with a title and an action
 
 Additive (nothing changes for an app that passes no such card). jsdom tests only.

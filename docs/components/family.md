@@ -275,6 +275,10 @@ Every other prop is `FrappeForm`'s and goes to the form.
   `action` beside the title (e.g. an Add button), and a card whose `id` is a built-in one (`notes`, `attachments`, …)
   replaces that card in its place: ServeFast's own Pinned Notes and Attachments (its `SRF Note` / `SRF Attachment`)
   take the place of Frappe's comments and files there. The new-record page keeps its built-in preview for such ids.
+- `pageTabs` (0.7.0-dev.27): page tabs under the header card, About (the form) | History (`FrappeTimeline`) | the app's
+  own (`{ id, label, icon, render(doc) }`, rendered only while open); `pageTab` / `onPageTabChange` open one from the
+  app (ServeFast's rail opens Activities › Notes on a note). Without `pageTabs` there is no page tab bar. Built on
+  `FrappeFormView`'s `pageTabBar` / `pageTabPanel` slots; the form stays mounted behind another tab.
 - **Data**: one call to Sayr's `sear_product.apis.tickets.tickets.record_page` (header, lifecycle, SLA, the assign
   comment, ToDos); assignment, comments and attachments read Frappe's docinfo.
 

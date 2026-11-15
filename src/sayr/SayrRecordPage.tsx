@@ -10,8 +10,8 @@
  */
 import * as React from "react";
 import {
-  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, ListChecks, Paperclip, ShieldCheck,
-  StickyNote, Timer, User,
+  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, History, ListChecks, Paperclip, ShieldCheck,
+  StickyNote, Timer, User, UsersRound,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { relativeTime } from "../lib/relative-time";
@@ -20,6 +20,7 @@ import { Button } from "../primitives/button";
 import { Card } from "../primitives/card";
 import { Checkbox } from "../primitives/checkbox";
 import { Skeleton } from "../primitives/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "../primitives/tabs";
 import { LifecycleRail, type LifecycleRailNext } from "../record/LifecycleRail";
 import { fmt, initials } from "../record/format";
 import { RecordHeaderCard } from "../record/RecordHeaderCard";
@@ -32,6 +33,7 @@ import { useDoc, useMetaBundle, usePermissions, useRefreshDoc } from "../frappe/
 import { FrappeAssignTo } from "../frappe/record/FrappeAssignTo";
 import { FrappeAttachments } from "../frappe/record/FrappeAttachments";
 import { FrappeComments } from "../frappe/record/FrappeComments";
+import { FrappeTimeline } from "../frappe/record/FrappeTimeline";
 import { stateEntries } from "../frappe/record/stateHistory";
 import { parseFrappeTime } from "../frappe/record/timeline";
 import {
@@ -61,6 +63,20 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   oneForm?: boolean;
   /** The app's own cards (e.g. the record's CRM contact and organization), after Playbook. */
   extraCards?: readonly RecordRailExtraCard[];
+  /** The page's tabs after About (the form) and History (the record's timeline), e.g. the app's Activities. With none
+   *  the page has no page tabs, as before. */
+  pageTabs?: readonly RecordPageTab[];
+  /** The open page tab, `about`, `history` or a `pageTabs` id (controlled; default: kept by the page, About first). */
+  pageTab?: string;
+  onPageTabChange?: (id: string) => void;
+}
+
+/** A page tab of the app's (e.g. Activities): rendered only while open, for the record as loaded. */
+export interface RecordPageTab {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  render: (doc: Record<string, unknown> | undefined) => React.ReactNode;
 }
 
 const noTabBreaks = (df: { fieldtype: string }) => df.fieldtype !== "Tab Break";
@@ -86,7 +102,8 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 }
 
 export function SayrRecordPage({
-  doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, oneForm, extraCards, onDirtyChange, onSaved, ...form
+  doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
+  onPageTabChange, onDirtyChange, onSaved, ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
   const api = useFrappeApi();
@@ -100,6 +117,9 @@ export function SayrRecordPage({
   const canWrite = !!doc && permissions.can("write");
   const [dirty, setDirty] = React.useState(false);
   const [formKey, setFormKey] = React.useState(0);
+  const [ownTab, setOwnTab] = React.useState("about");
+  const openTab = pageTab ?? ownTab;
+  const showTab = (id: string) => { setOwnTab(id); onPageTabChange?.(id); };
 
   const page = useSayrCall<RecordPageData>(RECORD_PAGE_METHOD, { doctype, name }, `${doctype}\u0001${name}`);
   const refresh = page.reload;
@@ -253,6 +273,20 @@ export function SayrRecordPage({
           header={header}
           toolbarStart={back}
           tabBar="record"
+          pageTabBar={pageTabs?.length ? (
+            <Tabs value={openTab} onValueChange={showTab}>
+              <TabsList className="flex w-full max-w-full overflow-x-auto" aria-label={t("rpPageTabs")} data-page-tabs>
+                {[{ id: "about", label: t("rpAbout"), icon: UsersRound }, { id: "history", label: t("rpHistory"), icon: History }, ...pageTabs].map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id} className="min-w-0 flex-1 gap-1.5" data-page-tab={tab.id}>
+                    <tab.icon className="h-4 w-4 shrink-0" aria-hidden /><span className="truncate">{tab.label}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          ) : undefined}
+          pageTabPanel={!pageTabs?.length || openTab === "about" ? undefined : openTab === "history" ? (
+            doc && session?.user ? <FrappeTimeline doc={doc} docinfo={docinfo} bundle={meta.data} user={session.user} /> : <Skeleton className="h-32" />
+          ) : (pageTabs.find((tab) => tab.id === openTab)?.render(doc) ?? null)}
           fieldFilter={oneForm ? noTabBreaks : form.fieldFilter}
           onDirtyChange={(d) => { setDirty(d); onDirtyChange?.(d); }}
           onSaved={(saved, action) => { void refresh(); onSaved?.(saved, action); }}

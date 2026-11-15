@@ -140,6 +140,10 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   header?: React.ReactNode;
   /** With `header`: what the toolbar shows where the title was (e.g. a Back button). */
   toolbarStart?: React.ReactNode;
+  /** A record page's own tab bar (SayrRecordPage's About | History | …), under `header` and above the form's tab bar. */
+  pageTabBar?: React.ReactNode;
+  /** While set, shown instead of the form's tab bar and fields (another page tab is open); the form keeps its state. */
+  pageTabPanel?: React.ReactNode;
   /** "record": the tab bar spans the width, each tab an equal share (record pages). Default "default". */
   tabBar?: "default" | "record";
   /** Ask before leaving the page with unsaved changes (default true). */
@@ -877,6 +881,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       )}
 
       {props.header}
+      {props.pageTabBar}
+      {props.pageTabPanel != null ? <div role="tabpanel" data-page-tab-panel>{props.pageTabPanel}</div> : <>
 
       {tabCount > 1 && !props.hideTabBar && (
         <Tabs value={activeExtra?.tabKey ?? currentTab?.key} onValueChange={(v) => setActiveTab(v)}>
@@ -888,6 +894,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       )}
       {activeExtra && <div className="space-y-8" role="tabpanel" data-extra-tab-panel={activeExtra.key}>{activeExtra.render()}</div>}
       {currentTab && <div className="space-y-8" role={tabCount > 1 ? "tabpanel" : undefined}>{currentTab.sections.map(renderSection)}</div>}
+      </>}
 
       <Dialog open={!!missing} onOpenChange={(o) => { if (!o) setMissing(null); }}>
         <DialogContent>
