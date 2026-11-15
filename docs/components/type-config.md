@@ -101,9 +101,11 @@ Then copy with **`planFieldImport`** (one rule set for both modes):
 
 ```ts
 const plan = planFieldImport({
-  current: allSections(form), source: groupSections, reserved: standardLabels,
+  current: allSections(form.steps), source: groupSections, reserved: standardLabels,
   mode: choice.mode, selected: pick.fieldIds,              // "selected": only these
-  newFieldId: () => newFieldId(), newRowId, makeSection: (from, fields, rowId) => newSection({ ...from, id: undefined, rowId, fields }),
+  newFieldId: () => formBuilderId("fld"), newRowId,
+  // a NEW section (its own id; side by side only when the library's sections were): never spread `from` over the new id
+  makeSection: (from, fields, rowId) => newSection({ title: from.title, titleAr: from.titleAr, columns: from.columns, rowId, fields }),
 });
 setForm(appendImportedSections(form, plan.sections));     // wizard: the last step; otherwise the single step
 toast(summary(plan).text);                                 // useFieldImportSummary(): "Added 2 fields — skipped: 1 already a standard field"
@@ -122,6 +124,8 @@ toast(summary(plan).text);                                 // useFieldImportSumm
   as they are, e.g. migrated ones). Show with `TypeFormIssues conflicts` (an alert) and block saving.
 - `typeFormReservedWarnings(fields, standardLabels)` — non-blocking: fields carried over with a standard label.
 - `typeSaveBlock({ name, dirty, requireChange, conflicts, busy })` → `"busy" | "name" | "conflicts" | "unchanged" | null`.
+  With the form builder in wizard mode, also block while `emptySteps(form).length > 0` (a step needs a section; the
+  builder shows that warning).
   `requireChange` (default false) makes an unchanged page unsavable (pair it with the app's unsaved-changes guard).
 
 ## 3. Words
