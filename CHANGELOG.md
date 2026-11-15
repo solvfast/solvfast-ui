@@ -6,6 +6,13 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.30 — A new type's form keeps the fields its DocType was made with
+
+Fix. A new type is made with more than its shared fields (e.g. the SLA section its Configuration deploys), which its
+design could not show; a step added after the shared block was then anchored inside them and refused. Its Save now reads
+the made form first and places those fields after the shared block, before the form's own rows (`withMadeFields`).
+FD.sayr.8 covers it.
+
 ## 0.7.0-dev.29 — A new type's form is designed on its creation page
 
 Additive for apps; one signature widens. jsdom tests only. Needs Sayr's `deployments.new_type_deployment`.

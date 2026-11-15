@@ -503,7 +503,9 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     const { api, calls } = recordingApi({
       "sear_product.apis.field_library.deployments.new_type_deployment": () => NEW,
       "frappe.client.insert": () => ({}),
-      "sear_product.apis.field_library.deployments.doctype_deployment": (a) => ({ ...NEW, target_doctype: a.target_doctype }),
+      // Made with the SLA section its Configuration deployed, which the new type's design did not show.
+      "sear_product.apis.field_library.deployments.doctype_deployment": (a) => ({ ...NEW, target_doctype: a.target_doctype,
+        target_fields: [...NEW.target_fields, { fieldname: "sear_sla_section", label: "SLA", fieldtype: "Section Break" }] }),
     });
     const made = vi.fn(async () => "SRF Ticket Brand New");
     const adapter = createSayrFieldDesignerAdapter(api, { parent: "SRF Ticket", doctype: made });
@@ -515,7 +517,10 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     expect(made).toHaveBeenCalledTimes(1);
     const inserted = JSON.parse(calls.find((c) => c.method === "frappe.client.insert")!.args.doc as string);
     expect(inserted.target_doctype).toBe("SRF Ticket Brand New");
-    expect(calls.find((c) => c.method.endsWith("save_field_order"))!.args.target_doctype).toBe("SRF Ticket Brand New");
+    expect(inserted.fields[0]).toMatchObject({ field_preset: "SET-1", field_key: "iban", insert_after: "sear_sla_section" });
+    const order = calls.find((c) => c.method.endsWith("save_field_order"))!;
+    expect(order.args.target_doctype).toBe("SRF Ticket Brand New");
+    expect(JSON.parse(order.args.order as string)).toEqual(["title", "sear_sla_section", "@SET-1::iban"]);
     expect(calls.at(-1)).toMatchObject({ method: "sear_product.apis.field_library.deployments.doctype_deployment", args: { target_doctype: "SRF Ticket Brand New" } });
   });
 

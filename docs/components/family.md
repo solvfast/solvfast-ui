@@ -106,7 +106,8 @@ A type: the registry's own form, so every field the registry has is shown (an ap
   DocType. A new type has none yet (since 0.7.0-dev.29): `typeDoctype` is `null` and `ctx.newType` is
   `{ parent, doctype() }`, so its form is designed on the creation page: `SayrFieldDesigner` starts from the family's
   shared fields (Sayr's `new_type_deployment(parent)`: locked, movable, as on a saved type), and the same Save creates
-  the type, then `doctype()` reads the DocType it made (the registry row's link) and the form is saved onto it.
+  the type, then `doctype()` reads the DocType it made (the registry row's link) and the form is saved onto it; fields the
+  DocType was made with beyond the shared ones (e.g. the SLA section) keep their place after the shared block.
 - **One Save.** `ctx.onPendingChange` hands the designer's unsaved changes to the type's form (`FrappeForm` `alsoSave`):
   the type shows "Not Saved" while they are pending, and its Save saves the type first, then the designer. With only
   designer changes, the type's own validate / before_save events and mandatory check still run, but nothing is sent

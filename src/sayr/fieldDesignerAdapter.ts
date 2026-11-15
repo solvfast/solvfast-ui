@@ -138,6 +138,19 @@ function effective(rows: Planned[]): Planned[] {
   }
 }
 
+/** A new type's designed items with the fields its DocType was made with but the design did not show, placed before the
+ *  first of the form's own rows (or last), as native, locked fields. */
+export function withMadeFields(items: DesignerItem[], made: Screen["target_fields"]): DesignerItem[] {
+  const known = new Set(items.map((i) => i.id));
+  const added: DesignerItem[] = made.filter((f) => !known.has(f.fieldname)).map((f) => {
+    const kind = kindOfFieldtype(f.fieldtype);
+    return { id: f.fieldname, kind, label: f.label === f.fieldname ? "" : f.label, fieldtype: kind === "field" ? f.fieldtype : undefined, native: true, movable: false };
+  });
+  if (!added.length) return items;
+  const at = items.findIndex((i) => !i.native);
+  return at < 0 ? [...items, ...added] : [...items.slice(0, at), ...added, ...items.slice(at)];
+}
+
 /** A FieldDesigner adapter for one type DocType (a family type, or any DocType Sayr's Field Library can deploy on), or
  *  for a family type not created yet (`SayrNewType`: it starts with the family's shared fields, and its Save deploys onto
  *  the DocType the type's Save made). Needs the Sear Platform Administrator role; without it `load` resolves to a refusal. */
@@ -296,7 +309,13 @@ export function createSayrFieldDesignerAdapter(api: SayrApi, target: string | Sa
     makeSection: (label: string): DesignerItem => ({ id: `@section::${label}`, kind: "section_break", label, own: true }),
 
     async save(items: DesignerItem[]): Promise<DesignerState> {
-      if (!doctype && typeof target !== "string") doctype = await target.doctype();
+      if (!doctype && typeof target !== "string") {
+        doctype = await target.doctype();
+        // The type was made with more than its shared fields (e.g. the SLA fields its Configuration deployed): read its
+        // real form and keep them where Sayr put them, after the shared block and before the form's own rows.
+        screen = await call<Screen>(`${METHODS}.doctype_deployment`, { target_doctype: doctype });
+        items = withMadeFields(items, screen.target_fields);
+      }
       const { wanted, own, order } = plan(items, await types());
       const deployment = screen?.deployment ?? null;
       const isLive = !!live();
