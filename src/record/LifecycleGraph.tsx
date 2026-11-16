@@ -93,36 +93,76 @@ export function layoutLifecycle(states: LifecycleGraphState[], transitions: Life
 
 interface Edge { t: LifecycleGraphTransition; d: string; lx: number; ly: number }
 
+/** Every arrow's path and label point. Down a row: from the bottom to the top (several into one state spread along
+ *  its top). Within a row: straight, a pair of opposite arrows a little apart. Up to an earlier row: straight up into
+ *  the bottom when the states are in different columns, else round the side of the canvas they are on. */
 function edgesOf(placed: Map<string, Placed>, transitions: LifecycleGraphTransition[], width: number): Edge[] {
   const out: Edge[] = [];
-  // Arrows into one state spread along its top edge, so their labels do not sit on each other.
+  const ok = transitions.filter((t) => placed.has(t.from) && placed.has(t.to) && t.from !== t.to);
   const into = new Map<string, LifecycleGraphTransition[]>();
-  for (const t of transitions) if (placed.has(t.from) && placed.has(t.to) && t.from !== t.to) (into.get(t.to) ?? into.set(t.to, []).get(t.to)!).push(t);
-  for (const [to, list] of into) {
-    const b = placed.get(to)!;
-    const forward = list.filter((t) => placed.get(t.from)!.row < b.row).sort((p, q) => placed.get(p.from)!.x - placed.get(q.from)!.x);
-    forward.forEach((t, i) => {
-      const a = placed.get(t.from)!;
-      const x2 = b.x + W / 2 + (i - (forward.length - 1) / 2) * Math.min(48, (W - 40) / Math.max(1, forward.length));
-      const x1 = a.x + W / 2;
+  const outOf = new Map<string, LifecycleGraphTransition[]>();
+  for (const t of ok) {
+    (into.get(t.to) ?? into.set(t.to, []).get(t.to)!).push(t);
+    (outOf.get(t.from) ?? outOf.set(t.from, []).get(t.from)!).push(t);
+  }
+  const spread = (list: LifecycleGraphTransition[], t: LifecycleGraphTransition) =>
+    (list.indexOf(t) - (list.length - 1) / 2) * Math.min(44, (W - 40) / Math.max(1, list.length));
+  const centre = (s: Placed) => s.x + W / 2;
+  const lanes = { left: 0, right: 0 };
+  for (const t of ok) {
+    const a = placed.get(t.from)!;
+    const b = placed.get(t.to)!;
+    if (b.row > a.row) {
+      const downIn = (into.get(t.to) ?? []).filter((x) => placed.get(x.from)!.row < b.row).sort((p, q) => placed.get(p.from)!.x - placed.get(q.from)!.x);
+      const downOut = (outOf.get(t.from) ?? []).filter((x) => placed.get(x.to)!.row > a.row).sort((p, q) => placed.get(p.to)!.x - placed.get(q.to)!.x);
+      const x1 = centre(a) + spread(downOut, t);
+      const x2 = centre(b) + spread(downIn, t);
       const y1 = a.y + H;
       const y2 = b.y - 4;
       const mid = (y1 + y2) / 2;
-      out.push({ t, d: `M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}`, lx: x1 + (x2 - x1) * 0.62, ly: y1 + (y2 - y1) * 0.62 });
-    });
-    // Back to the same or an earlier row: along the side of the canvas nearest to both states.
-    list.filter((t) => placed.get(t.from)!.row >= b.row).forEach((t, i) => {
-      const a = placed.get(t.from)!;
-      const right = a.x + W / 2 >= width / 2;
+      out.push({ t, d: `M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}`, lx: x1 + (x2 - x1) * 0.6, ly: y1 + (y2 - y1) * 0.6 });
+    } else if (b.row === a.row) {
+      const rightward = b.x > a.x;
+      const paired = ok.some((x) => x.from === t.to && x.to === t.from);
+      const dy = paired ? (rightward ? -9 : 9) : 0;
+      const x1 = rightward ? a.x + W : a.x;
+      const x2 = rightward ? b.x - 4 : b.x + W + 4;
+      const y = a.y + H / 2 + dy;
+      out.push({ t, d: `M ${x1} ${y} L ${x2} ${y}`, lx: (x1 + x2) / 2, ly: y + (paired ? (rightward ? -12 : 12) : -12) });
+    } else if (Math.abs(centre(a) - centre(b)) > W / 2) {
+      const upOut = (outOf.get(t.from) ?? []).filter((x) => placed.get(x.to)!.row < a.row);
+      const x1 = centre(a) + spread(upOut, t) + (centre(b) > centre(a) ? 30 : -30);
+      const x2 = centre(b) + (centre(a) > centre(b) ? 40 : -40);
+      const y1 = a.y;
+      const y2 = b.y + H + 4;
+      const mid = (y1 + y2) / 2;
+      out.push({ t, d: `M ${x1} ${y1} C ${x1} ${mid}, ${x2} ${mid}, ${x2} ${y2}`, lx: (x1 + x2) / 2, ly: mid });
+    } else {
+      const right = centre(a) >= width / 2;
+      const lane = right ? Math.max(a.x, b.x) + W + SIDE + lanes.right++ * 16 : Math.min(a.x, b.x) - SIDE - lanes.left++ * 16;
       const x1 = right ? a.x + W : a.x;
-      const x2 = right ? b.x + W : b.x;
-      const lane = right ? Math.max(x1, x2) + SIDE + i * 14 : Math.min(x1, x2) - SIDE - i * 14;
+      const x2 = right ? b.x + W + 4 : b.x - 4;
       const y1 = a.y + H / 2;
       const y2 = b.y + H / 2;
-      out.push({ t, d: `M ${x1} ${y1} C ${lane} ${y1}, ${lane} ${y2}, ${x2 + (right ? 4 : -4)} ${y2}`, lx: lane, ly: (y1 + y2) / 2 });
-    });
+      out.push({ t, d: `M ${x1} ${y1} C ${lane} ${y1}, ${lane} ${y2}, ${x2} ${y2}`, lx: lane - (right ? 8 : -8), ly: (y1 + y2) / 2 });
+    }
   }
-  return out;
+  return spaceLabels(out, placed);
+}
+
+/** Labels moved down (then up) out of each other's way and off the states, by their rough size. */
+function spaceLabels(edges: Edge[], placed: Map<string, Placed>): Edge[] {
+  const size = (e: Edge) => ({ w: e.t.label.length * 6.2 + 20, h: 20 });
+  const boxes: { x: number; y: number; w: number; h: number }[] = [...placed.values()].map((s) => ({ x: s.x + W / 2, y: s.y + H / 2, w: W + 8, h: H + 8 }));
+  const hits = (x: number, y: number, w: number, h: number) =>
+    boxes.some((b) => Math.abs(b.x - x) * 2 < b.w + w && Math.abs(b.y - y) * 2 < b.h + h);
+  return edges.map((e) => {
+    const { w, h } = size(e);
+    let y = e.ly;
+    for (let i = 1; i < 12 && hits(e.lx, y, w, h); i++) y = e.ly + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * (h + 4);
+    boxes.push({ x: e.lx, y, w, h });
+    return { ...e, ly: y };
+  });
 }
 
 export function LifecycleGraph({ states, transitions, initial, currentLabel, labels, className }: LifecycleGraphProps) {
