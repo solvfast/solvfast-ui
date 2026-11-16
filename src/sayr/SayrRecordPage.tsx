@@ -47,6 +47,8 @@ import {
 } from "./rail";
 
 const TASKS_BEFORE_SCROLL = 5;
+/** The cards a lifecycle brings: left out where none is deployed. */
+const LIFECYCLE_CARDS = new Set(["sla", "playbook"]);
 
 export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "name" | "header" | "toolbarStart" | "tabBar"> {
   doctype: string;
@@ -211,6 +213,7 @@ export function SayrRecordPage({
   ) : null;
 
   const path = lc ? lifecyclePath(lc, doc, docinfo, isRTL, language) : [];
+  const noLifecycle = !!data && !data.lifecycle_deployed && !data.lifecycle;
   const lifecycleCard = (
     <RailCard id="lifecycle" icon={GitBranch} title={lc?.title ? `${t("rpLifecycle")} · ${lc.title}` : t("rpLifecycle")}>
       {page.pending ? <Skeleton className="h-24" /> : !lc ? (
@@ -334,8 +337,10 @@ export function SayrRecordPage({
       <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start" aria-label={t("rpVisibleSections")}>
         <CustomizeSections hidden={hidden} onToggle={toggle} extra={extraCards} />
         {page.error ? <p role="alert" className="text-xs text-destructive">{page.error.message || t("rpLoadFailed")}</p> : null}
-        {lifecycleCard}
-        {railOrder(extraCards).filter((card) => !hidden.has(card)).map((card) => <React.Fragment key={card}>{cards[card]}</React.Fragment>)}
+        {/* No lifecycle deployed (a contact, an organization): no lifecycle, SLA or playbook to show. */}
+        {noLifecycle ? null : lifecycleCard}
+        {railOrder(extraCards).filter((card) => !hidden.has(card) && !(noLifecycle && LIFECYCLE_CARDS.has(card)))
+          .map((card) => <React.Fragment key={card}>{cards[card]}</React.Fragment>)}
         {data ? (
           <Card className="space-y-1 p-4 text-[11px] text-muted-foreground" data-rail-footer>
             <FooterLine label={t("rpCreatedBy")} who={data.header.owner_name || data.header.owner} at={data.header.creation} isRTL={isRTL} language={language} />

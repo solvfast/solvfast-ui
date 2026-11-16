@@ -198,9 +198,13 @@ describe("RP.lifecycle — current status, next actions, the builder link", () =
     }
   });
 
-  it("RP.lifecycle.2 no lifecycle on the type says so", async () => {
-    mount(PAGE({ lifecycle: null, lifecycle_deployed: false }));
-    await waitFor(() => expect(screen.getByText("No lifecycle on this type")).toBeTruthy());
+  it("RP.lifecycle.2 no lifecycle on the type: no lifecycle, SLA or playbook card", async () => {
+    const { container } = mount(PAGE({ lifecycle: null, lifecycle_deployed: false }));
+    await waitFor(() => expect(container.querySelector("[data-rail-footer]")).toBeTruthy());
+    expect(screen.queryByText("No lifecycle on this type")).toBeNull();
+    expect(container.querySelector("#rail-lifecycle, [data-rail-card='lifecycle'], [data-rail-card='sla'], [data-rail-card='playbook']")).toBeNull();
+    expect(screen.queryByText("SLA")).toBeNull();
+    expect(screen.queryByText("Playbook")).toBeNull();
   });
 });
 

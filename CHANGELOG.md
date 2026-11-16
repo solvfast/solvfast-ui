@@ -6,6 +6,13 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.34 — A record's view shows its blank fields; no lifecycle cards where no lifecycle is deployed
+
+Visual. `FrappeFormView viewOnly` (and `SayrRecordPage viewFirst`) keeps a blank field it could edit, read and empty,
+so its label stays and a section keeps its columns; before, it was hidden, and a section showed a lone field on one
+side. `SayrRecordPage` leaves out the Lifecycle, SLA and Playbook cards when the record's DocType has no lifecycle
+deployed (a contact, an organization) instead of saying "No lifecycle / No SLA / No playbook". Test RP.lifecycle.2.
+
 ## 0.7.0-dev.33 — View full lifecycle opens the whole diagram in a dialog
 
 **BREAKING** (small): `SayrRecordPage` / `SayrNewRecordPage` `lifecycleHref` and `defaultLifecycleHref` are removed:

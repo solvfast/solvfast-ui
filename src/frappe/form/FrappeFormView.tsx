@@ -290,8 +290,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       // rules so a blank read-only field is hidden as Desk hides it (base_control.js get_status)
       st = controlStatus(!permissions && ladder === "Write" ? "Read" : ladder, df, row);
     }
-    // A record's view reads every field, and a blank one is hidden as Desk hides a blank read-only field.
-    if (st === "Write" && viewOnly) st = controlStatus("Read", df, row);
+    // A record's view reads every field it could edit, a blank one too (its label stays, so a section keeps its layout).
+    if (st === "Write" && viewOnly) st = "Read";
     if (st === "Write" && isReadOnlyByFetch(df, row)) st = "Read";
     return st;
   }, [permissions, viewOnly]);
