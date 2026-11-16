@@ -252,8 +252,10 @@ Every other prop is `FrappeForm`'s and goes to the form.
 - **Rail**, in this order:
   1. **Lifecycle** (always shown): the states the record went through (Frappe's workflow log and versions), the current
      one, and every next action of `record_state`. A next action runs `execute_transition`; it is disabled while the
-     form has unsaved changes, and the form is read again afterwards (the result or the refusal shows under the rail). "View full lifecycle" opens `lifecycleHref(key)`
-     in a new tab (default: Sayr Studio's builder, `/sayr-framework/workspace/build/sear_studio/life_cycles/<key>`).
+     form has unsaved changes, and the form is read again afterwards (the result or the refusal shows under the rail). "View full lifecycle" opens the
+     whole lifecycle as a diagram in a dialog (`LifecycleGraphDialog`: every state and transition from `record_state`,
+     the record's current state, the states it passed and the path taken; "<type> lifecycle · <lifecycle>", "<record>
+     · currently <state>"). The new-record page's preview opens the type's lifecycle the same way (no current state).
      No lifecycle: "No lifecycle on this type", or, when the type has one but the record predates it, says so.
   2. **Assignment**: `FrappeAssignTo` (Frappe's ToDo assignment). The dialog's Comment starts as the assignment
      deployment's ToDo description when it has one (else the title field), and Priority offers Low / Medium / High.

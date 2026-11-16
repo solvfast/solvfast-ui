@@ -43,6 +43,11 @@ const LIFECYCLE: NonNullable<RecordPageData["lifecycle"]> = {
     { state_key: "tst_in_progress", name_en: "In Progress", name_ar: "قيد المعالجة", phase: "open", color: "orange", is_current: false },
   ],
   actions: [{ transition_key: "tst_new__tst_in_progress_1", action_en: "Start Work", action_ar: "بدء العمل", to_state: "tst_in_progress", to_phase: "open" }],
+  initial_state: "tst_new",
+  transitions: [
+    { transition_key: "tst_new__tst_in_progress_1", from_state: "tst_new", to_state: "tst_in_progress", action_en: "Start Work", action_ar: "بدء العمل" },
+    { transition_key: "tst_in_progress__tst_new_1", from_state: "tst_in_progress", to_state: "tst_new", action_en: "Reopen", action_ar: "إعادة فتح" },
+  ],
 };
 const task = (i: number) => ({ name: `TD-${i}`, allocated_to: "omar@x.test", allocated_to_name: "Omar Ali", status: "Open", priority: "High", date: null, description: `<p>Call guest ${i}</p>` });
 const PAGE = (over: Partial<RecordPageData> = {}): RecordPageData => ({
@@ -171,6 +176,26 @@ describe("RP.lifecycle — current status, next actions, the builder link", () =
     fireEvent.click(action);
     await waitFor(() => expect(calls).toContain(`${TRANSITION_METHOD}:tst_new__tst_in_progress_1`));
     expect(screen.getByRole("button", { name: "View full lifecycle" })).toBeTruthy();
+  });
+
+  it("RP.lifecycle.3 View full lifecycle opens the whole diagram in a dialog, not Sayr Studio", async () => {
+    const opened: unknown[] = [];
+    const open = window.open;
+    window.open = ((...args: unknown[]) => { opened.push(args); return null; }) as typeof window.open;
+    try {
+      mount(PAGE());
+      fireEvent.click(await waitFor(() => screen.getByRole("button", { name: "View full lifecycle" })));
+      const dialog = await waitFor(() => screen.getByRole("dialog"));
+      expect(within(dialog).getByText(/lifecycle · Support$/)).toBeTruthy();
+      expect(dialog.querySelector('[data-state="tst_new"] [data-kind="current"]')).toBeTruthy();
+      expect(dialog.querySelector('[data-state="tst_in_progress"] [data-kind="future"]')).toBeTruthy();
+      expect(within(dialog).getByText("Start Work")).toBeTruthy();
+      expect(within(dialog).getByText("Reopen")).toBeTruthy();
+      expect(dialog.querySelectorAll("[data-lifecycle-graph] path[marker-end]").length).toBe(2);
+      expect(opened).toEqual([]);
+    } finally {
+      window.open = open;
+    }
   });
 
   it("RP.lifecycle.2 no lifecycle on the type says so", async () => {
@@ -315,7 +340,10 @@ const REGISTRY: DocTypeMeta = {
 };
 const FAMILY: FamilyDescriptor = { parent: "Ticket", registry: "Ticket Type", labelField: "type_name" };
 const PREVIEW: TypePreviewData = {
-  lifecycle: { lifecycle: "SEAR-LC-00001", title: "Support", states_count: 4, initial: { state_key: "tst_new", name_en: "New", name_ar: "جديد", phase: "open" } },
+  lifecycle: { lifecycle: "SEAR-LC-00001", title: "Support", states_count: 2, initial: { state_key: "tst_new", name_en: "New", name_ar: "جديد", phase: "open" },
+    states: [{ state_key: "tst_new", name_en: "New", name_ar: "جديد", phase: "open" }, { state_key: "tst_done", name_en: "Done", name_ar: "تم", phase: "closed" }],
+    initial_state: "tst_new",
+    transitions: [{ transition_key: "tst_new__tst_done_1", from_state: "tst_new", to_state: "tst_done", action_en: "Finish", action_ar: "إنهاء" }] },
   sla: { deployed: true, policy: "SEAR-SLA-00001", policy_name: "Test Support SLA", level: "Service", calendar_name: "Egypt Business Hours",
     targets: [{ priority: "urgent", first_response: 1800, resolution: 14400 }, { priority: "high", first_response: 3600, resolution: 28800 }] },
   assignment: [{ profile: "SEAR-AP-00001", profile_name: "Test Support Assignment", strategy: "Round Robin" }],
@@ -366,6 +394,11 @@ describe("RP.new — a new record laid out like the record page", () => {
     expect(screen.getByText("Test Support Assignment")).toBeTruthy();
     expect(container.querySelector("[data-sla-preview='SEAR-SLA-00001']")?.textContent).toContain("30 min");
     expect(screen.getByRole("button", { name: "View full lifecycle" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "View full lifecycle" }));
+    const diagram = await waitFor(() => screen.getByRole("dialog"));
+    expect(diagram.querySelectorAll("[data-state] [data-kind='future']").length).toBe(2);
+    expect(within(diagram).getByText("Finish")).toBeTruthy();
+    fireEvent.keyDown(diagram, { key: "Escape" });
     expect(screen.getAllByText("Available after the record is created.").length).toBe(4);
     // Not a wizard type: one form, no tabs; the type's own fields follow the shared ones.
     await waitFor(() => expect(screen.getByText("Booking Reference")).toBeTruthy());

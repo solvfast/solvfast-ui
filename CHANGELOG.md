@@ -6,6 +6,18 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.33 — View full lifecycle opens the whole diagram in a dialog
+
+**BREAKING** (small): `SayrRecordPage` / `SayrNewRecordPage` `lifecycleHref` and `defaultLifecycleHref` are removed:
+"View full lifecycle" no longer opens Sayr Studio in a new tab. It opens `LifecycleGraphDialog`: every state and
+transition (Sayr's `record_state` / `type_preview` now send `initial_state` and `transitions`), the record's current
+state, the states it passed with who and when, and the path taken in the success colour; "<type> lifecycle ·
+<lifecycle>", "<record> · currently <state>". A new record's preview opens its type's lifecycle the same way.
+Additive: `LifecycleGraph` (a dependency-free layered diagram with arrows, labels and + / − / fit) and
+`layoutLifecycle`; `RecordPageData.lifecycle.initial_state` / `transitions`, `LifecycleGraphData`. Messages
+`lcPhaseOpen`, `lcPhaseOnHold`, `lcPhaseClosed`, `lcZoomIn`, `lcZoomOut`, `lcFit`, `rpLifecycleOf`, `rpCurrently`.
+Tests RP.lifecycle.3, RP.new.2.
+
 ## 0.7.0-dev.32 — A record page can open view-first, with Edit; the header takes a key line and buttons
 
 Additive. `SayrRecordPage viewFirst`: the record's fields open read-only (blank ones hidden, as Desk does) with no Save;

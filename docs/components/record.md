@@ -692,7 +692,17 @@ transitions, roles, logs) and the graph engine for the diagram.
   `currentLabel?`, `title?`, `style?`. A diagram node body (58 px high; the consumer sets the width).
 - `LifecycleEdgeLabel` — `label`, `taken?`. `LifecycleDiagramLegend` — `labels?`.
 - `LIFECYCLE_DIAGRAM_COLORS` — `{ taken, edge, grid }` as token-based CSS colours for SVG edges / markers / grid.
-- The graph engine and layout (e.g. React Flow + dagre) stay in the consumer: they are not package dependencies.
+- `LifecycleGraph` (`src/record/LifecycleGraph.tsx`, 0.7.0-dev.33) — the whole diagram, dependency-free: `states`
+  (`{ key, label, meta?, metaTitle?, kind, phase? }`), `transitions` (`{ key, from, to, label, taken? }`), `initial?`,
+  `currentLabel?`, `labels?: { zoomIn, zoomOut, fit }`. A layered layout (`layoutLifecycle`: rows by breadth-first
+  distance from `initial`; states no transition reaches in a last row), an SVG arrow per transition with its label,
+  an arrow back to an earlier row curving along the side, `taken` arrows in the success colour, + / − / fit (fits on
+  open). It fills its parent (`absolute inset-0`): put it inside `LifecycleDiagramDialog`. A consumer may still use its
+  own engine (React Flow + dagre) with the pieces above; none is a package dependency.
+- `LifecycleGraphDialog` (`@solvfast/ui/sayr`) — the dialog and the graph from Sayr's data: `lifecycle` (`states`,
+  `initial_state`, `transitions` as `record_state` / `type_preview` return them), `status` (current), `path` (the
+  rail's steps: done states, and the path taken from consecutive steps), `title`, `subtitle?`. Each state's second
+  line is its phase (`lc*` messages) and, when the record passed it, who and when.
 
 ### 8.3 One colour mapping, both themes (semantic tokens only)
 

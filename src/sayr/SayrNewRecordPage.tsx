@@ -1,3 +1,4 @@
+import * as React from "react";
 /**
  * SayrNewRecordPage — a new family record laid out like SayrRecordPage: Back and Create on top, a header card holding the
  * type picker, the type's tabs as a full-width bar, and a rail. Once a type is chosen the rail previews what its
@@ -11,7 +12,8 @@ import { fmt } from "../record/format";
 import { useLocale } from "../theme/ThemeProvider";
 import type { FamilyType } from "../frappe/family/family";
 import { FrappeNewFamilyRecord, type FrappeNewFamilyRecordProps } from "../frappe/family/FrappeNewFamilyRecord";
-import { TYPE_PREVIEW_METHOD, defaultLifecycleHref, type TypePreviewData } from "./recordPage";
+import { TYPE_PREVIEW_METHOD, type TypePreviewData } from "./recordPage";
+import { LifecycleGraphDialog } from "./LifecycleGraphDialog";
 import { useSayrCall } from "./SayrRecordPage";
 import { SayrTypeFinder } from "./SayrTypeFinder";
 import {
@@ -21,27 +23,26 @@ import {
 import { Skeleton } from "../primitives/skeleton";
 
 export interface SayrNewRecordPageProps extends Omit<FrappeNewFamilyRecordProps, "layout" | "aside" | "typeHelp"> {
-  /** Where "View full lifecycle" opens (a new tab). Default: Sayr Studio's lifecycle builder. */
-  lifecycleHref?: (lifecycle: string) => string;
   /** A decision tree (Sayr Studio › Routing) behind "Not sure? Find the right type" under the type picker. None: no link. */
   decisionTree?: string | null;
   /** The app's own rail cards, as on SayrRecordPage; here they wait for the record. */
   extraCards?: readonly RecordRailExtraCard[];
 }
 
-export function SayrNewRecordPage({ lifecycleHref = defaultLifecycleHref, decisionTree, extraCards, ...props }: SayrNewRecordPageProps) {
+export function SayrNewRecordPage({ decisionTree, extraCards, ...props }: SayrNewRecordPageProps) {
   return (
     <FrappeNewFamilyRecord {...props} layout="record"
       typeHelp={decisionTree ? ({ types, choose }) => (
         <SayrTypeFinder tree={decisionTree} registry={props.family.registry} types={types} onChoose={choose} />
       ) : undefined}
-      aside={(type) => <TypePreviewRail key={type?.doctype ?? ""} type={type} lifecycleHref={lifecycleHref} extraCards={extraCards} />} />
+      aside={(type) => <TypePreviewRail key={type?.doctype ?? ""} type={type} extraCards={extraCards} />} />
   );
 }
 
-function TypePreviewRail({ type, lifecycleHref, extraCards }: {
-  type?: FamilyType; lifecycleHref: (lifecycle: string) => string; extraCards?: readonly RecordRailExtraCard[];
+function TypePreviewRail({ type, extraCards }: {
+  type?: FamilyType; extraCards?: readonly RecordRailExtraCard[];
 }) {
+  const [diagram, setDiagram] = React.useState(false);
   const { t, isRTL } = useLocale();
   const doctype = type?.doctype ?? "";
   const preview = useSayrCall<TypePreviewData>(TYPE_PREVIEW_METHOD, { doctype }, doctype, !!doctype);
@@ -94,7 +95,11 @@ function TypePreviewRail({ type, lifecycleHref, extraCards }: {
               </p>
             ) : null}
             <LifecycleRail path={lc.initial ? [{ id: lc.initial.state_key, label: (isRTL && lc.initial.name_ar) || lc.initial.name_en }] : []}
-              onViewAll={() => window.open(lifecycleHref(lc.lifecycle), "_blank", "noopener")} />
+              onViewAll={lc.states ? () => setDiagram(true) : undefined} />
+            {lc.states ? (
+              <LifecycleGraphDialog open={diagram} onOpenChange={setDiagram} lifecycle={{ ...lc, states: lc.states }}
+                title={fmt(t("rpLifecycleOf"), type?.name ?? "", lc.title || lc.lifecycle)} />
+            ) : null}
           </div>
         )}
       </RailCard>

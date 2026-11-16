@@ -22,6 +22,7 @@ import { Checkbox } from "../primitives/checkbox";
 import { Skeleton } from "../primitives/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "../primitives/tabs";
 import { LifecycleRail, type LifecycleRailNext } from "../record/LifecycleRail";
+import { LifecycleGraphDialog } from "./LifecycleGraphDialog";
 import { fmt, initials } from "../record/format";
 import { RecordHeaderCard } from "../record/RecordHeaderCard";
 import { htmlToText } from "../record/sanitize";
@@ -37,7 +38,7 @@ import { FrappeTimeline } from "../frappe/record/FrappeTimeline";
 import { stateEntries } from "../frappe/record/stateHistory";
 import { parseFrappeTime } from "../frappe/record/timeline";
 import {
-  OPEN_CHECKLIST_METHOD, RECORD_PAGE_METHOD, TICK_STEP_METHOD, TRANSITION_METHOD, defaultLifecycleHref,
+  OPEN_CHECKLIST_METHOD, RECORD_PAGE_METHOD, TICK_STEP_METHOD, TRANSITION_METHOD,
   type ChecklistData, type RecordPageData, type SlaTargetClock,
 } from "./recordPage";
 import {
@@ -54,8 +55,6 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   backLabel?: string;
   /** The record's type, shown as a chip in the header (e.g. "Bug"). */
   typeLabel?: string;
-  /** Where "View full lifecycle" opens (a new tab). Default: Sayr Studio's lifecycle builder. */
-  lifecycleHref?: (lifecycle: string) => string;
   /** Where the hidden cards are kept (localStorage). Default `sf-record-rail:<doctype>`. */
   railStorageKey?: string;
   /** All fields as one form, no tabs (a family type without wizard mode). Default: the DocType's tabs as a
@@ -109,7 +108,7 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 }
 
 export function SayrRecordPage({
-  doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
+  doctype, name, onBack, backLabel, typeLabel, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
   onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
@@ -148,6 +147,7 @@ export function SayrRecordPage({
     seenModified.current = modified;
   }, [doc?.modified]); // eslint-disable-line react-hooks/exhaustive-deps
   const [moving, setMoving] = React.useState(false);
+  const [diagram, setDiagram] = React.useState(false);
   const [moveNote, setMoveNote] = React.useState<{ text: string; error: boolean } | null>(null);
 
   const runTransition = async (next: LifecycleRailNext) => {
@@ -210,13 +210,14 @@ export function SayrRecordPage({
     </Button>
   ) : null;
 
+  const path = lc ? lifecyclePath(lc, doc, docinfo, isRTL, language) : [];
   const lifecycleCard = (
     <RailCard id="lifecycle" icon={GitBranch} title={lc?.title ? `${t("rpLifecycle")} · ${lc.title}` : t("rpLifecycle")}>
       {page.pending ? <Skeleton className="h-24" /> : !lc ? (
         <Empty>{data?.lifecycle_deployed ? t("rpNotUnderLifecycle") : t("rpNoLifecycle")}</Empty>
       ) : (
         <LifecycleRail
-          path={lifecyclePath(lc, doc, docinfo, isRTL, language)}
+          path={path}
           next={lc.actions.map((a) => ({
             id: a.transition_key,
             label: (isRTL && a.action_ar) || a.action_en,
@@ -227,9 +228,14 @@ export function SayrRecordPage({
           ended={lc.actions.length === 0}
           // The server lists only actions this user may take; a state's edit lock does not apply to a transition.
           onSelectNext={(n) => void runTransition(n)}
-          onViewAll={() => window.open(lifecycleHref(lc.lifecycle), "_blank", "noopener")}
+          onViewAll={() => setDiagram(true)}
         />
       )}
+      {lc ? (
+        <LifecycleGraphDialog open={diagram} onOpenChange={setDiagram} lifecycle={lc} status={lc.status} path={path}
+          title={fmt(t("rpLifecycleOf"), typeLabel || doctype, lc.title || lc.lifecycle)}
+          subtitle={fmt(t("rpCurrently"), title, stateLabel(current))} />
+      ) : null}
       {moveNote ? <p role={moveNote.error ? "alert" : "status"} className={cn("text-xs", moveNote.error ? "text-destructive" : "text-muted-foreground")}>{moveNote.text}</p> : null}
     </RailCard>
   );

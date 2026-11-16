@@ -10,6 +10,12 @@ export const lifecycleEn = {
   lcNotReached: "Not reached",
   lcPathTaken: "Path taken",
   lcClose: "Close",
+  lcPhaseOpen: "Open",
+  lcPhaseOnHold: "On Hold",
+  lcPhaseClosed: "Closed",
+  lcZoomIn: "Zoom in",
+  lcZoomOut: "Zoom out",
+  lcFit: "Fit to view",
 };
 export const lifecycleAr: { [K in keyof typeof lifecycleEn]: string } = {
   lcCurrent: "الحالية",
@@ -21,4 +27,10 @@ export const lifecycleAr: { [K in keyof typeof lifecycleEn]: string } = {
   lcNotReached: "لم تُبلغ",
   lcPathTaken: "المسار المتّبع",
   lcClose: "إغلاق",
+  lcPhaseOpen: "مفتوحة",
+  lcPhaseOnHold: "معلّقة",
+  lcPhaseClosed: "مغلقة",
+  lcZoomIn: "تكبير",
+  lcZoomOut: "تصغير",
+  lcFit: "ملاءمة العرض",
 };

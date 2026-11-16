@@ -5,9 +5,12 @@ export const TRANSITION_METHOD = "sear_product.apis.tickets.tickets.execute_tran
 export const OPEN_CHECKLIST_METHOD = "sear_product.apis.sear_playbook_checklist.sear_playbook_checklist.open_checklist";
 export const TICK_STEP_METHOD = "sear_product.apis.sear_playbook_checklist.sear_playbook_checklist.tick_step";
 
-/** Sayr Studio's lifecycle builder (sear_product's `/sayr-framework` app). */
-export const defaultLifecycleHref = (lifecycle: string) =>
-  `/sayr-framework/workspace/build/sear_studio/life_cycles/${encodeURIComponent(lifecycle)}`;
+/** A lifecycle's whole diagram (View full lifecycle): every state, the first one, every transition. */
+export interface LifecycleGraphData {
+  states: { state_key: string; name_en: string; name_ar: string | null; phase: string }[];
+  initial_state?: string | null;
+  transitions?: { transition_key: string; from_state: string; to_state: string; action_en: string; action_ar: string | null }[];
+}
 
 export interface SlaTargetClock { due: string | null; met_on: string | null; breached: boolean }
 
@@ -22,6 +25,8 @@ export interface RecordPageData {
     status_label_en: string | null; status_label_ar: string | null; playbook: string | null;
     states: { state_key: string; name_en: string; name_ar: string | null; phase: string; color: string | null; is_current: boolean }[];
     actions: { transition_key: string; action_en: string; action_ar: string | null; to_state: string; to_phase: string | null }[];
+    initial_state?: string | null;
+    transitions?: LifecycleGraphData["transitions"];
   };
   sla: { deployed: false } | {
     deployed: true; policy: string; policy_name: string; level: string | null; calendar_name: string | null;
@@ -47,7 +52,7 @@ export interface TypePreviewData {
   lifecycle: null | {
     lifecycle: string; title: string | null; states_count: number;
     initial: { state_key: string; name_en: string; name_ar: string | null; phase: string } | null;
-  };
+  } & Partial<LifecycleGraphData>;
   sla: { deployed: false } | {
     deployed: true; policy: string; policy_name: string; level: string | null; calendar_name: string | null;
     targets: { priority: "urgent" | "high" | "medium" | "low"; first_response: number; resolution: number }[];

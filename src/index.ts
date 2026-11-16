@@ -221,6 +221,7 @@ export type { LifecycleStep } from "./record";
 export { RecordHeaderCard, FieldPreview, previewKind } from "./record";
 export type { RecordHeaderCardProps, RecordHeaderFact, FieldPreviewProps } from "./record";
 export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
+export { LifecycleGraph, layoutLifecycle, type LifecycleGraphProps, type LifecycleGraphState, type LifecycleGraphTransition } from "./record";
 export type {
   LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels, LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels,
   LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
