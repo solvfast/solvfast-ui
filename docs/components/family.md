@@ -283,6 +283,12 @@ Every other prop is `FrappeForm`'s and goes to the form.
   own (`{ id, label, icon, render(doc) }`, rendered only while open); `pageTab` / `onPageTabChange` open one from the
   app (ServeFast's rail opens Activities › Notes on a note). Without `pageTabs` there is no page tab bar. Built on
   `FrappeFormView`'s `pageTabBar` / `pageTabPanel` slots; the form stays mounted behind another tab.
+- `viewFirst` (0.7.0-dev.32): the fields open read-only (blank ones hidden) with no Save; **Edit** beside `#name`
+  makes them editable with **Cancel** (drops what was typed) and **Save**; either goes back to the view. Built on
+  `FrappeFormView` / `FrappeForm` `viewOnly`. Default: editable as before.
+- `headerLine` / `headerActions` (0.7.0-dev.32): a key line under the title (e.g. job title · organization; a node, or
+  `(doc) => node` made from the record) and the
+  app's buttons at the end of the header card (`RecordHeaderCard` `subtitle` / `actions`; `nameAction` holds Edit).
 - **Data**: one call to Sayr's `sear_product.apis.tickets.tickets.record_page` (header, lifecycle, SLA, the assign
   comment, ToDos); assignment, comments and attachments read Frappe's docinfo.
 

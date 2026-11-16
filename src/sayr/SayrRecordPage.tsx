@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import {
-  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, History, ListChecks, Paperclip, ShieldCheck,
+  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, History, ListChecks, Paperclip, Pencil, ShieldCheck,
   StickyNote, Timer, User, UsersRound,
 } from "lucide-react";
 import { cn } from "../lib/cn";
@@ -63,6 +63,13 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   oneForm?: boolean;
   /** The app's own cards (e.g. the record's CRM contact and organization), after Playbook. */
   extraCards?: readonly RecordRailExtraCard[];
+  /** The fields open read-only; Edit (next to the record's code) makes them editable with Cancel and Save, and a Save
+   *  or Cancel goes back to the view. Default: always editable (where the user may write). */
+  viewFirst?: boolean;
+  /** A key line in the header card, under the title (e.g. job title · organization), or made from the record. */
+  headerLine?: React.ReactNode | ((doc: FrappeDoc) => React.ReactNode);
+  /** The record's own buttons in the header card (e.g. Meeting, Note, More). */
+  headerActions?: React.ReactNode;
   /** The page's tabs after About (the form) and History (the record's timeline), e.g. the app's Activities. With none
    *  the page has no page tabs, as before. */
   pageTabs?: readonly RecordPageTab[];
@@ -103,7 +110,7 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 
 export function SayrRecordPage({
   doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
-  onPageTabChange, onDirtyChange, onSaved, ...form
+  onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
   const api = useFrappeApi();
@@ -117,6 +124,10 @@ export function SayrRecordPage({
   const canWrite = !!doc && permissions.can("write");
   const [dirty, setDirty] = React.useState(false);
   const [formKey, setFormKey] = React.useState(0);
+  const [editing, setEditing] = React.useState(false);
+  const viewing = !!viewFirst && !editing;
+  // Cancel drops what was typed: the form starts again from the saved record.
+  const stopEditing = () => { setEditing(false); setFormKey((k) => k + 1); };
   const [ownTab, setOwnTab] = React.useState("about");
   const openTab = pageTab ?? ownTab;
   const showTab = (id: string) => {
@@ -166,18 +177,28 @@ export function SayrRecordPage({
   const current = lc?.states.find((s) => s.is_current);
   const titleField = meta.data?.meta.title_field;
   const title = doc ? htmlToText(String((titleField && doc[titleField]) || "")) || doc.name : name;
+  // The record's photo (the DocType's image field, as Desk's form sidebar), else its initials.
+  const imageField = meta.data?.meta.image_field;
+  const photo = imageField && doc?.[imageField] ? String(doc[imageField]) : null;
 
   const header = (
     <RecordHeaderCard
       title={title}
       name={name}
-      avatar={initials(title) || <FileText className="h-6 w-6" />}
+      avatar={photo ? <img src={photo} alt="" className="h-full w-full rounded-xl object-cover" data-record-photo /> : initials(title) || <FileText className="h-6 w-6" />}
       status={current ? { label: stateLabel(current), variant: PHASE_VARIANT[current.phase as keyof typeof PHASE_VARIANT] ?? "outline", key: current.state_key } : undefined}
       facts={data ? [
         { icon: User, text: data.header.owner_name || data.header.owner },
         { icon: Calendar, text: fmt(t("rpCreatedOn"), dateTime(parseFrappeTime(data.header.creation), language)), title: dateTime(parseFrappeTime(data.header.creation), language) },
       ] : undefined}
       chips={typeLabel ? <Badge variant="brand">{typeLabel}</Badge> : undefined}
+      subtitle={typeof headerLine === "function" ? (doc ? headerLine(doc) : undefined) : headerLine}
+      actions={headerActions}
+      nameAction={viewing && canWrite ? (
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => setEditing(true)} data-record-edit>
+          <Pencil className="h-3.5 w-3.5" aria-hidden />{t("rpEdit")}
+        </Button>
+      ) : undefined}
     >
       {data ? null : <Skeleton className="h-4 w-48" />}
     </RecordHeaderCard>
@@ -278,6 +299,13 @@ export function SayrRecordPage({
           header={header}
           toolbarStart={back}
           tabBar="record"
+          viewOnly={viewing || form.viewOnly}
+          toolbarExtra={viewFirst && editing ? (
+            <>
+              {form.toolbarExtra}
+              <Button type="button" variant="outline" onClick={stopEditing} data-record-cancel-edit>{t("rpCancelEdit")}</Button>
+            </>
+          ) : form.toolbarExtra}
           pageTabBar={pageTabs?.length ? (
             <Tabs value={openTab} onValueChange={showTab}>
               <TabsList className="flex w-full max-w-full overflow-x-auto" aria-label={t("rpPageTabs")} data-page-tabs>
@@ -294,7 +322,7 @@ export function SayrRecordPage({
           ) : (pageTabs.find((tab) => tab.id === openTab)?.render(doc) ?? null)}
           fieldFilter={oneForm ? noTabBreaks : form.fieldFilter}
           onDirtyChange={(d) => { setDirty(d); onDirtyChange?.(d); }}
-          onSaved={(saved, action) => { void refresh(); onSaved?.(saved, action); }}
+          onSaved={(saved, action) => { void refresh(); setEditing(false); onSaved?.(saved, action); }}
         />
       </div>
       <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start" aria-label={t("rpVisibleSections")}>

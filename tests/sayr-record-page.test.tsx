@@ -72,7 +72,7 @@ function site(page: RecordPageData, calls: string[] = []) {
   return createFrappeClient({ transport: t });
 }
 
-function mount(page: RecordPageData, language: "en" | "ar" = "en", calls: string[] = [], extraCards?: RecordRailExtraCard[], tabs?: Pick<SayrRecordPageProps, "pageTabs" | "pageTab" | "onPageTabChange">) {
+function mount(page: RecordPageData, language: "en" | "ar" = "en", calls: string[] = [], extraCards?: RecordRailExtraCard[], tabs?: Partial<Omit<SayrRecordPageProps, "doctype" | "name">>) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
@@ -101,11 +101,65 @@ describe("RP.header — the header card and the type's tabs", () => {
     expect(within(header).getByText(/^Created /)).toBeTruthy();
   });
 
+  it("RP.header.3 the record's photo (its DocType's image field) replaces the initials", async () => {
+    const withPhoto = { ...BUG, image_field: "photo", fields: [...BUG.fields, { fieldname: "photo", fieldtype: "Attach Image", label: "Photo" }] } as DocTypeMeta;
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const t = createFixtureTransport({ meta: { "Ticket Bug": [withPhoto] }, docs: { "Ticket Bug": [{ ...doc, photo: "/files/omar.png" } as FrappeDoc] } },
+      { handlers: { [RECORD_PAGE_METHOD]: () => ({ message: PAGE() }) } });
+    const { container } = render(
+      <QueryClientProvider client={qc}>
+        <FrappeProvider client={createFrappeClient({ transport: t })} queryClient={qc} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
+          <ThemeProvider defaultLanguage="en" storageKeys={null}><SayrRecordPage doctype="Ticket Bug" name="TKT-00008" /></ThemeProvider>
+        </FrappeProvider>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(container.querySelector("[data-record-photo]")?.getAttribute("src")).toBe("/files/omar.png"));
+    const plain = mount(PAGE());
+    await waitFor(() => expect(within(plain.container.querySelector("[data-record-header]") as HTMLElement).getByText("Omar Ali")).toBeTruthy());
+    expect(plain.container.querySelector("[data-record-photo]")).toBeNull();
+  });
+
   it("RP.header.2 the tab bar is the type DocType's own tabs, full width", async () => {
     const { container } = mount(PAGE());
     await waitFor(() => expect(screen.getByRole("tab", { name: "Booking Change Request" })).toBeTruthy());
     expect(screen.getByRole("tab", { name: "Details" })).toBeTruthy();
     expect(container.querySelector("[data-tab-bar='record']")).toBeTruthy();
+  });
+});
+
+describe("RP.view — view first, then Edit; the header's key line and buttons", () => {
+  it("RP.view.1 viewFirst: the fields read, no Save; Edit beside the code; the key line and the app's buttons in the header", async () => {
+    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, headerLine: (d) => `Head of Sales · ${String(d.title)}`, headerActions: <button type="button">Meeting</button> });
+    await waitFor(() => expect(container.querySelector("[data-record-edit]")).toBeTruthy());
+    const header = container.querySelector("[data-record-header]") as HTMLElement;
+    await waitFor(() => expect(within(header).getByText("Head of Sales · Login does nothing")).toBeTruthy());
+    expect(within(header).getByRole("button", { name: "Meeting" })).toBeTruthy();
+    expect(screen.queryByDisplayValue("Login does nothing")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(container.querySelector("[data-record-cancel-edit]")).toBeNull();
+  });
+
+  it("RP.view.2 Edit opens the fields with Cancel and Save; Cancel drops the change and goes back to the view", async () => {
+    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true });
+    fireEvent.click(await waitFor(() => {
+      const edit = container.querySelector("[data-record-edit]");
+      if (!edit) throw new Error("no Edit yet");
+      return edit as HTMLElement;
+    }));
+    const title = await waitFor(() => screen.getByDisplayValue("Login does nothing") as HTMLInputElement);
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+    expect(container.querySelector("[data-record-edit]")).toBeNull();
+    fireEvent.change(title, { target: { value: "Changed, then cancelled" } });
+    fireEvent.click(container.querySelector("[data-record-cancel-edit]") as HTMLElement);
+    await waitFor(() => expect(container.querySelector("[data-record-edit]")).toBeTruthy());
+    expect(screen.queryByDisplayValue("Changed, then cancelled")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  });
+
+  it("RP.view.3 without viewFirst the page stays editable as before", async () => {
+    const { container } = mount(PAGE());
+    await waitFor(() => expect(screen.getByDisplayValue("Login does nothing")).toBeTruthy());
+    expect(container.querySelector("[data-record-edit]")).toBeNull();
   });
 });
 

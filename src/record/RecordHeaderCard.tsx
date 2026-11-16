@@ -23,11 +23,17 @@ export interface RecordHeaderCardProps {
   status?: { label: React.ReactNode; variant?: BadgeProps["variant"]; key?: string };
   facts?: RecordHeaderFact[];
   chips?: React.ReactNode;
+  /** Right after `#name` (e.g. a record page's Edit). */
+  nameAction?: React.ReactNode;
+  /** A key line under the title (e.g. job title · organization). */
+  subtitle?: React.ReactNode;
+  /** The record's own buttons, at the end of the card. */
+  actions?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
 }
 
-export function RecordHeaderCard({ title, name, avatar, status, facts, chips, children, className }: RecordHeaderCardProps) {
+export function RecordHeaderCard({ title, name, avatar, status, facts, chips, nameAction, subtitle, actions, children, className }: RecordHeaderCardProps) {
   return (
     <div className={cn("relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-r from-primary/10 via-card to-accent/10 p-5 shadow-sm", className)} data-record-header>
       <div className="flex items-start gap-4">
@@ -40,8 +46,10 @@ export function RecordHeaderCard({ title, name, avatar, status, facts, chips, ch
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="min-w-0 truncate text-xl font-semibold">{title}</h1>
             {name ? <span className="font-mono text-xs text-muted-foreground">#{name}</span> : null}
+            {nameAction}
             {status ? <Badge variant={status.variant ?? "outline"} data-status={status.key}>{status.label}</Badge> : null}
           </div>
+          {subtitle ? <p className="truncate text-sm text-muted-foreground" data-record-subtitle>{subtitle}</p> : null}
           {facts?.length ? (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               {facts.map((f, i) => (
@@ -57,6 +65,7 @@ export function RecordHeaderCard({ title, name, avatar, status, facts, chips, ch
           {chips ? <div className="flex flex-wrap items-center gap-2">{chips}</div> : null}
           {children}
         </div>
+        {actions ? <div className="flex shrink-0 flex-wrap items-center justify-end gap-2" data-record-actions>{actions}</div> : null}
       </div>
     </div>
   );

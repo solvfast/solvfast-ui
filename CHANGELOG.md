@@ -6,6 +6,16 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.32 — A record page can open view-first, with Edit; the header takes a key line and buttons
+
+Additive. `SayrRecordPage viewFirst`: the record's fields open read-only (blank ones hidden, as Desk does) with no Save;
+**Edit**, beside the record's code, makes them editable with **Cancel** and **Save**, and a Save or a Cancel (which
+drops what was typed) goes back to the view. `headerLine` (a key line under the title, or a function of the record) and `headerActions` (the app's
+buttons at the end of the header card). Underneath: `FrappeFormView` / `FrappeForm` `viewOnly` (every field read, no
+Save / Update nor Ctrl+S; workflow actions and the menu stay) and `RecordHeaderCard` `nameAction`, `subtitle`,
+`actions`; the header card shows the record's photo (its
+DocType's `image_field`) instead of its initials; `renderField` is told the field's `status` ("Read" in the view), so an app-drawn field can read too. Messages `rpEdit`, `rpCancelEdit`. Tests RP.view.1–3.
+
 ## 0.7.0-dev.31 — The type form designer leaves hidden fields out
 
 A type's own hidden fields (a system link, a derived title) are no longer shown on the designer's canvas as locked

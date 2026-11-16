@@ -126,6 +126,9 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   /** Defaults for new child rows (session user, user defaults). */
   defaults?: DefaultsContext;
   saveDisabled?: boolean;
+  /** Every field shown read-only and no Save / Update (nor Ctrl+S): a record page's view before Edit. Workflow actions,
+   *  Submit / Cancel and the menu stay. */
+  viewOnly?: boolean;
   /** Workflow action buttons are shown by the app (they replace Save / Submit / Cancel while clean). */
   workflowActionsShown?: boolean;
   /** `can_cancel_document` for a workflow DocType. */
@@ -171,7 +174,7 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   onTabsChange?: (tabs: { key: string; label: string }[]) => void;
   /** Draw a field the host's way (e.g. an icon and its colour as one picker): return a node, or `undefined` for the
    *  form's own control. `setValue` writes any field of the document, as the form's controls do. */
-  renderField?: (df: FrappeDocField, context: { value: unknown; doc: FrappeDoc; setValue: (fieldname: string, value: unknown) => void }) => React.ReactNode | undefined;
+  renderField?: (df: FrappeDocField, context: { value: unknown; doc: FrappeDoc; setValue: (fieldname: string, value: unknown) => void; status: FieldDisplayStatus }) => React.ReactNode | undefined;
   /** Desk's keyboard shortcuts while this form is the topmost one mounted: Ctrl/⌘+S runs the visible primary action
    *  (desk.js `trigger_primary_action`), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo (outside text inputs).
    *  Default true; false registers nothing. */
@@ -271,6 +274,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   }, [unsaved, props.guardUnload]);
 
   // ---- effective fields and statuses ----
+  const viewOnly = !!props.viewOnly;
   const childFields = React.useCallback((childDoctype: string) => bundle.children[childDoctype]?.fields ?? [], [bundle]);
   const eff = React.useMemo(() => resolveFields(meta.fields ?? [], doc, doc, evaluator, overrides[meta.name]), [meta, doc, evaluator, overrides]);
   const fieldsByName = React.useMemo(() => new Map((meta.fields ?? []).map((f) => [f.fieldname, f])), [meta]);
@@ -286,9 +290,11 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       // rules so a blank read-only field is hidden as Desk hides it (base_control.js get_status)
       st = controlStatus(!permissions && ladder === "Write" ? "Read" : ladder, df, row);
     }
+    // A record's view reads every field, and a blank one is hidden as Desk hides a blank read-only field.
+    if (st === "Write" && viewOnly) st = controlStatus("Read", df, row);
     if (st === "Write" && isReadOnlyByFetch(df, row)) st = "Read";
     return st;
-  }, [permissions]);
+  }, [permissions, viewOnly]);
 
   // ---- fetch maps ----
   const fetchMaps = React.useMemo(() => {
@@ -679,7 +685,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       const active = typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
       if (active && active !== document.body) active.blur?.();
       const a = actionsFor(store.getDoc());
-      if (!a.primary || a.primaryDisabled || a.primary === "Cancel") return;
+      if (!a.primary || a.primaryDisabled || a.primary === "Cancel" || (viewOnly && (a.primary === "Save" || a.primary === "Update"))) return;
       if (a.primary === "Amend" && !props.onAmend && !canAmend(meta)) return;
       runPrimary(a.primary);
       return;
@@ -740,7 +746,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     const e = df.fieldname === "__newname" ? df : eff.get(df.fieldname) ?? df;
     const st = fieldStatus(df);
     if (st === "None") return null;
-    const custom = props.renderField?.(e, { value: doc[df.fieldname], doc, setValue: (f, v) => store.setValue(f, v, undefined, { record: true }) });
+    const custom = props.renderField?.(e, { value: doc[df.fieldname], doc, setValue: (f, v) => store.setValue(f, v, undefined, { record: true }), status: st });
     if (custom !== undefined) return <React.Fragment key={df.fieldname}>{custom}</React.Fragment>;
     const isTable = TABLE_TYPES.has(df.fieldtype);
     return (
@@ -843,7 +849,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           {actions.secondary && onCancelDoc && (
             <Button type="button" variant="outline" disabled={!!saving} loading={saving === "Cancel"} onClick={() => void startCancel()}>{actionLabel("Cancel")}</Button>
           )}
-          {actions.primary && (
+          {actions.primary && !(viewOnly && (actions.primary === "Save" || actions.primary === "Update")) && (
             <Button type="button" disabled={!!saving || actions.primaryDisabled || (actions.primary === "Amend" && !props.onAmend && !canAmend(meta))}
               title={actions.primaryDisabled ? t("formAlreadyAmended") : undefined} loading={saving === actions.primary}
               onClick={() => runPrimary(actions.primary!)}>
