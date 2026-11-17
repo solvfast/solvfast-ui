@@ -139,10 +139,11 @@ function effective(rows: Planned[]): Planned[] {
 }
 
 /** A new type's designed items with the fields its DocType was made with but the design did not show, placed before the
- *  first of the form's own rows (or last), as native, locked fields. */
-export function withMadeFields(items: DesignerItem[], made: Screen["target_fields"]): DesignerItem[] {
+ *  first of the form's own rows (or last), as native, locked fields. A hidden field is left out unless it is one of
+ *  `placed` (a Sayr deployment row's fieldname), as `load` does (dev.31): Sayr keeps it after the arranged fields. */
+export function withMadeFields(items: DesignerItem[], made: Screen["target_fields"], placed: ReadonlySet<string> = new Set()): DesignerItem[] {
   const known = new Set(items.map((i) => i.id));
-  const added: DesignerItem[] = made.filter((f) => !known.has(f.fieldname)).map((f) => {
+  const added: DesignerItem[] = made.filter((f) => !known.has(f.fieldname) && (!f.hidden || placed.has(f.fieldname))).map((f) => {
     const kind = kindOfFieldtype(f.fieldtype);
     return { id: f.fieldname, kind, label: f.label === f.fieldname ? "" : f.label, fieldtype: kind === "field" ? f.fieldtype : undefined, native: true, movable: false };
   });
@@ -316,7 +317,8 @@ export function createSayrFieldDesignerAdapter(api: SayrApi, target: string | Sa
         // The type was made with more than its shared fields (e.g. the SLA fields its Configuration deployed): read its
         // real form and keep them where Sayr put them, after the shared block and before the form's own rows.
         screen = await call<Screen>(`${METHODS}.doctype_deployment`, { target_doctype: doctype });
-        items = withMadeFields(items, screen.target_fields);
+        const placed = new Set((screen.deployment?.fields ?? []).map((r) => r.fieldname).filter((f): f is string => !!f));
+        items = withMadeFields(items, screen.target_fields, placed);
       }
       const { wanted, own, order } = plan(items, await types());
       const deployment = screen?.deployment ?? null;
