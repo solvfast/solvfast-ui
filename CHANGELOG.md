@@ -60,6 +60,9 @@ or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest su
 - **Opening a section is not a change**: Not Saved, an enabled Save, `onDirtyChange(true)`, the leave guard and the
   "modified after you opened it" banner react only to a changed value (0.7.0-dev.35 marked the form dirty on opening).
   A clean refresh just updates the values; Reload of a newer copy also updates what Cancel puts back.
+  While a section is open and nothing has changed, Save is **held**: shown and clickable (`data-primary-held`), never
+  disabled — pressing it right after typing commits the field and saves on that first press; with nothing changed it
+  just closes the open sections (no request).
 - `SayrRecordPage` no longer hides a Frappe Workflow's or a status field's state on records without a Sayr lifecycle
   (0.7.0-dev.35 showed it nowhere); while the record page loads, the toolbar state never flashes on a lifecycle record.
 - Read view: Desk's column order kept, description-list semantics, theme-token icon tiles, no capitals or letter-spacing

@@ -1012,6 +1012,15 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const heldPrimary = sectionEdit && openKeys.size > 0 && !unsaved ? actionsFor({ ...doc, __unsaved: 1 }).primary : null;
   const held = heldPrimary === "Save" || heldPrimary === "Update" ? heldPrimary : null;
   const primary = held ?? actions.primary;
+  // A held Save stays clickable (not disabled): pressing it blurs the field being typed in, which commits its value, so by
+  // the click a change is in the store — then it saves (a disabled button would swallow that first click). With nothing
+  // changed, Save just closes the open sections (no request). "Not saved" still shows only after a real change.
+  const runHeld = (a: FormAction) => {
+    if (store.isDirty()) { runPrimary(a); return; }
+    setOpenSections(new Set());
+    setError(null);
+    setFieldErrors({});
+  };
   // editScope "record": the record's Edit (in the host's header when it places it, else in the toolbar) and its Cancel.
   const editAction = recordScope && !recordEditing && editableSections().length > 0 ? (
     <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={openRecord} data-record-edit>
@@ -1076,9 +1085,9 @@ export function FrappeFormView(props: FrappeFormViewProps) {
             <Button type="button" variant="outline" disabled={!!saving} loading={saving === "Cancel"} onClick={() => void startCancel()}>{actionLabel("Cancel")}</Button>
           )}
           {primary && !(viewOnly && (primary === "Save" || primary === "Update")) && !(sectionEdit && primary === "Save" && !unsaved && !held) && (
-            <Button type="button" disabled={!!saving || !!held || (!held && actions.primaryDisabled) || (primary === "Amend" && !props.onAmend && !canAmend(meta))}
+            <Button type="button" disabled={!!saving || (!held && actions.primaryDisabled) || (primary === "Amend" && !props.onAmend && !canAmend(meta))}
               title={!held && actions.primaryDisabled ? t("formAlreadyAmended") : undefined} loading={saving === primary}
-              data-primary-held={held ? "" : undefined} onClick={() => runPrimary(primary)}>
+              data-primary-held={held ? "" : undefined} onClick={() => (held ? runHeld(held) : runPrimary(primary))}>
               {actionLabel(primary)}
             </Button>
           )}

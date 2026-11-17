@@ -150,7 +150,7 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(container.querySelector('[data-section][aria-label="Details"] [data-read-row="summary"]')?.textContent).toContain("Fails on Chrome");
   });
 
-  it("RP.view.2 a section's Edit opens it alone (Save shown, disabled until a change; not yet Not saved); its Cancel puts back what is saved there only", async () => {
+  it("RP.view.2 a section's Edit opens it alone (Save shown and held until a change; not yet Not saved); its Cancel puts back what is saved there only", async () => {
     const dirty: boolean[] = [];
     const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, onDirtyChange: (d) => dirty.push(d) });
     const edits = await waitFor(() => {
@@ -161,8 +161,8 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     fireEvent.click(edits[0]);
     const title = await waitFor(() => screen.getByDisplayValue("Login does nothing") as HTMLInputElement);
     expect(screen.queryByDisplayValue("Fails on Chrome")).toBeNull();
-    // Opening is not a change (A-3): Save waits, disabled; no Not saved, no onDirtyChange(true).
-    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    // Opening is not a change (A-3): Save is held (clickable); no Not saved, no onDirtyChange(true).
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false); expect(screen.getByRole("button", { name: "Save" }).hasAttribute("data-primary-held")).toBe(true);
     expect(screen.queryByText("Not Saved")).toBeNull();
     expect(dirty.includes(true)).toBe(false);
     fireEvent.change(title, { target: { value: "Changed, then cancelled" } });
@@ -189,7 +189,7 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(container.querySelector("[data-section-edit]")).toBeNull();
   });
 
-  it("RP.view.5 editScope=\"record\": one Edit by the record's name opens every section; Save (disabled until a change) and one Cancel; Cancel reads again", async () => {
+  it("RP.view.5 editScope=\"record\": one Edit by the record's name opens every section; Save (held until a change) and one Cancel; Cancel reads again", async () => {
     const dirty: boolean[] = [];
     const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, editScope: "record", onDirtyChange: (d) => dirty.push(d) });
     const header = await waitFor(() => {
@@ -206,7 +206,7 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(container.querySelector("[data-section-edit]")).toBeNull();
     expect(container.querySelector("[data-section-cancel]")).toBeNull();
     expect(container.querySelector("[data-record-edit]")).toBeNull();
-    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false); expect(screen.getByRole("button", { name: "Save" }).hasAttribute("data-primary-held")).toBe(true);
     expect(screen.queryByText("Not Saved")).toBeNull();
     const summary = screen.getByDisplayValue("Fails on Chrome");
     fireEvent.change(summary, { target: { value: "Dropped by Cancel" } });

@@ -60,13 +60,13 @@ const box = (name: string) => screen.queryByRole("textbox", { name }) as HTMLInp
 const section = (label: string) => document.querySelector(`[data-section][aria-label="${label}"]`) as HTMLElement;
 
 describe("RE.dirty — opening a section is not a change (A-3)", () => {
-  it("RE.dirty.1 an opened section shows Save disabled, no Not Saved, no onDirtyChange(true); a change turns them on", () => {
+  it("RE.dirty.1 an opened section shows Save held (clickable), no Not Saved, no onDirtyChange(true); a change turns them on", () => {
     const dirty: boolean[] = [];
     render(view(D1, { onDirtyChange: (d) => dirty.push(d) }));
     expect(saveButton()).toBeNull();
     fireEvent.click(document.querySelector("[data-section-edit]") as HTMLElement);
     expect(box("Title")).not.toBeNull();
-    expect(saveButton()?.disabled).toBe(true);
+    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-primary-held")).toBe(true); // held: shown, clickable, not yet a change
     expect(screen.queryByText("Not Saved")).toBeNull();
     expect(dirty.includes(true)).toBe(false);
     fireEvent.change(box("Title")!, { target: { value: "Budget 2" } }); fireEvent.blur(box("Title")!);
@@ -100,7 +100,7 @@ describe("RE.dirty — opening a section is not a change (A-3)", () => {
     expect(screen.queryByText("Not Saved")).toBeNull();
     expect(dirty.at(-1)).toBe(false);
     expect(within(section("Details")).getByText("Budget")).toBeTruthy();
-    expect(saveButton()?.disabled).toBe(true);
+    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-primary-held")).toBe(true); // held: shown, clickable, not yet a change
   });
 
   it("RE.dirty.4 a newer server copy while an open section is untouched just refreshes (no banner, the section stays open); after a change it warns", () => {
@@ -116,18 +116,18 @@ describe("RE.dirty — opening a section is not a change (A-3)", () => {
     expect(box("Title")?.value).toBe("mine");
   });
 
-  it("RE.dirty.5 a workflow's clean form (no Save of its own) shows Save, disabled, once a section is open", () => {
+  it("RE.dirty.5 a workflow's clean form (no Save of its own) shows Save, held, once a section is open", () => {
     render(view(D1, { workflowActionsShown: true }));
     expect(saveButton()).toBeNull();
     fireEvent.click(within(section("Details")).getByRole("button", { name: /Edit/ }));
-    expect(saveButton()?.disabled).toBe(true);
+    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-primary-held")).toBe(true); // held: shown, clickable, not yet a change
     fireEvent.change(box("Code")!, { target: { value: "B-2" } }); fireEvent.blur(box("Code")!);
     expect(saveButton()?.disabled).toBe(false);
   });
 });
 
 describe("RE.dirty (more) — the keyboard and a right taken away", () => {
-  it("RE.dirty.6 Ctrl+S with a section open and nothing changed does nothing (a submittable draft's Submit gives way to the disabled Save)", () => {
+  it("RE.dirty.6 Ctrl+S with a section open and nothing changed does nothing (a submittable draft's Submit gives way to the held Save)", () => {
     const SUBMIT = { ...ALL, submit: true };
     const subRights = { levels: [SUBMIT], can: (p: string) => !!(SUBMIT as Record<string, boolean>)[p], known: true };
     const subMeta = { ...META, is_submittable: 1 } as DocTypeMeta;
@@ -139,7 +139,7 @@ describe("RE.dirty (more) — the keyboard and a right taken away", () => {
     expect(screen.getByRole("button", { name: "Submit" })).toBeTruthy();
     fireEvent.click(within(section("Details")).getByRole("button", { name: /Edit/ }));
     expect(screen.queryByRole("button", { name: "Submit" })).toBeNull();
-    expect(saveButton()?.disabled).toBe(true);
+    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-primary-held")).toBe(true); // held: shown, clickable, not yet a change
     fireEvent.keyDown(document, { key: "s", ctrlKey: true });
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
@@ -177,7 +177,7 @@ describe("RE.record — editScope=\"record\": one Edit, one Cancel, on the same 
     expect(document.querySelector("[data-section-edit]")).toBeNull();
     expect(document.querySelector("[data-section-cancel]")).toBeNull();
     expect(document.querySelector("[data-record-edit]")).toBeNull();
-    expect(saveButton()?.disabled).toBe(true);
+    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-primary-held")).toBe(true); // held: shown, clickable, not yet a change
     expect(dirty.includes(true)).toBe(false);
     fireEvent.change(box("City")!, { target: { value: "Giza" } }); fireEvent.blur(box("City")!);
     expect(screen.getByText("Not Saved")).toBeTruthy();
@@ -199,6 +199,33 @@ describe("RE.record — editScope=\"record\": one Edit, one Cancel, on the same 
     expect(box("Country")).toBeNull();
     expect(document.querySelector("[data-record-cancel-edit]")).toBeNull();
     expect(document.querySelector("[data-record-edit]")).not.toBeNull();
+  });
+
+  it("RE.record.5 typing then pressing Save at once saves on that first press (the press commits the field)", async () => {
+    const saved: FrappeDoc[] = [];
+    render(view(D1, { editScope: "record", onSave: async (d) => { saved.push(d); return { ...d, __unsaved: undefined, modified: "2026-11-01 11:00:00" }; } }));
+    fireEvent.click(document.querySelector("[data-record-edit]") as HTMLElement);
+    const input = box("Country")!;
+    input.focus();
+    fireEvent.change(input, { target: { value: "Egypt (EG)" } }); // typed, not yet committed (no blur)
+    const save = saveButton()!;
+    expect(save.disabled).toBe(false); // a disabled button would swallow this first press
+    // A real press: mousedown moves the focus (the field blurs and commits its value), then the click.
+    fireEvent.mouseDown(save); input.blur(); fireEvent.click(save);
+    await screen.findByText("Egypt (EG)");
+    expect(saved.length).toBe(1);
+    expect(box("Country")).toBeNull();
+  });
+
+  it("RE.record.6 Save with nothing changed just closes the open sections (no save request, never Not Saved)", () => {
+    const saved: FrappeDoc[] = [];
+    render(view(D1, { editScope: "record", onSave: async (d) => { saved.push(d); return d; } }));
+    fireEvent.click(document.querySelector("[data-record-edit]") as HTMLElement);
+    expect(box("Country")).not.toBeNull();
+    fireEvent.click(saveButton()!);
+    expect(box("Country")).toBeNull();
+    expect(saved.length).toBe(0);
+    expect(screen.queryByText("Not Saved")).toBeNull();
   });
 
   it("RE.record.3 a header render function places the Edit (and the toolbar then has none)", () => {

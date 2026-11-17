@@ -10,7 +10,7 @@
  *     per transition; the self-loop is drawn; every arrow-head id on the page is unique and each arrow uses its own
  *     graph's; LifecycleGraphDialog opens, closes with Escape and gives focus back to its button.
  *   editing — editScope "record": one Edit (data-record-edit), no section buttons, it opens every section, Save held
- *     (disabled) until a value changes, Not Saved only after a change, Cancel (data-record-cancel-edit) closes all and
+ *     (held: shown and clickable) until a value changes, Not Saved only after a change, Cancel (data-record-cancel-edit) closes all and
  *     puts the values back; editScope "section": per-section Edit / Cancel, opening shows no Not Saved, typing shows it
  *     and enables Save, Cancel restores. Read view: a two-column section keeps Desk's columns (DOM order, side by side
  *     at 1440 — mirrored in Arabic — and stacked at 390), labels are dt / dd in a dl, Arabic labels are not upper-cased
@@ -353,7 +353,7 @@ try {
               check("record: the Edit is gone, one Cancel (data-record-cancel-edit)", (await root.locator("[data-record-edit]").count()) === 0 && (await root.locator("[data-record-cancel-edit]").count()) === 1);
               check("record: opening is not a change (no Not Saved)", !(await notSaved()), await indicator());
               const s0 = await saveState();
-              check("record: Save shown and disabled until a change", s0.shown && s0.disabled && s0.held, s0);
+              check("record: Save shown and held (clickable, not a change) until a change", s0.shown && !s0.disabled && s0.held, s0);
               await shot("form-record-open", root);
               const input = root.locator('input[id^="sf-ff-subject-"]');
               await input.fill("Changed by the browser test");
@@ -381,7 +381,7 @@ try {
               check("section: the other sections keep their Edit", (await root.locator("[data-section-edit]").count()) === allKeys.length - 1 && (await root.locator("[data-section-cancel]").count()) === 1);
               check("section: opening shows no Not Saved", !(await notSaved()), await indicator());
               const s0 = await saveState();
-              check("section: Save shown and disabled until a change", s0.shown && s0.disabled && s0.held, s0);
+              check("section: Save shown and held (clickable, not a change) until a change", s0.shown && !s0.disabled && s0.held, s0);
               const input = root.locator('input[id^="sf-ff-subject-"]');
               await input.fill("Changed in one section");
               await root.locator("[data-form-indicator]", { hasText: T[lang].notSaved }).waitFor({ timeout: COMMIT_WAIT }).catch(() => {});
@@ -403,8 +403,8 @@ try {
               await root.locator(`[data-section-cancel="${allKeys[2]}"]`).click();
             }
           }
-          // observation probes (1440 only): a click on Save straight after typing — inside the field's
-          // 500 ms commit delay — on the sectionEdit form (Save held disabled until a change) and on a plain form
+          // (1440) a click on Save straight after typing — inside the field's 500 ms commit delay — saves on the first
+          // press, on the sectionEdit form (Save held, clickable) and on a plain form
           if (vw > 640) {
             for (const [scope, how] of [["section", "click"], ["plain", "click"]]) {
               const root = page.locator(`[data-demo="form-${scope}"]`);
@@ -420,7 +420,7 @@ try {
               await page.waitForTimeout(1200);
               const ind = (await root.locator("[data-form-indicator]").allTextContents()).map((x) => x.trim());
               const saved = !ind.includes(T[lang].notSaved) && (scope === "plain" || (await root.locator("[data-section-open]").count()) === 0);
-              observe(`${combo} form-${scope}`, `type then ${how} at once: ${saved ? "saved on the first try" : "NOT saved on the first try (Save must be clicked again)"}`, { disabledAtClick, indicator: ind, before });
+              check(`${scope}: type then ${how} Save at once saves on the first press`, saved, { disabledAtClick, indicator: ind, before });
               if (!saved) {
                 if (scope === "section") { const c = root.locator("[data-section-cancel]").first(); if (await c.count()) await c.click(); }
               }
