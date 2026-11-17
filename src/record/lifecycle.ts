@@ -8,7 +8,8 @@
  *  - lifecycleTransitionsFrom(def, current, roles?) — the Actions menu: the manual transitions out of the current state
  *  - lifecycleNext(def, current, path)      — the rail's "next": every target out of the current state
  *  - lifecycleGraph(def, current, path)     — the diagram model (nodes done / current / future, taken edges) for any
- *                                             renderer; Core ships no graph renderer.
+ *                                             renderer: Core's dependency-free LifecycleGraphView, or the optional
+ *                                             `./lifecycle-diagram` entry's LifecycleFlow (React Flow).
  */
 import type { Tone } from "./types";
 import type { LifecycleNodeKind, LifecyclePhase } from "./LifecycleDiagram";

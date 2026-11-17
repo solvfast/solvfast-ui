@@ -26,7 +26,7 @@ import { Skeleton } from "../primitives/skeleton";
 export interface SayrNewRecordPageProps extends Omit<FrappeNewFamilyRecordProps, "layout" | "aside" | "typeHelp"> {
   /** Where "View full lifecycle" opens, in a new tab (0.9.0's behaviour). Without it the type's lifecycle diagram opens
    *  in place (`LifecycleGraphDialog`).
-   *  @deprecated since 0.10.0 — removed in 0.11.0. Passing it warns once in development. */
+   *  @deprecated since 0.10.0 — removed in 0.11.0. The first use warns once in development. */
   lifecycleHref?: (lifecycle: string) => string;
   /** A decision tree (Sayr Studio › Routing) behind "Not sure? Find the right type" under the type picker. None: no link. */
   decisionTree?: string | null;

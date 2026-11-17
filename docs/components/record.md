@@ -690,7 +690,8 @@ transitions, roles, logs) and the graph engine for the diagram.
 - **One model, two renderers (0.10.0).** The diagram's data is always the core model `LifecycleGraph`
   (`lifecycleGraph(def, current, pathIds?, visitedIds?)`, §9.4): nodes `{ id, label, phase, kind, meta?, metaTitle? }`
   (`meta` / `metaTitle`, optional since 0.10.0: who moved the record there and when — an adapter adds them, the
-  function never does) and edges `{ id, from, to, label?, taken }`. Two renderers draw it:
+  function never does; `LifecycleGraphView` draws them, `LifecycleFlow` still takes who · when from its own `meta`
+  option and ignores the node fields) and edges `{ id, from, to, label?, taken }`. Two renderers draw it:
   - `LifecycleGraphView` (core, `src/record/LifecycleGraphView.tsx`, dependency-free SVG) — below;
   - `LifecycleFlow` / `LifecycleFlowDialog` (the optional `@solvfast/ui/lifecycle-diagram` entry, React Flow + dagre as
     optional peers).
@@ -746,7 +747,7 @@ The reference is the CRM record page's Lifecycle (`docs/audit/p08/CRM-REFERENCE.
 | `lifecyclePath(def, current)` | The rail's path: the **shortest** path from a root to the current state (not the record's history) |
 | `lifecycleTransitionsFrom(def, current, roles?)` | The Actions menu: the transitions out of the current state, not automatic ones, role-restricted ones only for a holder |
 | `lifecycleNext(def, current, pathIds)` | The rail's ways forward: every target out of the state (automatic and role-restricted included), `back` when on the path |
-| `lifecycleGraph(def, current, pathIds?, visitedIds?)` | The diagram model: nodes done / current / future, edges `taken` — for any renderer (the CRM's is React Flow + dagre) |
+| `lifecycleGraph(def, current, pathIds?, visitedIds?)` | The diagram model: nodes done / current / future, edges `taken` — for any renderer: core `LifecycleGraphView` (§8.2) or `LifecycleFlow` (`./lifecycle-diagram`, React Flow + dagre) |
 
 `LifecycleActions` — {actions: {id, label, confirm?, disabledReason?}[], onAction(id), blockedReason?, blockedIcon?,
 busy?, labels?}: the header Actions menu. Plain items (no colour); a transition runs as soon as it is chosen (unless the
