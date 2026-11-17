@@ -217,6 +217,10 @@ function assertGraph(tag, data, spec, lang) {
     const own = spec.transitions.find((t) => t[lang] === x.text)?.id;
     const hit = data.paths.filter((p) => p.id !== own && p.samples.some((q) => { const v = onScreen(q); return v.x > x.screen.x && v.x < x.screen.x + x.screen.w && v.y > x.screen.y && v.y < x.screen.y + x.screen.h; })).map((p) => p.id);
     if (hit.length) observe(tag, `label "${x.text}" lies on another arrow`, hit);
+    // which arrow the label reads as belonging to: the nearest one to its centre
+    const c = { x: x.screen.x + x.screen.w / 2, y: x.screen.y + x.screen.h / 2 };
+    const near = data.paths.map((p) => ({ id: p.id, d: Math.min(...p.samples.map((q) => { const v = onScreen(q); return Math.hypot(v.x - c.x, v.y - c.y); })) })).sort((a, b) => a.d - b.d)[0];
+    if (near && near.id !== own) observe(tag, `label "${x.text}" is nearer another arrow than its own`, near.id);
   }
   // text alternative
   check(`${tag}: hidden transitions list, one item per transition`, !!data.list && data.list.tag === "UL" && data.list.hidden && data.list.items.length === spec.transitions.length,
@@ -399,10 +403,10 @@ try {
               await root.locator(`[data-section-cancel="${allKeys[2]}"]`).click();
             }
           }
-          // observation probes (1440 only): a click on Save, or Ctrl+S, straight after typing — inside the field's
+          // observation probes (1440 only): a click on Save straight after typing — inside the field's
           // 500 ms commit delay — on the sectionEdit form (Save held disabled until a change) and on a plain form
           if (vw > 640) {
-            for (const [scope, how] of [["section", "click"], ["section", "ctrl+s"], ["plain", "click"]]) {
+            for (const [scope, how] of [["section", "click"], ["plain", "click"]]) {
               const root = page.locator(`[data-demo="form-${scope}"]`);
               await root.scrollIntoViewIfNeeded();
               await root.locator('input[id^="sf-ff-subject-"], [data-section-edit]').first().waitFor();
@@ -412,12 +416,11 @@ try {
               await input.click(); await input.press("End"); await page.keyboard.type(" +probe");
               const save = root.getByRole("button", { name: T[lang].save, exact: true });
               const disabledAtClick = await save.isDisabled().catch(() => null);
-              if (how === "click") { const bb = await save.boundingBox(); await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2); }
-              else await page.keyboard.press("Control+s");
+              const bb = await save.boundingBox(); await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2);
               await page.waitForTimeout(1200);
               const ind = (await root.locator("[data-form-indicator]").allTextContents()).map((x) => x.trim());
               const saved = !ind.includes(T[lang].notSaved) && (scope === "plain" || (await root.locator("[data-section-open]").count()) === 0);
-              observe(`${combo} form-${scope}`, `type then ${how} at once: ${saved ? "saved on the first try" : "NOT saved on the first try (Save / Ctrl+S must be repeated)"}`, { disabledAtClick, indicator: ind, before });
+              observe(`${combo} form-${scope}`, `type then ${how} at once: ${saved ? "saved on the first try" : "NOT saved on the first try (Save must be clicked again)"}`, { disabledAtClick, indicator: ind, before });
               if (!saved) {
                 if (scope === "section") { const c = root.locator("[data-section-cancel]").first(); if (await c.count()) await c.click(); }
               }
