@@ -23,6 +23,7 @@ import { Skeleton } from "../primitives/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "../primitives/tabs";
 import { LifecycleRail, type LifecycleRailNext } from "../record/LifecycleRail";
 import { LifecycleGraphDialog } from "./LifecycleGraphDialog";
+import { openLifecycleHref, warnLifecycleHrefDeprecated } from "./lifecycleModel";
 import { fmt, initials } from "../record/format";
 import { RecordHeaderCard } from "../record/RecordHeaderCard";
 import { htmlToText } from "../record/sanitize";
@@ -57,6 +58,10 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   backLabel?: string;
   /** The record's type, shown as a chip in the header (e.g. "Bug"). */
   typeLabel?: string;
+  /** Where "View full lifecycle" opens, in a new tab (0.9.0's behaviour). Without it the lifecycle diagram opens in
+   *  place (`LifecycleGraphDialog`).
+   *  @deprecated since 0.10.0 — removed in 0.11.0. Passing it warns once in development. */
+  lifecycleHref?: (lifecycle: string) => string;
   /** Where the hidden cards are kept (localStorage). Default `sf-record-rail:<doctype>`. */
   railStorageKey?: string;
   /** All fields as one form, no tabs (a family type without wizard mode). Default: the DocType's tabs as a
@@ -111,7 +116,7 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 }
 
 export function SayrRecordPage({
-  doctype, name, onBack, backLabel, typeLabel, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
+  doctype, name, onBack, backLabel, typeLabel, lifecycleHref, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
   onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
@@ -223,7 +228,11 @@ export function SayrRecordPage({
           ended={lc.actions.length === 0}
           // The server lists only actions this user may take; a state's edit lock does not apply to a transition.
           onSelectNext={(n) => void runTransition(n)}
-          onViewAll={() => setDiagram(true)}
+          onViewAll={() => {
+            if (!lifecycleHref) return setDiagram(true);
+            warnLifecycleHrefDeprecated("SayrRecordPage");
+            openLifecycleHref(lifecycleHref, lc.lifecycle);
+          }}
         />
       )}
       {lc ? (

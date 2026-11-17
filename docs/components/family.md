@@ -256,6 +256,11 @@ Every other prop is `FrappeForm`'s and goes to the form.
      whole lifecycle as a diagram in a dialog (`LifecycleGraphDialog`: every state and transition from `record_state`,
      the record's current state, the states it passed and the path taken; "<type> lifecycle · <lifecycle>", "<record>
      · currently <state>"). The new-record page's preview opens the type's lifecycle the same way (no current state).
+     `lifecycleHref` (0.9.0: "View full lifecycle" opened Sayr Studio's builder in a new tab) is **deprecated since
+     0.10.0 and removed in 0.11.0**, on both `SayrRecordPage` and `SayrNewRecordPage`: a host that still passes it gets
+     0.9.0's behaviour (`window.open(lifecycleHref(lifecycle), "_blank", "noopener")`) and one console warning in
+     development; without it the dialog above opens. `defaultLifecycleHref` (Studio's builder URL) stays exported,
+     deprecated, for the same window.
      No lifecycle: "No lifecycle on this type", or, when the type has one but the record predates it, says so.
   2. **Assignment**: `FrappeAssignTo` (Frappe's ToDo assignment). The dialog's Comment starts as the assignment
      deployment's ToDo description when it has one (else the title field), and Priority offers Low / Medium / High.
