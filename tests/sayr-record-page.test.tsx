@@ -150,8 +150,9 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(container.querySelector('[data-section][aria-label="Details"] [data-read-row="summary"]')?.textContent).toContain("Fails on Chrome");
   });
 
-  it("RP.view.2 a section's Edit opens it alone, with Not saved and Save; its Cancel puts back what is saved there only", async () => {
-    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true });
+  it("RP.view.2 a section's Edit opens it alone (Save shown, disabled until a change; not yet Not saved); its Cancel puts back what is saved there only", async () => {
+    const dirty: boolean[] = [];
+    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, onDirtyChange: (d) => dirty.push(d) });
     const edits = await waitFor(() => {
       const found = container.querySelectorAll("[data-section-edit]");
       if (found.length !== 2) throw new Error("no Edit yet");
@@ -160,9 +161,14 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     fireEvent.click(edits[0]);
     const title = await waitFor(() => screen.getByDisplayValue("Login does nothing") as HTMLInputElement);
     expect(screen.queryByDisplayValue("Fails on Chrome")).toBeNull();
-    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
-    expect(screen.getByText("Not Saved")).toBeTruthy();
+    // Opening is not a change (A-3): Save waits, disabled; no Not saved, no onDirtyChange(true).
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText("Not Saved")).toBeNull();
+    expect(dirty.includes(true)).toBe(false);
     fireEvent.change(title, { target: { value: "Changed, then cancelled" } });
+    fireEvent.blur(title);
+    expect(screen.getByText("Not Saved")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(container.querySelector("[data-section-edit]") as HTMLElement);
     const summary = await waitFor(() => screen.getByDisplayValue("Fails on Chrome") as HTMLInputElement);
     fireEvent.change(summary, { target: { value: "Kept until saved" } });
