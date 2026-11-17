@@ -150,7 +150,9 @@ function routesOf(placed: Map<string, LifecycleLayoutNode>, transitions: GraphEd
       loops.set(t.from, n + 1);
       const reach = LOOP + n * 14;
       const x = a.x + W;
-      out.push({ edge: t, kind: "loop", pts: [[x, a.y + 14], [x + reach, a.y - 4], [x + reach, a.y + H + 4], [x + 4, a.y + H - 14]], lx: x + reach * 0.75, ly: a.y - 14 - n * 22 });
+      // the label above the loop, starting just past the card's end edge — clear of a Current badge / done tick there
+      const half = t.label ? (t.label.length * 6.2 + 20) / 2 : 0;
+      out.push({ edge: t, kind: "loop", pts: [[x, a.y + 14], [x + reach, a.y - 4], [x + reach, a.y + H + 4], [x + 4, a.y + H - 14]], lx: x + 12 + half, ly: a.y - 14 - n * 22 });
     } else if (b.row > a.row) {
       const downIn = (into.get(t.to) ?? []).filter((x) => placed.get(x.from)!.row < b.row).sort((p, q) => placed.get(p.from)!.x - placed.get(q.from)!.x);
       const downOut = (outOf.get(t.from) ?? []).filter((x) => placed.get(x.to)!.row > a.row).sort((p, q) => placed.get(p.to)!.x - placed.get(q.to)!.x);

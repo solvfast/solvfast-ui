@@ -55,7 +55,7 @@ describe("LG.layout — layoutLifecycle", () => {
     expect(Math.max(...xs)).toBeGreaterThan(s.x + 230 + 30);
   });
 
-  it("LG.layout.3b a self-loop's label on the current (or a done) state keeps off the Current badge / done tick above the card's end corner", () => {
+  it("LG.layout.3b a self-loop's label on the current (or a done) state keeps off the Current badge / done tick above the card's end corner, and stays by its loop", () => {
     // the label is placed just above the loop's top end corner; the badge sticks out of that corner (~13 px up, 6 px out)
     for (const kind of ["current", "done"] as const) {
       const g: LifecycleGraph = {
@@ -73,6 +73,9 @@ describe("LG.layout — layoutLifecycle", () => {
         const badge = rtl ? { l: b.x - outW, r: b.x + inW, t: b.y - up, b: b.y + down } : { l: b.x + 230 - inW, r: b.x + 230 + outW, t: b.y - up, b: b.y + down };
         const overlaps = label.l < badge.r && badge.l < label.r && label.t < badge.b && badge.t < label.b;
         expect(overlaps, `${kind} ${rtl ? "rtl" : "ltr"}: label ${JSON.stringify(label)} badge ${JSON.stringify(badge)}`).toBe(false);
+        // …and it stays by its loop: just above the card's end corner, not pushed off elsewhere
+        expect(loop.ly).toBe(b.y - 14);
+        expect(rtl ? loop.lx + lw / 2 : loop.lx - lw / 2).toBeCloseTo(rtl ? b.x - 12 : b.x + 230 + 12, 0);
       }
     }
   });
