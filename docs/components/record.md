@@ -687,17 +687,38 @@ transitions, roles, logs) and the graph engine for the diagram.
   `currentLabel?`, `title?`, `style?`. A diagram node body (58 px high; the consumer sets the width).
 - `LifecycleEdgeLabel` — `label`, `taken?`. `LifecycleDiagramLegend` — `labels?`.
 - `LIFECYCLE_DIAGRAM_COLORS` — `{ taken, edge, grid }` as token-based CSS colours for SVG edges / markers / grid.
-- `LifecycleGraph` (`src/record/LifecycleGraph.tsx`, 0.7.0-dev.33) — the whole diagram, dependency-free: `states`
-  (`{ key, label, meta?, metaTitle?, kind, phase? }`), `transitions` (`{ key, from, to, label, taken? }`), `initial?`,
-  `currentLabel?`, `labels?: { zoomIn, zoomOut, fit }`. A layered layout (`layoutLifecycle`: rows by breadth-first
-  distance from `initial`; states no transition reaches in a last row), an SVG arrow per transition with its label,
-  an arrow back to an earlier row curving along the side, `taken` arrows in the success colour, + / − / fit (fits on
-  open). It fills its parent (`absolute inset-0`): put it inside `LifecycleDiagramDialog`. A consumer may still use its
-  own engine (React Flow + dagre) with the pieces above; none is a package dependency.
-- `LifecycleGraphDialog` (`@solvfast/ui/sayr`) — the dialog and the graph from Sayr's data: `lifecycle` (`states`,
-  `initial_state`, `transitions` as `record_state` / `type_preview` return them), `status` (current), `path` (the
-  rail's steps: done states, and the path taken from consecutive steps), `title`, `subtitle?`. Each state's second
-  line is its phase (`lc*` messages) and, when the record passed it, who and when.
+- **One model, two renderers (0.10.0).** The diagram's data is always the core model `LifecycleGraph`
+  (`lifecycleGraph(def, current, pathIds?, visitedIds?)`, §9.4): nodes `{ id, label, phase, kind, meta?, metaTitle? }`
+  (`meta` / `metaTitle`, optional since 0.10.0: who moved the record there and when — an adapter adds them, the
+  function never does) and edges `{ id, from, to, label?, taken }`. Two renderers draw it:
+  - `LifecycleGraphView` (core, `src/record/LifecycleGraphView.tsx`, dependency-free SVG) — below;
+  - `LifecycleFlow` / `LifecycleFlowDialog` (the optional `@solvfast/ui/lifecycle-diagram` entry, React Flow + dagre as
+    optional peers).
+- `LifecycleGraphView` — props: `graph: LifecycleGraph`, `initial?` (the top row; default the first node),
+  `currentLabel?`, `labels?: { zoomIn?, zoomOut?, fit?, transitions?, diagram? }`, `dir?: "ltr" | "rtl"` (default the
+  ThemeProvider's), `className?`. A layered layout (`layoutLifecycle(graph, initial?, { rtl? })` →
+  `{ placed: Map<id, node & { x, y, row }>, edges: { edge, kind, d, lx, ly }[], width, height }`, pure and
+  deterministic): rows by breadth-first distance from `initial`, states no transition reaches in a last row. Arrows:
+  down a row from bottom to top (several into one state spread along it); within a row straight, a pair of opposite
+  arrows a little apart; up to an earlier row straight into the state when it is in another column, else round the
+  side of the canvas; a transition from a state to itself is a small loop on the state's end side (`kind`: `down`,
+  `row`, `up`, `side`, `loop`). Labels are kept off each other and off the states; `taken` arrows in the success
+  colour; + / − / fit (fits on open). Each state's second line is its phase word (`lcPhase*`) and, when the node has
+  one, its `meta`. In a right-to-left language the whole diagram is mirrored (no forced `dir="ltr"`).
+  **Accessibility:** the drawing is `aria-hidden`; the canvas is a `group` named "Lifecycle diagram", every state card
+  says "Reached" / "Not reached" (the current one shows "Current"), and a visually hidden list named "Transitions" reads
+  every transition as a sentence — "From New to In Progress: Start Work" (Arabic «من … إلى …: …»), "(Path taken)" on
+  the record's path (`lcDiagram`, `lcTransitions`, `lcTransitionItem`, `lcTransitionItemPlain`, `lcReached`). Arrow-head
+  ids come from `React.useId`, so two graphs on one page never share them. It fills its parent (`absolute inset-0`):
+  put it inside `LifecycleDiagramDialog`.
+- `LifecycleGraphDialog` (`@solvfast/ui/sayr`) — `LifecycleDiagramDialog` + `LifecycleGraphView` on Sayr's data:
+  `open`, `onOpenChange`, `title`, `subtitle?`, `lifecycle` (`states`, `initial_state`, `transitions` as `record_page` /
+  `type_preview` return them), `status?` (the current state), `path?: LifecyclePathStep[]` (`{ id, meta?, metaTitle? }`,
+  the rail's steps: done states with who · when, and the transitions between consecutive steps taken). An internal
+  adapter turns Sayr's lifecycle into a `LifecycleDefinition` (labels in the current language, Sayr's phases open /
+  on_hold / closed one to one, anything else open) and then the model. No `path`: nothing is marked done or taken. An
+  older Sayr that sends no `transitions` still shows every state. `src/sayr` cannot use the React Flow renderer (the
+  boundary rule keeps it off `./lifecycle-diagram`).
 
 ### 8.3 One colour mapping, both themes (semantic tokens only)
 

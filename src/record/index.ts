@@ -26,7 +26,7 @@ export type { FieldPreviewProps } from "./FieldPreview";
 export type { RecordHeaderCardProps, RecordHeaderCardVariant, RecordHeaderFact } from "./RecordHeaderCard";
 export type { LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels } from "./LifecycleRail";
 export { LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LIFECYCLE_DIAGRAM_COLORS } from "./LifecycleDiagram";
-export { LifecycleGraphView, layoutLifecycle, type LifecycleGraphViewProps, type LifecycleGraphViewState, type LifecycleGraphViewTransition } from "./LifecycleGraphView";
+export { LifecycleGraphView, layoutLifecycle, type LifecycleGraphViewProps, type LifecycleLayout, type LifecycleLayoutNode, type LifecycleLayoutEdge } from "./LifecycleGraphView";
 export type {
   LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels, LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
 } from "./LifecycleDiagram";

@@ -44,7 +44,14 @@ export interface LifecycleNextItem { id: string; label: string; back: boolean }
 
 /** The diagram model: what a renderer (any graph library) draws. */
 export interface LifecycleGraph {
-  nodes: { id: string; label: string; phase: LifecyclePhase; kind: LifecycleNodeKind }[];
+  nodes: {
+    id: string; label: string; phase: LifecyclePhase; kind: LifecycleNodeKind;
+    /** Optional (0.10.0): who moved the record there and when, e.g. "Omar · Apr 13" — `LifecycleGraphView` shows it
+     *  after the phase word. `lifecycleGraph()` never sets it; an adapter adds it from the record's history. */
+    meta?: string;
+    /** Optional (0.10.0): the long form of `meta` (the state card's tooltip). */
+    metaTitle?: string;
+  }[];
   edges: { id: string; from: string; to: string; label?: string; taken: boolean }[];
 }
 

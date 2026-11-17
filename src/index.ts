@@ -229,7 +229,7 @@ export type { RecordHeaderCardProps, RecordHeaderCardVariant, RecordHeaderFact, 
 export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
 export { LifecycleActions, lifecycleTone, lifecycleRoots, lifecyclePath, lifecycleTransitionsFrom, lifecycleNext, lifecycleGraph } from "./record";
 export type { LifecycleActionsProps, LifecycleActionsItem, LifecycleDefinition, LifecycleStateDef, LifecycleTransitionDef, LifecycleNextItem, LifecycleGraph } from "./record";
-export { LifecycleGraphView, layoutLifecycle, type LifecycleGraphViewProps, type LifecycleGraphViewState, type LifecycleGraphViewTransition } from "./record";
+export { LifecycleGraphView, layoutLifecycle, type LifecycleGraphViewProps, type LifecycleLayout, type LifecycleLayoutNode, type LifecycleLayoutEdge } from "./record";
 export type {
   LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels, LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels,
   LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
