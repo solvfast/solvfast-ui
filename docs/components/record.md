@@ -169,6 +169,11 @@ and assignment writes invalidate docinfo and list). The wrappers never touch the
 - `"compact"` (default) renders the current state (`StatusBadge`, tone from the Workflow State `style`; a state the workflow does not list
   shows its translated name, neutral) and the actions the user may apply now (`ActionBar`) — Desk's form toolbar (`FrappeForm`).
   `"actions"` is the header Actions menu alone and `"rail"` the Lifecycle card (§9.5); `docinfo` feeds the rail's who · when (3.6).
+- `hideCurrent` (`"compact"`, 0.10.0, default off): no badge of the current state, because the page shows it elsewhere.
+  `FrappeForm` sets it from `stateInHeader`. `SayrRecordPage` turns `stateInHeader` on only when the record has a Sayr
+  lifecycle (its state is then shown by the title in the header card). Otherwise it stays off, so a Frappe Workflow's
+  badge or a `status` field's indicator shows in the form's toolbar, as in 0.9.0. A host can pass `stateInHeader` either
+  way to override this.
 - Nothing for a new document (`__islocal`); `fallback` for a DocType without a workflow; a skeleton while loading.
 - **Unsaved edits** (`__unsaved`): transitions are not fetched and the actions are disabled with a reason, because `apply_workflow`
   reloads the document from the database and discards posted edits (Desk hides them). Save first.

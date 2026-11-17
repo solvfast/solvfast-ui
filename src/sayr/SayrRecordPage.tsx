@@ -30,6 +30,7 @@ import { htmlToText } from "../record/sanitize";
 import { useLocale } from "../theme/ThemeProvider";
 import type { FrappeDoc } from "../frappe/contract";
 import { FrappeForm, type FrappeFormProps } from "../frappe/form/FrappeForm";
+import type { FrappeFormHeaderContext } from "../frappe/form/FrappeFormView";
 import { useFrappeApi, useFrappeSettings } from "../frappe/FrappeProvider";
 import { useDoc, useMetaBundle, usePermissions, useRefreshDoc } from "../frappe/hooks";
 import { FrappeAssignTo } from "../frappe/record/FrappeAssignTo";
@@ -69,10 +70,18 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   oneForm?: boolean;
   /** The app's own cards (e.g. the record's CRM contact and organization), after Playbook. */
   extraCards?: readonly RecordRailExtraCard[];
-  /** The fields open read-only; each section's Edit opens that section only, with its own Cancel, and the header's
-   *  Save saves every open section and closes them (FrappeForm `sectionEdit`). Default: always editable (where the user
-   *  may write). */
+  /** The fields open read-only, as section cards (FrappeForm `sectionEdit`); `editScope` says what an Edit opens. Opening
+   *  is not a change: the record counts as not saved only once a value changes. Save saves every open section and
+   *  closes them. Default: always editable (where the user may write). */
   viewFirst?: boolean;
+  /** With `viewFirst`: `"section"` (default) — each section has its own Edit and Cancel; `"record"` — one Edit by the
+   *  record's name (`data-record-edit`) opens every editable section, the toolbar has Save and one Cancel
+   *  (`data-record-cancel-edit`) that puts back the saved copy, and Save goes back to reading. */
+  editScope?: "section" | "record";
+  /** The record's state shows in the header card, by the title, and not in the form's toolbar (no state indicator, no
+   *  workflow state badge). Default: true when the record has a Sayr lifecycle (the page's `record_page` data), else
+   *  false — a Frappe Workflow's or a `status` field's state then shows in the toolbar, as in 0.9.0. */
+  stateInHeader?: boolean;
   /** A key line in the header card, under the title (e.g. job title · organization), or made from the record. */
   headerLine?: React.ReactNode | ((doc: FrappeDoc) => React.ReactNode);
   /** The record's own buttons in the header card (e.g. Meeting, Note, More). */
@@ -185,7 +194,11 @@ export function SayrRecordPage({
   const imageField = meta.data?.meta.image_field;
   const photo = imageField && doc?.[imageField] ? String(doc[imageField]) : null;
 
-  const header = (
+  // The state shows once: by the title when the record has a Sayr lifecycle, else in the form's toolbar (a Frappe
+  // Workflow's badge, the status indicator). The host decides when it says so.
+  const stateInHeader = form.stateInHeader ?? !!lc;
+
+  const header = ({ editAction }: FrappeFormHeaderContext) => (
     <RecordHeaderCard
       title={title}
       name={name}
@@ -198,6 +211,7 @@ export function SayrRecordPage({
       chips={typeLabel ? <Badge variant="brand">{typeLabel}</Badge> : undefined}
       subtitle={typeof headerLine === "function" ? (doc ? headerLine(doc) : undefined) : headerLine}
       actions={headerActions}
+      nameAction={editAction}
     >
       {data ? null : <Skeleton className="h-4 w-48" />}
     </RecordHeaderCard>
@@ -310,8 +324,7 @@ export function SayrRecordPage({
           toolbarStart={back}
           tabBar="record"
           sectionEdit={!!viewFirst}
-          // The header card shows the state, by the record's title.
-          stateInHeader
+          stateInHeader={stateInHeader}
           pageTabBar={pageTabs?.length ? (
             <Tabs value={openTab} onValueChange={showTab}>
               <TabsList className="flex w-full max-w-full overflow-x-auto" aria-label={t("rpPageTabs")} data-page-tabs>

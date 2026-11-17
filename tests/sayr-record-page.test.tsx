@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { createFrappeClient } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
-import type { DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
+import type { DocPerm, DocTypeMeta, FrappeDoc, WorkflowInfo } from "../src/frappe/contract";
 import { createFixtureTransport } from "../src/frappe/testing";
 import { AssignDialog } from "../src/record/AssignDialog";
 import { RECORD_PAGE_METHOD, SayrNewRecordPage, SayrRecordPage, TRANSITION_METHOD, TYPE_PREVIEW_METHOD, WALK_TREE_METHOD, type RecordPageData, type RecordPageTab, type RecordRailExtraCard, type SayrRecordPageProps, type TypePreviewData } from "../src/sayr";
@@ -189,6 +189,60 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(container.querySelector("[data-section-edit]")).toBeNull();
   });
 
+  it("RP.view.5 editScope=\"record\": one Edit by the record's name opens every section; Save (disabled until a change) and one Cancel; Cancel reads again", async () => {
+    const dirty: boolean[] = [];
+    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, editScope: "record", onDirtyChange: (d) => dirty.push(d) });
+    const header = await waitFor(() => {
+      const found = container.querySelector("[data-record-header]");
+      if (!found?.querySelector("[data-record-edit]")) throw new Error("no Edit yet");
+      return found as HTMLElement;
+    });
+    expect(container.querySelectorAll("[data-record-edit]").length).toBe(1);
+    expect(within(header).getByRole("button", { name: "Edit" })).toBeTruthy();
+    expect(container.querySelector("[data-section-edit]")).toBeNull();
+    fireEvent.click(header.querySelector("[data-record-edit]") as HTMLElement);
+    await waitFor(() => expect(screen.getByDisplayValue("Login does nothing")).toBeTruthy());
+    expect(screen.getByDisplayValue("Fails on Chrome")).toBeTruthy();
+    expect(container.querySelector("[data-section-edit]")).toBeNull();
+    expect(container.querySelector("[data-section-cancel]")).toBeNull();
+    expect(container.querySelector("[data-record-edit]")).toBeNull();
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText("Not Saved")).toBeNull();
+    const summary = screen.getByDisplayValue("Fails on Chrome");
+    fireEvent.change(summary, { target: { value: "Dropped by Cancel" } });
+    fireEvent.blur(summary);
+    expect(screen.getByText("Not Saved")).toBeTruthy();
+    expect(dirty.at(-1)).toBe(true);
+    fireEvent.click(container.querySelector("[data-record-cancel-edit]") as HTMLElement);
+    await waitFor(() => expect(screen.queryByDisplayValue("Dropped by Cancel")).toBeNull());
+    expect(screen.getByText("Fails on Chrome")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(screen.queryByText("Not Saved")).toBeNull();
+    expect(dirty.at(-1)).toBe(false);
+    expect(container.querySelector("[data-record-cancel-edit]")).toBeNull();
+    expect(container.querySelector("[data-record-header] [data-record-edit]")).toBeTruthy();
+  });
+
+  it("RP.view.6 editScope=\"record\": Save saves everything open and goes back to reading", async () => {
+    const saved: string[] = [];
+    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, editScope: "record", onSaved: (d) => saved.push(String(d.summary)) });
+    const edit = await waitFor(() => {
+      const found = container.querySelector("[data-record-edit]");
+      if (!found) throw new Error("no Edit yet");
+      return found as HTMLElement;
+    });
+    fireEvent.click(edit);
+    const summary = await waitFor(() => screen.getByDisplayValue("Fails on Chrome"));
+    fireEvent.change(summary, { target: { value: "Fails on Safari too" } });
+    fireEvent.blur(summary);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(saved).toEqual(["Fails on Safari too"]));
+    await waitFor(() => expect(screen.queryByDisplayValue("Fails on Safari too")).toBeNull());
+    expect(screen.getByText("Fails on Safari too")).toBeTruthy();
+    expect(container.querySelector("[data-record-cancel-edit]")).toBeNull();
+    expect(container.querySelector("[data-record-edit]")).toBeTruthy();
+  });
+
   it("RP.view.4 the state shows once, by the title: no state tag in the toolbar", async () => {
     const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true });
     const header = await waitFor(() => {
@@ -198,6 +252,76 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     });
     await waitFor(() => expect(within(header).getByText("New")).toBeTruthy());
     expect(container.querySelector("[data-form-indicator]")).toBeNull();
+  });
+});
+
+describe("RP.state — where the state shows (C4-1): by the title only with a Sayr lifecycle; a host value overrides", () => {
+  const WF: WorkflowInfo = {
+    name: "Bug Flow", document_type: "Ticket Bug", workflow_state_field: "workflow_state",
+    states: [{ state: "New", doc_status: "0", allow_edit: "System Manager", style: "Info" }, { state: "Triaged", doc_status: "0", allow_edit: "System Manager", style: "Success" }],
+    transitions: [{ state: "New", action: "Triage", next_state: "Triaged", allowed: "System Manager" }],
+  };
+  const WITH_STATUS: DocTypeMeta = { ...BUG, fields: [...BUG.fields, { fieldname: "status", fieldtype: "Select", label: "Status", options: "Open\nClosed" }] };
+  const NO_LIFECYCLE = PAGE({ lifecycle_deployed: false, lifecycle: null });
+  function mountWith(page: RecordPageData, opts: { meta?: DocTypeMeta; workflow?: boolean; doc?: FrappeDoc; props?: Partial<SayrRecordPageProps> } = {}) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const t = createFixtureTransport(
+      { meta: { "Ticket Bug": [opts.meta ?? BUG] }, docs: { "Ticket Bug": [opts.doc ?? doc] }, ...(opts.workflow ? { workflows: { "Ticket Bug": WF } } : {}) },
+      { handlers: { [RECORD_PAGE_METHOD]: () => ({ message: page }) } },
+    );
+    return render(
+      <QueryClientProvider client={qc}>
+        <FrappeProvider client={createFrappeClient({ transport: t })} queryClient={qc} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
+          <ThemeProvider defaultLanguage="en" storageKeys={null}><SayrRecordPage doctype="Ticket Bug" name="TKT-00008" {...opts.props} /></ThemeProvider>
+        </FrappeProvider>
+      </QueryClientProvider>,
+    );
+  }
+  // The page's data (and with it the default) has come, and the workflow's buttons had their time.
+  const settled = async (container: HTMLElement) => {
+    await waitFor(() => expect(container.querySelector("[data-rail-footer]")).toBeTruthy());
+    await waitFor(() => expect(container.querySelector("[data-form-fields]")).toBeTruthy());
+    await new Promise((r) => setTimeout(r, 50));
+  };
+  const outsideHeader = (container: HTMLElement, text: string) =>
+    [...container.querySelectorAll("*")].filter((el) => el.children.length === 0 && el.textContent === text && !el.closest("[data-record-header]") && !el.closest("aside"));
+
+  it("RP.state.1 a Sayr lifecycle (with a Frappe Workflow under it): the state by the title only — no toolbar indicator, no workflow badge", async () => {
+    const { container } = mountWith(PAGE(), { workflow: true });
+    await settled(container);
+    // The workflow bar is there (its action), only its state badge is left out.
+    await waitFor(() => expect(screen.getByRole("button", { name: /^(Actions|Triage)/ })).toBeTruthy());
+    expect(within(container.querySelector("[data-record-header]") as HTMLElement).getByText("New")).toBeTruthy();
+    expect(container.querySelector("[data-form-indicator]")).toBeNull();
+    expect(outsideHeader(container, "New")).toEqual([]);
+  });
+
+  it("RP.state.2 a Frappe Workflow without a Sayr lifecycle: its state shows in the toolbar (as in 0.9.0)", async () => {
+    const { container } = mountWith(NO_LIFECYCLE, { workflow: true });
+    await settled(container);
+    await waitFor(() => expect(screen.getByRole("button", { name: /^(Actions|Triage)/ })).toBeTruthy());
+    expect(container.querySelector("[data-record-header] [data-status]")).toBeNull();
+    expect(outsideHeader(container, "New").length).toBeGreaterThan(0);
+  });
+
+  it("RP.state.3 a status field without a lifecycle or workflow: the toolbar indicator shows it", async () => {
+    const { container } = mountWith(NO_LIFECYCLE, { meta: WITH_STATUS, doc: { ...doc, status: "Open" } as FrappeDoc });
+    await settled(container);
+    expect(container.querySelector("[data-form-indicator]")?.textContent).toBe("Open");
+  });
+
+  it("RP.state.4 the host decides: stateInHeader={false} with a lifecycle keeps the toolbar indicator; {true} without one hides it", async () => {
+    const shown = mountWith(PAGE(), { meta: WITH_STATUS, doc: { ...doc, status: "Open" } as FrappeDoc, props: { stateInHeader: false } });
+    await settled(shown.container);
+    expect(shown.container.querySelector("[data-form-indicator]")?.textContent).toBe("Open");
+    cleanup();
+    const byDefault = mountWith(PAGE(), { meta: WITH_STATUS, doc: { ...doc, status: "Open" } as FrappeDoc });
+    await settled(byDefault.container);
+    expect(byDefault.container.querySelector("[data-form-indicator]")).toBeNull();
+    cleanup();
+    const hidden = mountWith(NO_LIFECYCLE, { meta: WITH_STATUS, doc: { ...doc, status: "Open" } as FrappeDoc, props: { stateInHeader: true } });
+    await settled(hidden.container);
+    expect(hidden.container.querySelector("[data-form-indicator]")).toBeNull();
   });
 });
 
