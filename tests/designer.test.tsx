@@ -235,7 +235,7 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     expect(saved.map((i) => i.id)).toEqual([...LOADED.map((i) => i.id), "custom_extra"]);
   });
 
-  it("FD.ui.7d with wizard mode on, a step the author added moves (buttons or drag) with its fields; the first step stays first", async () => {
+  it("FD.ui.7f with wizard mode on, a step the author added moves (buttons or drag) with its fields; the first step stays first", async () => {
     const adapter = memoryAdapter({ items: [
       ...LOADED,
       brk("@tab::One", "tab_break", { label: "One", own: true }), f("custom_one", { label: "One Field", own: true, fieldtype: "Data" }),
