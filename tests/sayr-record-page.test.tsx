@@ -145,6 +145,9 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(screen.queryByDisplayValue("Fails on Chrome")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
     expect(container.querySelector("[data-section-cancel]")).toBeNull();
+    // The CRM reference's read view: each section a card with its title, each field a row (label, value).
+    expect(container.querySelector('[data-read-row="title"]')?.textContent).toContain("Login does nothing");
+    expect(container.querySelector('[data-section][aria-label="Details"] [data-read-row="summary"]')?.textContent).toContain("Fails on Chrome");
   });
 
   it("RP.view.2 a section's Edit opens it alone, with Not saved and Save; its Cancel puts back what is saved there only", async () => {

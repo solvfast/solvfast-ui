@@ -245,7 +245,10 @@ router's `useBlocker(dirty)`, and saves with the form's `controllerRef.current.s
 section only, with **Cancel** (`data-section-cancel`) putting back that section's saved values (the last section's
 Cancel puts the whole record back, so it is clean again). An open section counts as not saved (Not Saved tag, Save,
 `onDirtyChange(true)`); Save saves all open sections and closes them; a field to fix (mandatory, server error) opens its
-section. A new record is edited whole. `stateInHeader`: no state indicator in the toolbar (and, in `FrappeForm`, no state
+section. A new record is edited whole. The look is the CRM reference's read view: each section a card (icon tile,
+title or "Details", Edit / Cancel in its header); a section that reads lays its fields out two to a line as `ReadRow`s
+(`data-read-row`: an icon tile by field type, the label small and upper-case, FrappeField's read value under it, "— Not
+provided" when empty; text and pictures take the whole line); help texts show only in an open section. `stateInHeader`: no state indicator in the toolbar (and, in `FrappeForm`, no state
 badge in the workflow bar); Not Saved / Draft / Submitted / Cancelled stay.
 
 ### 2.3 User defaults (P35)

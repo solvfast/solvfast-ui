@@ -16,6 +16,9 @@ gone (`data-record-edit`, `data-record-cancel-edit`, messages `rpEdit` / `rpCanc
 `stateInHeader` (`SayrRecordPage` always): the toolbar's state tag and the workflow bar's state badge are left out, the
 header card shows the state (`LifecycleBar` / `FrappeWorkflowActions` `hideCurrent`).
 New `UnsavedChangesDialog` (`@solvfast/ui/frappe`): Save and leave / Discard / Keep editing, for a host's router guard.
+The read view is the CRM reference's: with `sectionEdit` each section is a card (icon tile, title, Edit / Cancel) and a
+section that reads shows its fields as rows (`ReadRow`: an icon tile by field type, the label small and upper-case, the
+value under it, "— Not provided" when empty), two to a line; help texts show only while editing.
 Tests RP.view.1–4, UC.1–2.
 
 ## 0.7.0-dev.34 — A record's view shows its blank fields; no lifecycle cards where no lifecycle is deployed

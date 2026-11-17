@@ -37,7 +37,7 @@
  * come from A4's record layer (FrappeForm renders them; FrappeFormView takes `workflowActionsShown`).
  */
 import * as React from "react";
-import { ChevronDown, ExternalLink, Pencil } from "lucide-react";
+import { ChevronDown, ExternalLink, LayoutList, Pencil } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../primitives/dropdown-menu";
 import { cn } from "../../lib/cn";
 import { useLocale } from "../../theme/ThemeProvider";
@@ -57,7 +57,7 @@ import { resolveIndicator } from "../services/indicator";
 import { canCancelDocument, workflowFromMeta } from "../record/workflow";
 import { amendDoc, canAmend } from "./model/copy";
 import { createDocStore, type DocStore, type FieldChange } from "./model/docStore";
-import { analyzeDependencies, resolveFields, sectionCollapsed, type DependsIssue, type EffectiveField, type FieldOverrides } from "./model/depends";
+import { analyzeDependencies, isEmptyValue, resolveFields, sectionCollapsed, type DependsIssue, type EffectiveField, type FieldOverrides } from "./model/depends";
 import { buildFetchMap, fetchUpdates, isReadOnlyByFetch, type FetchEntry } from "./model/fetch";
 import { buildLayout, sectionFields, type LayoutSection, type LayoutTab } from "./model/layout";
 import { checkMandatory, commaAnd, type MandatoryLine, type MandatoryResult } from "./model/mandatory";
@@ -68,6 +68,7 @@ import type { DefaultsContext } from "./model/defaults";
 import { TABLE_TYPES, analyzeFieldtypes } from "./model/fieldtypes";
 import { runEvent, type CustomButton, type FormController, type FormEventsConfig, type LinkQuery } from "./events";
 import { useFormServices } from "./services";
+import { ReadRow } from "./ReadRow";
 import { useLinkTitles } from "./linkTitles";
 import { FrappeField, type FrappeFieldProps } from "./FrappeField";
 import type { TableController } from "./FrappeChildTable";
@@ -794,6 +795,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     const custom = props.renderField?.(e, { value: doc[df.fieldname], doc, setValue: (f, v) => store.setValue(f, v, undefined, { record: true }), status: st });
     if (custom !== undefined) return <React.Fragment key={df.fieldname}>{custom}</React.Fragment>;
     const isTable = TABLE_TYPES.has(df.fieldtype);
+    if (sectionEdit && st === "Read" && !isTable) {
+      return (
+        <ReadRow key={df.fieldname} df={e} label={s.translate(bundle, e.label || e.fieldname)} notProvided={t("formNotProvided")}
+          empty={e.fieldtype !== "Check" && isEmptyValue(doc[df.fieldname])}>
+          <FrappeField df={e} value={doc[df.fieldname]} onChange={() => undefined} doc={doc} bundle={bundle} status="Read" onlyInput {...linkProps(e, meta.name)} />
+        </ReadRow>
+      );
+    }
     return (
       <FrappeField
         key={df.fieldname}
@@ -827,12 +836,46 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         <Pencil className="h-3.5 w-3.5" aria-hidden />{t("formSectionEdit")}
       </Button>
     )) : null;
-    const body = (
+    const body = sectionEdit && !isOpen ? (
+      // Read: the fields as rows, two to a line from `sm` up, in the section's order (column by column).
+      <div id={regionId} className="grid grid-cols-1 gap-x-6 sm:grid-cols-2 [&>[data-read-row]:last-child]:border-b-0" data-read-grid>
+        {sec.columns.flatMap((c) => c.fields).map(renderField)}
+      </div>
+    ) : (
       // columns side by side from `sm` up, stacked on a phone (Desk's `.form-column.col-sm-*`)
       <div id={regionId} className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-[repeat(var(--sf-cols),minmax(0,1fr))]" style={{ "--sf-cols": Math.max(1, sec.columns.length) } as React.CSSProperties}>
         {sec.columns.map((c) => <div key={c.key} className="min-w-0 space-y-4">{c.fields.map(renderField)}</div>)}
       </div>
     );
+    if (sectionEdit) {
+      // A record page's section: a card with its title and Edit / Cancel (the CRM reference's editable card).
+      const title = label ?? t("formDetails");
+      return (
+        <section key={sec.key} className="overflow-hidden rounded-xl border border-border bg-card/60" data-section={sec.key} data-section-open={isOpen ? 1 : undefined} aria-label={title}>
+          <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+            {collapsible ? (
+              <button type="button" className="group flex min-w-0 flex-1 items-center gap-2 rounded-md text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={!isCollapsed} aria-controls={regionId}
+                onClick={() => setCollapsed((c) => ({ ...c, [sec.key]: !isCollapsed }))}>
+                <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground", isCollapsed && (isRTL ? "rotate-90" : "-rotate-90"))} aria-hidden />
+                <h3 className="truncate text-sm font-semibold">{title}</h3>
+              </button>
+            ) : (
+              <>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary" aria-hidden><LayoutList className="h-4 w-4" /></span>
+                <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</h3>
+              </>
+            )}
+            {tools && <span className="shrink-0">{tools}</span>}
+          </header>
+          {!isCollapsed && (
+            <div className="space-y-3 p-4">
+              {isOpen && sec.df?.description && <p className="text-xs text-muted-foreground">{s.translate(bundle, String(sec.df.description))}</p>}
+              {body}
+            </div>
+          )}
+        </section>
+      );
+    }
     return (
       <section key={sec.key} className="space-y-3" data-section={sec.key} data-section-open={isOpen ? 1 : undefined} aria-label={label}>
         {(label || tools) && <div className="flex min-h-7 items-center justify-between gap-2">{label && (collapsible ? (
@@ -955,7 +998,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </Tabs>
       )}
       {activeExtra && <div className="space-y-8" role="tabpanel" data-extra-tab-panel={activeExtra.key}>{activeExtra.render()}</div>}
-      {currentTab && <div className="space-y-8" role={tabCount > 1 ? "tabpanel" : undefined}>{currentTab.sections.map(renderSection)}</div>}
+      {currentTab && <div className={sectionEdit ? "space-y-5" : "space-y-8"} role={tabCount > 1 ? "tabpanel" : undefined}>{currentTab.sections.map(renderSection)}</div>}
       </>}
 
       <Dialog open={!!missing} onOpenChange={(o) => { if (!o) setMissing(null); }}>

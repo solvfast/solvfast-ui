@@ -20,6 +20,8 @@ export const formEn = {
   /** A record section's own Edit / Cancel (sectionEdit). */
   formSectionEdit: "Edit",
   formSectionCancel: "Cancel",
+  /** An empty field in a record's read view. */
+  formNotProvided: "— Not provided",
   /** Quick Entry (quick_entry.js render_edit_in_full_page_link). */
   formEditFullForm: "Edit Full Form",
   /** Custom button group default (Desk "Create" dropdown, toolbar.js make_group). */
@@ -72,6 +74,7 @@ export const formAr: { [K in keyof typeof formEn]: string } = {
   formKeepEditing: "متابعة التعديل",
   formSectionEdit: "تعديل",
   formSectionCancel: "إلغاء",
+  formNotProvided: "— غير محدد",
   formEditFullForm: "تحرير النموذج الكامل",
   formCreateGroup: "إنشاء",
   formAttachReload: "إعادة رفع الملف",
