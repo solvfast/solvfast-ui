@@ -102,8 +102,12 @@ A type: the registry's own form, so every field the registry has is shown (an ap
 
 - **Configuration** (Linked Lifecycle, SLA Policy, Assignment Profile) is shown by default; the server deploys what they
   name onto the type's DocType when the type is saved. `configuration={false}` hides it.
-- **`designer`** renders under the form once the type has its DocType (a saved type; a new type has none until it is
-  saved, so a new type has no Form section until its first Save): `designer={(typeDoctype, ctx) => <MyDesigner …/>}`.
+- **`designer`** renders under the form: `designer={(typeDoctype, ctx) => <MyDesigner …/>}`. A saved type passes its
+  DocType. A new type has none yet (since 0.7.0-dev.29): `typeDoctype` is `null` and `ctx.newType` is
+  `{ parent, doctype() }`, so its form is designed on the creation page: `SayrFieldDesigner` starts from the family's
+  shared fields (Sayr's `new_type_deployment(parent)`: locked, movable, as on a saved type), and the same Save creates
+  the type, then `doctype()` reads the DocType it made (the registry row's link) and the form is saved onto it; fields the
+  DocType was made with beyond the shared ones (e.g. the SLA section) keep their place after the shared block.
 - **One Save.** `ctx.onPendingChange` hands the designer's unsaved changes to the type's form (`FrappeForm` `alsoSave`):
   the type shows "Not Saved" while they are pending, and its Save saves the type first, then the designer. With only
   designer changes, the type's own validate / before_save events and mandatory check still run, but nothing is sent
@@ -201,7 +205,7 @@ that changed since it was saved shows a note to redeploy it from the Field Libra
 
 ```tsx
 <FrappeTypeForm family={TICKETS} name={name} defaults={defaults}
-  designer={(doctype, { wizard, onPendingChange }) => <SayrFieldDesigner doctype={doctype} wizard={wizard} onPendingChange={onPendingChange} />} />
+  designer={(doctype, { wizard, onPendingChange, newType }) => <SayrFieldDesigner doctype={doctype} newType={newType} wizard={wizard} onPendingChange={onPendingChange} />} />
 ```
 
 `FrappeFormView` / `FrappeForm` gained what the steps need: `activeTab` (the tab shown, by key), `hideTabBar` and
@@ -248,8 +252,10 @@ Every other prop is `FrappeForm`'s and goes to the form.
 - **Rail**, in this order:
   1. **Lifecycle** (always shown): the states the record went through (Frappe's workflow log and versions), the current
      one, and every next action of `record_state`. A next action runs `execute_transition`; it is disabled while the
-     form has unsaved changes, and the form is read again afterwards (the result or the refusal shows under the rail). "View full lifecycle" opens `lifecycleHref(key)`
-     in a new tab (default: Sayr Studio's builder, `/sayr-framework/workspace/build/sear_studio/life_cycles/<key>`).
+     form has unsaved changes, and the form is read again afterwards (the result or the refusal shows under the rail). "View full lifecycle" opens the
+     whole lifecycle as a diagram in a dialog (`LifecycleGraphDialog`: every state and transition from `record_state`,
+     the record's current state, the states it passed and the path taken; "<type> lifecycle · <lifecycle>", "<record>
+     · currently <state>"). The new-record page's preview opens the type's lifecycle the same way (no current state).
      No lifecycle: "No lifecycle on this type", or, when the type has one but the record predates it, says so.
   2. **Assignment**: `FrappeAssignTo` (Frappe's ToDo assignment). The dialog's Comment starts as the assignment
      deployment's ToDo description when it has one (else the title field), and Priority offers Low / Medium / High.
@@ -271,6 +277,23 @@ Every other prop is `FrappeForm`'s and goes to the form.
   Customize sections and hidden like the others (`railOrder(extraCards)` gives the order). ServeFast passes the
   record's CRM Contact and Organization. `SayrNewRecordPage` takes the same prop and shows them as "Available after the
   record is created".
+  Since 0.7.0-dev.26 a card may carry a `title` (e.g. with a count; `label` stays its name in Customize sections) and an
+  `action` beside the title (e.g. an Add button), and a card whose `id` is a built-in one (`notes`, `attachments`, …)
+  replaces that card in its place: ServeFast's own Pinned Notes and Attachments (its `SRF Note` / `SRF Attachment`)
+  take the place of Frappe's comments and files there. The new-record page keeps its built-in preview for such ids.
+- `pageTabs` (0.7.0-dev.27): page tabs under the header card, About (the form) | History (`FrappeTimeline`) | the app's
+  own (`{ id, label, icon, render(doc) }`, rendered only while open); `pageTab` / `onPageTabChange` open one from the
+  app (ServeFast's rail opens Activities › Notes on a note). Without `pageTabs` there is no page tab bar. Built on
+  `FrappeFormView`'s `pageTabBar` / `pageTabPanel` slots; the form stays mounted behind another tab.
+- `viewFirst` (0.7.0-dev.35): every field reads (label and value, blank ones too) with no Save; each section has its
+  own **Edit**, which opens that section only, with its own **Cancel** (puts back what is saved in that section). While
+  a section is open the toolbar shows **Not Saved** and **Save**; Save saves every open section and closes them. Built
+  on `FrappeFormView` / `FrappeForm` `sectionEdit`. Default: editable as before.
+- The record's state shows once, by its title in the header card: the toolbar's state tag and the workflow bar's state
+  badge are left out (`FrappeForm` `stateInHeader`; the **Actions** button stays) (0.7.0-dev.35).
+- `headerLine` / `headerActions` (0.7.0-dev.32): a key line under the title (e.g. job title · organization; a node, or
+  `(doc) => node` made from the record) and the
+  app's buttons at the end of the header card (`RecordHeaderCard` `subtitle` / `actions`).
 - **Data**: one call to Sayr's `sear_product.apis.tickets.tickets.record_page` (header, lifecycle, SLA, the assign
   comment, ToDos); assignment, comments and attachments read Frappe's docinfo.
 
@@ -302,10 +325,10 @@ What it added elsewhere (additive, defaults unchanged): `FrappeFormView` / `Frap
 | Wizard mode | Type's Form section (`FieldDesigner` with `wizard`) | New record | Record page |
 |---|---|---|---|
 | Off | One list: every section in order, no tabs, no Add tab | One form | `SayrRecordPage oneForm`: one form |
-| On | Steps: "Step N · name", Add step, rename / remove a step the type added; drop a field on a step to move it there | Steps with Back / Next | The steps as the full-width tab bar |
+| On | Steps: "Step N · name", Add step, rename / remove a step the type added; drop a field on a step to move it there; move a step the type added (drag it onto another step, or Move earlier / later) — the first step stays first | "Step N of M", a stepper, Back / Next, Create on the last | The steps as the full-width tab bar |
 
-Turning wizard mode off removes the steps added on the type (the type's Save saves it): their fields join the step
-before, in the same order. Steps that belong to the DocType itself (Sayr's own tab, marked `native`) stay, and are just
+Turning wizard mode off removes the steps added on the type (the type's Save saves it): it asks first ("Turn off
+Wizard mode?") when there are any, then their fields join the step before, in the same order. Steps that belong to the DocType itself (Sayr's own tab, marked `native`) stay, and are just
 not shown as tabs. A host passes `oneForm` from the type's `wizard_mode`.
 
 ## 15. Field cards show their control (0.7.0-dev.16)

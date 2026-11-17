@@ -181,6 +181,16 @@ export function removeTab(items: DesignerItem[], tab: number): DesignerItem[] {
   return fromLayout(tabs);
 }
 
+/** Move the tab (step) at `from` to `to`, with all its sections. The first tab stays first (it may have no break and
+ *  holds the form's standard fields), so neither index may be 0; anything else returns `items` unchanged. */
+export function moveTab(items: DesignerItem[], from: number, to: number): DesignerItem[] {
+  const tabs = toLayout(items);
+  if (from === to || from < 1 || to < 1 || from >= tabs.length || to >= tabs.length || !tabs[from].breakItem) return items;
+  const [tab] = tabs.splice(from, 1);
+  tabs.splice(to, 0, tab);
+  return fromLayout(tabs);
+}
+
 /** The id just before `id` in the flat order, or null when it is first. */
 export function previousId(items: DesignerItem[], id: string): string | null {
   const i = items.findIndex((r) => r.id === id);

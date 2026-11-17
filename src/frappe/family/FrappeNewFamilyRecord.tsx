@@ -7,6 +7,7 @@ import { Stepper } from "../../primitives/stepper";
 import { LinkInput } from "../../fields/LinkInput";
 import type { Suggestion } from "../../fields/autocomplete";
 import { RecordHeaderCard } from "../../record/RecordHeaderCard";
+import { fmt } from "../../record/format";
 import { useLocale } from "../../theme/ThemeProvider";
 import { loc, type Localized } from "../../lib/localized";
 import type { familyEn } from "../../theme/messages-ws/family";
@@ -173,6 +174,9 @@ export function FrappeNewFamilyRecord({ family, onCreated, onCancel, defaultType
     <p className="text-sm text-muted-foreground">{L("chooseTypeFirst", "famChooseTypeFirst")}</p>
   ) : (
     <div className="space-y-6">
+      {wizard && steps.length > 1 && (
+        <p className="text-xs font-medium text-muted-foreground" data-step-of="">{fmt(t("famStepOf"), step + 1, steps.length)}</p>
+      )}
       {wizard && steps.length > 1 && (
         <Stepper
           ariaLabel={L("steps", "famSteps")}

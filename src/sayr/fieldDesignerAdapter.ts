@@ -30,7 +30,7 @@ interface Screen {
   refusal: string | null;
   deployment: null | { name: string; status: string; fields: DeploymentRow[]; own_fields?: SayrFieldRow[] };
   family: null | { role: "child" | "parent"; shared?: string[] };
-  target_fields: { fieldname: string; label?: string; fieldtype: string }[];
+  target_fields: { fieldname: string; label?: string; fieldtype: string; hidden?: 0 | 1 | boolean }[];
 }
 interface Registry {
   types: { key: string; label_en: string; label_ar: string; group: string; props: FieldTypeProperty[] }[];
@@ -39,6 +39,9 @@ interface Registry {
 }
 
 export type SayrApi = Pick<FrappeApi, "call" | "getList">;
+/** A type not created yet: its family's parent DocType (whose shared fields it will start with), and its DocType once
+ *  the type's Save has made it (asked when the form is saved). */
+export interface SayrNewType { parent: string; doctype: () => Promise<string> }
 export interface SayrFieldDesignerOptions { language?: "en" | "ar" }
 
 /** `@tab::<label>`, `@section::<label>`, `@own::<key>`, `@<set>::__section`, `@<set>::<key>`: how Sayr names a row
@@ -135,10 +138,25 @@ function effective(rows: Planned[]): Planned[] {
   }
 }
 
-/** A FieldDesigner adapter for one type DocType (a family type, or any DocType Sayr's Field Library can deploy on).
- *  Needs the Sear Platform Administrator role; without it `load` resolves to a refusal. */
-export function createSayrFieldDesignerAdapter(api: SayrApi, doctype: string, options: SayrFieldDesignerOptions = {}): FieldDesignerAdapter {
+/** A new type's designed items with the fields its DocType was made with but the design did not show, placed before the
+ *  first of the form's own rows (or last), as native, locked fields. */
+export function withMadeFields(items: DesignerItem[], made: Screen["target_fields"]): DesignerItem[] {
+  const known = new Set(items.map((i) => i.id));
+  const added: DesignerItem[] = made.filter((f) => !known.has(f.fieldname)).map((f) => {
+    const kind = kindOfFieldtype(f.fieldtype);
+    return { id: f.fieldname, kind, label: f.label === f.fieldname ? "" : f.label, fieldtype: kind === "field" ? f.fieldtype : undefined, native: true, movable: false };
+  });
+  if (!added.length) return items;
+  const at = items.findIndex((i) => !i.native);
+  return at < 0 ? [...items, ...added] : [...items.slice(0, at), ...added, ...items.slice(at)];
+}
+
+/** A FieldDesigner adapter for one type DocType (a family type, or any DocType Sayr's Field Library can deploy on), or
+ *  for a family type not created yet (`SayrNewType`: it starts with the family's shared fields, and its Save deploys onto
+ *  the DocType the type's Save made). Needs the Sear Platform Administrator role; without it `load` resolves to a refusal. */
+export function createSayrFieldDesignerAdapter(api: SayrApi, target: string | SayrNewType, options: SayrFieldDesignerOptions = {}): FieldDesignerAdapter {
   const ar = options.language === "ar";
+  let doctype: string | null = typeof target === "string" ? target : null;
   let screen: Screen | null = null;
   let rows: DeploymentRow[] = [];
   let loadedPayload = "";
@@ -188,7 +206,9 @@ export function createSayrFieldDesignerAdapter(api: SayrApi, doctype: string, op
   const load = async (): Promise<DesignerState> => {
     let s: Screen;
     try {
-      s = await call<Screen>(`${METHODS}.doctype_deployment`, { target_doctype: doctype });
+      s = doctype || typeof target === "string"
+        ? await call<Screen>(`${METHODS}.doctype_deployment`, { target_doctype: doctype })
+        : await call<Screen>(`${METHODS}.new_type_deployment`, { parent: target.parent });
     } catch (e) {
       const status = (e as { status?: number }).status;
       if (status === 403) return { items: [], refusal: ar ? "يتطلب تصميم النموذج دور مسؤول منصة سير." : "Designing this form needs the Sear Platform Administrator role." };
@@ -220,7 +240,9 @@ export function createSayrFieldDesignerAdapter(api: SayrApi, doctype: string, op
     };
     const byField = new Map(rows.filter((r) => r.fieldname).map((r) => [r.fieldname as string, r]));
     const shared = new Set(s.family?.role === "child" ? s.family.shared ?? [] : []);
-    let items: DesignerItem[] = s.target_fields.map((f) => {
+    // A hidden field of the DocType's own (a system link, a derived title) is nobody's to place: it is left off the
+    // canvas, and Sayr keeps it in the order after the arranged fields.
+    let items: DesignerItem[] = s.target_fields.filter((f) => !f.hidden || byField.has(f.fieldname)).map((f) => {
       const kind = kindOfFieldtype(f.fieldtype);
       const label = f.label === f.fieldname ? "" : f.label;
       const row = byField.get(f.fieldname);
@@ -289,6 +311,13 @@ export function createSayrFieldDesignerAdapter(api: SayrApi, doctype: string, op
     makeSection: (label: string): DesignerItem => ({ id: `@section::${label}`, kind: "section_break", label, own: true }),
 
     async save(items: DesignerItem[]): Promise<DesignerState> {
+      if (!doctype && typeof target !== "string") {
+        doctype = await target.doctype();
+        // The type was made with more than its shared fields (e.g. the SLA fields its Configuration deployed): read its
+        // real form and keep them where Sayr put them, after the shared block and before the form's own rows.
+        screen = await call<Screen>(`${METHODS}.doctype_deployment`, { target_doctype: doctype });
+        items = withMadeFields(items, screen.target_fields);
+      }
       const { wanted, own, order } = plan(items, await types());
       const deployment = screen?.deployment ?? null;
       const isLive = !!live();

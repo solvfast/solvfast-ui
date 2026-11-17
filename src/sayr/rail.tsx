@@ -17,19 +17,29 @@ export type RecordRailCard = SayrRailCardId;
 /** The rail's order (Lifecycle is always first and cannot be hidden). */
 export const RECORD_RAIL_CARDS: readonly SayrRailCardId[] = ["assignment", "sla", "playbook", "tasks", "notes", "attachments"];
 
-/** A card the app adds to the rail (e.g. the record's CRM contact): placed after Playbook, hidden and shown like the others. */
+/** A card the app adds to the rail (e.g. the record's CRM contact): placed after Playbook, hidden and shown like the others.
+ *  An `id` of a built-in card ("notes", "attachments", …) replaces that card in its place: the app's own notes, say. */
 export interface RecordRailExtraCard {
   id: string;
+  /** Its name in Customize sections, and its title unless `title` is given. */
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** The card's title (e.g. with a count). Default: `label`. */
+  title?: React.ReactNode;
+  /** Beside the title (e.g. an Add button). */
+  action?: React.ReactNode;
   /** The card's body for the record as loaded (undefined until it is). */
   render: (doc: Record<string, unknown> | undefined) => React.ReactNode;
 }
 
-/** The rail's cards in order, the app's own after Playbook (as the reference: Playbook, Contacts, Organization, Tasks). */
+const isBuiltIn = (id: string) => (RECORD_RAIL_CARDS as readonly string[]).includes(id);
+
+/** The rail's cards in order, the app's own after Playbook (as the reference: Playbook, Contacts, Organization, Tasks);
+ *  an app card replacing a built-in one keeps that one's place. */
 export function railOrder(extra: readonly RecordRailExtraCard[] = []): string[] {
   const at = RECORD_RAIL_CARDS.indexOf("playbook") + 1;
-  return [...RECORD_RAIL_CARDS.slice(0, at), ...extra.map((c) => c.id), ...RECORD_RAIL_CARDS.slice(at)];
+  const added = extra.filter((c) => !isBuiltIn(c.id)).map((c) => c.id);
+  return [...RECORD_RAIL_CARDS.slice(0, at), ...added, ...RECORD_RAIL_CARDS.slice(at)];
 }
 
 export type T = ReturnType<typeof useLocale>["t"];

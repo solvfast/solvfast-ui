@@ -10,8 +10,8 @@
  */
 import * as React from "react";
 import {
-  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, ListChecks, Paperclip, ShieldCheck,
-  StickyNote, Timer, User,
+  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, History, ListChecks, Paperclip, ShieldCheck,
+  StickyNote, Timer, User, UsersRound,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { relativeTime } from "../lib/relative-time";
@@ -20,7 +20,9 @@ import { Button } from "../primitives/button";
 import { Card } from "../primitives/card";
 import { Checkbox } from "../primitives/checkbox";
 import { Skeleton } from "../primitives/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "../primitives/tabs";
 import { LifecycleRail, type LifecycleRailNext } from "../record/LifecycleRail";
+import { LifecycleGraphDialog } from "./LifecycleGraphDialog";
 import { fmt, initials } from "../record/format";
 import { RecordHeaderCard } from "../record/RecordHeaderCard";
 import { htmlToText } from "../record/sanitize";
@@ -32,10 +34,11 @@ import { useDoc, useMetaBundle, usePermissions, useRefreshDoc } from "../frappe/
 import { FrappeAssignTo } from "../frappe/record/FrappeAssignTo";
 import { FrappeAttachments } from "../frappe/record/FrappeAttachments";
 import { FrappeComments } from "../frappe/record/FrappeComments";
+import { FrappeTimeline } from "../frappe/record/FrappeTimeline";
 import { stateEntries } from "../frappe/record/stateHistory";
 import { parseFrappeTime } from "../frappe/record/timeline";
 import {
-  OPEN_CHECKLIST_METHOD, RECORD_PAGE_METHOD, TICK_STEP_METHOD, TRANSITION_METHOD, defaultLifecycleHref,
+  OPEN_CHECKLIST_METHOD, RECORD_PAGE_METHOD, TICK_STEP_METHOD, TRANSITION_METHOD,
   type ChecklistData, type RecordPageData, type SlaTargetClock,
 } from "./recordPage";
 import {
@@ -44,6 +47,8 @@ import {
 } from "./rail";
 
 const TASKS_BEFORE_SCROLL = 5;
+/** The cards a lifecycle brings: left out where none is deployed. */
+const LIFECYCLE_CARDS = new Set(["sla", "playbook"]);
 
 export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "name" | "header" | "toolbarStart" | "tabBar"> {
   doctype: string;
@@ -52,8 +57,6 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   backLabel?: string;
   /** The record's type, shown as a chip in the header (e.g. "Bug"). */
   typeLabel?: string;
-  /** Where "View full lifecycle" opens (a new tab). Default: Sayr Studio's lifecycle builder. */
-  lifecycleHref?: (lifecycle: string) => string;
   /** Where the hidden cards are kept (localStorage). Default `sf-record-rail:<doctype>`. */
   railStorageKey?: string;
   /** All fields as one form, no tabs (a family type without wizard mode). Default: the DocType's tabs as a
@@ -61,6 +64,28 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   oneForm?: boolean;
   /** The app's own cards (e.g. the record's CRM contact and organization), after Playbook. */
   extraCards?: readonly RecordRailExtraCard[];
+  /** The fields open read-only; each section's Edit opens that section only, with its own Cancel, and the header's
+   *  Save saves every open section and closes them (FrappeForm `sectionEdit`). Default: always editable (where the user
+   *  may write). */
+  viewFirst?: boolean;
+  /** A key line in the header card, under the title (e.g. job title · organization), or made from the record. */
+  headerLine?: React.ReactNode | ((doc: FrappeDoc) => React.ReactNode);
+  /** The record's own buttons in the header card (e.g. Meeting, Note, More). */
+  headerActions?: React.ReactNode;
+  /** The page's tabs after About (the form) and History (the record's timeline), e.g. the app's Activities. With none
+   *  the page has no page tabs, as before. */
+  pageTabs?: readonly RecordPageTab[];
+  /** The open page tab, `about`, `history` or a `pageTabs` id (controlled; default: kept by the page, About first). */
+  pageTab?: string;
+  onPageTabChange?: (id: string) => void;
+}
+
+/** A page tab of the app's (e.g. Activities): rendered only while open, for the record as loaded. */
+export interface RecordPageTab {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  render: (doc: Record<string, unknown> | undefined) => React.ReactNode;
 }
 
 const noTabBreaks = (df: { fieldtype: string }) => df.fieldtype !== "Tab Break";
@@ -86,7 +111,8 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 }
 
 export function SayrRecordPage({
-  doctype, name, onBack, backLabel, typeLabel, lifecycleHref = defaultLifecycleHref, railStorageKey, oneForm, extraCards, onDirtyChange, onSaved, ...form
+  doctype, name, onBack, backLabel, typeLabel, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
+  onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
   const api = useFrappeApi();
@@ -100,6 +126,14 @@ export function SayrRecordPage({
   const canWrite = !!doc && permissions.can("write");
   const [dirty, setDirty] = React.useState(false);
   const [formKey, setFormKey] = React.useState(0);
+  const [ownTab, setOwnTab] = React.useState("about");
+  const openTab = pageTab ?? ownTab;
+  const showTab = (id: string) => {
+    // A field keeps what is typed until it loses focus; a tab opens on mouse-down, before that, and would drop it.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    setOwnTab(id);
+    onPageTabChange?.(id);
+  };
 
   const page = useSayrCall<RecordPageData>(RECORD_PAGE_METHOD, { doctype, name }, `${doctype}\u0001${name}`);
   const refresh = page.reload;
@@ -112,6 +146,7 @@ export function SayrRecordPage({
     seenModified.current = modified;
   }, [doc?.modified]); // eslint-disable-line react-hooks/exhaustive-deps
   const [moving, setMoving] = React.useState(false);
+  const [diagram, setDiagram] = React.useState(false);
   const [moveNote, setMoveNote] = React.useState<{ text: string; error: boolean } | null>(null);
 
   const runTransition = async (next: LifecycleRailNext) => {
@@ -141,18 +176,23 @@ export function SayrRecordPage({
   const current = lc?.states.find((s) => s.is_current);
   const titleField = meta.data?.meta.title_field;
   const title = doc ? htmlToText(String((titleField && doc[titleField]) || "")) || doc.name : name;
+  // The record's photo (the DocType's image field, as Desk's form sidebar), else its initials.
+  const imageField = meta.data?.meta.image_field;
+  const photo = imageField && doc?.[imageField] ? String(doc[imageField]) : null;
 
   const header = (
     <RecordHeaderCard
       title={title}
       name={name}
-      avatar={initials(title) || <FileText className="h-6 w-6" />}
+      avatar={photo ? <img src={photo} alt="" className="h-full w-full rounded-xl object-cover" data-record-photo /> : initials(title) || <FileText className="h-6 w-6" />}
       status={current ? { label: stateLabel(current), variant: PHASE_VARIANT[current.phase as keyof typeof PHASE_VARIANT] ?? "outline", key: current.state_key } : undefined}
       facts={data ? [
         { icon: User, text: data.header.owner_name || data.header.owner },
         { icon: Calendar, text: fmt(t("rpCreatedOn"), dateTime(parseFrappeTime(data.header.creation), language)), title: dateTime(parseFrappeTime(data.header.creation), language) },
       ] : undefined}
       chips={typeLabel ? <Badge variant="brand">{typeLabel}</Badge> : undefined}
+      subtitle={typeof headerLine === "function" ? (doc ? headerLine(doc) : undefined) : headerLine}
+      actions={headerActions}
     >
       {data ? null : <Skeleton className="h-4 w-48" />}
     </RecordHeaderCard>
@@ -164,13 +204,15 @@ export function SayrRecordPage({
     </Button>
   ) : null;
 
+  const path = lc ? lifecyclePath(lc, doc, docinfo, isRTL, language) : [];
+  const noLifecycle = !!data && !data.lifecycle_deployed && !data.lifecycle;
   const lifecycleCard = (
     <RailCard id="lifecycle" icon={GitBranch} title={lc?.title ? `${t("rpLifecycle")} · ${lc.title}` : t("rpLifecycle")}>
       {page.pending ? <Skeleton className="h-24" /> : !lc ? (
         <Empty>{data?.lifecycle_deployed ? t("rpNotUnderLifecycle") : t("rpNoLifecycle")}</Empty>
       ) : (
         <LifecycleRail
-          path={lifecyclePath(lc, doc, docinfo, isRTL, language)}
+          path={path}
           next={lc.actions.map((a) => ({
             id: a.transition_key,
             label: (isRTL && a.action_ar) || a.action_en,
@@ -181,15 +223,19 @@ export function SayrRecordPage({
           ended={lc.actions.length === 0}
           // The server lists only actions this user may take; a state's edit lock does not apply to a transition.
           onSelectNext={(n) => void runTransition(n)}
-          onViewAll={() => window.open(lifecycleHref(lc.lifecycle), "_blank", "noopener")}
+          onViewAll={() => setDiagram(true)}
         />
       )}
+      {lc ? (
+        <LifecycleGraphDialog open={diagram} onOpenChange={setDiagram} lifecycle={lc} status={lc.status} path={path}
+          title={fmt(t("rpLifecycleOf"), typeLabel || doctype, lc.title || lc.lifecycle)}
+          subtitle={fmt(t("rpCurrently"), title, stateLabel(current))} />
+      ) : null}
       {moveNote ? <p role={moveNote.error ? "alert" : "status"} className={cn("text-xs", moveNote.error ? "text-destructive" : "text-muted-foreground")}>{moveNote.text}</p> : null}
     </RailCard>
   );
 
   const cards: Record<string, React.ReactNode> = {
-    ...Object.fromEntries((extraCards ?? []).map((c) => [c.id, <RailCard id={c.id} icon={c.icon} title={c.label}>{c.render(doc)}</RailCard>])),
     assignment: (
       <RailCard id="assignment" icon={ShieldCheck} title={t("rpAssignment")}>
         {doc && session?.user ? (
@@ -239,6 +285,8 @@ export function SayrRecordPage({
         <FrappeAttachments doctype={doctype} name={name} doc={doc} bundle={meta.data} docinfo={docinfo} readOnly={!canWrite} />
       </RailCard>
     ),
+    // The app's own cards; one with a built-in card's id replaces it.
+    ...Object.fromEntries((extraCards ?? []).map((c) => [c.id, <RailCard id={c.id} icon={c.icon} title={c.title ?? c.label} action={c.action}>{c.render(doc)}</RailCard>])),
   };
 
   return (
@@ -252,6 +300,23 @@ export function SayrRecordPage({
           header={header}
           toolbarStart={back}
           tabBar="record"
+          sectionEdit={!!viewFirst}
+          // The header card shows the state, by the record's title.
+          stateInHeader
+          pageTabBar={pageTabs?.length ? (
+            <Tabs value={openTab} onValueChange={showTab}>
+              <TabsList className="flex w-full max-w-full overflow-x-auto" aria-label={t("rpPageTabs")} data-page-tabs>
+                {[{ id: "about", label: t("rpAbout"), icon: UsersRound }, { id: "history", label: t("rpHistory"), icon: History }, ...pageTabs].map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id} className="min-w-0 flex-1 gap-1.5" data-page-tab={tab.id}>
+                    <tab.icon className="h-4 w-4 shrink-0" aria-hidden /><span className="truncate">{tab.label}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          ) : undefined}
+          pageTabPanel={!pageTabs?.length || openTab === "about" ? undefined : openTab === "history" ? (
+            doc && session?.user ? <FrappeTimeline doc={doc} docinfo={docinfo} bundle={meta.data} user={session.user} /> : <Skeleton className="h-32" />
+          ) : (pageTabs.find((tab) => tab.id === openTab)?.render(doc) ?? null)}
           fieldFilter={oneForm ? noTabBreaks : form.fieldFilter}
           onDirtyChange={(d) => { setDirty(d); onDirtyChange?.(d); }}
           onSaved={(saved, action) => { void refresh(); onSaved?.(saved, action); }}
@@ -260,8 +325,10 @@ export function SayrRecordPage({
       <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start" aria-label={t("rpVisibleSections")}>
         <CustomizeSections hidden={hidden} onToggle={toggle} extra={extraCards} />
         {page.error ? <p role="alert" className="text-xs text-destructive">{page.error.message || t("rpLoadFailed")}</p> : null}
-        {lifecycleCard}
-        {railOrder(extraCards).filter((card) => !hidden.has(card)).map((card) => <React.Fragment key={card}>{cards[card]}</React.Fragment>)}
+        {/* No lifecycle deployed (a contact, an organization): no lifecycle, SLA or playbook to show. */}
+        {noLifecycle ? null : lifecycleCard}
+        {railOrder(extraCards).filter((card) => !hidden.has(card) && !(noLifecycle && LIFECYCLE_CARDS.has(card)))
+          .map((card) => <React.Fragment key={card}>{cards[card]}</React.Fragment>)}
         {data ? (
           <Card className="space-y-1 p-4 text-[11px] text-muted-foreground" data-rail-footer>
             <FooterLine label={t("rpCreatedBy")} who={data.header.owner_name || data.header.owner} at={data.header.creation} isRTL={isRTL} language={language} />

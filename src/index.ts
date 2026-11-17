@@ -229,6 +229,7 @@ export type { RecordHeaderCardProps, RecordHeaderCardVariant, RecordHeaderFact, 
 export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
 export { LifecycleActions, lifecycleTone, lifecycleRoots, lifecyclePath, lifecycleTransitionsFrom, lifecycleNext, lifecycleGraph } from "./record";
 export type { LifecycleActionsProps, LifecycleActionsItem, LifecycleDefinition, LifecycleStateDef, LifecycleTransitionDef, LifecycleNextItem, LifecycleGraph } from "./record";
+export { LifecycleGraphView, layoutLifecycle, type LifecycleGraphViewProps, type LifecycleGraphViewState, type LifecycleGraphViewTransition } from "./record";
 export type {
   LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels, LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels,
   LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
@@ -277,6 +278,10 @@ export type {
   ListViewType, ViewOption, ViewUnavailableReason, ViewSwitcherProps, ViewToolbarProps, ViewToolbarControls, ImageGridProps, ImageViewProps,
   KanbanBoardProps, KanbanColumn, KanbanMove, CalendarMonthProps, CalendarEvent,
 } from "./list/views";
+
+// Scheduling — several people's events on one grid, and a new meeting's time picked on it. docs/components/scheduling-calendar.md
+export { SchedulingCalendar, toLocalDate, slotFromDrag, moveSlot, resizeSlot, shiftSlot, slotOnDay } from "./calendar";
+export type { SchedulingCalendarProps, SchedulingCalendarLabels, ScheduleGuest, ScheduleEvent, ScheduleSlot, ScheduleView } from "./calendar";
 
 // P35 list
 export { GroupBySidebar } from "./list/parts/GroupBySidebar";

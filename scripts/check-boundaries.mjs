@@ -35,6 +35,8 @@ const RULES = {
   // 0.4.0: generic, Frappe-free controls and record pieces (core entry). They may use primitives, theme and lib only.
   fields: { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^recharts/, /^react-hook-form/, /^\.\.\/(shell|list|frappe|toast|chart|form|cards|record)/] },
   record: { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^recharts/, /^react-hook-form/, /^\.\.\/(shell|list|frappe|toast|chart|form|cards)/] },
+  // SchedulingCalendar: generic, Frappe-free; may reuse the list views' pure calendar arithmetic
+  calendar: { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^recharts/, /^react-hook-form/, /^\.\.\/(shell|frappe|toast|chart|form|cards|record)/] },
   // @solvfast/ui/sayr (0.7.0-dev.8): Sayr's own methods, over the Frappe client — never the shell or the List View
   sayr: { deny: [/^@tanstack/, /react-router/, /^\.\.\/(shell|list|cards|toast|chart|form)/] },
   "index.ts": { deny: [/^@tanstack/, /^\.\/(frappe|toast|chart|form)/, /^sonner/, /^recharts/, /^react-hook-form/] },

@@ -16,6 +16,9 @@ export interface TypeDesignerContext {
   /** Give it to the designer (`FieldDesigner` `onPendingChange`): the type's Save then saves the designer's changes too
    *  (after the type itself), and the type counts as not saved while they are pending. */
   onPendingChange: (pending: DesignerPending) => void;
+  /** A type not created yet: its family's parent, and its DocType once the type's Save has made it (the designer saves
+   *  onto it right after). */
+  newType?: { parent: string; doctype: () => Promise<string> };
 }
 
 export interface FrappeTypeFormProps extends Omit<FrappeFormProps, "doctype"> {
@@ -23,8 +26,9 @@ export interface FrappeTypeFormProps extends Omit<FrappeFormProps, "doctype"> {
   /** The Configuration section (Linked Lifecycle, SLA Policy, Assignment Profile). Default shown; `false` hides it for a
    *  family whose types are not configured this way. */
   configuration?: boolean;
-  /** Rendered under the form once the type has its DocType (a saved type): e.g. a field designer for that DocType. */
-  designer?: (typeDoctype: string, context: TypeDesignerContext) => React.ReactNode;
+  /** Rendered under the form: e.g. a field designer for the type's DocType. A new type has none yet (`null`): the
+   *  designer works on `context.newType` and is saved by the same Save, after the type. */
+  designer?: (typeDoctype: string | null, context: TypeDesignerContext) => React.ReactNode;
   /** Values a NEW type starts with (e.g. the app's default lifecycle, SLA policy and assignment profile). */
   defaults?: Record<string, unknown>;
   /** The registry's icon field drawn as an icon + colour picker (the colour field and Sayr's `appearance_column` then
@@ -34,9 +38,9 @@ export interface FrappeTypeFormProps extends Omit<FrappeFormProps, "doctype"> {
 
 /**
  * A type of a family: the registry's own form, so every field the registry has is shown (an app's Category included).
- * Saving a new type creates its DocType on the server; `designer` appears after that. The registry's Wizard mode field
- * is not on the form: it is the designer's switch (`context.wizard`). One Save saves the type, then the designer's
- * changes (`context.onPendingChange`).
+ * Saving a new type creates its DocType on the server; the designer is there before that too (`context.newType`), so a
+ * new type's form is designed on its creation page. The registry's Wizard mode field is not on the form: it is the
+ * designer's switch (`context.wizard`). One Save saves the type, then the designer's changes (`context.onPendingChange`).
  */
 export function FrappeTypeForm({ family, configuration = true, designer, defaults, appearancePicker = true, fieldFilter, renderField, onSaved, newDocDefaults, ...form }: FrappeTypeFormProps) {
   const api = useFrappeApi();
@@ -85,14 +89,23 @@ export function FrappeTypeForm({ family, configuration = true, designer, default
     queryFn: async () => {
       const meta = await api.getMeta(family.registry);
       const hasWizard = !!wizardField && meta.fields.some((df) => df.fieldname === wizardField);
+      if (!name) return { doctype: null, wizard: hasWizard ? false : undefined };
       const rows = await api.getList<Record<string, unknown>>(family.registry, {
         fields: [link, ...(hasWizard ? [wizardField!] : [])], filters: [["name", "=", name]], limit_page_length: 1,
       });
       const row = rows[0];
       return { doctype: row?.[link] ? String(row[link]) : null, wizard: hasWizard ? !!Number(row?.[wizardField!]) : undefined };
     },
-    enabled: !!designer && !!name,
+    enabled: !!designer,
   });
+  // A new type's DocType, read once its Save has made it: the registry row names it.
+  const newTypeDoctype = async (): Promise<string> => {
+    const saved = controller.current?.doc?.name;
+    const rows = saved ? await api.getList<Record<string, unknown>>(family.registry, { fields: [link], filters: [["name", "=", saved]], limit_page_length: 1 }) : [];
+    const doctype = rows[0]?.[link];
+    if (!doctype) throw new Error(`The type ${String(saved ?? "")} has no DocType yet.`);
+    return String(doctype);
+  };
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["sf-frappe", "family-type-doctype", family.registry] });
     void queryClient.invalidateQueries({ queryKey: ["sf-frappe", "family-types", family.registry] });
@@ -121,10 +134,11 @@ export function FrappeTypeForm({ family, configuration = true, designer, default
           onSaved?.(doc, action);
         }}
       />
-      {designer && typeRow.data?.doctype
+      {designer && typeRow.data && (typeRow.data.doctype || !name)
         ? designer(typeRow.data.doctype, {
           wizard: typeRow.data.wizard === undefined ? undefined : { on: wizardOn ?? typeRow.data.wizard, onChange: setWizard },
           onPendingChange: setPending,
+          newType: typeRow.data.doctype ? undefined : { parent: family.parent, doctype: newTypeDoctype },
         })
         : null}
     </div>

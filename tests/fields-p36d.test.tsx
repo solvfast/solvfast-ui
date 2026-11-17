@@ -38,7 +38,7 @@ const LEAD: DocTypeMeta = {
   ],
 } as DocTypeMeta;
 
-function setup(node: React.ReactElement, opts: { translations?: Record<string, string> } = {}) {
+function setup(node: React.ReactElement, opts: { translations?: Record<string, string>; translatedDoctypes?: string[] } = {}) {
   const transport = createFixtureTransport({
     meta: { "Test Org": [ORG], "Test Kind": [KIND], "Test Lead": [LEAD] },
     docs: {
@@ -51,7 +51,7 @@ function setup(node: React.ReactElement, opts: { translations?: Record<string, s
   const utils = render(
     <ThemeProvider defaultTheme="light" defaultLanguage="en" storageKeys={null}>
       <QueryClientProvider client={qc}>
-        <FrappeProvider client={client} session={{ user: "Administrator" }} translations={opts.translations}>{node}</FrappeProvider>
+        <FrappeProvider client={client} session={{ user: "Administrator" }} translations={opts.translations} translatedDoctypes={opts.translatedDoctypes}>{node}</FrappeProvider>
       </QueryClientProvider>
     </ThemeProvider>,
   );
@@ -211,6 +211,23 @@ describe("P36D.fields Link (link.js)", () => {
     expect((await t("frappe.desk.search.get_link_title", { doctype: "Test Org", docname: "404" })).message).toBeNull();
     expect((await t("frappe.desk.search.get_link_title", { doctype: "Test Kind", docname: "kind_9" })).message).toBe("kind_9");
     await expect(t("frappe.desk.search.get_link_title", { doctype: "Nope", docname: "1" })).rejects.toMatchObject({ excType: "DoesNotExistError" });
+  });
+
+  it("P36D.fields.12 a Link to a translated DocType (Desk boot.translated_doctypes) shows its value and its search results in the UI language; others keep the name — SIMULATED", async () => {
+    setup(
+      <div>
+        <FrappeField df={df({ fieldname: "k", fieldtype: "Link", options: "Test Kind", label: "Kind" })} value="kind_1" onChange={() => {}} />
+        <FrappeField df={df({ fieldname: "o", fieldtype: "Link", options: "Test Org", label: "Org" })} value="99" onChange={() => {}} />
+      </div>,
+      { translations: { kind_1: "وارد", "99": "تسعة وتسعون" }, translatedDoctypes: ["Test Kind"] },
+    );
+    await tick(30);
+    const kind = screen.getByRole("combobox", { name: "Kind" }) as HTMLInputElement;
+    expect(kind.value).toBe("وارد");
+    expect((screen.getByRole("combobox", { name: "Org" }) as HTMLInputElement).value).toBe("99");
+    fireEvent.focus(kind);
+    fireEvent.change(kind, { target: { value: "kind" } });
+    await waitFor(() => expect(screen.getAllByRole("option").some((o) => o.textContent?.includes("وارد"))).toBe(true), { timeout: 2000 });
   });
 
   it("P36D.fields.11 LinkInput (Core) passes maxLength and onPaste to its input; without them nothing changes (negative control)", () => {

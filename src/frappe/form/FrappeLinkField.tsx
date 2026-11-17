@@ -136,7 +136,7 @@ export function FrappeLinkField({
   const s = useFormServices();
   const messages = useFrappeMessages();
   const titles = useLinkTitles();
-  const { session } = useFrappeSettings();
+  const { session, translatedDoctypes } = useFrappeSettings();
   const target = options ?? (df?.fieldtype === "Link" ? df.options : undefined) ?? "";
   const [busy, setBusy] = React.useState(false);
   const req = React.useRef(0);
@@ -166,8 +166,9 @@ export function FrappeLinkField({
     if (!target) return [];
     const res = await s.searchLink(target, txt, searchOptions());
     for (const r of res) if (r.label) titles.remember(target, r.value, r.label);
-    return res;
-  }, [target, s, searchOptions, titles]);
+    // A translated DocType (Desk boot.translated_doctypes) lists its names in the UI language.
+    return translatedDoctypes?.includes(target) ? res.map((r) => ({ ...r, label: r.label ?? s.translate(undefined, r.value) })) : res;
+  }, [target, s, searchOptions, titles, translatedDoctypes]);
 
   const commit = React.useCallback(async (v: string | null) => {
     const id = ++req.current;
@@ -194,7 +195,8 @@ export function FrappeLinkField({
   const knownTitle = value ? titles.get(target, value) ?? s.formatContext.linkTitles?.[`${target}::${value}`] : undefined;
   const [fetchedTitle, setFetchedTitle] = React.useState<{ key: string; title: string } | null>(null);
   const titleKey = `${target}::${value ?? ""}`;
-  const title = knownTitle ?? (fetchedTitle?.key === titleKey ? fetchedTitle.title : undefined);
+  const translatedName = value && target && translatedDoctypes?.includes(target) ? s.translate(undefined, value) : undefined;
+  const title = knownTitle ?? (fetchedTitle?.key === titleKey ? fetchedTitle.title : undefined) ?? (translatedName !== value ? translatedName : undefined);
   const wantsTitle = !!value && !!target && !title && status !== "None" && !!s.getLinkTitle;
   // ---- the target's rights (F4) and Quick Entry eligibility, from its meta when needed ----
   const [focused, setFocused] = React.useState(false);

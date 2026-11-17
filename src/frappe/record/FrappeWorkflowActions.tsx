@@ -48,6 +48,8 @@ export interface FrappeWorkflowActionsProps {
   onViewAll?: () => void;
   /** `rail`: the rail's chrome strings (default from the ThemeProvider's language). */
   railLabels?: LifecycleRailLabels;
+  /** `compact`: no badge of the current state — the page shows it elsewhere (a record page header, `stateInHeader`). */
+  hideCurrent?: boolean;
   doc: FrappeDoc;
   user: string;
   roles?: string[];
@@ -89,7 +91,7 @@ export interface FrappeWorkflowActionsProps {
  * user is unknown (only `allow_self_approval` transitions can then be offered). A refused `apply_workflow` (403
  * `PermissionError`, `WorkflowTransitionError`, self-approval) is shown by the action bar; nothing is applied locally.
  */
-export function FrappeWorkflowActions({ doc, user, roles, translate: translateProp, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, applyFromRail = false, blockedReason, blockedIcon, frm, checkMandatory: mandatoryCheck = true, ...rest }: FrappeWorkflowActionsProps) {
+export function FrappeWorkflowActions({ doc, user, roles, translate: translateProp, confirm, onApplied, beforeApply, afterApply, fallback = null, variant = "compact", docinfo, onViewAll, railLabels, hideCurrent, applyFromRail = false, blockedReason, blockedIcon, frm, checkMandatory: mandatoryCheck = true, ...rest }: FrappeWorkflowActionsProps) {
   const { t, language } = useLocale();
   const trProvider = useFrappeTranslate();
   const translate = translateProp ?? ((x: string) => trProvider(x, null));
@@ -185,7 +187,7 @@ export function FrappeWorkflowActions({ doc, user, roles, translate: translatePr
   const bar = (
     <div className={cn("flex flex-col gap-3", rest.className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <StatusBadge label={cur?.label ?? (w.state ? translate(w.state) : undefined) ?? w.state ?? "—"} tone={cur?.tone ?? "neutral"} />
+        {hideCurrent ? null : <StatusBadge label={cur?.label ?? (w.state ? translate(w.state) : undefined) ?? w.state ?? "—"} tone={cur?.tone ?? "neutral"} />}
         {actions.length > 0 ? (
           <ActionBar actions={actions} onAction={(a) => runAction(a.id)} busy={w.applying} disabled={w.needsSave}
             disabledReason={w.needsSave ? t("recSaveBeforeAction") : undefined} labels={rest.actionLabels} />

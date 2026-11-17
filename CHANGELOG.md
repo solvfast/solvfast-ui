@@ -6,6 +6,155 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.10.0 — consolidation of the 0.7.x line and the 0.9.0 release (unreleased)
+
+One line again: the published **0.9.0** with the 0.7.x `main` line (**0.7.0-dev.23 … dev.35**, never published) merged
+into it. The full entry (features, BREAKING changes, deprecations, migration) is written before the first release
+candidate; the folded-in 0.7.x entries follow, then the published history.
+
+## 0.7.0-dev.23 … 0.7.0-dev.35 — the 0.7.x `main` line, folded into 0.10.0 (never published)
+
+These builds were made on `main` after it diverged from the 0.8.x/0.9.x line at 0.7.0-dev.22 (e26ab97). As SemVer
+pre-releases of 0.7.0 they sort **below** the published 0.7.0; 0.10.0 supersedes all of them. Two labels were used for
+two different builds each: **dev.33** (7afb046, then 108f768 — the LifecycleGraph arrow-routing fix) and **dev.35**
+(ceb058e, then 86cba02 — the read view as the CRM reference). Their entries are kept as written.
+
+### 0.7.0-dev.35 — A record is edited section by section; the state shows once; an unsaved-changes dialog
+
+Visual. `FrappeFormView` / `FrappeForm` `sectionEdit`: a saved record reads until a section's own **Edit**, which opens
+that section only, with its own **Cancel** (that section's saved values back); an open section counts as not saved
+(Not Saved tag, Save); Save saves every open section and closes them; a field to fix opens its section.
+`SayrRecordPage viewFirst` now uses it: **BREAKING** (small) the one Edit beside `#name` and the toolbar's Cancel are
+gone (`data-record-edit`, `data-record-cancel-edit`, messages `rpEdit` / `rpCancelEdit`).
+`stateInHeader` (`SayrRecordPage` always): the toolbar's state tag and the workflow bar's state badge are left out, the
+header card shows the state (`LifecycleBar` / `FrappeWorkflowActions` `hideCurrent`).
+New `UnsavedChangesDialog` (`@solvfast/ui/frappe`): Save and leave / Discard / Keep editing, for a host's router guard.
+The read view is the CRM reference's: with `sectionEdit` each section is a card (icon tile, title, Edit / Cancel) and a
+section that reads shows its fields as rows (`ReadRow`: an icon tile by field type, the label small and upper-case, the
+value under it, "— Not provided" when empty), two to a line; help texts show only while editing.
+Tests RP.view.1–4, UC.1–2.
+
+### 0.7.0-dev.34 — A record's view shows its blank fields; no lifecycle cards where no lifecycle is deployed
+
+Visual. `FrappeFormView viewOnly` (and `SayrRecordPage viewFirst`) keeps a blank field it could edit, read and empty,
+so its label stays and a section keeps its columns; before, it was hidden, and a section showed a lone field on one
+side. `SayrRecordPage` leaves out the Lifecycle, SLA and Playbook cards when the record's DocType has no lifecycle
+deployed (a contact, an organization) instead of saying "No lifecycle / No SLA / No playbook". Test RP.lifecycle.2.
+
+### 0.7.0-dev.33 — View full lifecycle opens the whole diagram in a dialog
+
+**BREAKING** (small): `SayrRecordPage` / `SayrNewRecordPage` `lifecycleHref` and `defaultLifecycleHref` are removed:
+"View full lifecycle" no longer opens Sayr Studio in a new tab. It opens `LifecycleGraphDialog`: every state and
+transition (Sayr's `record_state` / `type_preview` now send `initial_state` and `transitions`), the record's current
+state, the states it passed with who and when, and the path taken in the success colour; "<type> lifecycle ·
+<lifecycle>", "<record> · currently <state>". A new record's preview opens its type's lifecycle the same way.
+Additive: `LifecycleGraph` (a dependency-free layered diagram with arrows, labels and + / − / fit) and
+`layoutLifecycle`; `RecordPageData.lifecycle.initial_state` / `transitions`, `LifecycleGraphData`. Messages
+`lcPhaseOpen`, `lcPhaseOnHold`, `lcPhaseClosed`, `lcZoomIn`, `lcZoomOut`, `lcFit`, `rpLifecycleOf`, `rpCurrently`.
+Tests RP.lifecycle.3, RP.new.2.
+
+### 0.7.0-dev.32 — A record page can open view-first, with Edit; the header takes a key line and buttons
+
+Additive. `SayrRecordPage viewFirst`: the record's fields open read-only (blank ones hidden, as Desk does) with no Save;
+**Edit**, beside the record's code, makes them editable with **Cancel** and **Save**, and a Save or a Cancel (which
+drops what was typed) goes back to the view. `headerLine` (a key line under the title, or a function of the record) and `headerActions` (the app's
+buttons at the end of the header card). Underneath: `FrappeFormView` / `FrappeForm` `viewOnly` (every field read, no
+Save / Update nor Ctrl+S; workflow actions and the menu stay) and `RecordHeaderCard` `nameAction`, `subtitle`,
+`actions`; the header card shows the record's photo (its
+DocType's `image_field`) instead of its initials; `renderField` is told the field's `status` ("Read" in the view), so an app-drawn field can read too. Messages `rpEdit`, `rpCancelEdit`. Tests RP.view.1–3.
+
+### 0.7.0-dev.31 — The type form designer leaves hidden fields out
+
+A type's own hidden fields (a system link, a derived title) are no longer shown on the designer's canvas as locked
+fields: nobody places them. They stay out of the saved order too, and Sayr keeps them after the arranged fields.
+A field added in the designer and set hidden stays on the canvas. Test FD.sayr.9.
+
+### 0.7.0-dev.30 — A new type's form keeps the fields its DocType was made with
+
+Fix. A new type is made with more than its shared fields (e.g. the SLA section its Configuration deploys), which its
+design could not show; a step added after the shared block was then anchored inside them and refused. Its Save now reads
+the made form first and places those fields after the shared block, before the form's own rows (`withMadeFields`).
+FD.sayr.8 covers it.
+
+### 0.7.0-dev.29 — A new type's form is designed on its creation page
+
+Additive for apps; one signature widens. jsdom tests only. Needs Sayr's `deployments.new_type_deployment`.
+
+- `FrappeTypeForm`'s `designer` is called for a new type too, with `typeDoctype` `null` and `context.newType`
+  (`{ parent, doctype() }`): the designer starts from the family's shared fields (locked, movable) and Wizard mode, and
+  the same Save creates the type, then saves the form onto the DocType it made. `designer`'s first argument is now
+  `string | null` (**BREAKING** for a host typed `(doctype: string) => …`).
+- `SayrFieldDesigner` takes `doctype: string | null` and `newType`; `createSayrFieldDesignerAdapter(api, target)` takes a
+  DocType or a `SayrNewType`. Tests FD.sayr.8, FAM.screens.6.
+
+### 0.7.0-dev.28 — SayrRecordPage: a page tab keeps what was just typed
+
+Fix. A page tab opens on mouse-down, before the focused field loses focus and commits what was typed; the form's body
+then left with it and the edit was lost. The tab now takes focus off the field first. Test RP.tabs.3.
+
+### 0.7.0-dev.27 — SayrRecordPage: page tabs (About, History, the app's own)
+
+Additive (a page given no `pageTabs` is unchanged). jsdom tests only.
+
+- `SayrRecordPage` takes `pageTabs` (`RecordPageTab`: `{ id, label, icon, render(doc) }`): a full-width tab bar under the
+  header card, **About** (the form, its own tab bar below), **History** (`FrappeTimeline`: comments and changes), then
+  the app's tabs (rendered only while open). `pageTab` / `onPageTabChange` let the app open one (e.g. from a rail card).
+  The form stays mounted while another tab is open, so unsaved edits are kept.
+- `FrappeFormView` / `FrappeForm`: `pageTabBar` (under `header`) and `pageTabPanel` (shown instead of the form's tab bar
+  and fields while set).
+- Messages: `rpAbout`, `rpHistory`, `rpPageTabs`. Tests RP.tabs.1–2.
+
+### 0.7.0-dev.26 — SayrRecordPage: an app card can replace a built-in card, with a title and an action
+
+Additive (nothing changes for an app that passes no such card). jsdom tests only.
+
+- `RecordRailExtraCard` takes `title` (the card's header, e.g. with a count; `label` stays its Customize sections name)
+  and `action` (beside the title, e.g. an Add button).
+- An app card whose `id` is a built-in card's (`assignment`, `sla`, `playbook`, `tasks`, `notes`, `attachments`) replaces
+  that card in its place; `railOrder` no longer lists it twice. `SayrNewRecordPage` keeps the built-in preview.
+- Test RP.cards.6.
+
+### 0.7.0-dev.25 — SchedulingCalendar: guests' events on one grid, a meeting's time picked on it
+
+Additive (new component; nothing else changes). jsdom tests only.
+
+- `SchedulingCalendar` (Core, `src/calendar/`): every guest's events on one shared Day / Week time grid (side by side
+  where they overlap, in the guest's colour, "Busy" without a title) or a Month grid of chips ("+N more"); the meeting
+  being scheduled (`proposal`) on top in the primary colour. Click a slot, drag across slots, drag the proposal or its
+  bottom edge, or use the arrow keys on it (Shift resizes): each gives a new slot snapped to `slotMinutes` through
+  `onProposalChange` only. A month day click keeps the proposal's times and opens Day view. Toolbar (Today, previous /
+  next mirrored in RTL, range, Day | Week | Month, Working hours only), a legend and a resizable height (pointer and
+  keyboard). View, date, working-hours switch and height are controlled or not. docs/components/scheduling-calendar.md.
+- Slot helpers: `toLocalDate`, `slotFromDrag`, `moveSlot`, `resizeSlot`, `shiftSlot`, `slotOnDay`; types `ScheduleGuest`,
+  `ScheduleEvent`, `ScheduleSlot`, `ScheduleView`, `SchedulingCalendarProps`, `SchedulingCalendarLabels`.
+- Messages (`messages-ws/schedule.ts`): `schedToday`, `schedPrev`, `schedNext`, `schedDay`, `schedWeek`, `schedMonth`,
+  `schedView`, `schedWorkingHoursOnly`, `schedBusy`, `schedMore`, `schedLegend`, `schedProposal`, `schedProposalHint`,
+  `schedResizeProposal`, `schedResizePanel`, `schedGrid`.
+
+### 0.7.0-dev.24 — Wizard mode: steps move, turning it off asks first
+
+Hosts that pass `FieldDesigner`'s `wizard` / show family records. jsdom tests only.
+
+- `FieldDesigner` with wizard mode on: a step the author added moves to another place, with all its sections and
+  fields: drag it onto another step, or select it and use Move earlier / Move later. The first step (the form's
+  standard fields) stays first. Core `moveTab(items, from, to)` in the layout helpers.
+- Turning wizard mode off when the author added steps asks first ("Turn off Wizard mode?"); Turn off merges their
+  sections into one form in step order, Cancel keeps the steps.
+- The Wizard mode help reads "Split the form into ordered steps, shown one after another when a record is created."
+- `FrappeNewFamilyRecord`: a wizard type's creation page says "Step N of M" above its stepper.
+- Messages: `fdMoveStepEarlier`, `fdMoveStepLater`, `fdConfirmMergeTitle`, `fdConfirmMergeBody`, `fdConfirmMergeAction`,
+  `famStepOf`; `fdWizardHint` reworded.
+
+### 0.7.0-dev.23 — links show translated DocTypes in the UI language
+
+Additive. jsdom tests only.
+
+- `FrappeLinkField`: a Link to a translated DocType (Desk `boot.translated_doctypes`, e.g. Country) shows its value
+  and its search results translated (`__()` of the name, from the provider's translations), as Desk's link control does.
+  Other DocTypes keep the name or the title.
+- `FrappeProvider` / `FrappeSettings` `translatedDoctypes`; `readFrappeBoot` reads `translated_doctypes` from the page
+  boot (`FrappeBoot.translatedDoctypes`).
+
 ## 0.9.0 — 2026-11-15
 
 Stable release of the 0.9.0 line (owner-approved). **0.9.0 is the verified 0.9.0-dev.3 source**: the only changes are

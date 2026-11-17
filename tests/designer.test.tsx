@@ -219,12 +219,48 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     mount(adapter, "en", { wizard: { on: true, onChange } });
     await screen.findByRole("tab", { name: "Step 2 · Extra" });
     fireEvent.click(screen.getByRole("switch", { name: "Wizard mode" }));
+    // Steps exist: it asks first; Cancel keeps them.
+    expect(await screen.findByText("Turn off Wizard mode?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText("Turn off Wizard mode?")).toBeNull());
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: "Step 2 · Extra" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("switch", { name: "Wizard mode" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Turn off" }));
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(false));
     fireEvent.click(screen.getByRole("button", { name: "Save form" }));
     await waitFor(() => expect(adapter.save).toHaveBeenCalled());
     const saved = adapter.save.mock.calls[0][0] as DesignerItem[];
     expect(saved.some((i) => i.kind === "tab_break")).toBe(false);
     expect(saved.map((i) => i.id)).toEqual([...LOADED.map((i) => i.id), "custom_extra"]);
+  });
+
+  it("FD.ui.7d with wizard mode on, a step the author added moves (buttons or drag) with its fields; the first step stays first", async () => {
+    const adapter = memoryAdapter({ items: [
+      ...LOADED,
+      brk("@tab::One", "tab_break", { label: "One", own: true }), f("custom_one", { label: "One Field", own: true, fieldtype: "Data" }),
+      brk("@tab::Two", "tab_break", { label: "Two", own: true }), f("custom_two", { label: "Two Field", own: true, fieldtype: "Data" }),
+    ] });
+    mount(adapter, "en", { wizard: { on: true, onChange: vi.fn() } });
+    const two = await screen.findByRole("tab", { name: "Step 3 · Two" });
+    expect(screen.getByRole("tab", { name: /^Step 1/ }).getAttribute("draggable")).toBe("false");
+    fireEvent.click(two);
+    fireEvent.click(within(panel()).getByRole("button", { name: "Move earlier" }));
+    expect(await screen.findByRole("tab", { name: "Step 2 · Two" })).toBeTruthy();
+    expect((within(panel()).getByRole("button", { name: "Move earlier" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Save form" }));
+    await waitFor(() => expect(adapter.save).toHaveBeenCalled());
+    const saved = (adapter.save.mock.calls[0][0] as DesignerItem[]).map((i) => i.id);
+    expect(saved.slice(-4)).toEqual(["@tab::Two", "custom_two", "@tab::One", "custom_one"]);
+    // Dragging works too: "One" (now step 3) dropped on step 2.
+    fireEvent.dragStart(await screen.findByRole("tab", { name: "Step 3 · One" }), { dataTransfer: { setData: () => {}, effectAllowed: "" } });
+    fireEvent.drop(screen.getByRole("tab", { name: "Step 2 · Two" }));
+    expect(await screen.findByRole("tab", { name: "Step 2 · One" })).toBeTruthy();
+  });
+
+  it("FD.ui.7e the Wizard mode help says what it does", async () => {
+    mount(memoryAdapter(), "en", { wizard: { on: false, onChange: vi.fn() } });
+    expect(await screen.findByText("Split the form into ordered steps, shown one after another when a record is created.")).toBeTruthy();
   });
 
   it("FD.ui.7c with wizard mode on, a field dropped on another step moves there", async () => {
@@ -459,6 +495,45 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     await adapter.save(stepItem(items, "title", 1));
     expect(savedDoc(calls).fields[0]).toMatchObject({ row_kind: "section", insert_after: "title" });
     expect(JSON.parse(calls.find((c) => c.method.endsWith("save_field_order"))!.args.order as string).slice(0, 2)).toEqual(["sear_state", "title"]);
+  });
+
+  it("FD.sayr.8 a new type: designed from its family's shared fields, then saved onto the DocType its Save made", async () => {
+    const NEW = { refusal: null, deployment: null, family: { role: "child", parent: "SRF Ticket", shared: ["title"] },
+      target_fields: [{ fieldname: "title", label: "Title", fieldtype: "Data" }] };
+    const { api, calls } = recordingApi({
+      "sear_product.apis.field_library.deployments.new_type_deployment": () => NEW,
+      "frappe.client.insert": () => ({}),
+      // Made with the SLA section its Configuration deployed, which the new type's design did not show.
+      "sear_product.apis.field_library.deployments.doctype_deployment": (a) => ({ ...NEW, target_doctype: a.target_doctype,
+        target_fields: [...NEW.target_fields, { fieldname: "sear_sla_section", label: "SLA", fieldtype: "Section Break" }] }),
+    });
+    const made = vi.fn(async () => "SRF Ticket Brand New");
+    const adapter = createSayrFieldDesignerAdapter(api, { parent: "SRF Ticket", doctype: made });
+    const { items } = await adapter.load();
+    expect(items).toEqual([{ id: "title", kind: "field", label: "Title", fieldtype: "Data", native: true, movable: true }]);
+    expect(calls[0]).toMatchObject({ method: "sear_product.apis.field_library.deployments.new_type_deployment", args: { parent: "SRF Ticket" } });
+    expect(made).not.toHaveBeenCalled();
+    await adapter.save([...items, { id: "@SET-1::iban", kind: "field" as const, label: "IBAN" }]);
+    expect(made).toHaveBeenCalledTimes(1);
+    const inserted = JSON.parse(calls.find((c) => c.method === "frappe.client.insert")!.args.doc as string);
+    expect(inserted.target_doctype).toBe("SRF Ticket Brand New");
+    expect(inserted.fields[0]).toMatchObject({ field_preset: "SET-1", field_key: "iban", insert_after: "sear_sla_section" });
+    const order = calls.find((c) => c.method.endsWith("save_field_order"))!;
+    expect(order.args.target_doctype).toBe("SRF Ticket Brand New");
+    expect(JSON.parse(order.args.order as string)).toEqual(["title", "sear_sla_section", "@SET-1::iban"]);
+    expect(calls.at(-1)).toMatchObject({ method: "sear_product.apis.field_library.deployments.doctype_deployment", args: { target_doctype: "SRF Ticket Brand New" } });
+  });
+
+  it("FD.sayr.9 a hidden field of the type's own (a system link) is left off the canvas and out of the saved order", async () => {
+    const { api, calls } = recordingApi({
+      "sear_product.apis.field_library.deployments.doctype_deployment": () => ({ ...SCREEN,
+        target_fields: [...SCREEN.target_fields, { fieldname: "source_message", label: "Source Message", fieldtype: "Link", hidden: 1 }] }),
+    });
+    const adapter = createSayrFieldDesignerAdapter(api, "SRF Ticket Refund Request");
+    const { items } = await adapter.load();
+    expect(items.some((i) => i.id === "source_message")).toBe(false);
+    await adapter.save(items);
+    expect(JSON.parse(calls.find((c) => c.method.endsWith("save_field_order"))!.args.order as string)).not.toContain("source_message");
   });
 
   it("FD.sayr.5 no right → a refusal, not an error; a removal says how many records hold values", async () => {

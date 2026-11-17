@@ -26,6 +26,7 @@ export type { FieldPreviewProps } from "./FieldPreview";
 export type { RecordHeaderCardProps, RecordHeaderCardVariant, RecordHeaderFact } from "./RecordHeaderCard";
 export type { LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels } from "./LifecycleRail";
 export { LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LIFECYCLE_DIAGRAM_COLORS } from "./LifecycleDiagram";
+export { LifecycleGraphView, layoutLifecycle, type LifecycleGraphViewProps, type LifecycleGraphViewState, type LifecycleGraphViewTransition } from "./LifecycleGraphView";
 export type {
   LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels, LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
 } from "./LifecycleDiagram";
@@ -40,7 +41,7 @@ export { FieldInspector } from "./FieldInspector";
 export type { FieldInspectorProps, LinkTargetOption, LinkTargetField } from "./FieldInspector";
 export { INSPECTED_PROPERTIES, LINK_OPERATORS, keyFromLabel, deriveKey, ownKeys, retype, definitionProblem } from "./fieldDefinition";
 export type { FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./fieldDefinition";
-export { toLayout, fromLayout, insertItem, moveItem, stepItem, locateField, insertSectionAfter, appendTab, removeSection, removeTab, previousId, kindOfFieldtype } from "./fieldLayout";
+export { toLayout, fromLayout, insertItem, moveItem, moveTab, stepItem, locateField, insertSectionAfter, appendTab, removeSection, removeTab, previousId, kindOfFieldtype } from "./fieldLayout";
 export type { DesignerItem, DesignerKind, DropSlot, LayoutTab, LayoutSection, LayoutColumn } from "./fieldLayout";
 // RecordRail — the CRM record page's right rail (docs/components/record.md §10)
 export { RecordRail, RecordRailCard, RecordRailSection, RecordRailRow, RecordRailCustomize, RecordRailFooter, RecordRailAssignment, RecordRailLinkedRecord, RecordRailTasks, RecordRailArticles, RecordRailArticleReader, recordRailCardClass, RECORD_RAIL_DEFAULT_ACCENT } from "./RecordRail";

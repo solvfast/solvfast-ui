@@ -11,6 +11,17 @@ export const formEn = {
   formRedo: "Redo",
   /** Leaving a form with unsaved edits (useUnsavedChangesBlocker default prompt). */
   formLeaveUnsaved: "You have unsaved changes. Leave this page and lose them?",
+  /** UnsavedChangesDialog: leaving a page with unsaved changes. */
+  formLeaveTitle: "You have unsaved changes",
+  formLeaveBody: "Save them before you leave, or discard them.",
+  formSaveAndLeave: "Save and leave",
+  formDiscard: "Discard",
+  formKeepEditing: "Keep editing",
+  /** A record section's own Edit / Cancel (sectionEdit). */
+  formSectionEdit: "Edit",
+  formSectionCancel: "Cancel",
+  /** An empty field in a record's read view. */
+  formNotProvided: "— Not provided",
   /** Quick Entry (quick_entry.js render_edit_in_full_page_link). */
   formEditFullForm: "Edit Full Form",
   /** Custom button group default (Desk "Create" dropdown, toolbar.js make_group). */
@@ -56,6 +67,14 @@ export const formAr: { [K in keyof typeof formEn]: string } = {
   formUndo: "تراجع",
   formRedo: "إعادة",
   formLeaveUnsaved: "لديك تغييرات غير محفوظة. هل تريد مغادرة هذه الصفحة وفقدانها؟",
+  formLeaveTitle: "لديك تغييرات غير محفوظة",
+  formLeaveBody: "احفظها قبل المغادرة أو تجاهلها.",
+  formSaveAndLeave: "حفظ ومغادرة",
+  formDiscard: "تجاهل",
+  formKeepEditing: "متابعة التعديل",
+  formSectionEdit: "تعديل",
+  formSectionCancel: "إلغاء",
+  formNotProvided: "— غير محدد",
   formEditFullForm: "تحرير النموذج الكامل",
   formCreateGroup: "إنشاء",
   formAttachReload: "إعادة رفع الملف",

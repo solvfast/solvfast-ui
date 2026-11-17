@@ -207,12 +207,14 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     mount(s, <FrappeNewFamilyRecord family={FAMILY} defaultType="Complaint" onCreated={onCreated} />);
     const title = await screen.findByRole("textbox", { name: /Title/ }, { timeout: 3000 });
     await waitFor(() => expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(document.querySelector("[data-step-of]")?.textContent).toBe("Step 1 of 2");
     expect(screen.queryByRole("textbox", { name: /Booking Reference/ })).toBeNull();
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByRole("button", { name: "Create" })).toBeNull();
     fireEvent.focus(title); fireEvent.change(title, { target: { value: "Late reply" } }); fireEvent.blur(title);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     const booking = await screen.findByRole("textbox", { name: /Booking Reference/ });
+    expect(document.querySelector("[data-step-of]")?.textContent).toBe("Step 2 of 2");
     fireEvent.focus(booking); fireEvent.change(booking, { target: { value: "BK-1" } }); fireEvent.blur(booking);
     expect(screen.getByRole("button", { name: "Back" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
@@ -286,14 +288,15 @@ describe("FAM.screens — the Frappe family screens (SIMULATED)", () => {
     expect(screen.queryByText("Assignment Profile")).toBeNull();
   });
 
-  it("FAM.screens.6 FrappeTypeForm hands a saved type's DocType to `designer`; a new type gets none", async () => {
-    const designer = vi.fn((doctype: string) => <p>designer for {doctype}</p>);
+  it("FAM.screens.6 FrappeTypeForm hands a saved type's DocType to `designer`; a new type gets its family's parent to design from", async () => {
+    const designer = vi.fn((doctype: string | null, ctx: TypeDesignerContext) =>
+      <p>{doctype ? `designer for ${doctype}` : `new type of ${ctx.newType?.parent}`}</p>);
     const saved = mount(site(), <FrappeTypeForm family={FAMILY} name="Refund Request" designer={designer} />);
     expect(await screen.findByText("designer for Ticket Refund Request")).toBeTruthy();
+    expect(designer.mock.calls.at(-1)?.[1].newType).toBeUndefined();
     saved.unmount();
     designer.mockClear();
     mount(site(), <FrappeTypeForm family={FAMILY} designer={designer} />);
-    await screen.findByText("Arabic Name", {}, { timeout: 3000 });
-    expect(designer).not.toHaveBeenCalled();
+    expect(await screen.findByText(`new type of ${FAMILY.parent}`, {}, { timeout: 3000 })).toBeTruthy();
   });
 });

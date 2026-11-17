@@ -1,6 +1,6 @@
 import * as React from "react";
 import {
-  AlignLeft, ArrowDown, ArrowUp, Calendar, CheckSquare, ChevronDown, Clock, Database, FileText, GripVertical, Hash,
+  AlignLeft, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calendar, CheckSquare, ChevronDown, Clock, Database, FileText, GripVertical, Hash,
   Image as ImageIcon, Layers, Link2, List, Lock, MapPin, Palette, PenLine, Phone, Plus, Star, Table, Trash2,
   Type, Upload, X, type LucideIcon,
 } from "lucide-react";
@@ -22,7 +22,7 @@ import { loc, type Localized } from "../lib/localized";
 import { cn } from "../lib/cn";
 import { CheckboxMark, FieldPreview, previewKind } from "./FieldPreview";
 import {
-  appendTab, insertItem, insertSectionAfter, moveItem, removeSection, removeTab, stepItem, toLayout,
+  appendTab, insertItem, insertSectionAfter, moveItem, moveTab, removeSection, removeTab, stepItem, toLayout,
   type DesignerItem, type DesignerKind, type DropSlot,
 } from "./fieldLayout";
 import { definitionProblem, ownKeys, type FieldDefinition, type FieldTypeRegistry } from "./fieldDefinition";
@@ -117,7 +117,7 @@ const iconOf = (type?: string): LucideIcon => (type && TYPE_ICONS[previewKind(ty
  *  fields are placed only; shared fields move; a field set's fields move and are removed; fields defined here are
  *  edited with every property a field set's field has. */
 export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChange, className }: FieldDesignerProps) {
-  const { t, language } = useLocale();
+  const { t, language, isRTL } = useLocale();
   const L = React.useCallback((key: Key) => loc(labels?.[key], language) || t(key), [labels, language, t]);
   const [state, setState] = React.useState<DesignerState | null>(null);
   const [items, setItems] = React.useState<DesignerItem[]>([]);
@@ -127,9 +127,11 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
   const [saved, setSaved] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState(0);
   const [selection, setSelection] = React.useState<Selection>({ kind: "none" });
-  const [confirm, setConfirm] = React.useState<null | { kind: "removal"; removals: DesignerRemoval[] } | { kind: "empty" }>(null);
+  const [confirm, setConfirm] = React.useState<null | { kind: "removal"; removals: DesignerRemoval[] } | { kind: "empty" } | { kind: "merge" }>(null);
   const confirmAnswer = React.useRef<((ok: boolean) => void) | null>(null);
   const dragging = React.useRef<string | null>(null);
+  // The step being dragged to another place in the step bar (wizard mode).
+  const draggingStep = React.useRef<number | null>(null);
   const [dropTab, setDropTab] = React.useState<number | null>(null);
   // With wizard mode offered and off, the form is one list: no tabs to show or add.
   const oneForm = !!wizard && !wizard.on;
@@ -203,7 +205,16 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
     setDropTab(null);
     if (id) edit(moveItem(items, id, slot));
   };
-  const allowDrop = (e: React.DragEvent) => { if (dragging.current) e.preventDefault(); };
+  const allowDrop = (e: React.DragEvent) => { if (dragging.current || draggingStep.current !== null) e.preventDefault(); };
+  // A step the author added can move anywhere after the first step (which holds the standard fields).
+  const stepMovable = (ti: number) => !!wizard?.on && ti > 0 && !!tabs[ti]?.breakItem && !tabs[ti].breakItem!.native;
+  const moveStep = (from: number, to: number) => {
+    const next = moveTab(items, from, to);
+    if (next === items) return;
+    edit(next);
+    setActiveTab(to);
+    setSelection({ kind: "tab", index: to });
+  };
 
   const addOwnField = (slot: DropSlot, type: string) => {
     const item: DesignerItem = { id: `new:${++newIds}`, kind: "field", own: true, fieldtype: type, label: "", definition: { type, label: "" } };
@@ -386,6 +397,18 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
                 <Note icon={Lock}>{wizard?.on ? L("fdStepLocked") : L("fdTabLocked")}</Note>
               </>
             )}
+            {stepMovable(selection.index) && (
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={selection.index <= 1}
+                  onClick={() => moveStep(selection.index, selection.index - 1)}>
+                  {isRTL ? <ArrowRight className="h-3.5 w-3.5" /> : <ArrowLeft className="h-3.5 w-3.5" />}{L("fdMoveStepEarlier")}
+                </Button>
+                <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={selection.index >= tabs.length - 1}
+                  onClick={() => moveStep(selection.index, selection.index + 1)}>
+                  {L("fdMoveStepLater")}{isRTL ? <ArrowLeft className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            )}
             {brk && !brk.native && (
               <Button type="button" size="sm" variant="outline" className="w-full gap-1.5 text-destructive"
                 onClick={() => { edit(removeTab(items, selection.index)); setActiveTab(Math.max(0, selection.index - 1)); setSelection({ kind: "none" }); }}>
@@ -423,31 +446,47 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
             <p id="sf-designer-wizard-hint" className="text-[11px] text-muted-foreground">{L("fdWizardHint")}</p>
           </div>
           <Switch id="sf-designer-wizard" aria-describedby="sf-designer-wizard-hint" checked={wizard.on}
-            onCheckedChange={(on) => {
-              // Off: the steps added on the type go, so their fields join the step before, in the same order.
+            onCheckedChange={(on) => void (async () => {
+              // Off: the steps added on the type go, so their fields join the step before, in the same order. Asked first
+              // when there are such steps.
               if (!on) {
+                const own = items.some((i) => i.kind === "tab_break" && !i.native);
+                if (own && !(await ask({ kind: "merge" }))) return;
                 edit(items.filter((i) => !(i.kind === "tab_break" && !i.native)));
                 setActiveTab(0);
                 setSelection({ kind: "none" });
               }
-              Promise.resolve(wizard.onChange(on)).catch((e) => setError(errorText(e)));
-            }} />
+              await Promise.resolve(wizard.onChange(on)).catch((e) => setError(errorText(e)));
+            })()} />
         </div>
       )}
       {state.notice && <p className="text-sm text-muted-foreground">{state.notice}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0 space-y-3" onDragEnd={() => { dragging.current = null; setDropTab(null); }}>
+        <div className="min-w-0 space-y-3" onDragEnd={() => { dragging.current = null; draggingStep.current = null; setDropTab(null); }}>
           {showTabs && (
             <div className="rounded-xl border border-border bg-card p-2.5">
               <div className="flex items-center gap-2 overflow-x-auto pb-0.5" role="tablist">
                 {tabs.map((x, ti) => (
                   <button key={x.breakItem?.id ?? `tab-${ti}`} type="button" role="tab" aria-selected={ti === tabIndex}
+                    draggable={stepMovable(ti)}
+                    onDragStart={stepMovable(ti) ? (e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(ti)); draggingStep.current = ti; } : undefined}
+                    data-step-movable={stepMovable(ti) || undefined}
                     onDragOver={allowDrop}
-                    onDragEnter={() => dragging.current && setDropTab(ti)}
+                    onDragEnter={() => (dragging.current || (draggingStep.current !== null && ti > 0)) && setDropTab(ti)}
                     onDragLeave={() => setDropTab((d) => (d === ti ? null : d))}
-                    onDrop={drop({ tab: ti, section: x.sections.length - 1, column: x.sections[x.sections.length - 1].columns.length - 1 })}
+                    onDrop={(e) => {
+                      if (draggingStep.current !== null) {
+                        e.preventDefault();
+                        const from = draggingStep.current;
+                        draggingStep.current = null;
+                        setDropTab(null);
+                        moveStep(from, ti);
+                        return;
+                      }
+                      drop({ tab: ti, section: x.sections.length - 1, column: x.sections[x.sections.length - 1].columns.length - 1 })(e);
+                    }}
                     onClick={() => { setActiveTab(ti); setSelection({ kind: "tab", index: ti }); }}
                     data-drop-target={dropTab === ti || undefined}
                     className={cn("inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors",
@@ -525,8 +564,8 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
       <AlertDialog open={!!confirm} onOpenChange={(open) => !open && answer(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirm?.kind === "empty" ? L("fdConfirmEmptyTitle") : L("fdConfirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{confirm?.kind === "empty" ? L("fdConfirmEmptyBody") : L("fdConfirmBody")}</AlertDialogDescription>
+            <AlertDialogTitle>{confirm?.kind === "merge" ? L("fdConfirmMergeTitle") : confirm?.kind === "empty" ? L("fdConfirmEmptyTitle") : L("fdConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{confirm?.kind === "merge" ? L("fdConfirmMergeBody") : confirm?.kind === "empty" ? L("fdConfirmEmptyBody") : L("fdConfirmBody")}</AlertDialogDescription>
           </AlertDialogHeader>
           {confirm?.kind === "removal" && (
             <ul className="space-y-1 text-sm">
@@ -535,7 +574,7 @@ export function FieldDesigner({ adapter, labels, onSaved, wizard, onPendingChang
           )}
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => answer(false)}>{L("fdCancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => answer(true)}>{L("fdConfirm")}</AlertDialogAction>
+            <AlertDialogAction onClick={() => answer(true)}>{confirm?.kind === "merge" ? L("fdConfirmMergeAction") : L("fdConfirm")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -36,6 +36,10 @@ export interface RecordHeaderCardProps {
   status?: { label: React.ReactNode; variant?: BadgeProps["variant"]; key?: string };
   facts?: RecordHeaderFact[];
   chips?: React.ReactNode;
+  /** Right after `#name` (e.g. a record page's Edit). */
+  nameAction?: React.ReactNode;
+  /** A key line under the title (e.g. job title · organization). */
+  subtitle?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
   /** `default` = the original header card (unchanged); `page` = the `RecordPage` header. `crm` is a deprecated alias of `page`
@@ -47,7 +51,8 @@ export interface RecordHeaderCardProps {
   titleExtra?: React.ReactNode;
   /** `page`: the value line under the facts (e.g. "12,500,000 USD"; shown left-to-right, tabular digits). */
   value?: React.ReactNode;
-  /** `page`: the quick actions at the end of the card (`RecordQuickAction`, `RecordQuickActionMenu`). */
+  /** The record's own buttons at the end of the card — `default`: plain buttons; `page`: the quick actions
+   *  (`RecordQuickAction`, `RecordQuickActionMenu`). */
   actions?: React.ReactNode;
   /** `page`: before the title in the title row (e.g. a person's salutation, "Mr."). */
   titlePrefix?: React.ReactNode;
@@ -60,7 +65,7 @@ export function RecordHeaderCard(props: RecordHeaderCardProps) {
 /** `"crm"` (deprecated) is `"page"`. */
 const isPageVariant = (v: RecordHeaderCardVariant | undefined) => v === "page" || v === "crm";
 
-function DefaultRecordHeader({ title, name, avatar, status, facts, chips, children, className }: RecordHeaderCardProps) {
+function DefaultRecordHeader({ title, name, avatar, status, facts, chips, nameAction, subtitle, actions, children, className }: RecordHeaderCardProps) {
   return (
     <div className={cn("relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-r from-primary/10 via-card to-accent/10 p-5 shadow-sm", className)} data-record-header>
       <div className="flex items-start gap-4">
@@ -73,8 +78,10 @@ function DefaultRecordHeader({ title, name, avatar, status, facts, chips, childr
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="min-w-0 truncate text-xl font-semibold">{title}</h1>
             {name ? <span className="font-mono text-xs text-muted-foreground">#{name}</span> : null}
+            {nameAction}
             {status ? <Badge variant={status.variant ?? "outline"} data-status={status.key}>{status.label}</Badge> : null}
           </div>
+          {subtitle ? <p className="truncate text-sm text-muted-foreground" data-record-subtitle>{subtitle}</p> : null}
           {facts?.length ? (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               {facts.map((f, i) => (
@@ -90,6 +97,7 @@ function DefaultRecordHeader({ title, name, avatar, status, facts, chips, childr
           {chips ? <div className="flex flex-wrap items-center gap-2">{chips}</div> : null}
           {children}
         </div>
+        {actions ? <div className="flex shrink-0 flex-wrap items-center justify-end gap-2" data-record-actions>{actions}</div> : null}
       </div>
     </div>
   );

@@ -36,6 +36,8 @@ export function useFrappeApi(): FrappeApi {
 export interface FrappeSettings {
   session?: FrappeSession;
   translations?: TranslationDictionary;
+  /** DocTypes whose names a Link shows translated, in the UI language (Desk `boot.translated_doctypes`: Country, …). */
+  translatedDoctypes?: readonly string[];
   formatContext?: FormatContext;
   /** New-document user defaults (Desk `frappe.defaults.get_user_defaults`, from boot — `userDefaultsFromBoot`). P35:
    *  FrappeForm, FrappeQuickEntry and FrappeListView's default create apply them unless they are given their own. */
@@ -74,6 +76,8 @@ export interface FrappeProviderProps {
   session?: FrappeSession;
   /** Source text → translation for the UI language (Desk: boot `__messages`). 15.110's getdoctype sends none. */
   translations?: TranslationDictionary;
+  /** DocTypes whose names links show translated (Desk `boot.translated_doctypes`). Default: the boot's. */
+  translatedDoctypes?: readonly string[];
   /** Date / number / currency / time-zone settings (Desk: boot `sysdefaults`, `time_zone`, `:Currency`). */
   formatContext?: FormatContext;
   /**
@@ -118,7 +122,7 @@ export function loginRedirectUrl(loc: Pick<Location, "pathname" | "search"> = ty
   return `/login?redirect-to=${encodeURIComponent(loc.pathname + loc.search)}`;
 }
 
-export function FrappeProvider({ client, queryClient, session, translations, formatContext, boot, userDefaults, serverMessages = "show", onAlert, applyBootLanguage = true, onSessionExpired, children }: FrappeProviderProps) {
+export function FrappeProvider({ client, queryClient, session, translations, translatedDoctypes, formatContext, boot, userDefaults, serverMessages = "show", onAlert, applyBootLanguage = true, onSessionExpired, children }: FrappeProviderProps) {
   // Run 1 A-22: the boot language reaches the ThemeProvider ONCE per page load and language (several providers, or one
   // remounted per page, never reset a language the user switched to afterwards)
   const { setLocale } = useLocale();
@@ -141,10 +145,11 @@ export function FrappeProvider({ client, queryClient, session, translations, for
     () => ({
       session: session ?? boot?.session ?? outer.session,
       translations: translations ?? boot?.translations ?? outer.translations,
+      translatedDoctypes: translatedDoctypes ?? boot?.translatedDoctypes ?? outer.translatedDoctypes,
       formatContext: formatContext ?? boot?.formatContext ?? outer.formatContext,
       userDefaults: userDefaults === false ? undefined : userDefaults ?? boot?.userDefaults ?? outer.userDefaults,
     }),
-    [session, translations, formatContext, boot, outer, userDefaults],
+    [session, translations, translatedDoctypes, formatContext, boot, outer, userDefaults],
   );
   // Run 1 A-61: a global session-expiry handler over the active query client (queries and mutations), once per burst
   const activeQc = own ?? existing;
