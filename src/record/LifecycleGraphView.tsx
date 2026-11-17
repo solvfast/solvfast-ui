@@ -193,6 +193,13 @@ function routesOf(placed: Map<string, LifecycleLayoutNode>, transitions: GraphEd
  *  has no label to place. */
 function spaceLabels(routes: Route[], placed: Map<string, LifecycleLayoutNode>): Route[] {
   const boxes: { x: number; y: number; w: number; h: number }[] = [...placed.values()].map((s) => ({ x: s.x + W / 2, y: s.y + H / 2, w: W + 8, h: H + 8 }));
+  // What sticks out of a card's top end corner (LifecycleStateCard): the Current badge (-top-[11px] -end-1.5, ~19 px
+  // tall, room for ~9 characters) and the done tick (-top-2 -end-2, 20 px with its ring). A self-loop's label is placed
+  // just above that corner — it must not sit on them. Left-to-right coordinates (the end side is the right).
+  for (const s of placed.values()) {
+    if (s.kind === "current") boxes.push({ x: s.x + W - 28, y: s.y - 1.5, w: 68, h: 19 });
+    else if (s.kind === "done") boxes.push({ x: s.x + W - 2, y: s.y + 2, w: 24, h: 24 });
+  }
   const hits = (x: number, y: number, w: number, h: number) =>
     boxes.some((b) => Math.abs(b.x - x) * 2 < b.w + w && Math.abs(b.y - y) * 2 < b.h + h);
   return routes.map((r) => {

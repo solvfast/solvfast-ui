@@ -66,6 +66,10 @@ or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest su
   on Arabic labels.
 - `LifecycleGraphView`: mirrors in right-to-left languages (was forced left-to-right), a text alternative (hidden list
   of transitions, each state's progress; en / ar), self-transitions drawn as loops, arrow-head ids unique per graph.
+- `LifecycleDiagramDialog` (and so `LifecycleGraphDialog`): closing it gives focus back to the button that opened it, as
+  the package's other dialogs do (Radix alone dropped it on `<body>` when there is no `DialogTrigger`).
+- `LifecycleGraphView`: an arrow's label keeps off the Current badge and the done tick at a state's top end corner (a
+  self-loop's label on the current state sat on the badge).
 - A new type's first save no longer brings the DocType's hidden fields back into the arranged order.
 - Arabic: wizard steps "Move earlier / Move later" said forward / back (the inverse) — now «نقل لموضع أسبق» /
   «نقل لموضع لاحق»; the History tab is «سجل النشاط» («السجل» means "record" across the DS).

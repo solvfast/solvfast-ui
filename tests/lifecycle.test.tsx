@@ -1,7 +1,7 @@
 /** Lifecycle components (src/record): LifecycleRail, the diagram pieces, and the shared dot atom (LifecycleStepDot). */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
   LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleEdgeLabel, LifecycleRail, LifecycleStateCard, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS,
 } from "../src/record";
@@ -133,6 +133,25 @@ describe("Lifecycle diagram pieces", () => {
     expect(container.textContent).toContain("Not reached");
     expect(container.textContent).toContain("Path taken");
     expect(LIFECYCLE_DIAGRAM_COLORS.taken).toBe("hsl(var(--success))");
+  });
+
+  it("dialog: opened from a plain button (no trigger), closing gives focus back to that button (WCAG 2.4.3)", async () => {
+    function Host() {
+      const [open, setOpen] = React.useState(false);
+      return (<>
+        <button type="button" onClick={() => setOpen(true)}>View full lifecycle</button>
+        <LifecycleDiagramDialog open={open} onOpenChange={setOpen} title="Lifecycle"><div /></LifecycleDiagramDialog>
+      </>);
+    }
+    wrap(<Host />);
+    const opener = screen.getByRole("button", { name: "View full lifecycle" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dlg = await screen.findByRole("dialog");
+    await waitFor(() => expect(dlg.contains(document.activeElement)).toBe(true));
+    fireEvent.keyDown(dlg, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 
   it("dialog: title, subtitle, canvas slot, legend, localized close; closes via the button", () => {

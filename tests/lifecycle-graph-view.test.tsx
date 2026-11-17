@@ -55,6 +55,28 @@ describe("LG.layout — layoutLifecycle", () => {
     expect(Math.max(...xs)).toBeGreaterThan(s.x + 230 + 30);
   });
 
+  it("LG.layout.3b a self-loop's label on the current (or a done) state keeps off the Current badge / done tick above the card's end corner", () => {
+    // the label is placed just above the loop's top end corner; the badge sticks out of that corner (~13 px up, 6 px out)
+    for (const kind of ["current", "done"] as const) {
+      const g: LifecycleGraph = {
+        nodes: [{ id: "a", label: "Draft", phase: "open", kind: "done" }, { id: "b", label: "Negotiation", phase: "on_hold", kind }],
+        edges: [{ id: "go", from: "a", to: "b", label: "Go", taken: true }, { id: "loop", from: "b", to: "b", label: "Counter-offer", taken: false }],
+      };
+      for (const rtl of [false, true]) {
+        const { placed, edges } = layoutLifecycle(g, "a", { rtl });
+        const b = placed.get("b")!;
+        const loop = edges.find((e) => e.edge.id === "loop")!;
+        const lw = "Counter-offer".length * 6.2 + 20;
+        const label = { l: loop.lx - lw / 2, r: loop.lx + lw / 2, t: loop.ly - 10, b: loop.ly + 10 };
+        // the badge / tick: the card's top end corner (right in LTR, left in RTL), as LifecycleStateCard draws them
+        const [inW, outW, up, down] = kind === "current" ? [55, 6, 11, 8] : [12, 10, 10, 14];
+        const badge = rtl ? { l: b.x - outW, r: b.x + inW, t: b.y - up, b: b.y + down } : { l: b.x + 230 - inW, r: b.x + 230 + outW, t: b.y - up, b: b.y + down };
+        const overlaps = label.l < badge.r && badge.l < label.r && label.t < badge.b && badge.t < label.b;
+        expect(overlaps, `${kind} ${rtl ? "rtl" : "ltr"}: label ${JSON.stringify(label)} badge ${JSON.stringify(badge)}`).toBe(false);
+      }
+    }
+  });
+
   it("LG.layout.4 within a row, a pair of opposite arrows is drawn apart (straight lines)", () => {
     const g: LifecycleGraph = lifecycleGraph({
       states: [{ id: "a", label: "A", phase: "open" }, { id: "b", label: "B", phase: "open" }, { id: "c", label: "C", phase: "open" }],
