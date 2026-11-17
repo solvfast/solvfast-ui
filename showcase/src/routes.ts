@@ -325,3 +325,17 @@ const p36bSocial = () => import("./pages/p36b-social");
   group.pages.push(page);
   PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
 }
+
+// 0.10 consolidation — the lifecycle diagram (LifecycleGraphView / LifecycleGraphDialog) and record editing (editScope)
+{
+  const c010 = () => import("./pages/consolidation-010");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = {
+    id: "release-010",
+    title: l("0.10 — lifecycle diagram & record editing", "0.10 — مخطط دورة الحياة وتعديل السجل"),
+    description: l("LifecycleGraphView (a post's lifecycle, a branching one, and LifecycleGraphDialog through ./sayr) and FrappeForm sectionEdit with editScope \"section\" and \"record\" — SIMULATED form data.", "‏LifecycleGraphView (دورة حياة منشور، وأخرى متفرّعة، و LifecycleGraphDialog عبر ‎./sayr‎) و FrappeForm sectionEdit مع editScope «section» و«record» — بيانات نموذج محاكاة."),
+    Component: from(c010, "Consolidation010Page"),
+  };
+  group.pages.push(page);
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}
