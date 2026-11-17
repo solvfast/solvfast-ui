@@ -111,7 +111,7 @@ export const recordPageAr: { [K in keyof typeof recordPageEn]: string } = {
   rpAbout: "النبذة",
   rpEdit: "تعديل",
   rpCancelEdit: "إلغاء",
-  rpHistory: "السجل",
+  rpHistory: "سجل النشاط",
   rpPageTabs: "أقسام السجل",
   rpAttachments: "المرفقات",
   rpCreatedBy: "أنشئ بواسطة",
