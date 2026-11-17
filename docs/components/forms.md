@@ -262,7 +262,7 @@ after a change the banner shows as before. Save saves all open sections and clos
 server error) opens its section (in `"record"` scope: the record).
 
 The look is the CRM reference's read view: each section a card (icon tile, title or "Details", Edit / Cancel in its
-header in `"section"` scope); a section that reads shows its fields as `ReadRow`s in a description list (`<dl>`, each row
+header in `"section"` scope); a section that reads shows its fields as read rows (internal) in a description list (`<dl>`, each row
 a `dt` label with the icon tile and a `dd` value; `data-read-row`, `data-not-provided`). Desk's columns stay columns
 (`data-read-column`, each read top to bottom, side by side from `sm` up); a one-column section lays its rows two to a
 line, in order (text and pictures take the whole line). The icon tiles use theme tokens (primary, success, info,

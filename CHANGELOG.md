@@ -6,11 +6,84 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-## 0.10.0 — consolidation of the 0.7.x line and the 0.9.0 release (unreleased)
+## 0.10.0 — one line again: the 0.9.0 release and the 0.7.x line, consolidated (unreleased)
 
-One line again: the published **0.9.0** with the 0.7.x `main` line (**0.7.0-dev.23 … dev.35**, never published) merged
-into it. The full entry (features, BREAKING changes, deprecations, migration) is written before the first release
-candidate; the folded-in 0.7.x entries follow, then the published history.
+The published **0.9.0** with the 0.7.x `main` line (**0.7.0-dev.23 … dev.35**, never published) merged into it (a true
+merge: both histories are kept), then the conflicts and duplicates resolved. Every export and component prop of 0.9.0
+is still there (`npm run check:api` against `api/0.9.0.json`: 0 removals); the breaking changes below are behavioural
+or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest suite of both lines.
+
+### BREAKING (relative to 0.9.0)
+- **"View full lifecycle" opens the lifecycle diagram in place** (`LifecycleGraphDialog`) on `SayrRecordPage` and
+  `SayrNewRecordPage`, instead of opening Sayr Studio in a new tab. A host that passes `lifecycleHref` keeps 0.9.0's
+  new-tab link (deprecated, below). Needs a Sayr server sending `initial_state` / `transitions` (sear_product b45f539
+  and 3fc2461); with an older server the dialog shows the states without arrows.
+- `FrappeTypeForm` `designer(typeDoctype, ctx)`: `typeDoctype` is now `string | null` (null: a new type, designed on its
+  creation page with `ctx.newType`). Strictly typed callers accept `null`.
+- `SayrRecordPage` / `SayrNewRecordPage` `extraCards`: a card whose `id` is a built-in card's (`notes`, `attachments`, …)
+  replaces that card in its place (0.9.0 kept the built-in).
+- `SayrRecordPage` leaves out the Lifecycle, SLA and Playbook cards when the record's DocType has no lifecycle deployed
+  (0.9.0 showed them with "No lifecycle / No SLA / No playbook").
+- `workflowLifecycle()` gives Frappe Workflow states a phase: submitted (doc_status 1), cancelled (2) and terminal
+  states are `closed`, the others `open` (0.9.0: all `open`). A closed Danger or unstyled state carries a colour for
+  `lifecycleTone`. Hosts that drew every Frappe state as open see closed icons and tones.
+
+### Deprecated (removed in 0.11.0 unless stated)
+- `lifecycleHref` on `SayrRecordPage` and `SayrNewRecordPage`, and the `defaultLifecycleHref` export
+  (`@solvfast/ui/sayr`). Passing `lifecycleHref` keeps the 0.9.0 link and logs one console warning in development.
+- `RecordRailCard` in `@solvfast/ui/sayr` (alias of `SayrRailCardId`) and `RecordHeaderCard` `variant="crm"` (alias
+  of `"page"`): removed by 1.0.
+
+### Added
+- From the 0.7.x line (entries below): translated link DocTypes (`FrappeProvider` `translatedDoctypes`); the type form
+  designed on its creation page and wizard-mode step moves; **`SchedulingCalendar`**; rail extra cards with `title` /
+  `action`; **record page tabs** (`pageTabs`, `pageTab`, `onPageTabChange`, `RecordPageTab`); `headerLine` /
+  `headerActions` and `RecordHeaderCard` `nameAction` / `subtitle` / `actions`; **`viewFirst`** with section editing
+  (`FrappeForm` `sectionEdit`, `UnsavedChangesDialog` in `./frappe`); the in-page lifecycle diagram
+  (`LifecycleGraphDialog`, `LifecycleGraphData`, `LifecyclePathStep` in `./sayr`).
+- **`editScope?: "section" | "record"`** on `SayrRecordPage` (with `viewFirst`) and `FrappeForm` / `FrappeFormView`
+  (with `sectionEdit`). `"section"` (default): each section's own Edit / Cancel. `"record"`: one **Edit** by the
+  record's name (`data-record-edit`) opens every editable section; Save and one **Cancel** (`data-record-cancel-edit`);
+  no section buttons. Same mechanism, same read view. `header` may be `(ctx: FrappeFormHeaderContext) => node`.
+- **`stateInHeader?: boolean`** on `SayrRecordPage`: default on only when the record has a Sayr lifecycle.
+- **Lifecycle: one model, two renderers.** `LifecycleGraphView` (core, dependency-free SVG; the 0.7.x `LifecycleGraph`
+  component, renamed) draws the core `LifecycleGraph` model: `graph`, `initial?`, `currentLabel?`, `labels?`, `dir?`,
+  `className?`. `layoutLifecycle(graph, initial?, { rtl? })` returns the placed states and routed edges
+  (`LifecycleLayout`, `LifecycleLayoutNode`, `LifecycleLayoutEdge`). `LifecycleFlow` (`./lifecycle-diagram`, React Flow)
+  draws the same model. `LifecycleGraph` nodes may carry `meta` / `metaTitle` (additive).
+- `FrappeWorkflowActions` `hideCurrent` (compact: no state badge — the page shows the state elsewhere).
+- Type `SayrNewType` exported from `./sayr`. Messages `lcDiagram`, `lcTransitions`, `lcTransitionItem`,
+  `lcTransitionItemPlain`, `lcReached`, `rpEdit`, `rpCancelEdit`.
+- `npm run check:api` / `api:report`: the public API report and its check against the published 0.9.0.
+
+### Changed / fixed
+- **Opening a section is not a change**: Not Saved, an enabled Save, `onDirtyChange(true)`, the leave guard and the
+  "modified after you opened it" banner react only to a changed value (0.7.0-dev.35 marked the form dirty on opening).
+  A clean refresh just updates the values; Reload of a newer copy also updates what Cancel puts back.
+- `SayrRecordPage` no longer hides a Frappe Workflow's or a status field's state on records without a Sayr lifecycle
+  (0.7.0-dev.35 showed it nowhere); while the record page loads, the toolbar state never flashes on a lifecycle record.
+- Read view: Desk's column order kept, description-list semantics, theme-token icon tiles, no capitals or letter-spacing
+  on Arabic labels.
+- `LifecycleGraphView`: mirrors in right-to-left languages (was forced left-to-right), a text alternative (hidden list
+  of transitions, each state's progress; en / ar), self-transitions drawn as loops, arrow-head ids unique per graph.
+- A new type's first save no longer brings the DocType's hidden fields back into the arranged order.
+- Arabic: wizard steps "Move earlier / Move later" said forward / back (the inverse) — now «نقل لموضع أسبق» /
+  «نقل لموضع لاحق»; the History tab is «سجل النشاط» («السجل» means "record" across the DS).
+- Messages: the duplicate `lcPhase*` keys of the 0.7.x line are removed (0.9.0's wording kept).
+- Tests: the second `FD.ui.7d` is renumbered `FD.ui.7f`.
+
+### Migration
+- **From 0.9.0:** no code change needed. Check the behaviour changes above (lifecycle dialog; Lifecycle/SLA/Playbook
+  cards on DocTypes without a lifecycle; Frappe Workflow phases). To keep linking to Sayr Studio for now, pass
+  `lifecycleHref={defaultLifecycleHref}` (deprecated).
+- **From 0.7.0-dev.23 … dev.35 (the 0.7.x line):** you also get the 0.8.0 / 0.9.0 changes since 0.7.0-dev.22 (see 0.8.0
+  and 0.9.0 below), notably: `LifecycleBar` and `FrappeWorkflowActions variant="steps"` / `currentMarker` /
+  `showCurrentEntry` are gone (use `variant="rail"` — read-only unless `applyFromRail` — or `"actions"`); new default
+  form behaviour (shortcuts Ctrl/⌘+P/E, Shift+D; fields locked while saving; the "modified after you opened it"
+  banner). The 0.7.x `LifecycleGraph` component is now `LifecycleGraphView` and takes the model (`graph`).
+  `viewFirst` hosts that relied on dev.32's one Edit pass `editScope="record"`.
+- **Sayr server:** sear_product with b45f539 (record page: `initial_state`, `transitions`), 3fc2461 (type preview) and
+  61e1308 (`new_type_deployment`, `target_fields[].hidden`).
 
 ## 0.7.0-dev.23 … 0.7.0-dev.35 — the 0.7.x `main` line, folded into 0.10.0 (never published)
 
@@ -30,8 +103,10 @@ gone (`data-record-edit`, `data-record-cancel-edit`, messages `rpEdit` / `rpCanc
 header card shows the state (`LifecycleBar` / `FrappeWorkflowActions` `hideCurrent`).
 New `UnsavedChangesDialog` (`@solvfast/ui/frappe`): Save and leave / Discard / Keep editing, for a host's router guard.
 The read view is the CRM reference's: with `sectionEdit` each section is a card (icon tile, title, Edit / Cancel) and a
-section that reads shows its fields as rows (`ReadRow`: an icon tile by field type, the label small and upper-case, the
-value under it, "— Not provided" when empty), two to a line; help texts show only while editing.
+section that reads shows its fields as rows (an internal read row: an icon tile by field type, the label small and
+upper-case, the value under it, "— Not provided" when empty), two to a line; help texts show only while editing.
+*(0.10.0: the read row is internal, not exported; 0.10.0 keeps Desk's column order, uses a description list and no
+upper-case on Arabic labels.)*
 Tests RP.view.1–4, UC.1–2.
 
 ### 0.7.0-dev.34 — A record's view shows its blank fields; no lifecycle cards where no lifecycle is deployed
@@ -73,7 +148,8 @@ A field added in the designer and set hidden stays on the canvas. Test FD.sayr.9
 
 Fix. A new type is made with more than its shared fields (e.g. the SLA section its Configuration deploys), which its
 design could not show; a step added after the shared block was then anchored inside them and refused. Its Save now reads
-the made form first and places those fields after the shared block, before the form's own rows (`withMadeFields`).
+the made form first and places those fields after the shared block, before the form's own rows. *(0.10.0: hidden made
+fields stay out, as on load.)*
 FD.sayr.8 covers it.
 
 ### 0.7.0-dev.29 — A new type's form is designed on its creation page
@@ -137,7 +213,7 @@ Hosts that pass `FieldDesigner`'s `wizard` / show family records. jsdom tests on
 
 - `FieldDesigner` with wizard mode on: a step the author added moves to another place, with all its sections and
   fields: drag it onto another step, or select it and use Move earlier / Move later. The first step (the form's
-  standard fields) stays first. Core `moveTab(items, from, to)` in the layout helpers.
+  standard fields) stays first. *(0.10.0 note: the `moveTab` layout helper is internal — not exported from the package.)*
 - Turning wizard mode off when the author added steps asks first ("Turn off Wizard mode?"); Turn off merges their
   sections into one form in step order, Cancel keeps the steps.
 - The Wizard mode help reads "Split the form into ordered steps, shown one after another when a record is created."
