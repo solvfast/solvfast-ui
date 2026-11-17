@@ -751,8 +751,10 @@ badge tone comes from `lifecycleTone`.
   lifecycle when no transition leaves the state. `onViewAll`, `railLabels` pass through.
   `applyFromRail` restores the 0.8.0-dev.1–dev.4 rail whose ways forward are buttons applying this user's transitions.
 - `variant="compact"` (default; badge + menu; FrappeForm's toolbar) is unchanged.
-- `workflowLifecycle(workflow, translate)` maps a Workflow to a `LifecycleDefinition` (Frappe states carry no phase:
-  `"open"`; `allowed` → `roles`).
+- `workflowLifecycle(workflow, translate)` maps a Workflow to a `LifecycleDefinition` (`allowed` → `roles`). Phase from
+  Frappe's data: a state with `doc_status` 1 / 2, or with no transition out to another state, is `"closed"` (a closed
+  Danger state gets a red `color`, no style / Gray / Inverse a grey one, for `lifecycleTone`); every other state is
+  `"open"`. A Frappe Workflow marks nothing as on hold, so `"on_hold"` is never given.
 
 On Frappe data the path is the record's real history (it is known); on host data without a log, `lifecyclePath` (the
 shortest path) is the reference's display. Workflow semantics (field names, states, transitions, `apply_workflow`,

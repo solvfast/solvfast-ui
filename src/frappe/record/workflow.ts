@@ -156,13 +156,31 @@ export function lifecycleActions(transitions: WorkflowTransition[], translate: (
   return out;
 }
 
-/** The Workflow as a Core lifecycle definition (`LifecycleDefinition`, record/lifecycle.ts): its states (Frappe states
- *  carry no open / on hold / closed phase: "open") and every transition, `allowed` as its role. For the read-only rail's
+/** The phase Frappe's own data gives a Workflow state: "closed" when its `doc_status` is 1 (submitted) or 2 (cancelled),
+ *  or when no transition leaves it for another state (terminal, e.g. Rejected); "open" otherwise. A Frappe Workflow
+ *  carries nothing that marks a state as on hold (its style and name are not that), so "on_hold" is never given. */
+export function workflowStatePhase(wf: Pick<RecordWorkflow, "transitions">, state: Pick<WorkflowState, "state" | "doc_status">): LifecycleDefinition["states"][number]["phase"] {
+  const ds = String(state.doc_status ?? "0");
+  if (ds === "1" || ds === "2") return "closed";
+  return wf.transitions.some((t) => t.state === state.state && t.next_state !== state.state) ? "open" : "closed";
+}
+
+/** The Workflow as a Core lifecycle definition (`LifecycleDefinition`, record/lifecycle.ts): its states, each with the
+ *  phase `workflowStatePhase` reads from Frappe's data (submitted, cancelled or terminal → closed; else open), and every
+ *  transition, `allowed` as its role. A closed state with the Danger style gets a red `color` and one with no style, Gray
+ *  or Inverse a grey one, so `lifecycleTone` reads it as danger / neutral like the indicator. For the read-only rail's
  *  ways forward (`lifecycleNext`: every transition out of the state, whoever may run it) and any diagram model. */
 export function workflowLifecycle(wf: RecordWorkflow, translate: (s: string) => string = (s) => s): LifecycleDefinition {
   const seen = new Set<string>();
   const states: LifecycleDefinition["states"] = [];
-  for (const s of wf.states) if (!seen.has(s.state)) { seen.add(s.state); states.push({ id: s.state, label: translate(s.state), phase: "open" }); }
+  for (const s of wf.states) {
+    if (seen.has(s.state)) continue;
+    seen.add(s.state);
+    const phase = workflowStatePhase(wf, s);
+    const tone = toneForStyle(s.style);
+    const color = phase !== "closed" ? undefined : tone === "danger" ? "#dc2626" : tone === "neutral" ? "#6b7280" : undefined;
+    states.push({ id: s.state, label: translate(s.state), phase, ...(color ? { color } : {}) });
+  }
   return {
     states,
     transitions: wf.transitions.map((t, i) => ({ id: `${i}:${t.state}:${t.action}`, from: t.state, to: t.next_state, label: translate(t.action), roles: t.allowed ? [t.allowed] : undefined })),
