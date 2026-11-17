@@ -1,0 +1,5 @@
+{
+  "note": "Documented API removals in 0.10.0 relative to the published 0.9.0 (api/0.9.0.json). Format: \"<entry>:<Name>\" for an export, \"<entry>:<Name>.<prop>\" for a component prop. Empty = 0.10.0 removes nothing at the name/prop level; its breaking changes are behavioural (see CHANGELOG).",
+  "removed": [],
+  "removedProps": []
+}
