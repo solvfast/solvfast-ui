@@ -290,12 +290,16 @@ Every other prop is `FrappeForm`'s and goes to the form.
   own (`{ id, label, icon, render(doc) }`, rendered only while open); `pageTab` / `onPageTabChange` open one from the
   app (ServeFast's rail opens Activities › Notes on a note). Without `pageTabs` there is no page tab bar. Built on
   `FrappeFormView`'s `pageTabBar` / `pageTabPanel` slots; the form stays mounted behind another tab.
-- `viewFirst` (0.7.0-dev.35): every field reads (label and value, blank ones too) with no Save; each section has its
-  own **Edit**, which opens that section only, with its own **Cancel** (puts back what is saved in that section). While
-  a section is open the toolbar shows **Not Saved** and **Save**; Save saves every open section and closes them. Built
-  on `FrappeFormView` / `FrappeForm` `sectionEdit`. Default: editable as before.
-- The record's state shows once, by its title in the header card: the toolbar's state tag and the workflow bar's state
-  badge are left out (`FrappeForm` `stateInHeader`; the **Actions** button stays) (0.7.0-dev.35).
+- `viewFirst` (0.7.0-dev.35; 0.10.0): every field reads as section cards (label and value, blank ones too) with no Save.
+  `editScope` chooses how it is edited: `"section"` (default) — each section has its own **Edit**, which opens that
+  section only, with its own **Cancel** (puts back what is saved in that section); `"record"` — one **Edit** by the
+  record's name opens every editable section, and the toolbar has **Save** and one **Cancel**. Opening is not a change:
+  **Not Saved** and an enabled **Save** appear only after a value changes; Save saves every open section and closes them.
+  Built on `FrappeFormView` / `FrappeForm` `sectionEdit` / `editScope`. Default (no `viewFirst`): editable as before.
+- The record's state shows by its title in the header card when the record has a Sayr lifecycle (`stateInHeader`,
+  default; the toolbar's state tag and the workflow bar's state badge are then left out, the **Actions** button stays).
+  Without a Sayr lifecycle the toolbar's indicator or the Frappe Workflow badge shows it, as in 0.9.0. A host's
+  `stateInHeader` overrides the default (0.7.0-dev.35; 0.10.0).
 - `headerLine` / `headerActions` (0.7.0-dev.32): a key line under the title (e.g. job title · organization; a node, or
   `(doc) => node` made from the record) and the
   app's buttons at the end of the header card (`RecordHeaderCard` `subtitle` / `actions`).

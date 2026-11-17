@@ -196,7 +196,9 @@ export function SayrRecordPage({
 
   // The state shows once: by the title when the record has a Sayr lifecycle, else in the form's toolbar (a Frappe
   // Workflow's badge, the status indicator). The host decides when it says so.
-  const stateInHeader = form.stateInHeader ?? !!lc;
+  // The state shows by the title only when the record has a Sayr lifecycle. While record_page loads the answer is not known:
+  // keep the toolbar state hidden until then, so on a lifecycle record it never shows and then disappears (only appears).
+  const stateInHeader = form.stateInHeader ?? (page.pending ? true : !!lc);
 
   const header = ({ editAction }: FrappeFormHeaderContext) => (
     <RecordHeaderCard
