@@ -13,7 +13,7 @@ import { INSPECTED_PROPERTIES, ownKeys, type FieldTypeRegistry } from "../src/re
 import {
   appendTab, fromLayout, insertItem, insertSectionAfter, removeSection, removeTab, stepItem, toLayout,
 } from "../src/record/fieldLayout";
-import { createSayrFieldDesignerAdapter, sayrToken, type SayrApi } from "../src/sayr";
+import { createSayrFieldDesignerAdapter, sayrToken, type SayrApi, type SayrNewType } from "../src/sayr";
 import { withMadeFields } from "../src/sayr/fieldDesignerAdapter";
 
 beforeAll(() => {
@@ -536,7 +536,8 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
         target_fields: [...NEW.target_fields, { fieldname: "sear_sla_section", label: "SLA", fieldtype: "Section Break" },
           { fieldname: "source_message", label: "Source Message", fieldtype: "Link", hidden: 1 }] }),
     });
-    const adapter = createSayrFieldDesignerAdapter(api, { parent: "SRF Ticket", doctype: async () => "SRF Ticket Brand New" });
+    const target: SayrNewType = { parent: "SRF Ticket", doctype: async () => "SRF Ticket Brand New" }; // public type (D-9)
+    const adapter = createSayrFieldDesignerAdapter(api, target);
     const { items } = await adapter.load();
     await adapter.save([...items, { id: "@SET-1::iban", kind: "field" as const, label: "IBAN" }]);
     const inserted = JSON.parse(calls.find((c) => c.method === "frappe.client.insert")!.args.doc as string);
