@@ -26,6 +26,7 @@ export * from "./model";
 export { FrappeQuickEntry, useQuickEntryHost } from "./FrappeQuickEntry";
 export type { FrappeQuickEntryProps } from "./FrappeQuickEntry";
 export { useUnsavedChangesBlocker } from "./unsavedChanges";
+export { UnsavedChangesDialog, type UnsavedChangesDialogProps } from "./UnsavedChangesDialog";
 export type { UnsavedChangesBlocker, UnsavedChangesBlockerOptions } from "./unsavedChanges";
 export { defaultLinkHref } from "./services";
 // P36b attachimage — Desk's Attach / Attach Image controls (attach.js, attach_image.js) and the image_field menu (user_image.js)

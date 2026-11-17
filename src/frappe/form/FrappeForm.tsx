@@ -220,7 +220,7 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu
       toolbarExtra={(
         <>
           {wf.workflow && !doc.__islocal && session?.user && (
-            <FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} onApplied={(d) => setSaved(d)}
+            <FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} onApplied={(d) => setSaved(d)} hideCurrent={rest.stateInHeader}
               // P35 F2 (form/workflow.js:96-121): check_mandatory (mandatory_depends_on included — the server never
               // checks it) → before_workflow_action with frm.selectedWorkflowAction → apply → after_workflow_action
               beforeApply={async (action) => {

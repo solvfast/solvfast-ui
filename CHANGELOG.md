@@ -6,6 +6,18 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.35 — A record is edited section by section; the state shows once; an unsaved-changes dialog
+
+Visual. `FrappeFormView` / `FrappeForm` `sectionEdit`: a saved record reads until a section's own **Edit**, which opens
+that section only, with its own **Cancel** (that section's saved values back); an open section counts as not saved
+(Not Saved tag, Save); Save saves every open section and closes them; a field to fix opens its section.
+`SayrRecordPage viewFirst` now uses it: **BREAKING** (small) the one Edit beside `#name` and the toolbar's Cancel are
+gone (`data-record-edit`, `data-record-cancel-edit`, messages `rpEdit` / `rpCancelEdit`).
+`stateInHeader` (`SayrRecordPage` always): the toolbar's state tag and the workflow bar's state badge are left out, the
+header card shows the state (`LifecycleBar` / `FrappeWorkflowActions` `hideCurrent`).
+New `UnsavedChangesDialog` (`@solvfast/ui/frappe`): Save and leave / Discard / Keep editing, for a host's router guard.
+Tests RP.view.1–4, UC.1–2.
+
 ## 0.7.0-dev.34 — A record's view shows its blank fields; no lifecycle cards where no lifecycle is deployed
 
 Visual. `FrappeFormView viewOnly` (and `SayrRecordPage viewFirst`) keeps a blank field it could edit, read and empty,

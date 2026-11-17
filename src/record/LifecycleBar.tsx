@@ -26,6 +26,8 @@ export interface LifecycleBarProps {
   currentMarker?: string;
   /** Also show actor and time under the current state (default: past states only, like the CRM stepper). */
   showCurrentEntry?: boolean;
+  /** No badge of the current state: the page shows it elsewhere (a record page's header). */
+  hideCurrent?: boolean;
   /** Fixed "now" for relative times (tests). */
   now?: number;
   className?: string;
@@ -33,7 +35,7 @@ export interface LifecycleBarProps {
 
 /** The record's lifecycle: where it is (badge + steps) and what can be done next (actions). Vocabulary is entirely props. */
 export function LifecycleBar({
-  states, current, currentLabel, actions = [], onAction, variant = "steps", busy, actionsDisabled, actionsDisabledReason, actionLabels, currentMarker, showCurrentEntry, now, className,
+  states, current, currentLabel, actions = [], onAction, variant = "steps", busy, actionsDisabled, actionsDisabledReason, actionLabels, currentMarker, showCurrentEntry, hideCurrent, now, className,
 }: LifecycleBarProps) {
   const { t, isRTL } = useLocale();
   const idx = states.findIndex((s) => s.id === current);
@@ -45,7 +47,7 @@ export function LifecycleBar({
   return (
     <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <StatusBadge label={cur?.label ?? currentLabel ?? current ?? "—"} tone={cur?.tone ?? (cur?.step === "failed" ? "danger" : "neutral")} />
+        {hideCurrent ? null : <StatusBadge label={cur?.label ?? currentLabel ?? current ?? "—"} tone={cur?.tone ?? (cur?.step === "failed" ? "danger" : "neutral")} />}
         {onAction && actions.length > 0 ? (
           <ActionBar actions={actions} onAction={onAction} busy={busy} disabled={actionsDisabled} disabledReason={actionsDisabledReason} labels={actionLabels} />
         ) : null}

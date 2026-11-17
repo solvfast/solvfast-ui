@@ -37,7 +37,7 @@
  * come from A4's record layer (FrappeForm renders them; FrappeFormView takes `workflowActionsShown`).
  */
 import * as React from "react";
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { ChevronDown, ExternalLink, Pencil } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../primitives/dropdown-menu";
 import { cn } from "../../lib/cn";
 import { useLocale } from "../../theme/ThemeProvider";
@@ -129,6 +129,13 @@ export interface FrappeFormViewProps extends FormEventsConfig {
   /** Every field shown read-only and no Save / Update (nor Ctrl+S): a record page's view before Edit. Workflow actions,
    *  Submit / Cancel and the menu stay. */
   viewOnly?: boolean;
+  /** A saved record reads until a section's Edit, which opens that section only, with its own Cancel (putting back what
+   *  is saved there). An open section counts as not saved; Save saves them all and closes them. A new record is
+   *  edited whole. */
+  sectionEdit?: boolean;
+  /** The host shows the record's state (e.g. a record page's header): no state indicator in the toolbar. The Not saved,
+   *  Draft, Submitted and Cancelled tags stay. */
+  stateInHeader?: boolean;
   /** Workflow action buttons are shown by the app (they replace Save / Submit / Cancel while clean). */
   workflowActionsShown?: boolean;
   /** `can_cancel_document` for a workflow DocType. */
@@ -233,6 +240,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const [linked, setLinked] = React.useState<LinkedDoc[] | null>(null);
   const [linkedCancellable, setLinkedCancellable] = React.useState<boolean | undefined>(undefined);
   const [version, setVersion] = React.useState(0);
+  const [openSections, setOpenSections] = React.useState<ReadonlySet<string>>(() => new Set());
   const savingRef = React.useRef(false);
   const latestProps = React.useRef(props);
   latestProps.current = props;
@@ -262,8 +270,15 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   React.useEffect(() => {
     const cur = store.getDoc();
     if (docProp === cur) return;
-    if (docProp.name !== cur.name || (docProp.modified !== cur.modified && !store.isDirty())) { store.replace(docProp); setVersion((v) => v + 1); }
+    if (docProp.name !== cur.name || (docProp.modified !== cur.modified && !store.isDirty())) {
+      store.replace(docProp);
+      setVersion((v) => v + 1);
+      setOpenSections(new Set());
+    }
   }, [docProp, store]);
+  // What a section's Cancel puts back: the record as last loaded or saved.
+  const savedRef = React.useRef(docProp);
+  React.useEffect(() => { if (!store.isDirty()) savedRef.current = docProp; }, [docProp, store]);
   const unsaved = !!doc.__unsaved || !!props.alsoSave?.dirty;
   React.useEffect(() => { props.onDirtyChange?.(unsaved); }, [unsaved]); // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
@@ -431,10 +446,35 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     () => buildLayout(meta, { isNew: !!doc.__islocal, fieldFilter: hasFieldFilter ? (df) => fieldFilterRef.current?.(df) ?? true : undefined }),
     [meta, doc.__islocal, hasFieldFilter],
   );
-  const fieldStatus = (df: FrappeDocField) => {
+  const sectionEdit = !!props.sectionEdit && !doc.__islocal;
+  const sectionOf = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const tab of layout.tabs) for (const sec of tab.sections) for (const f of sectionFields(sec)) m.set(f.fieldname, sec.key);
+    return m;
+  }, [layout]);
+  const ownStatus = (df: FrappeDocField) => {
     const e = eff.get(df.fieldname) ?? df;
     if (df.fieldname === "__newname") return doc.__islocal && permissions ? "Write" : "None"; // no permissions: nothing to name (P2-1)
     return statusOf(e, doc);
+  };
+  const fieldStatus = (df: FrappeDocField): FieldDisplayStatus => {
+    const st = ownStatus(df);
+    return st === "Write" && sectionEdit && !openSections.has(sectionOf.get(df.fieldname) ?? "") ? "Read" : st;
+  };
+  const sectionEditable = (sec: LayoutSection) => sectionEdit && sectionFields(sec).some((f) => ownStatus(f) === "Write");
+  const openSection = (key: string) => {
+    setOpenSections((o) => new Set(o).add(key));
+    setCollapsed((c) => ({ ...c, [key]: false }));
+    // An open section is not saved yet: the Not saved tag and Save show, and leaving asks first.
+    store.markDirty();
+  };
+  const cancelSection = (sec: LayoutSection) => {
+    const rest = new Set(openSections);
+    rest.delete(sec.key);
+    setOpenSections(rest);
+    const saved = savedRef.current;
+    if (!rest.size) { store.replace(saved); setVersion((v) => v + 1); return; }
+    store.setValues(Object.fromEntries(sectionFields(sec).map((f) => [f.fieldname, saved[f.fieldname]])));
   };
   const breakHidden = (df?: FrappeDocField) => !!df && (!!eff.get(df.fieldname)?.hidden || !!eff.get(df.fieldname)?.hidden_due_to_dependency);
   const sectionVisible = (sec: LayoutSection) => !breakHidden(sec.df) && sectionFields(sec).some((f) => fieldStatus(f) !== "None");
@@ -471,6 +511,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     if (!at) return;
     setActiveTab(at.tab);
     setCollapsed((c) => ({ ...c, [at.section]: false }));
+    // A field to fix in a section that reads opens it.
+    if (latestProps.current.sectionEdit) setOpenSections((o) => (o.has(at.section) ? o : new Set(o).add(at.section)));
   };
 
   // ---- table controllers ----
@@ -566,7 +608,9 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       setFieldErrors({});
       const saved = action === "Save" && !store.isDirty() ? current : await onSave(current, action);
       store.replace(saved);
+      savedRef.current = saved;
       setVersion((v) => v + 1);
+      setOpenSections(new Set());
       if (also?.dirty) await also.save();
       flash(t(action === "Submit" ? "formSubmitted" : "formSaved"));
       await trigger("after_save");
@@ -686,6 +730,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       if (active && active !== document.body) active.blur?.();
       const a = actionsFor(store.getDoc());
       if (!a.primary || a.primaryDisabled || a.primary === "Cancel" || (viewOnly && (a.primary === "Save" || a.primary === "Update"))) return;
+      if (sectionEdit && a.primary === "Save" && !store.isDirty()) return;
       if (a.primary === "Amend" && !props.onAmend && !canAmend(meta)) return;
       runPrimary(a.primary);
       return;
@@ -771,6 +816,17 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     const collapsible = !!sec.df?.collapsible;
     const isCollapsed = collapsible && !!collapsed[sec.key];
     const regionId = `sf-sec-${sec.key}`;
+    const isOpen = openSections.has(sec.key);
+    const tools = sectionEditable(sec) ? (isOpen ? (
+      <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => cancelSection(sec)} data-section-cancel={sec.key}>
+        {t("formSectionCancel")}
+      </Button>
+    ) : (
+      <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openSection(sec.key)} data-section-edit={sec.key}
+        aria-label={label ? `${t("formSectionEdit")} · ${label}` : t("formSectionEdit")}>
+        <Pencil className="h-3.5 w-3.5" aria-hidden />{t("formSectionEdit")}
+      </Button>
+    )) : null;
     const body = (
       // columns side by side from `sm` up, stacked on a phone (Desk's `.form-column.col-sm-*`)
       <div id={regionId} className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-[repeat(var(--sf-cols),minmax(0,1fr))]" style={{ "--sf-cols": Math.max(1, sec.columns.length) } as React.CSSProperties}>
@@ -778,14 +834,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       </div>
     );
     return (
-      <section key={sec.key} className="space-y-3" data-section={sec.key} aria-label={label}>
-        {label && (collapsible ? (
+      <section key={sec.key} className="space-y-3" data-section={sec.key} data-section-open={isOpen ? 1 : undefined} aria-label={label}>
+        {(label || tools) && <div className="flex min-h-7 items-center justify-between gap-2">{label && (collapsible ? (
           <button type="button" className="group flex w-full items-center gap-2 rounded-md text-start text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={!isCollapsed} aria-controls={regionId}
             onClick={() => setCollapsed((c) => ({ ...c, [sec.key]: !isCollapsed }))}>
             <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground", isCollapsed && (isRTL ? "rotate-90" : "-rotate-90"))} aria-hidden />
             {label}
           </button>
-        ) : <h3 className="text-sm font-semibold">{label}</h3>)}
+        ) : <h3 className="text-sm font-semibold">{label}</h3>)}{tools && <span className="ms-auto shrink-0">{tools}</span>}</div>}
         {sec.df?.description && !isCollapsed && <p className="text-xs text-muted-foreground">{s.translate(bundle, String(sec.df.description))}</p>}
         {!isCollapsed && body}
       </section>
@@ -827,7 +883,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
             )}
           </div>
           </>}
-          {indicator && <Badge variant={indicator.variant}>{indicator.text}</Badge>}
+          {indicator && !(props.stateInHeader && !ind?.builtin) && <Badge variant={indicator.variant} data-form-indicator>{indicator.text}</Badge>}
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
           {!notice && permissionsUnknown && <span role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</span>}
           {props.toolbarExtra}
@@ -849,7 +905,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           {actions.secondary && onCancelDoc && (
             <Button type="button" variant="outline" disabled={!!saving} loading={saving === "Cancel"} onClick={() => void startCancel()}>{actionLabel("Cancel")}</Button>
           )}
-          {actions.primary && !(viewOnly && (actions.primary === "Save" || actions.primary === "Update")) && (
+          {actions.primary && !(viewOnly && (actions.primary === "Save" || actions.primary === "Update")) && !(sectionEdit && actions.primary === "Save" && !unsaved) && (
             <Button type="button" disabled={!!saving || actions.primaryDisabled || (actions.primary === "Amend" && !props.onAmend && !canAmend(meta))}
               title={actions.primaryDisabled ? t("formAlreadyAmended") : undefined} loading={saving === actions.primary}
               onClick={() => runPrimary(actions.primary!)}>

@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import {
-  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, History, ListChecks, Paperclip, Pencil, ShieldCheck,
+  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, History, ListChecks, Paperclip, ShieldCheck,
   StickyNote, Timer, User, UsersRound,
 } from "lucide-react";
 import { cn } from "../lib/cn";
@@ -64,8 +64,9 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   oneForm?: boolean;
   /** The app's own cards (e.g. the record's CRM contact and organization), after Playbook. */
   extraCards?: readonly RecordRailExtraCard[];
-  /** The fields open read-only; Edit (next to the record's code) makes them editable with Cancel and Save, and a Save
-   *  or Cancel goes back to the view. Default: always editable (where the user may write). */
+  /** The fields open read-only; each section's Edit opens that section only, with its own Cancel, and the header's
+   *  Save saves every open section and closes them (FrappeForm `sectionEdit`). Default: always editable (where the user
+   *  may write). */
   viewFirst?: boolean;
   /** A key line in the header card, under the title (e.g. job title · organization), or made from the record. */
   headerLine?: React.ReactNode | ((doc: FrappeDoc) => React.ReactNode);
@@ -125,10 +126,6 @@ export function SayrRecordPage({
   const canWrite = !!doc && permissions.can("write");
   const [dirty, setDirty] = React.useState(false);
   const [formKey, setFormKey] = React.useState(0);
-  const [editing, setEditing] = React.useState(false);
-  const viewing = !!viewFirst && !editing;
-  // Cancel drops what was typed: the form starts again from the saved record.
-  const stopEditing = () => { setEditing(false); setFormKey((k) => k + 1); };
   const [ownTab, setOwnTab] = React.useState("about");
   const openTab = pageTab ?? ownTab;
   const showTab = (id: string) => {
@@ -196,11 +193,6 @@ export function SayrRecordPage({
       chips={typeLabel ? <Badge variant="brand">{typeLabel}</Badge> : undefined}
       subtitle={typeof headerLine === "function" ? (doc ? headerLine(doc) : undefined) : headerLine}
       actions={headerActions}
-      nameAction={viewing && canWrite ? (
-        <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => setEditing(true)} data-record-edit>
-          <Pencil className="h-3.5 w-3.5" aria-hidden />{t("rpEdit")}
-        </Button>
-      ) : undefined}
     >
       {data ? null : <Skeleton className="h-4 w-48" />}
     </RecordHeaderCard>
@@ -308,13 +300,9 @@ export function SayrRecordPage({
           header={header}
           toolbarStart={back}
           tabBar="record"
-          viewOnly={viewing || form.viewOnly}
-          toolbarExtra={viewFirst && editing ? (
-            <>
-              {form.toolbarExtra}
-              <Button type="button" variant="outline" onClick={stopEditing} data-record-cancel-edit>{t("rpCancelEdit")}</Button>
-            </>
-          ) : form.toolbarExtra}
+          sectionEdit={!!viewFirst}
+          // The header card shows the state, by the record's title.
+          stateInHeader
           pageTabBar={pageTabs?.length ? (
             <Tabs value={openTab} onValueChange={showTab}>
               <TabsList className="flex w-full max-w-full overflow-x-auto" aria-label={t("rpPageTabs")} data-page-tabs>
@@ -331,7 +319,7 @@ export function SayrRecordPage({
           ) : (pageTabs.find((tab) => tab.id === openTab)?.render(doc) ?? null)}
           fieldFilter={oneForm ? noTabBreaks : form.fieldFilter}
           onDirtyChange={(d) => { setDirty(d); onDirtyChange?.(d); }}
-          onSaved={(saved, action) => { void refresh(); setEditing(false); onSaved?.(saved, action); }}
+          onSaved={(saved, action) => { void refresh(); onSaved?.(saved, action); }}
         />
       </div>
       <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start" aria-label={t("rpVisibleSections")}>

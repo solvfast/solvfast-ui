@@ -285,12 +285,15 @@ Every other prop is `FrappeForm`'s and goes to the form.
   own (`{ id, label, icon, render(doc) }`, rendered only while open); `pageTab` / `onPageTabChange` open one from the
   app (ServeFast's rail opens Activities › Notes on a note). Without `pageTabs` there is no page tab bar. Built on
   `FrappeFormView`'s `pageTabBar` / `pageTabPanel` slots; the form stays mounted behind another tab.
-- `viewFirst` (0.7.0-dev.32): the fields open read-only (blank ones hidden) with no Save; **Edit** beside `#name`
-  makes them editable with **Cancel** (drops what was typed) and **Save**; either goes back to the view. Built on
-  `FrappeFormView` / `FrappeForm` `viewOnly`. Default: editable as before.
+- `viewFirst` (0.7.0-dev.35): every field reads (label and value, blank ones too) with no Save; each section has its
+  own **Edit**, which opens that section only, with its own **Cancel** (puts back what is saved in that section). While
+  a section is open the toolbar shows **Not Saved** and **Save**; Save saves every open section and closes them. Built
+  on `FrappeFormView` / `FrappeForm` `sectionEdit`. Default: editable as before.
+- The record's state shows once, by its title in the header card: the toolbar's state tag and the workflow bar's state
+  badge are left out (`FrappeForm` `stateInHeader`; the **Actions** button stays) (0.7.0-dev.35).
 - `headerLine` / `headerActions` (0.7.0-dev.32): a key line under the title (e.g. job title · organization; a node, or
   `(doc) => node` made from the record) and the
-  app's buttons at the end of the header card (`RecordHeaderCard` `subtitle` / `actions`; `nameAction` holds Edit).
+  app's buttons at the end of the header card (`RecordHeaderCard` `subtitle` / `actions`).
 - **Data**: one call to Sayr's `sear_product.apis.tickets.tickets.record_page` (header, lifecycle, SLA, the assign
   comment, ToDos); assignment, comments and attachments read Frappe's docinfo.
 

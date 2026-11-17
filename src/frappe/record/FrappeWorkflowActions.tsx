@@ -9,7 +9,7 @@ import { stateEntries } from "./stateHistory";
 import { useWorkflow } from "./useWorkflow";
 import { lifecycleActions, lifecycleStates } from "./workflow";
 
-export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "variant" | "currentMarker" | "actionLabels" | "className" | "showCurrentEntry"> {
+export interface FrappeWorkflowActionsProps extends Pick<LifecycleBarProps, "variant" | "currentMarker" | "actionLabels" | "className" | "showCurrentEntry" | "hideCurrent"> {
   doc: FrappeDoc;
   user: string;
   roles?: string[];

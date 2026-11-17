@@ -30,11 +30,13 @@ const BUG: DocTypeMeta = {
   fields: [
     { fieldname: "title", fieldtype: "Data", label: "Title" },
     { fieldname: "workflow_state", fieldtype: "Data", label: "State", hidden: 1 },
+    { fieldname: "details_section", fieldtype: "Section Break", label: "Details" },
+    { fieldname: "summary", fieldtype: "Data", label: "Summary" },
     { fieldname: "change_tab", fieldtype: "Tab Break", label: "Booking Change Request" },
     { fieldname: "booking", fieldtype: "Data", label: "Booking Reference" },
   ],
 };
-const doc = { doctype: "Ticket Bug", name: "TKT-00008", owner: "omar@x.test", creation: T, modified: T, modified_by: "Administrator", docstatus: 0, title: "Login does nothing", workflow_state: "New" } as FrappeDoc;
+const doc = { doctype: "Ticket Bug", name: "TKT-00008", owner: "omar@x.test", creation: T, modified: T, modified_by: "Administrator", docstatus: 0, title: "Login does nothing", summary: "Fails on Chrome", workflow_state: "New" } as FrappeDoc;
 
 const LIFECYCLE: NonNullable<RecordPageData["lifecycle"]> = {
   lifecycle: "SEAR-LC-00001", title: "Support", status: "tst_new", phase: "open", status_label_en: "New", status_label_ar: "جديد", playbook: null,
@@ -132,39 +134,61 @@ describe("RP.header — the header card and the type's tabs", () => {
   });
 });
 
-describe("RP.view — view first, then Edit; the header's key line and buttons", () => {
-  it("RP.view.1 viewFirst: the fields read, no Save; Edit beside the code; the key line and the app's buttons in the header", async () => {
+describe("RP.view — read first, each section's own Edit; the header's key line and buttons", () => {
+  it("RP.view.1 viewFirst: every field reads, no Save; each section has its Edit; the key line and the app's buttons in the header", async () => {
     const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, headerLine: (d) => `Head of Sales · ${String(d.title)}`, headerActions: <button type="button">Meeting</button> });
-    await waitFor(() => expect(container.querySelector("[data-record-edit]")).toBeTruthy());
+    await waitFor(() => expect(container.querySelectorAll("[data-section-edit]").length).toBe(2));
     const header = container.querySelector("[data-record-header]") as HTMLElement;
     await waitFor(() => expect(within(header).getByText("Head of Sales · Login does nothing")).toBeTruthy());
     expect(within(header).getByRole("button", { name: "Meeting" })).toBeTruthy();
     expect(screen.queryByDisplayValue("Login does nothing")).toBeNull();
+    expect(screen.queryByDisplayValue("Fails on Chrome")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-    expect(container.querySelector("[data-record-cancel-edit]")).toBeNull();
+    expect(container.querySelector("[data-section-cancel]")).toBeNull();
   });
 
-  it("RP.view.2 Edit opens the fields with Cancel and Save; Cancel drops the change and goes back to the view", async () => {
+  it("RP.view.2 a section's Edit opens it alone, with Not saved and Save; its Cancel puts back what is saved there only", async () => {
     const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true });
-    fireEvent.click(await waitFor(() => {
-      const edit = container.querySelector("[data-record-edit]");
-      if (!edit) throw new Error("no Edit yet");
-      return edit as HTMLElement;
-    }));
+    const edits = await waitFor(() => {
+      const found = container.querySelectorAll("[data-section-edit]");
+      if (found.length !== 2) throw new Error("no Edit yet");
+      return [...found] as HTMLElement[];
+    });
+    fireEvent.click(edits[0]);
     const title = await waitFor(() => screen.getByDisplayValue("Login does nothing") as HTMLInputElement);
+    expect(screen.queryByDisplayValue("Fails on Chrome")).toBeNull();
     expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
-    expect(container.querySelector("[data-record-edit]")).toBeNull();
+    expect(screen.getByText("Not Saved")).toBeTruthy();
     fireEvent.change(title, { target: { value: "Changed, then cancelled" } });
-    fireEvent.click(container.querySelector("[data-record-cancel-edit]") as HTMLElement);
-    await waitFor(() => expect(container.querySelector("[data-record-edit]")).toBeTruthy());
-    expect(screen.queryByDisplayValue("Changed, then cancelled")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    fireEvent.click(container.querySelector("[data-section-edit]") as HTMLElement);
+    const summary = await waitFor(() => screen.getByDisplayValue("Fails on Chrome") as HTMLInputElement);
+    fireEvent.change(summary, { target: { value: "Kept until saved" } });
+    fireEvent.click(container.querySelectorAll("[data-section-cancel]")[0] as HTMLElement);
+    await waitFor(() => expect(screen.queryByDisplayValue("Changed, then cancelled")).toBeNull());
+    expect(within(container.querySelectorAll("[data-section]")[0] as HTMLElement).getByText("Login does nothing")).toBeTruthy();
+    expect(screen.getByDisplayValue("Kept until saved")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+    fireEvent.click(container.querySelector("[data-section-cancel]") as HTMLElement);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Save" })).toBeNull());
+    expect(screen.getByText("Fails on Chrome")).toBeTruthy();
+    expect(screen.queryByText("Not Saved")).toBeNull();
   });
 
   it("RP.view.3 without viewFirst the page stays editable as before", async () => {
     const { container } = mount(PAGE());
     await waitFor(() => expect(screen.getByDisplayValue("Login does nothing")).toBeTruthy());
-    expect(container.querySelector("[data-record-edit]")).toBeNull();
+    expect(container.querySelector("[data-section-edit]")).toBeNull();
+  });
+
+  it("RP.view.4 the state shows once, by the title: no state tag in the toolbar", async () => {
+    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true });
+    const header = await waitFor(() => {
+      const found = container.querySelector("[data-record-header]");
+      if (!found) throw new Error("no header yet");
+      return found as HTMLElement;
+    });
+    await waitFor(() => expect(within(header).getByText("New")).toBeTruthy());
+    expect(container.querySelector("[data-form-indicator]")).toBeNull();
   });
 });
 
