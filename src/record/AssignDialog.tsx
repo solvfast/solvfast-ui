@@ -184,7 +184,7 @@ export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, si
           <DialogDescription>{count !== undefined ? L.forCount.replace("{n}", String(count)) : null}{single ? <>{count !== undefined ? " · " : ""}{L.singleHint}</> : null}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 text-sm">
+        <div className="min-w-0 space-y-3 text-sm" data-assign-body="">
           {me ? (
             // Desk's "Assign to me" (assign_to.js:132-141, 170-177): adds (or, with one assignee, sets) the session user
             <div className="flex items-center gap-2">
@@ -198,8 +198,8 @@ export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, si
             {picked.length ? (
               <div className="flex flex-wrap gap-1.5" aria-label={L.users}>
                 {picked.map((u) => (
-                  <span key={u.id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 py-0.5 pe-1 ps-1 text-xs">
-                    <UserAvatar name={u.label} image={u.image} className="h-5 w-5" />{u.label}
+                  <span key={u.id} className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/40 py-0.5 pe-1 ps-1 text-xs">
+                    <UserAvatar name={u.label} image={u.image} className="h-5 w-5 shrink-0" /><span className="min-w-0 truncate [unicode-bidi:plaintext]">{u.label}</span>
                     <button type="button" className="rounded-full p-0.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label={L.remove.replace("{0}", u.label)} onClick={() => toggle(u)}><X className="h-3 w-3" aria-hidden /></button>
                   </span>
@@ -218,8 +218,10 @@ export function AssignDialog({ open, onOpenChange, searchUsers, onAssign, me, si
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(u); } }}
                     className={cn("flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm outline-none hover:bg-accent focus-visible:bg-accent", sel && "bg-accent/60")}>
                     <UserAvatar name={u.label} image={u.image} />
-                    <span className="flex-1 truncate">{u.label}</span>
-                    {u.description ? <span className="truncate text-xs text-muted-foreground">{u.description}</span> : null}
+                    {/* min-w-0: a long name or e-mail truncates instead of widening the dialog past its edge; plaintext: a Latin
+                        e-mail on an Arabic page is cut at its end. */}
+                    <span className="min-w-0 flex-1 truncate [unicode-bidi:plaintext] rtl:text-right" data-assign-option-label="">{u.label}</span>
+                    {u.description ? <span className="min-w-0 max-w-[45%] truncate text-xs text-muted-foreground">{u.description}</span> : null}
                     {sel ? <Check className="h-4 w-4 shrink-0" aria-hidden /> : null}
                   </div>
                 );

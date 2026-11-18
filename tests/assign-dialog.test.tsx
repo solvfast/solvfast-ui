@@ -9,6 +9,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { defaultMessages } from "../src/theme/messages";
 import { AssignPicker } from "../src/record/AssigneeGroup";
+import { AssignDialog } from "../src/record/AssignDialog";
 import type { AssignDetails, UserOption } from "../src/record/types";
 
 beforeAll(() => {
@@ -97,5 +98,33 @@ describe("Assign To dialog (SIMULATED)", () => {
     expect(within(panel).getByText(m.recAssignDueHint)).toBeTruthy();
     expect(within(panel).getByRole("combobox", { name: m.recAssignPriority }).textContent).toContain(m.recAssignPriorityDefault);
     expect(panel.closest("[dir]")?.getAttribute("dir") ?? document.documentElement.dir).toBe("rtl");
+  });
+});
+
+describe("Assign To dialog — a long user name or e-mail never widens it (Sada, 0.10.0)", () => {
+  // jsdom has no layout: the classes that let the row shrink (and the dialog body) are asserted; the effect was measured in
+  // a real browser on Sada's live build (49 px / 171 px past the dialog edge before, 0 px after, en/ar, 1440/390).
+  const LONG: UserOption[] = [
+    { id: "acme-sana-voice-agent@ai-agents.internal.solvfaster.com", label: "acme-sana-voice-agent@ai-agents.internal.solvfaster.com", description: "Sana Voice Agent" },
+    { id: "ann@x.com", label: "Ann Xu" },
+  ];
+  it("rows, labels, picked chips and the dialog body can shrink; Latin e-mails keep their own direction", async () => {
+    render(
+      <ThemeProvider defaultTheme="light" defaultLanguage="ar" storageKeys={null}>
+        <AssignDialog open onOpenChange={() => {}} details me={{ id: "me@x.com", label: "Me" }} searchUsers={async () => LONG} onAssign={async () => {}} />
+      </ThemeProvider>,
+    );
+    const opt = await screen.findByRole("option", { name: /acme-sana-voice-agent/ });
+    const dialog = screen.getByTestId("sf-assign-dialog");
+    expect(dialog.querySelector("[data-assign-body]")?.className).toContain("min-w-0");
+    const label = opt.querySelector("[data-assign-option-label]") as HTMLElement;
+    expect(label.className).toMatch(/\bmin-w-0\b/); expect(label.className).toMatch(/\btruncate\b/);
+    expect(label.className).toContain("[unicode-bidi:plaintext]");
+    const desc = within(opt).getByText("Sana Voice Agent");
+    expect(desc.className).toMatch(/\bmin-w-0\b/); expect(desc.className).toMatch(/\btruncate\b/);
+    fireEvent.click(opt);
+    const chipLabel = within(dialog).getAllByText("acme-sana-voice-agent@ai-agents.internal.solvfaster.com").find((e) => e !== label) as HTMLElement;
+    expect(chipLabel.className).toMatch(/\btruncate\b/);
+    expect(chipLabel.parentElement?.className).toContain("max-w-full");
   });
 });

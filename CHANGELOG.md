@@ -69,6 +69,9 @@ or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest su
   (0.7.0-dev.35 showed it nowhere); while the record page loads, the toolbar state never flashes on a lifecycle record.
 - Read view: Desk's column order kept, description-list semantics, theme-token icon tiles, no capitals or letter-spacing
   on Arabic labels.
+- `AssignDialog` ("Add to ToDo"): a long user name or e-mail no longer widens the dialog past its edge (the row label,
+  its description, the picked chips and the dialog body shrink and truncate; was 49 px over at 1440 and 171 px at 390 on
+  Sada); a Latin e-mail on an Arabic page is cut at its end.
 - Section cards: an unlabelled section after the first is titled from its own visible fields ("Lifecycle · Status Since";
   translated), so two cards never both read "Details" (the first unlabelled section stays "Details"); a section's Edit
   button is named with its title.
