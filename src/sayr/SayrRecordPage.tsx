@@ -26,6 +26,7 @@ import { LifecycleGraphDialog } from "./LifecycleGraphDialog";
 import { openLifecycleHref, warnLifecycleHrefDeprecated } from "./lifecycleModel";
 import { fmt, initials } from "../record/format";
 import { RecordHeaderCard } from "../record/RecordHeaderCard";
+import type { RecordPageSurface } from "../record/RecordPage";
 import { htmlToText } from "../record/sanitize";
 import { useLocale } from "../theme/ThemeProvider";
 import type { FrappeDoc } from "../frappe/contract";
@@ -79,6 +80,11 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
    *  record's name (`data-record-edit`) opens every editable section, the toolbar has Save and one Cancel
    *  (`data-record-cancel-edit`) that puts back the saved copy, and Save goes back to reading. */
   editScope?: "section" | "record";
+  /** 0.10.0, opt-in: `"glass"` gives the page the record page's glass surfaces (`sf-record-page`, as `RecordPage`) and
+   *  makes the header card and the section cards the same pane as the rail cards — light: a white card with the rim and
+   *  cast shadow; dark: the airy glass pane over the aurora (`sf-sayr-record-glass`, glass.css). Default `"plain"`: the
+   *  page looks exactly as before (no class, no rule applies). Needs glass.css. */
+  surface?: RecordPageSurface;
   /** The record's state shows in the header card, by the title, and not in the form's toolbar (no state indicator, no
    *  workflow state badge). Default: true when the record has a Sayr lifecycle (the page's `record_page` data), else
    *  false — a Frappe Workflow's or a `status` field's state then shows in the toolbar, as in 0.9.0. */
@@ -127,7 +133,7 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 
 export function SayrRecordPage({
   doctype, name, onBack, backLabel, typeLabel, lifecycleHref, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
-  onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, ...form
+  onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, surface = "plain", ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
   const api = useFrappeApi();
@@ -333,7 +339,8 @@ export function SayrRecordPage({
   };
 
   return (
-    <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-4" data-sayr-record-page>
+    <div className={cn("grid grid-cols-1 items-start gap-5 lg:grid-cols-4", surface === "glass" && "sf-record-page sf-sayr-record-glass")}
+      data-sayr-record-page data-surface={surface === "glass" ? "glass" : undefined}>
       <div className="min-w-0 lg:col-span-3">
         <FrappeFormServices value={formServices}>
         <FrappeForm

@@ -296,6 +296,11 @@ Every other prop is `FrappeForm`'s and goes to the form.
   record's name opens every editable section, and the toolbar has **Save** and one **Cancel**. Opening is not a change:
   **Not Saved** and an enabled **Save** appear only after a value changes; Save saves every open section and closes them.
   Built on `FrappeFormView` / `FrappeForm` `sectionEdit` / `editScope`. Default (no `viewFirst`): editable as before.
+- `surface` (0.10.0, opt-in): `"plain"` (default) — the page looks exactly as before; `"glass"` — the record page's glass
+  surfaces (`sf-record-page`, as `RecordPage`) and the header card and section cards as the rail cards' pane
+  (`sf-sayr-record-glass`): light — white cards with the rim and cast shadow, the page background and fields unchanged;
+  dark — the airy glass pane over the aurora, the header keeping its brand tint. Reduced transparency / more contrast:
+  solid card with its border. Needs `@solvfast/ui/glass.css`. Type: `RecordPageSurface`. Root: `data-surface="glass"`.
 - The record's state shows by its title in the header card when the record has a Sayr lifecycle (`stateInHeader`,
   default; the toolbar's state tag and the workflow bar's state badge are then left out, the **Actions** button stays).
   Without a Sayr lifecycle the toolbar's indicator or the Frappe Workflow badge shows it, as in 0.9.0. A host's

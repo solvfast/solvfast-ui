@@ -523,6 +523,41 @@ describe("RP.sayrLabels — the fields Sayr adds to a lifecycle DocType, on a si
   });
 });
 
+describe("RP.surface — opt-in glass surfaces (0.10.0)", () => {
+  const BEFORE = "grid grid-cols-1 items-start gap-5 lg:grid-cols-4"; // the root's classes up to 0.10.0-rc.5
+  it("RP.surface.1 default (no surface): the page root is exactly as before — no glass class, no data-surface", async () => {
+    const { container } = mount(PAGE());
+    const root = await waitFor(() => { const r = container.querySelector("[data-sayr-record-page]") as HTMLElement; expect(r).toBeTruthy(); return r; });
+    expect(root.className).toBe(BEFORE);
+    expect(root.hasAttribute("data-surface")).toBe(false);
+    expect(container.querySelector(".sf-record-page, .sf-sayr-record-glass")).toBeNull();
+  });
+  it("RP.surface.2 surface=\"plain\" is the default; surface=\"glass\" adds the record page's glass surfaces", async () => {
+    const plain = mount(PAGE(), "en", [], undefined, { surface: "plain" });
+    await waitFor(() => expect(plain.container.querySelector("[data-sayr-record-page]")?.className).toBe(BEFORE));
+    cleanup();
+    const glass = mount(PAGE(), "en", [], undefined, { surface: "glass", viewFirst: true });
+    const root = await waitFor(() => { const r = glass.container.querySelector("[data-sayr-record-page]") as HTMLElement; expect(r).toBeTruthy(); return r; });
+    expect(root.classList.contains("sf-record-page")).toBe(true);
+    expect(root.classList.contains("sf-sayr-record-glass")).toBe(true);
+    expect(root.getAttribute("data-surface")).toBe("glass");
+    // the cards the rules address are inside the scope: the header card and the section cards
+    await waitFor(() => expect(root.querySelector("section[data-section]")).toBeTruthy());
+    expect(root.querySelector("[data-record-header]")).toBeTruthy();
+  });
+  it("RP.surface.3 glass.css: every Sayr glass rule is scoped to sf-sayr-record-glass (nothing for a page that does not opt in)", async () => {
+    const fs = await import("node:fs"); const path = await import("node:path"); const postcss = (await import("postcss")).default;
+    const read = (f: string) => postcss.parse(fs.readFileSync(path.join(__dirname, "..", "styles", f), "utf8"));
+    const own: string[] = [];
+    read("src/sf-sayr-record-page.css").walkRules((r) => { own.push(...r.selectors); });
+    expect(own.length).toBeGreaterThanOrEqual(7);                       // 2+1+2 top-level + 2 under @media
+    for (const sel of own) expect(sel, sel).toContain(".sf-sayr-record-glass");
+    const shipped: string[] = [];
+    read("glass.css").walkRules((r) => { if (r.selector.includes("sf-sayr-record-glass")) shipped.push(...r.selectors); });
+    expect(shipped.sort()).toEqual([...own].sort());                    // shipped in glass.css as authored, nothing else
+  });
+});
+
 describe("RP.assign — AssignDialog threePriorities", () => {
   it("RP.assign.1 offers only Low / Medium / High, Medium first, and keeps the given comment", async () => {
     render(
