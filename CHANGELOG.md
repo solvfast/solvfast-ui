@@ -6,7 +6,7 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-## 0.10.0 — one line again: the 0.9.0 release and the 0.7.x line, consolidated (unreleased)
+## 0.10.0 — one line again: the 0.9.0 release and the 0.7.x line, consolidated (2026-11-18)
 
 The published **0.9.0** with the 0.7.x `main` line (**0.7.0-dev.23 … dev.36**, never published) merged into it (a true
 merge: both histories are kept), then the conflicts and duplicates resolved. Every export and component prop of 0.9.0
