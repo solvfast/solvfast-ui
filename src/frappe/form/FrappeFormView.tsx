@@ -923,6 +923,16 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     return out;
   };
 
+  // A section card needs a title. A labelled section uses its label; the FIRST unlabelled one in the tab is "Details" (the
+  // form's top); any LATER unlabelled one is named after its own visible fields (up to two, "A · B …"), so two cards never
+  // both read "Details" (e.g. a family's own block after the form's first section). Nothing is hidden or renamed in meta.
+  const untitledSectionTitle = (sec: LayoutSection) => {
+    const untitled = (currentTab?.sections ?? []).filter((x) => sectionVisible(x) && !x.df?.label);
+    if (untitled[0]?.key === sec.key) return t("formDetails");
+    const names = sectionFields(sec).filter((f) => fieldStatus(f) !== "None").map((f) => s.translate(bundle, f.label || f.fieldname));
+    if (!names.length) return t("formDetails");
+    return names.slice(0, 2).join(" · ") + (names.length > 2 ? " …" : "");
+  };
   const renderSection = (sec: LayoutSection) => {
     if (!sectionVisible(sec)) return null;
     const label = sec.df?.label ? s.translate(bundle, sec.df.label) : undefined;
@@ -936,7 +946,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
       </Button>
     ) : (
       <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openSection(sec.key)} data-section-edit={sec.key}
-        aria-label={label ? `${t("formSectionEdit")} · ${label}` : t("formSectionEdit")}>
+        aria-label={`${t("formSectionEdit")} · ${label ?? untitledSectionTitle(sec)}`}>
         <Pencil className="h-3.5 w-3.5" aria-hidden />{t("formSectionEdit")}
       </Button>
     )) : null;
@@ -958,7 +968,7 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     );
     if (sectionEdit) {
       // A record page's section: a card with its title and Edit / Cancel (the CRM reference's editable card).
-      const title = label ?? t("formDetails");
+      const title = label ?? untitledSectionTitle(sec);
       return (
         <section key={sec.key} className="overflow-hidden rounded-xl border border-border bg-card/60" data-section={sec.key} data-section-open={isOpen ? 1 : undefined} aria-label={title}>
           <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">

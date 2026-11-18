@@ -59,6 +59,51 @@ const saveButton = () => screen.queryByRole("button", { name: "Save" }) as HTMLB
 const box = (name: string) => screen.queryByRole("textbox", { name }) as HTMLInputElement | null;
 const section = (label: string) => document.querySelector(`[data-section][aria-label="${label}"]`) as HTMLElement;
 
+describe("RE.title — an unlabelled section's card title", () => {
+  // Like a Sayr family record: the form's first section (no Section Break), a labelled one, then the family's own block
+  // after an unlabelled Section Break.
+  const META2: DocTypeMeta = {
+    name: "Memo", autoname: "hash", title_field: "title", permissions: [],
+    fields: [
+      { fieldname: "title", fieldtype: "Data", label: "Title" },
+      { fieldname: "content_section", fieldtype: "Section Break", label: "Content" },
+      { fieldname: "body", fieldtype: "Small Text", label: "Body" },
+      { fieldname: "own_block", fieldtype: "Section Break" },
+      { fieldname: "flow", fieldtype: "Data", label: "Lifecycle", read_only: 1 },
+      { fieldname: "since", fieldtype: "Data", label: "Status Since", read_only: 1 },
+      { fieldname: "hidden_one", fieldtype: "Data", label: "Hidden", hidden: 1 },
+    ],
+  };
+  const D2: FrappeDoc = { doctype: "Memo", name: "M2", docstatus: 0, modified: "2026-11-01 10:00:00", title: "T", body: "B", flow: "LC-1", since: "2026-11-01" };
+  const titles = () => Array.from(document.querySelectorAll("section[data-section]")).map((x) => x.getAttribute("aria-label"));
+  const mount = (lang: "en" | "ar", translations: Record<string, string> = {}) => render(
+    <ThemeProvider defaultLanguage={lang} storageKeys={null}>
+      <QueryClientProvider client={new QueryClient()}>
+        <FrappeProvider client={createFrappeClient({ transport: async () => ({ message: [] }) })} translations={translations}>
+          <FrappeFormView guardUnload={false} permissions={rights} bundle={{ doctype: "Memo", meta: META2, children: {} }} doc={D2}
+            onSave={async (d) => d} sectionEdit />
+        </FrappeProvider>
+      </QueryClientProvider>
+    </ThemeProvider>,
+  );
+
+  it("RE.title.1 the first unlabelled section is Details; a later one is named after its visible fields (never two Details)", () => {
+    mount("en");
+    expect(titles()).toEqual(["Details", "Content", "Lifecycle · Status Since"]);
+    // read-only fields only: no Edit there; an editable section's Edit is named with its title
+    expect(document.querySelector('[data-section-edit="own_block"]')).toBeNull();
+    expect(document.querySelector('[data-section-edit="content_section"]')?.getAttribute("aria-label")).toBe("Edit · Content");
+  });
+
+  it("RE.title.2 in Arabic the derived title uses the translated field labels", () => {
+    mount("ar", { Lifecycle: "دورة الحياة", "Status Since": "الحالة منذ", Content: "المحتوى" });
+    const t = titles();
+    expect(t[1]).toBe("المحتوى");
+    expect(t[2]).toBe("دورة الحياة · الحالة منذ");
+    expect(new Set(t).size).toBe(t.length);
+  });
+});
+
 describe("RE.dirty — opening a section is not a change (A-3)", () => {
   it("RE.dirty.1 an opened section shows Save held (clickable), no Not Saved, no onDirtyChange(true); a change turns them on", () => {
     const dirty: boolean[] = [];

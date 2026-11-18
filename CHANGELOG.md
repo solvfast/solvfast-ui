@@ -67,6 +67,9 @@ or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest su
   (0.7.0-dev.35 showed it nowhere); while the record page loads, the toolbar state never flashes on a lifecycle record.
 - Read view: Desk's column order kept, description-list semantics, theme-token icon tiles, no capitals or letter-spacing
   on Arabic labels.
+- Section cards: an unlabelled section after the first is titled from its own visible fields ("Lifecycle · Status Since";
+  translated), so two cards never both read "Details" (the first unlabelled section stays "Details"); a section's Edit
+  button is named with its title.
 - `LifecycleGraphView`: mirrors in right-to-left languages (was forced left-to-right), a text alternative (hidden list
   of transitions, each state's progress; en / ar), self-transitions drawn as loops, arrow-head ids unique per graph.
 - `LifecycleDiagramDialog` (and so `LifecycleGraphDialog`): closing it gives focus back to the button that opened it, as
