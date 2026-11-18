@@ -40,7 +40,12 @@ const RULES = {
   // @solvfast/ui/sayr (0.7.0-dev.8): Sayr's own methods, over the Frappe client — never the shell or the List View
   sayr: { deny: [/^@tanstack/, /react-router/, /^\.\.\/(shell|list|cards|toast|chart|form)/] },
   "index.ts": { deny: [/^@tanstack/, /^\.\/(frappe|toast|chart|form)/, /^sonner/, /^recharts/, /^react-hook-form/] },
+  // @solvfast/ui/lifecycle-diagram (Run 1 I1): React Flow + dagre (optional peers) over Core's lifecycle contract and
+  // look; never React Query, the Frappe layer, the shell, the List View or the other optional entries
+  "lifecycle-diagram": { deny: [/^@tanstack/, /frappe/, /react-router/, /^sonner/, /^recharts/, /^react-hook-form/, /^\.\.\/(shell|list|frappe|cards|toast|chart|form|fields)/] },
 };
+// Only the lifecycle-diagram entry may import its graph engine (React Flow, dagre): Core and the other entries never do.
+for (const [a, rule] of Object.entries(RULES)) if (a !== "lifecycle-diagram") rule.deny.push(/^reactflow/, /^@reactflow\//, /^@dagrejs\//, /^(\.\.\/)+lifecycle-diagram/, /^\.\/lifecycle-diagram/);
 // Nothing outside src/sayr may import it: core, ./frappe and the other entries stay free of Sayr's methods.
 for (const [a, rule] of Object.entries(RULES)) if (a !== "sayr") rule.deny.push(/^(\.\.\/)+sayr/, /^\.\/sayr/);
 for (const file of walk(path.join(root, "src")).filter((f) => /\.(ts|tsx)$/.test(f))) {
@@ -66,10 +71,10 @@ if (fs.existsSync(path.join(dist, "index.js"))) {
     const src = fs.readFileSync(f, "utf8");
     for (const spec of importsOf(src)) {
       if (spec.startsWith(".")) queue.push(path.resolve(path.dirname(f), spec));
-      else if (/^(@tanstack\/|sonner|recharts|react-hook-form)/.test(spec)) problems.push(`dist: ${path.relative(dist, f)} imports ${spec}`);
+      else if (/^(@tanstack\/|sonner|recharts|react-hook-form|reactflow|@reactflow\/|@dagrejs\/)/.test(spec)) problems.push(`dist: ${path.relative(dist, f)} imports ${spec}`);
     }
     if (path.relative(dist, f).split(path.sep)[0] === "frappe") problems.push(`dist: core entry reaches the Frappe layer (${path.relative(dist, f)})`);
-    for (const entry of ["toast", "chart", "form", "sayr"]) if (path.relative(dist, f).split(path.sep)[0] === entry) problems.push(`dist: core entry reaches the ${entry} entry (${path.relative(dist, f)})`);
+    for (const entry of ["toast", "chart", "form", "sayr", "lifecycle-diagram"]) if (path.relative(dist, f).split(path.sep)[0] === entry) problems.push(`dist: core entry reaches the ${entry} entry (${path.relative(dist, f)})`);
     if (/\/api\/(method|resource)|csrf/i.test(src)) problems.push(`dist: ${path.relative(dist, f)} references Frappe endpoints`);
   }
   console.log(`  core entry reaches ${seen.size} modules — none import @tanstack/*, sonner, recharts, react-hook-form, the Frappe layer or the toast / chart / form entries` + (problems.length ? " (see problems)" : ""));
@@ -97,7 +102,7 @@ if (fs.existsSync(path.join(dist, "index.js"))) {
 
   // the chart and form entries (0.3.0): built whenever their src folder exists; each uses its own optional peer and at most
   // the theme / primitives / lib — never React Query, sonner, the other peer, the Frappe layer, the shell or the List View
-  for (const [name, peer, others] of [["chart", "recharts", ["react-hook-form", "sonner", "@tanstack/react-query"]], ["form", "react-hook-form", ["recharts", "sonner", "@tanstack/react-query"]]]) {
+  for (const [name, peer, others] of [["chart", "recharts", ["react-hook-form", "sonner", "@tanstack/react-query", "reactflow", "@dagrejs/dagre"]], ["form", "react-hook-form", ["recharts", "sonner", "@tanstack/react-query", "reactflow", "@dagrejs/dagre"]], ["lifecycle-diagram", "reactflow", ["recharts", "react-hook-form", "sonner", "@tanstack/react-query"]]]) {
     if (!fs.existsSync(path.join(root, `src/${name}/index.ts`))) continue;
     const entry = path.join(dist, `${name}/index.js`);
     if (!fs.existsSync(entry)) { problems.push(`dist: src/${name} exists but dist/${name}/index.js was not built`); continue; }
@@ -110,7 +115,7 @@ if (fs.existsSync(path.join(dist, "index.js"))) {
         if (spec.startsWith(".")) eq.push(path.resolve(path.dirname(f), spec)); else npm.add(spec.split("/").slice(0, spec.startsWith("@") ? 2 : 1).join("/"));
       }
       const top = path.relative(dist, f).split(path.sep)[0];
-      if (["frappe", "shell", "list", "cards", "toast", "chart", "form", "sayr"].filter((t) => t !== name).includes(top)) problems.push(`dist: the ${name} entry reaches ${top}/ (${path.relative(dist, f)})`);
+      if (["frappe", "shell", "list", "cards", "toast", "chart", "form", "sayr", "lifecycle-diagram"].filter((t) => t !== name).includes(top)) problems.push(`dist: the ${name} entry reaches ${top}/ (${path.relative(dist, f)})`);
     }
     for (const o of others) if (npm.has(o)) problems.push(`dist: the ${name} entry imports ${o}`);
     if (!npm.has(peer)) problems.push(`dist: the ${name} entry does not import ${peer} (expected)`);

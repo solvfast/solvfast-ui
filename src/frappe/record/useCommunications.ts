@@ -12,25 +12,37 @@ const PAGE = 20;
 export function useCommunications(doctype?: string, name?: string, docinfo?: DocInfo) {
   const api = useRecordApi();
   const info = useRecordDocInfo(doctype, name, docinfo);
-  const [extra, setExtra] = React.useState<unknown[]>([]);
+  const [extra, setExtra] = React.useState<Row[]>([]);
   const [more, setMore] = React.useState<boolean | null>(null);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [error, setError] = React.useState("");
   React.useEffect(() => { setExtra([]); setMore(null); setError(""); }, [doctype, name]);
 
-  const base = (info.data?.communications ?? []) as unknown[];
-  const baseMore = base.length > PAGE;
-  const shownBase = baseMore ? base.slice(0, PAGE) : base;
-  const communications = React.useMemo(() => [...shownBase, ...extra], [shownBase, extra]);
+  // Run 1 D-43 (load.py:108-113, form_timeline.js:193-223): the server's 21 are communications AND automated messages
+  // together; Desk shows 20 of them (the last one dropped) and pages from the number shown of BOTH kinds
+  const baseComms = (info.data?.communications ?? []) as Row[];
+  const baseAutos = ((info.data as { automated_messages?: unknown[] } | undefined)?.automated_messages ?? []) as Row[];
+  const baseAll = [...baseComms, ...baseAutos];
+  const baseMore = baseAll.length > PAGE;
+  const shownBase = baseMore ? baseAll.slice(0, PAGE) : baseAll;
+  const all = React.useMemo(() => {
+    const seen = new Set<string>();
+    return [...shownBase, ...extra].filter((c) => { const k = String(c.name ?? ""); if (!k) return true; if (seen.has(k)) return false; seen.add(k); return true; });
+  }, [shownBase, extra]);
+  const isAuto = (c: Row) => c.communication_type === "Automated Message";
+  const communications = React.useMemo(() => all.filter((c) => !isAuto(c) && !baseAutos.includes(c)), [all, baseAutos]);
+  const automatedMessages = React.useMemo(() => all.filter((c) => isAuto(c) || baseAutos.includes(c)), [all, baseAutos]);
   const loadMore = React.useCallback(async () => {
     if (!doctype || !name) return;
     setLoadingMore(true); setError("");
     try {
-      const res = await api.call("frappe.desk.form.load.get_communications", { doctype, name, start: communications.length, limit: PAGE + 1 });
-      const got = (res.message as unknown[] | undefined) ?? [];
+      const res = await api.call("frappe.desk.form.load.get_communications", { doctype, name, start: all.length, limit: PAGE + 1 });
+      const got = ((res.message as unknown[] | undefined) ?? []) as Row[];
       setExtra((e) => [...e, ...got.slice(0, PAGE)]);
       setMore(got.length > PAGE);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setLoadingMore(false); }
-  }, [api, doctype, name, communications.length]);
-  return { communications, hasMore: more ?? baseMore, loadMore, loadingMore, error, isLoading: info.isLoading };
+  }, [api, doctype, name, all.length]);
+  return { communications: communications as unknown[], automatedMessages: automatedMessages as unknown[], hasMore: more ?? baseMore, loadMore, loadingMore, error, isLoading: info.isLoading };
 }
+
+type Row = Record<string, unknown>;

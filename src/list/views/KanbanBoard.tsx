@@ -99,6 +99,17 @@ export function KanbanBoard<T>(p: KanbanBoardProps<T>) {
   };
 
   const onCardKey = (e: React.KeyboardEvent, row: T) => {
+    // Run 1 E-59: Alt+↑ / ↓ reorder within the column — the keyboard way to do what dragging inside a column does
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      const col = columnOf(row);
+      const list = byColumn.get(col) ?? [];
+      const i = list.findIndex((r) => rowKey(r) === rowKey(row));
+      const j = e.key === "ArrowUp" ? i - 1 : i + 1;
+      if (i < 0 || j < 0 || j >= list.length) return;
+      e.preventDefault();
+      move(row, col, j);
+      return;
+    }
     if (!e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
     e.preventDefault();
     const forward = (e.key === "ArrowRight") !== (direction === "rtl");
@@ -161,7 +172,7 @@ export function KanbanBoard<T>(p: KanbanBoardProps<T>) {
                           <Card className={cn("flex items-start gap-1.5 p-2.5", pending[key] && "opacity-60")}>
                             {movable && <GripVertical className="mt-0.5 h-4 w-4 shrink-0 cursor-grab text-muted-foreground" aria-hidden="true" />}
                             <button type="button" className="min-w-0 flex-1 rounded-sm text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              onClick={() => onOpen?.(row)} onKeyDown={(e) => onCardKey(e, row)} aria-keyshortcuts={movable ? "Alt+ArrowLeft Alt+ArrowRight" : undefined}>
+                              onClick={() => onOpen?.(row)} onKeyDown={(e) => onCardKey(e, row)} aria-keyshortcuts={movable ? "Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown" : undefined}>
                               <div className="truncate text-sm font-medium" title={name}>{name}</div>
                               {renderCard && <div className="mt-1 text-xs text-muted-foreground">{renderCard(row)}</div>}
                             </button>

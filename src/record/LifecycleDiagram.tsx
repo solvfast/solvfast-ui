@@ -3,6 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Check, Circle, Pause, X } from "lucide-react";
 import { cn } from "../lib/cn";
 import { useLocale, usePortalContainer } from "../theme/ThemeProvider";
+import { useReturnFocus } from "../primitives/focus-return";
 
 /**
  * Lifecycle diagram pieces. The package owns the look (dialog, state cards, edge labels, legend, edge colours); the
@@ -132,11 +133,15 @@ export interface LifecycleDiagramDialogProps {
 export function LifecycleDiagramDialog({ open, onOpenChange, title, subtitle, children, legendLabels, closeLabel, dir, className }: LifecycleDiagramDialogProps) {
   const { t, direction } = useLocale();
   const container = usePortalContainer();
+  // Opened from a plain button (no DialogTrigger): give focus back to it on close, as the package's other dialogs do
+  // (Radix alone drops it on <body> — WCAG 2.4.3).
+  const focus = useReturnFocus({});
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal container={container}>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/20 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content dir={dir ?? direction} aria-describedby={undefined} data-lifecycle-diagram
+          onOpenAutoFocus={focus.onOpenAutoFocus} onCloseAutoFocus={focus.onCloseAutoFocus}
           className={cn("fixed start-1/2 top-1/2 z-50 flex h-[85vh] w-[92vw] max-w-[900px] -translate-x-1/2 -translate-y-1/2 rtl:translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95", className)}>
           <div className="flex items-start gap-2 border-b border-border px-5 py-3.5">
             <div className="min-w-0 flex-1">

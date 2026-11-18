@@ -243,16 +243,19 @@ describe("P36E trace — what FrappeField does NOT do for its caller", () => {
     expect(q.value).toBe("");
   });
 
-  it("P36E.trace.11 Date (844cd2e) has no typed entry and no way to clear a value: a calendar button only, and clicking the selected day writes nothing (native date.js is a text input; '' clears)", async () => {
+  // Run 1 C-24 fixed this trace: before, the Date had no typed entry and clicking the selected day wrote nothing
+  // (expect(d.log).toEqual([]) / no Clear button). Now Desk's behaviour: typed entry, Clear, the selected day clears.
+  it("P36E.trace.11 Date (Run 1 C-24): typed entry in the popover, a Clear button, and clicking the selected day clears the value (native date.js: '' clears)", async () => {
     const d = field("c2", "Date", "2026-11-20");
-    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull(); // the trigger is still a button; the typed box is in the popover
     fireEvent.click(screen.getByRole("button", { name: /Due/ }));
+    expect(screen.getByRole("textbox", { name: "Type a date" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clear" })).toBeTruthy();
     const grid = await screen.findByRole("grid");
     const selected = within(grid).getAllByRole("gridcell").find((c) => c.getAttribute("aria-selected") === "true");
     expect(selected?.textContent).toBe("20");
     fireEvent.click(selected!.querySelector("button") ?? selected!);
-    expect(d.log).toEqual([]);
-    expect(screen.queryByRole("button", { name: /clear/i })).toBeNull();
+    expect(d.log).toEqual([null]);
   });
 
   it("P36E.trace.12 Table needs no server either: a hand-built bundle with the child meta renders the grid and Add Row writes a row (c1: no provider at all)", () => {

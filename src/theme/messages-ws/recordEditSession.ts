@@ -1,0 +1,36 @@
+/** Chrome strings of RecordEditSession / RecordEditableCard / RecordNotSavedPill / RecordSaveButton (`res*`). en + ar;
+ *  the ar object must have every en key. Hosts can pass `labels` instead. */
+export const recordEditSessionEn = {
+  resNotSaved: "Not saved",
+  resSave: "Save",
+  resSaving: "Saving…",
+  resSaved: "Saved",
+  resSaveFailed: "Couldn't save. Try again.",
+  resEdit: "Edit",
+  resCancel: "Cancel",
+  resUnsavedTitlePage: "You have unsaved changes",
+  resUnsavedTitleCard: "Unsaved changes",
+  resUnsavedBodyPage: "You have unsaved changes on this record.",
+  resUnsavedBodyCard: "You have unsaved changes in {0}.",
+  resSaveAndLeave: "Save and leave",
+  resKeepEditing: "Keep editing",
+  resStay: "Stay",
+  resDiscard: "Discard",
+};
+export const recordEditSessionAr: { [K in keyof typeof recordEditSessionEn]: string } = {
+  resNotSaved: "غير محفوظ",
+  resSave: "حفظ",
+  resSaving: "جارٍ الحفظ…",
+  resSaved: "تم الحفظ",
+  resSaveFailed: "تعذّر الحفظ. حاول مرة أخرى.",
+  resEdit: "تعديل",
+  resCancel: "إلغاء",
+  resUnsavedTitlePage: "لديك تغييرات غير محفوظة",
+  resUnsavedTitleCard: "تغييرات غير محفوظة",
+  resUnsavedBodyPage: "لديك تغييرات غير محفوظة في هذا السجل.",
+  resUnsavedBodyCard: "لديك تغييرات غير محفوظة في {0}.",
+  resSaveAndLeave: "حفظ ومغادرة",
+  resKeepEditing: "متابعة التعديل",
+  resStay: "البقاء",
+  resDiscard: "تجاهل",
+};

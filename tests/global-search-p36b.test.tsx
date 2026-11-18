@@ -11,7 +11,7 @@ import { GlobalSearchBar, type GlobalSearchSource, type SearchItem } from "../sr
 import { createFrappeClient } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
 import {
-  useFrappeGlobalSearch, fuzzyMatch, fuzzySearch, GLOBAL_SEARCH_METHOD, type FrappeGlobalSearchOptions, awesomeBarItems, clearDeskRouteHistory, deskRouteUrl, deskSearchBootFrom, makeDescription,
+  useFrappeGlobalSearch, fuzzyMatch, fuzzySearch, GLOBAL_SEARCH_METHOD, type FrappeGlobalSearchOptions, awesomeBarItems, awesomeBarRecent, clearDeskRouteHistory, deskRouteUrl, deskSearchBootFrom, makeDescription,
   type DeskSearchBoot, type DeskSearchTarget,
 } from "../src/frappe/search";
 import type { DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
@@ -360,5 +360,50 @@ describe("P36B.search — Core bar with an app source, and the Navbar slot", () 
     cleanup();
     render(<ThemeProvider storageKeys={null}><Navbar title="T" /></ThemeProvider>);
     expect(screen.getByRole("searchbox").parentElement?.className).toMatch(/hidden md:block/);
+  });
+});
+
+// Run 1 · A-05 / A-06 — tests-only closures: the awesome bar's new-tab rows, Dashboard rows, frequent links, "Find x in Y".
+describe("Run 1 A-05 / A-06 awesome bar (tests only)", () => {
+  it("A-05 Ctrl/⌘-click and Ctrl+Enter on a bar row call onSelect with newTab:true; a plain click / Enter newTab:false", async () => {
+    const source: GlobalSearchSource = { suggest: async () => [{ id: "x", label: "Big list", index: 150, href: "/x" }], search: async () => [] };
+    const onSelect = vi.fn();
+    render(<ThemeProvider storageKeys={null}><GlobalSearchBar source={source} onSelect={onSelect} /></ThemeProvider>);
+    const input = screen.getByRole("combobox") as HTMLInputElement;
+    typeIn(input, "big");
+    await waitFor(() => expect(options().length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText("Big list"), { ctrlKey: true });
+    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ id: "x" }), { newTab: true });
+    typeIn(input, "bigg"); typeIn(input, "big");
+    await waitFor(() => expect(options().length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByText("Big list"), { metaKey: true });
+    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ id: "x" }), { newTab: true });
+    typeIn(input, "bigg"); typeIn(input, "big");
+    await waitFor(() => expect(options().length).toBeGreaterThan(0));
+    fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ id: "x" }), { newTab: true });
+    typeIn(input, "bigg"); typeIn(input, "big");
+    await waitFor(() => expect(options().length).toBeGreaterThan(0));
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ id: "x" }), { newTab: false });
+  });
+
+  it("A-06 a Dashboard row (label '{0} Dashboard', /app/dashboard-view/<name>); the list on screen offers 'Find x in Y' at index 90 with the title-field like", () => {
+    const boot: DeskSearchBoot = { ...BOOT, dashboards: [{ name: "Sales" }] };
+    const items = awesomeBarItems("sale", { boot, currentList: { doctype: "Customer", titleField: "customer_name" } });
+    const dash = items.find((i) => i.id === "dash:Sales")!;
+    expect(dash.label).toBe("Sales Dashboard");
+    expect(dash.href).toBe("/app/dashboard-view/Sales");
+    const cur = items.find((i) => i.id === "cur:Customer")!;
+    expect(cur.label).toBe("Find sale in Customer");
+    expect(cur.index).toBe(90);
+    expect((cur.data as DeskSearchTarget).routeOptions).toEqual({ customer_name: ["like", "%sale%"] });
+  });
+
+  it("A-06 below two characters the boot's frequently visited links are offered (index = visits), labelled by route", () => {
+    const boot: DeskSearchBoot = { ...BOOT, frequently_visited_links: [{ route: "List/Customer", count: 7 }, { route: "Form/Customer/C-1", count: 3 }] };
+    const rows = awesomeBarRecent("", { boot });
+    expect(rows.map((r) => r.index)).toEqual([7, 3]);
+    expect(rows[0]!.label).toMatch(/Customer/);
   });
 });

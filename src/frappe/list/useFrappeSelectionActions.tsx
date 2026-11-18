@@ -82,6 +82,8 @@ export interface FrappeSelectionActions<T> {
   /** An action is running (Desk's `disable_list_update`). */
   busy: boolean;
   selectedCount: number;
+  /** Run 1 (E-19): the checked rows' document names, each once, in selection order. */
+  selectedNames: string[];
 }
 
 export function useFrappeSelectionActions<T>({ client, doctype, meta, bundle, perms, allowEdit, rows, rowKey, bulk, exportAction, host }: FrappeSelectionActionsInput<T>): FrappeSelectionActions<T> {
@@ -161,6 +163,8 @@ export function useFrappeSelectionActions<T>({ client, doctype, meta, bundle, pe
     message,
     busy,
     selectedCount: selectedKeys.length,
+    /** The checked rows' document names (each once, selection order) — Run 1 E-19: the report export's selected_items. */
+    selectedNames: names,
   };
 }
 

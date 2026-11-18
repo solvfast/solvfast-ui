@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { createFrappeClient } from "../src/frappe/client";
 import { FrappeProvider } from "../src/frappe/FrappeProvider";
-import type { DocPerm, DocTypeMeta, FrappeDoc } from "../src/frappe/contract";
+import type { DocPerm, DocTypeMeta, FrappeDoc, WorkflowInfo } from "../src/frappe/contract";
 import { createFixtureTransport } from "../src/frappe/testing";
 import { AssignDialog } from "../src/record/AssignDialog";
 import { RECORD_PAGE_METHOD, SayrNewRecordPage, SayrRecordPage, TRANSITION_METHOD, TYPE_PREVIEW_METHOD, WALK_TREE_METHOD, type RecordPageData, type RecordPageTab, type RecordRailExtraCard, type SayrRecordPageProps, type TypePreviewData } from "../src/sayr";
@@ -152,8 +152,9 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(container.querySelector('[data-section][aria-label="Details"] [data-read-row="summary"]')?.textContent).toContain("Fails on Chrome");
   });
 
-  it("RP.view.2 a section's Edit opens it alone, with Not saved and Save; its Cancel puts back what is saved there only", async () => {
-    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true });
+  it("RP.view.2 a section's Edit opens it alone (Save shown and held until a change; not yet Not saved); its Cancel puts back what is saved there only", async () => {
+    const dirty: boolean[] = [];
+    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, onDirtyChange: (d) => dirty.push(d) });
     const edits = await waitFor(() => {
       const found = container.querySelectorAll("[data-section-edit]");
       if (found.length !== 2) throw new Error("no Edit yet");
@@ -162,9 +163,14 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     fireEvent.click(edits[0]);
     const title = await waitFor(() => screen.getByDisplayValue("Login does nothing") as HTMLInputElement);
     expect(screen.queryByDisplayValue("Fails on Chrome")).toBeNull();
-    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
-    expect(screen.getByText("Not Saved")).toBeTruthy();
+    // Opening is not a change (A-3): Save is held (clickable); no Not saved, no onDirtyChange(true).
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false); expect(screen.getByRole("button", { name: "Save" }).hasAttribute("data-primary-held")).toBe(true);
+    expect(screen.queryByText("Not Saved")).toBeNull();
+    expect(dirty.includes(true)).toBe(false);
     fireEvent.change(title, { target: { value: "Changed, then cancelled" } });
+    fireEvent.blur(title);
+    expect(screen.getByText("Not Saved")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(container.querySelector("[data-section-edit]") as HTMLElement);
     const summary = await waitFor(() => screen.getByDisplayValue("Fails on Chrome") as HTMLInputElement);
     fireEvent.change(summary, { target: { value: "Kept until saved" } });
@@ -185,6 +191,60 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(container.querySelector("[data-section-edit]")).toBeNull();
   });
 
+  it("RP.view.5 editScope=\"record\": one Edit by the record's name opens every section; Save (held until a change) and one Cancel; Cancel reads again", async () => {
+    const dirty: boolean[] = [];
+    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, editScope: "record", onDirtyChange: (d) => dirty.push(d) });
+    const header = await waitFor(() => {
+      const found = container.querySelector("[data-record-header]");
+      if (!found?.querySelector("[data-record-edit]")) throw new Error("no Edit yet");
+      return found as HTMLElement;
+    });
+    expect(container.querySelectorAll("[data-record-edit]").length).toBe(1);
+    expect(within(header).getByRole("button", { name: "Edit" })).toBeTruthy();
+    expect(container.querySelector("[data-section-edit]")).toBeNull();
+    fireEvent.click(header.querySelector("[data-record-edit]") as HTMLElement);
+    await waitFor(() => expect(screen.getByDisplayValue("Login does nothing")).toBeTruthy());
+    expect(screen.getByDisplayValue("Fails on Chrome")).toBeTruthy();
+    expect(container.querySelector("[data-section-edit]")).toBeNull();
+    expect(container.querySelector("[data-section-cancel]")).toBeNull();
+    expect(container.querySelector("[data-record-edit]")).toBeNull();
+    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false); expect(screen.getByRole("button", { name: "Save" }).hasAttribute("data-primary-held")).toBe(true);
+    expect(screen.queryByText("Not Saved")).toBeNull();
+    const summary = screen.getByDisplayValue("Fails on Chrome");
+    fireEvent.change(summary, { target: { value: "Dropped by Cancel" } });
+    fireEvent.blur(summary);
+    expect(screen.getByText("Not Saved")).toBeTruthy();
+    expect(dirty.at(-1)).toBe(true);
+    fireEvent.click(container.querySelector("[data-record-cancel-edit]") as HTMLElement);
+    await waitFor(() => expect(screen.queryByDisplayValue("Dropped by Cancel")).toBeNull());
+    expect(screen.getByText("Fails on Chrome")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+    expect(screen.queryByText("Not Saved")).toBeNull();
+    expect(dirty.at(-1)).toBe(false);
+    expect(container.querySelector("[data-record-cancel-edit]")).toBeNull();
+    expect(container.querySelector("[data-record-header] [data-record-edit]")).toBeTruthy();
+  });
+
+  it("RP.view.6 editScope=\"record\": Save saves everything open and goes back to reading", async () => {
+    const saved: string[] = [];
+    const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, editScope: "record", onSaved: (d) => saved.push(String(d.summary)) });
+    const edit = await waitFor(() => {
+      const found = container.querySelector("[data-record-edit]");
+      if (!found) throw new Error("no Edit yet");
+      return found as HTMLElement;
+    });
+    fireEvent.click(edit);
+    const summary = await waitFor(() => screen.getByDisplayValue("Fails on Chrome"));
+    fireEvent.change(summary, { target: { value: "Fails on Safari too" } });
+    fireEvent.blur(summary);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(saved).toEqual(["Fails on Safari too"]));
+    await waitFor(() => expect(screen.queryByDisplayValue("Fails on Safari too")).toBeNull());
+    expect(screen.getByText("Fails on Safari too")).toBeTruthy();
+    expect(container.querySelector("[data-record-cancel-edit]")).toBeNull();
+    expect(container.querySelector("[data-record-edit]")).toBeTruthy();
+  });
+
   it("RP.view.4 the state shows once, by the title: no state tag in the toolbar", async () => {
     const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true });
     const header = await waitFor(() => {
@@ -194,6 +254,76 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     });
     await waitFor(() => expect(within(header).getByText("New")).toBeTruthy());
     expect(container.querySelector("[data-form-indicator]")).toBeNull();
+  });
+});
+
+describe("RP.state — where the state shows (C4-1): by the title only with a Sayr lifecycle; a host value overrides", () => {
+  const WF: WorkflowInfo = {
+    name: "Bug Flow", document_type: "Ticket Bug", workflow_state_field: "workflow_state",
+    states: [{ state: "New", doc_status: "0", allow_edit: "System Manager", style: "Info" }, { state: "Triaged", doc_status: "0", allow_edit: "System Manager", style: "Success" }],
+    transitions: [{ state: "New", action: "Triage", next_state: "Triaged", allowed: "System Manager" }],
+  };
+  const WITH_STATUS: DocTypeMeta = { ...BUG, fields: [...BUG.fields, { fieldname: "status", fieldtype: "Select", label: "Status", options: "Open\nClosed" }] };
+  const NO_LIFECYCLE = PAGE({ lifecycle_deployed: false, lifecycle: null });
+  function mountWith(page: RecordPageData, opts: { meta?: DocTypeMeta; workflow?: boolean; doc?: FrappeDoc; props?: Partial<SayrRecordPageProps> } = {}) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const t = createFixtureTransport(
+      { meta: { "Ticket Bug": [opts.meta ?? BUG] }, docs: { "Ticket Bug": [opts.doc ?? doc] }, ...(opts.workflow ? { workflows: { "Ticket Bug": WF } } : {}) },
+      { handlers: { [RECORD_PAGE_METHOD]: () => ({ message: page }) } },
+    );
+    return render(
+      <QueryClientProvider client={qc}>
+        <FrappeProvider client={createFrappeClient({ transport: t })} queryClient={qc} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
+          <ThemeProvider defaultLanguage="en" storageKeys={null}><SayrRecordPage doctype="Ticket Bug" name="TKT-00008" {...opts.props} /></ThemeProvider>
+        </FrappeProvider>
+      </QueryClientProvider>,
+    );
+  }
+  // The page's data (and with it the default) has come, and the workflow's buttons had their time.
+  const settled = async (container: HTMLElement) => {
+    await waitFor(() => expect(container.querySelector("[data-rail-footer]")).toBeTruthy());
+    await waitFor(() => expect(container.querySelector("[data-form-fields]")).toBeTruthy());
+    await new Promise((r) => setTimeout(r, 50));
+  };
+  const outsideHeader = (container: HTMLElement, text: string) =>
+    [...container.querySelectorAll("*")].filter((el) => el.children.length === 0 && el.textContent === text && !el.closest("[data-record-header]") && !el.closest("aside"));
+
+  it("RP.state.1 a Sayr lifecycle (with a Frappe Workflow under it): the state by the title only — no toolbar indicator, no workflow badge", async () => {
+    const { container } = mountWith(PAGE(), { workflow: true });
+    await settled(container);
+    // The workflow bar is there (its action), only its state badge is left out.
+    await waitFor(() => expect(screen.getByRole("button", { name: /^(Actions|Triage)/ })).toBeTruthy());
+    expect(within(container.querySelector("[data-record-header]") as HTMLElement).getByText("New")).toBeTruthy();
+    expect(container.querySelector("[data-form-indicator]")).toBeNull();
+    expect(outsideHeader(container, "New")).toEqual([]);
+  });
+
+  it("RP.state.2 a Frappe Workflow without a Sayr lifecycle: its state shows in the toolbar (as in 0.9.0)", async () => {
+    const { container } = mountWith(NO_LIFECYCLE, { workflow: true });
+    await settled(container);
+    await waitFor(() => expect(screen.getByRole("button", { name: /^(Actions|Triage)/ })).toBeTruthy());
+    expect(container.querySelector("[data-record-header] [data-status]")).toBeNull();
+    expect(outsideHeader(container, "New").length).toBeGreaterThan(0);
+  });
+
+  it("RP.state.3 a status field without a lifecycle or workflow: the toolbar indicator shows it", async () => {
+    const { container } = mountWith(NO_LIFECYCLE, { meta: WITH_STATUS, doc: { ...doc, status: "Open" } as FrappeDoc });
+    await settled(container);
+    expect(container.querySelector("[data-form-indicator]")?.textContent).toBe("Open");
+  });
+
+  it("RP.state.4 the host decides: stateInHeader={false} with a lifecycle keeps the toolbar indicator; {true} without one hides it", async () => {
+    const shown = mountWith(PAGE(), { meta: WITH_STATUS, doc: { ...doc, status: "Open" } as FrappeDoc, props: { stateInHeader: false } });
+    await settled(shown.container);
+    expect(shown.container.querySelector("[data-form-indicator]")?.textContent).toBe("Open");
+    cleanup();
+    const byDefault = mountWith(PAGE(), { meta: WITH_STATUS, doc: { ...doc, status: "Open" } as FrappeDoc });
+    await settled(byDefault.container);
+    expect(byDefault.container.querySelector("[data-form-indicator]")).toBeNull();
+    cleanup();
+    const hidden = mountWith(NO_LIFECYCLE, { meta: WITH_STATUS, doc: { ...doc, status: "Open" } as FrappeDoc, props: { stateInHeader: true } });
+    await settled(hidden.container);
+    expect(hidden.container.querySelector("[data-form-indicator]")).toBeNull();
   });
 });
 
@@ -337,6 +467,96 @@ describe("RP.cards — empty states, tasks, customize", () => {
     mount(PAGE({ sla: { deployed: false } }), "ar");
     await waitFor(() => expect(screen.getByText("لا توجد اتفاقية خدمة منشورة")).toBeTruthy());
     expect(screen.getByRole("button", { name: "تخصيص الأقسام" })).toBeTruthy();
+  });
+});
+
+describe("RP.sayrLabels — the fields Sayr adds to a lifecycle DocType, on a site without their translation", () => {
+  // Sayr's deployment adds sear_lifecycle "Lifecycle" and sear_state_since "Status Since" (read-only) to every lifecycle
+  // DocType; on the Sada post they sit in an unlabelled section, so its card is titled from them.
+  const POST: DocTypeMeta = {
+    name: "Post X", autoname: "hash", title_field: "title", permissions: ALL,
+    fields: [
+      { fieldname: "title", fieldtype: "Data", label: "Title" },
+      { fieldname: "content_section", fieldtype: "Section Break", label: "Content" },
+      { fieldname: "body", fieldtype: "Data", label: "Body" },
+      { fieldname: "own_block", fieldtype: "Section Break" },
+      { fieldname: "sear_lifecycle", fieldtype: "Data", label: "Lifecycle", read_only: 1 },
+      { fieldname: "sear_state_since", fieldtype: "Datetime", label: "Status Since", read_only: 1 },
+    ],
+  };
+  const pdoc = { doctype: "Post X", name: "PX-1", owner: "omar@x.test", creation: T, modified: T, modified_by: "Administrator", docstatus: 0, title: "Hajj guide", body: "Step by step", sear_lifecycle: "SEAR-LC-00002", sear_state_since: "2026-11-17 21:26:09" } as FrappeDoc;
+  const mountPost = (language: "en" | "ar", translations?: Record<string, string>, meta: DocTypeMeta = POST) => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tr = createFixtureTransport({ meta: { "Post X": [meta] }, docs: { "Post X": [pdoc] } }, { handlers: { [RECORD_PAGE_METHOD]: () => ({ message: PAGE() }) } });
+    return render(
+      <QueryClientProvider client={qc}>
+        <FrappeProvider client={createFrappeClient({ transport: tr })} queryClient={qc} translations={translations} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
+          <ThemeProvider defaultLanguage={language} storageKeys={null}>
+            <SayrRecordPage doctype="Post X" name="PX-1" typeLabel="Post" onBack={() => {}} viewFirst editScope="record" />
+          </ThemeProvider>
+        </FrappeProvider>
+      </QueryClientProvider>,
+    );
+  };
+  const titles = (c: HTMLElement) => [...c.querySelectorAll("section[data-section]")].map((e) => e.getAttribute("aria-label"));
+
+  it("RP.sayrLabels.1 Arabic: the two labels and the card titled from them are in Arabic; the site's own words are untouched", async () => {
+    const { container } = mountPost("ar", { Content: "المحتوى" });
+    await waitFor(() => expect(titles(container).length).toBe(3));
+    expect(titles(container)).toEqual(["التفاصيل", "المحتوى", "دورة الحياة · الحالة منذ"]);
+    expect(container.querySelector('[data-read-row="sear_lifecycle"]')?.textContent).toContain("دورة الحياة");
+    expect(container.querySelector('[data-read-row="sear_state_since"]')?.textContent).toContain("الحالة منذ");
+    expect(container.querySelector('[data-read-row="title"]')?.textContent).toContain("Title"); // not Sayr's: no translation, stays
+  });
+
+  it("RP.sayrLabels.2 English stays as it was; a site translation wins; a label the site renamed is never replaced", async () => {
+    const en = mountPost("en");
+    await waitFor(() => expect(titles(en.container).length).toBe(3));
+    expect(titles(en.container)[2]).toBe("Lifecycle · Status Since");
+    cleanup();
+    const site = mountPost("ar", { Lifecycle: "مسار الحالات" });
+    await waitFor(() => expect(titles(site.container).length).toBe(3));
+    expect(titles(site.container)[2]).toBe("مسار الحالات · الحالة منذ");
+    cleanup();
+    const renamed = { ...POST, fields: POST.fields.map((f) => (f.fieldname === "sear_state_since" ? { ...f, label: "Moved On" } : f)) };
+    const r = mountPost("ar", undefined, renamed);
+    await waitFor(() => expect(titles(r.container).length).toBe(3));
+    expect(titles(r.container)[2]).toBe("دورة الحياة · Moved On");
+  });
+});
+
+describe("RP.surface — opt-in glass surfaces (0.10.0)", () => {
+  const BEFORE = "grid grid-cols-1 items-start gap-5 lg:grid-cols-4"; // the root's classes up to 0.10.0-rc.5
+  it("RP.surface.1 default (no surface): the page root is exactly as before — no glass class, no data-surface", async () => {
+    const { container } = mount(PAGE());
+    const root = await waitFor(() => { const r = container.querySelector("[data-sayr-record-page]") as HTMLElement; expect(r).toBeTruthy(); return r; });
+    expect(root.className).toBe(BEFORE);
+    expect(root.hasAttribute("data-surface")).toBe(false);
+    expect(container.querySelector(".sf-record-page, .sf-sayr-record-glass")).toBeNull();
+  });
+  it("RP.surface.2 surface=\"plain\" is the default; surface=\"glass\" adds the record page's glass surfaces", async () => {
+    const plain = mount(PAGE(), "en", [], undefined, { surface: "plain" });
+    await waitFor(() => expect(plain.container.querySelector("[data-sayr-record-page]")?.className).toBe(BEFORE));
+    cleanup();
+    const glass = mount(PAGE(), "en", [], undefined, { surface: "glass", viewFirst: true });
+    const root = await waitFor(() => { const r = glass.container.querySelector("[data-sayr-record-page]") as HTMLElement; expect(r).toBeTruthy(); return r; });
+    expect(root.classList.contains("sf-record-page")).toBe(true);
+    expect(root.classList.contains("sf-sayr-record-glass")).toBe(true);
+    expect(root.getAttribute("data-surface")).toBe("glass");
+    // the cards the rules address are inside the scope: the header card and the section cards
+    await waitFor(() => expect(root.querySelector("section[data-section]")).toBeTruthy());
+    expect(root.querySelector("[data-record-header]")).toBeTruthy();
+  });
+  it("RP.surface.3 glass.css: every Sayr glass rule is scoped to sf-sayr-record-glass (nothing for a page that does not opt in)", async () => {
+    const fs = await import("node:fs"); const path = await import("node:path"); const postcss = (await import("postcss")).default;
+    const read = (f: string) => postcss.parse(fs.readFileSync(path.join(__dirname, "..", "styles", f), "utf8"));
+    const own: string[] = [];
+    read("src/sf-sayr-record-page.css").walkRules((r) => { own.push(...r.selectors); });
+    expect(own.length).toBeGreaterThanOrEqual(7);                       // 2+1+2 top-level + 2 under @media
+    for (const sel of own) expect(sel, sel).toContain(".sf-sayr-record-glass");
+    const shipped: string[] = [];
+    read("glass.css").walkRules((r) => { if (r.selector.includes("sf-sayr-record-glass")) shipped.push(...r.selectors); });
+    expect(shipped.sort()).toEqual([...own].sort());                    // shipped in glass.css as authored, nothing else
   });
 });
 

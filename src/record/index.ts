@@ -2,20 +2,31 @@ export { Timeline, filterItems, sortItems, renderIsolated } from "./Timeline";
 export type { TimelineProps, TimelineLabels, TimelineFilter } from "./Timeline";
 export { CommentComposer, draftToHtml, htmlToDraft } from "./CommentComposer";
 export type { CommentComposerProps, CommentComposerLabels, CommentDraft } from "./CommentComposer";
+export { CommentRichEditor } from "./CommentRichEditor";
+export type { CommentRichEditorProps } from "./CommentRichEditor";
 export { AssigneeGroup, AssignPicker } from "./AssigneeGroup";
 export { AssignDialog } from "./AssignDialog";
 export type { AssignDialogProps, AssignDialogLabels } from "./AssignDialog";
 export type { AssigneeGroupProps, AssignPickerProps, AssignLabels } from "./AssigneeGroup";
-export { LifecycleBar } from "./LifecycleBar";
-export type { LifecycleBarProps } from "./LifecycleBar";
 export { LifecycleRail } from "./LifecycleRail";
-export { RecordHeaderCard } from "./RecordHeaderCard";
+export { LifecycleActions } from "./LifecycleActions";
+export type { LifecycleActionsProps, LifecycleActionsItem } from "./LifecycleActions";
+export { lifecycleTone, lifecycleRoots, lifecyclePath, lifecycleTransitionsFrom, lifecycleNext, lifecycleGraph } from "./lifecycle";
+export type { LifecycleDefinition, LifecycleStateDef, LifecycleTransitionDef, LifecycleNextItem, LifecycleGraph } from "./lifecycle";
+export { RecordHeaderCard, RecordHeaderIcon } from "./RecordHeaderCard";
+// RecordPage — the CRM record page layout (toolbar, 3 + 1 grid) and its header quick actions. docs/components/record.md §11
+export { RecordPage, RecordQuickAction, RecordQuickActionMenu, RecordTabs } from "./RecordPage";
+export type { RecordPageProps, RecordPageSurface, RecordQuickActionProps, RecordQuickActionMenuProps, RecordQuickActionMenuItem, RecordTab, RecordTabsProps } from "./RecordPage";
+export { RecordEditSession, RecordEditableCard, RecordNotSavedPill, RecordSaveButton, useRecordEditSession } from "./RecordEditSession";
+export type { RecordEditSessionProps, RecordEditSessionApi, RecordEditSessionLabels, RecordSaveRegion, RecordEditableCardProps, RecordUnsavedDialogProps } from "./RecordEditSession";
+export { RecordSectionCard, RecordInfoTile, RecordInfoRow, RecordScoreRing, RecordFieldList, RecordInsightCard, RecordClosedNotice, RecordInteractions, RecordField, RecordFieldGrid } from "./RecordAbout";
+export type { RecordSectionCardProps, RecordInfoTileProps, RecordInfoRowProps, RecordScoreRingProps, RecordFieldListItem, RecordInsightCardProps, RecordInteraction, RecordInteractionsProps } from "./RecordAbout";
 export { FieldPreview, previewKind } from "./FieldPreview";
 export type { FieldPreviewProps } from "./FieldPreview";
-export type { RecordHeaderCardProps, RecordHeaderFact } from "./RecordHeaderCard";
+export type { RecordHeaderCardProps, RecordHeaderCardVariant, RecordHeaderFact } from "./RecordHeaderCard";
 export type { LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels } from "./LifecycleRail";
 export { LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LIFECYCLE_DIAGRAM_COLORS } from "./LifecycleDiagram";
-export { LifecycleGraph, layoutLifecycle, type LifecycleGraphProps, type LifecycleGraphState, type LifecycleGraphTransition } from "./LifecycleGraph";
+export { LifecycleGraphView, layoutLifecycle, type LifecycleGraphViewProps, type LifecycleLayout, type LifecycleLayoutNode, type LifecycleLayoutEdge } from "./LifecycleGraphView";
 export type {
   LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels, LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
 } from "./LifecycleDiagram";
@@ -32,6 +43,11 @@ export { INSPECTED_PROPERTIES, LINK_OPERATORS, keyFromLabel, deriveKey, ownKeys,
 export type { FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./fieldDefinition";
 export { toLayout, fromLayout, insertItem, moveItem, moveTab, stepItem, locateField, insertSectionAfter, appendTab, removeSection, removeTab, previousId, kindOfFieldtype } from "./fieldLayout";
 export type { DesignerItem, DesignerKind, DropSlot, LayoutTab, LayoutSection, LayoutColumn } from "./fieldLayout";
+// RecordRail — the CRM record page's right rail (docs/components/record.md §10)
+export { RecordRail, RecordRailCard, RecordRailSection, RecordRailRow, RecordRailCustomize, RecordRailFooter, RecordRailAssignment, RecordRailLinkedRecord, RecordRailTasks, RecordRailArticles, RecordRailArticleReader, recordRailCardClass, RECORD_RAIL_DEFAULT_ACCENT } from "./RecordRail";
+export type {
+  RecordRailProps, RecordRailSectionDef, RecordRailCardProps, RecordRailDragHandle, RecordRailSectionProps, RecordRailSectionSpec, RecordRailSectionLabels, RecordRailSectionIcons, RecordRailRowProps, RecordRailCustomizeProps, RecordRailCustomizeOption, RecordRailFooterProps, RecordRailFooterLine, RecordRailAssignmentProps, RecordRailLinkedRecordProps, RecordRailTasksProps, RecordRailTask, RecordRailArticlesProps, RecordRailArticle, RecordRailArticleReaderProps,
+} from "./RecordRail";
 export { ActionBar } from "./ActionBar";
 export type { ActionBarProps, ActionBarLabels } from "./ActionBar";
 export { StatusBadge } from "./StatusBadge";
@@ -43,8 +59,8 @@ export type {
   Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem, Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./types";
 // P35 record
-export { RecordMenu, groupMenuItems } from "./RecordMenu";
-export type { RecordMenuProps, RecordMenuItem, RecordMenuConfirm, RecordMenuLabels } from "./RecordMenu";
+export { RecordMenu, groupMenuItems, parseShortcut, shortcutMatches } from "./RecordMenu";
+export type { RecordMenuProps, RecordMenuItem, RecordMenuConfirm, RecordMenuLabels, ParsedShortcut } from "./RecordMenu";
 export { RenameDialog } from "./RenameDialog";
 export type { RenameDialogProps } from "./RenameDialog";
 export { PrintPreviewFrame, printSrcDoc } from "./PrintPreviewFrame";
@@ -91,6 +107,9 @@ export {
 export type { PrintPageSpec, PrintOrientation, ComposePrintOptions } from "./printDocument";
 export { printHtmlDocument, PRINT_FRAME_ATTR } from "./browserPrint";
 export type { PrintHtmlOptions } from "./browserPrint";
+// 0.8.0-dev.9 (L-05): a clean list printout
+export { printListDocument, printList } from "./printList";
+export type { PrintListOptions, PrintListColumn } from "./printList";
 export { PrintDocumentsDialog, printPageOf, BACKGROUND_PRINT_ID } from "./PrintDocumentsDialog";
 export type { PrintDocumentsDialogProps, PrintDocumentsValue, PrintOption } from "./PrintDocumentsDialog";
 export { PrintView, PrintViewDialog } from "./PrintView";
@@ -106,3 +125,24 @@ export type {
   DocStatus, DocMessage, SubmitMessageKey, DocstatusAction, DocstatusResult, WorkflowDocAction, WorkflowDocResult,
   WorkflowStateDoc, WorkflowTransitionDoc, DocstatusField,
 } from "./docstatus";
+// Type configuration page (Lead Type, Deal Type, Task Type…): page parts, field library picker, import planner, label
+// conflicts, save rules. docs/components/type-config.md
+export {
+  TypeConfigPage, TypeConfigSection, TypeAppearanceSection, TypeSettingsGrid, TypeSettingField, TypeConfigFooter,
+  TypeWizardToggle, TypeFormIssues, TypeFieldPicker, TypeFormSection, useFieldImportSummary,
+} from "./TypeConfig";
+export type {
+  TypeConfigPageProps, TypeConfigSectionProps, TypeAppearanceSectionProps, TypeSettingFieldProps, TypeConfigFooterProps,
+  TypeWizardToggleProps, TypeFormIssuesProps, TypeFieldPickerProps, TypeFieldGroup, TypeFieldOption, TypeFieldImport,
+  TypeFormSectionProps, TypeConfigLabels,
+} from "./TypeConfig";
+export {
+  planFieldImport, appendImportedSections, fieldImportStatus, typeFormConflicts, typeFormReservedWarnings, typeFormFields,
+  typeSaveBlock, normLabel,
+} from "./typeConfig";
+export type {
+  TypeFormFieldLike, TypeFormSectionLike, TypeFormStepLike, TypeFormLike, ReservedLabel, FieldImportMode, FieldImportStatus,
+  FieldImportPlan, PlanFieldImportArgs, TypeFieldConflict, TypeSaveBlock, TypeSaveState,
+} from "./typeConfig";
+// Form builder (steps → sections → fields, field types, field properties) — docs/components/form-builder.md
+export * from "./form-builder";

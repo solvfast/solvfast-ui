@@ -15,6 +15,16 @@ export interface ColumnDef<T> {
   fieldtype?: string;
   /** Custom cell. Default: a type-aware cell. */
   render?: (row: T) => ReactNode;
+  /** Run 1 (B-02): the cell is a link to this URL (a new tab / copy link with Ctrl/⌘ or the middle button). A plain click
+   *  still opens the row (`onRowClick`) without leaving the page; without `onRowClick` the browser follows the link. */
+  href?: (row: T) => string | undefined;
+  /** Run 1 (B-02): a tooltip for the cell (e.g. the full title of a truncated subject). */
+  title?: (row: T) => string | undefined;
+  /** Run 1 (E-14): summed in the totals row (`ListView totals`). Default: numeric fieldtypes (Int, Float, Currency,
+   *  Percent) when totals are on. `false` = never. */
+  total?: boolean;
+  /** Run 1 (E-14): a row's currency for this column — totals are then per currency, side by side, never converted. */
+  currency?: (row: T) => string | undefined;
   /** Sortable primitive (overrides the type-aware comparison). */
   sortValue?: (row: T) => string | number;
   align?: "start" | "end";

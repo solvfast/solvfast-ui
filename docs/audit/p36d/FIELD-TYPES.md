@@ -119,7 +119,7 @@ this file are from 6ea5eb9 and are stale** (agent C's P36d changes moved them); 
 | FT-36 Table | COMPLETE | PARTIAL | Paste from a spreadsheet (`controls/table.js:19-117`); P35 A-form §G lists drag reorder (G4) PARTIAL and grid Download / Upload (G9) MISSING. |
 | FT-37 Table MultiSelect | COMPLETE | PARTIAL | A ControlLink: its list has "Create a new" / Advanced Search (`controls/link.js:323-360`), missing here; the field's `link_filters` / `filters` are not applied (FTMS:306-316). |
 | FT-39 Column Break | COMPLETE | PARTIAL | `column.js:22-36` renders the column's label and description; FFV:741 renders neither. |
-| FT-24 Date / FT-25 Datetime | PARTIAL | PARTIAL | New gaps (844cd2e, `primitives/date-time-field.tsx:122-170`): no typed entry (a calendar button) and **a value cannot be cleared** (native: a text input, `''` → null, `controls/date.js:156-179`). |
+| FT-24 Date / FT-25 Datetime | PARTIAL | PARTIAL | Run 1 (0.8.0-dev.6): Date clears, takes typed input in the site format and Today (C-24); Datetime keeps the minute and seconds, clears, Now, user ↔ system TZ (C-25). Still open: Date `options` JSON; typed Datetime entry. (Before: no typed entry and a value could not be cleared — 844cd2e.) |
 
 ## 2. Summary matrix
 

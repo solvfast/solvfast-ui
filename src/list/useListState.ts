@@ -55,6 +55,13 @@ export interface UseListStateOptions<T> {
   groupByOptions?: GroupByOption<T>[];
   /** Fields shown as quick filters until the user changes them. */
   quickFilterFields?: string[];
+  /** Run 1 (I3, docs/specs/LISTVIEW-API.md §4): client mode reports its result — every matching row (filtered, searched,
+   *  sorted, all pages), the visible column keys, and whether a search or filter is active — whenever it changes (query,
+   *  search, sort, columns, rows), never on paging. For actions on "what the list shows" (export, print, counts). Server
+   *  mode: not called. */
+  onResultChange?: (result: { rows: T[]; visibleColumns: string[]; filtered: boolean }) => void;
+  /** Run 1 (E-14): whether the totals row starts shown (the user's choice, stored with the prefs, wins). Default true. */
+  totalsDefaultShown?: boolean;
   /** Persistence key for prefs + saved filters. Omit to keep state in memory only. */
   viewKey?: string;
   /** Default: localStorage (`sf:list:<viewKey>:…`). `null` disables. */
@@ -155,6 +162,22 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
     return sortRows(out, sort, columns);
   }, [mode, rows, appliedQuery, filterFields, appliedSearch, searchFields, sort, columns, opts.fiscalYears]);
 
+  // Run 1 I3: the client result for the host (not on paging; not in server mode)
+  const onResultRef = React.useRef(opts.onResultChange);
+  onResultRef.current = opts.onResultChange;
+  const resultFiltered = appliedQuery.conditions.length > 0 || appliedSearch.trim() !== "";
+  const visibleKeyList = visibleKeys.join("\u0000");
+  // reported only when the result really changed: the same rows (by reference, in order), columns and flag do not
+  // re-fire — a host that re-renders with a fresh array of the same rows (and sets state in the callback) cannot loop
+  const lastResult = React.useRef<{ rows: T[]; cols: string; filtered: boolean } | null>(null);
+  React.useEffect(() => {
+    if (mode === "server" || !onResultRef.current) return;
+    const prev = lastResult.current;
+    if (prev && prev.cols === visibleKeyList && prev.filtered === resultFiltered && prev.rows.length === filtered.length && prev.rows.every((r, i) => r === filtered[i])) return;
+    lastResult.current = { rows: filtered, cols: visibleKeyList, filtered: resultFiltered };
+    onResultRef.current({ rows: filtered, visibleColumns: visibleKeyList ? visibleKeyList.split("\u0000") : [], filtered: resultFiltered });
+  }, [mode, filtered, visibleKeyList, resultFiltered]);
+
   const groupOption = groupBy !== "none" ? opts.groupByOptions?.find((o) => o.key === groupBy) : undefined;
   const grouped = !!groupOption;
   const total = mode === "server" ? opts.total ?? rows.length : filtered.length;
@@ -191,6 +214,7 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
   }, [viewKey, savedStore]);
 
   // ---- API ---------------------------------------------------------------------------------------------------------
+  const [showTotals, setShowTotalsState] = React.useState<boolean>(() => initial.showTotals ?? opts.totalsDefaultShown ?? true);
   const setQuery = (q: FilterQuery) => { setQueryState(q); setPage(0); if (prefsStore?.persistQuery) persist({ query: q }); };
   const setSearch = (v: string) => { setSearchState(v); setPage(0); };
   const setSort = (s: SortState) => { setSortState(s); persist({ sort: s }); };
@@ -211,6 +235,9 @@ export function useListState<T>(opts: UseListStateOptions<T>) {
     sort, setSort, toggleSort,
     groupBy, setGroupBy, groupByOptions: opts.groupByOptions ?? [], groups, grouped,
     rows: pageRows, total, page, setPage, pageSize, setPageSize,
+    /** Run 1 (E-14): every row the totals cover — client mode: all filtered rows; server mode: the loaded rows. */
+    totalRows: mode === "server" ? rows : filtered,
+    showTotals, setShowTotals: (on: boolean) => { setShowTotalsState(on); persist({ showTotals: on }); },
     hasPrev: !grouped && page > 0,
     hasNext: !grouped && (page + 1) * pageSize < total,
     quickFields, setQuickFields,

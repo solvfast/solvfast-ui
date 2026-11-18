@@ -64,6 +64,8 @@ export interface DataGridProps<R> {
   className?: string;
 }
 
+const EDITABLE = "input:not([type=hidden]):not([disabled]), textarea, select, [contenteditable=true], button[role=combobox], [role=textbox]";
+const CSS_ESCAPE = (v: string) => v.replace(/["\\]/g, "\\$&");
 const inPopper = (el: Element | null) => !!el?.closest("[data-radix-popper-content-wrapper],[role=dialog],[role=alertdialog],[role=listbox]");
 
 export function DataGrid<R>({
@@ -77,6 +79,10 @@ export function DataGrid<R>({
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set());
   const [editingKey, setEditingKey] = React.useState<string | null>(null);
   const jumpToEnd = React.useRef(false);
+  // Run 1 C-57 (Desk grid_row.js:1091-1110, 1200-1330; grid.js:979-990): keyboard entry and row-to-row editing — after a
+  // render, focus this row's editor in this column (null column = the first editor)
+  const pendingFocus = React.useRef<{ key?: string; col: string | null; tries?: number } | null>(null);
+  const editNewRow = React.useRef(false);
 
   const keys = rows.map(getRowKey);
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -90,7 +96,12 @@ export function DataGrid<R>({
   React.useEffect(() => {
     setSelected((s) => { const next = new Set([...s].filter((k) => keys.includes(k))); return next.size === s.size ? s : next; });
     if (jumpToEnd.current) { jumpToEnd.current = false; setPage(pages - 1); }
-    if (editingKey && !keys.includes(editingKey)) setEditingKey(null);
+    if (editNewRow.current) {
+      // Add Row / Tab past the last cell: the new (last) row opens for editing, its first editor focused
+      editNewRow.current = false;
+      const last = keys[keys.length - 1];
+      if (last && editable && inlineEdit) { setEditingKey(last); pendingFocus.current = { key: last, col: null }; }
+    } else if (editingKey && !keys.includes(editingKey)) setEditingKey(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
   React.useEffect(() => {
@@ -113,7 +124,37 @@ export function DataGrid<R>({
     if (idx.length) onDeleteRows?.(idx);
     setSelected(new Set());
   };
-  const add = () => { jumpToEnd.current = true; onAddRow?.(); };
+  const add = () => { jumpToEnd.current = true; editNewRow.current = true; onAddRow?.(); };
+  React.useEffect(() => {
+    const p = pendingFocus.current;
+    if (!p?.key) return;
+    const tr = gridRef.current?.querySelector(`tr[data-row-key="${CSS_ESCAPE(p.key)}"]`);
+    const td = p.col ? tr?.querySelector(`td[data-col="${CSS_ESCAPE(p.col)}"]`) : tr?.querySelector("td[data-col]");
+    const target = td?.querySelector<HTMLElement>(EDITABLE) ?? (p.col ? null : tr?.querySelector<HTMLElement>(`td[data-col] :is(${EDITABLE})`));
+    if (!target) { if ((p.tries = (p.tries ?? 0) + 1) > 2) pendingFocus.current = null; return; } // editors render on the next pass
+    pendingFocus.current = null;
+    target.focus();
+  });
+  /** Start editing a row from the keyboard (Enter / F2 on a cell) and focus that column's editor. */
+  const startEdit = (key: string, col: string) => { if (!editable) return; setEditingKey(key); pendingFocus.current = { key, col }; };
+  /** While editing: ↑ / ↓ move to the same column of the previous / next row; Tab past the last editor of the last row
+   *  adds a row (Desk). */
+  const editorKeys = (e: React.KeyboardEvent, i: number, col: string, lastCol: boolean) => {
+    const el = e.target as HTMLElement;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !e.shiftKey && el.tagName === "INPUT" && !el.closest("[role=combobox],[aria-expanded=true]")) {
+      const j = e.key === "ArrowDown" ? i + 1 : i - 1;
+      if (j < 0 || j >= rows.length) return;
+      e.preventDefault();
+      if (j < start || j >= start + pageSize) setPage(Math.floor(j / pageSize));
+      setEditingKey(keys[j]!); pendingFocus.current = { key: keys[j]!, col };
+      return;
+    }
+    if (e.key === "Tab" && !e.shiftKey && lastCol && i === rows.length - 1 && allowAdd && onAddRow) {
+      const editors = [...(e.currentTarget as HTMLElement).closest("tr")!.querySelectorAll<HTMLElement>(EDITABLE)];
+      if (editors[editors.length - 1] === el || editors[editors.length - 1]?.contains(el)) { e.preventDefault(); add(); }
+    }
+  };
 
   const rowKeys = (e: React.KeyboardEvent, i: number) => {
     if (e.key === "Escape" && editingKey) { e.preventDefault(); setEditingKey(null); return; }
@@ -127,6 +168,7 @@ export function DataGrid<R>({
     if (allowAdd && onDuplicateRow && e.shiftKey && e.altKey && e.key === "ArrowDown") { e.preventDefault(); onDuplicateRow(i); }
   };
 
+  const firstEditable = columns.findIndex((c) => !!c.renderEditor);
   const showSelect = allowDelete && !!onDeleteRows;
   const showMenu = editable && (allowAdd || allowDelete || !!onMoveRow || !!onOpenRow);
   const align = (a?: "start" | "end" | "center") => (a === "end" ? "text-end" : a === "center" ? "text-center" : "text-start");
@@ -184,12 +226,21 @@ export function DataGrid<R>({
                     </td>
                   )}
                   <td className="px-2 py-2 text-xs tabular-nums text-muted-foreground">{i + 1}</td>
-                  {columns.map((c) => {
+                  {columns.map((c, ci) => {
                     const bad = c.isInvalid?.(row, i);
+                    const keyboardEntry = editable && inlineEdit && !editing && !!c.renderEditor;
                     return (
                       <td
                         key={c.key}
-                        className={cn("min-w-0 px-2", editing && c.renderEditor ? "py-1" : "py-2", align(c.align), bad && !editing && "bg-destructive/5 ring-1 ring-inset ring-destructive/60")}
+                        data-col={c.key}
+                        className={cn("min-w-0 px-2", editing && c.renderEditor ? "py-1" : "py-2", align(c.align), bad && !editing && "bg-destructive/5 ring-1 ring-inset ring-destructive/60",
+                          keyboardEntry && "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring")}
+                        // one Tab stop per row: its first editable cell; Enter / F2 opens the row with that editor focused
+                        tabIndex={keyboardEntry && ci === firstEditable ? 0 : undefined}
+                        onKeyDown={(e) => {
+                          if (keyboardEntry && e.target === e.currentTarget && (e.key === "Enter" || e.key === "F2")) { e.preventDefault(); startEdit(key, c.key); return; }
+                          if (editing) editorKeys(e, i, c.key, ci === columns.length - 1 || !columns.slice(ci + 1).some((x) => !!x.renderEditor));
+                        }}
                         onClick={() => {
                           if (!editable) return;
                           if (inlineEdit) { if (editingKey !== key) setEditingKey(key); }

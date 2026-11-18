@@ -22,28 +22,35 @@ export interface RenameDialogProps {
   nameLabel?: string;
   /** Offer "Merge with existing". Default true (Desk always offers it). */
   allowMerge?: boolean;
-  /** Rename. Resolve when the server answered; reject to show the error and keep the dialog open. */
-  onRename: (next: { newName: string; merge: boolean }) => Promise<unknown> | void;
+  /** Rename. Resolve when the server answered; reject to show the error and keep the dialog open. With `title`, the
+   *  title typed comes too (unchanged when the user left it). */
+  onRename: (next: { newName: string; merge: boolean; title?: string }) => Promise<unknown> | void;
+  /** Run 1 (C-67, Desk toolbar.js:116-288): also edit the document's title (its title field): `value` + `label`. */
+  title?: { value: string; label?: string };
+  /** Run 1 (C-67): false = the name cannot change (only the title; Desk without allow_rename). Default true. */
+  allowNameChange?: boolean;
 }
 
-export function RenameDialog({ open, onOpenChange, name, nameLabel, allowMerge = true, onRename }: RenameDialogProps) {
+export function RenameDialog({ open, onOpenChange, name, nameLabel, allowMerge = true, onRename, title, allowNameChange = true }: RenameDialogProps) {
   const { t } = useLocale();
   const id = React.useId();
   const [value, setValue] = React.useState(name);
+  const [titleValue, setTitleValue] = React.useState(title?.value ?? "");
   const [merge, setMerge] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const [note, setNote] = React.useState("");
-  React.useEffect(() => { if (open) { setValue(name); setMerge(false); setError(""); setNote(""); } }, [open, name]);
+  React.useEffect(() => { if (open) { setValue(name); setTitleValue(title?.value ?? ""); setMerge(false); setError(""); setNote(""); } }, [open, name, title?.value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     const next = value.trim();
     setError(""); setNote("");
     if (!next) { setError(t("r35NameRequired")); return; }
-    if (next === name) { setNote(t("r35Unchanged")); return; }
+    const nextTitle = title ? titleValue.trim() : undefined;
+    if (next === name && (!title || nextTitle === title.value)) { setNote(t("r35Unchanged")); return; }
     setBusy(true);
-    try { await onRename({ newName: next, merge }); onOpenChange(false); }
+    try { await onRename(title ? { newName: next, merge, title: nextTitle } : { newName: next, merge }); onOpenChange(false); }
     catch (err) { setError(errorText(err) || "Error"); }
     finally { setBusy(false); }
   };
@@ -56,11 +63,19 @@ export function RenameDialog({ open, onOpenChange, name, nameLabel, allowMerge =
             <DialogTitle>{fmt(t("r35RenameTitle"), name)}</DialogTitle>
             <DialogDescription className="sr-only">{fmt(t("r35RenameTitle"), name)}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-1">
-            <Label htmlFor={`${id}-name`}>{nameLabel ?? t("r35NewName")}</Label>
-            <Input id={`${id}-name`} value={value} onChange={(e) => setValue(e.target.value)} aria-required="true" autoFocus aria-invalid={!!error || undefined} />
-          </div>
-          {allowMerge && (
+          {title ? (
+            <div className="space-y-1">
+              <Label htmlFor={`${id}-title`}>{title.label ?? t("r35Title")}</Label>
+              <Input id={`${id}-title`} value={titleValue} onChange={(e) => setTitleValue(e.target.value)} autoFocus />
+            </div>
+          ) : null}
+          {allowNameChange ? (
+            <div className="space-y-1">
+              <Label htmlFor={`${id}-name`}>{nameLabel ?? t("r35NewName")}</Label>
+              <Input id={`${id}-name`} value={value} onChange={(e) => setValue(e.target.value)} aria-required="true" autoFocus={!title} aria-invalid={!!error || undefined} />
+            </div>
+          ) : null}
+          {allowMerge && allowNameChange && (
             <div className="flex items-center gap-2 text-sm">
               <Checkbox id={`${id}-merge`} checked={merge} onCheckedChange={(v) => setMerge(v === true)} />
               <Label htmlFor={`${id}-merge`} className="font-normal">{t("r35Merge")}</Label>

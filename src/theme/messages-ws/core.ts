@@ -1,8 +1,5 @@
 /** Chrome strings added by the P35 "core" workstream (en + ar; the ar object must have every en key). */
 export const coreEn = {
-  // LifecycleBar (G7): screen-reader suffix of a skipped / failed state
-  coreStepSkipped: "Skipped",
-  coreStepFailed: "Failed",
   // Timeline (G13): name of a change entry's expand toggle when the summary is itself selectable
   coreShowChanges: "show changes",
   // FileDropzone (G14)
@@ -27,8 +24,6 @@ export const coreEn = {
   coreNextYear: "Next year",
 };
 export const coreAr: { [K in keyof typeof coreEn]: string } = {
-  coreStepSkipped: "تم تخطّيها",
-  coreStepFailed: "فشلت",
   coreShowChanges: "عرض التغييرات",
   coreFileDropPrompt: "اسحب الملفات إلى هنا أو انقر للاستعراض",
   coreFileDropPromptSingle: "اسحب ملفاً إلى هنا أو انقر للاستعراض",

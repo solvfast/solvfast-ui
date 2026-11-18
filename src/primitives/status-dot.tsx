@@ -38,7 +38,18 @@ export const STATUS_PALETTE: Readonly<Record<string, string>> = {
   orange: "hsl(var(--brand-orange))",
   midnight: "hsl(var(--brand-midnight))",
   forest: "hsl(var(--brand-forest))",
+  // Run 1 D-64: every colour name Desk's indicators use (indicator.scss:51-75), themed for light and dark
+  blue: "hsl(var(--indicator-blue))",
+  "light-blue": "hsl(var(--indicator-light-blue))",
+  yellow: "hsl(var(--warning))",
+  pink: "hsl(var(--indicator-pink))",
+  darkgrey: "hsl(var(--indicator-darkgrey))",
+  "dark-grey": "hsl(var(--indicator-darkgrey))",
+  black: "hsl(var(--foreground))",
 };
+
+/** Run 1 (D-64): Desk's 12 indicator colour names (the 11 of indicator.scss plus grey) — all resolve to theme tokens. */
+export const DESK_INDICATOR_COLOURS: readonly string[] = ["green", "cyan", "blue", "light-blue", "orange", "yellow", "red", "pink", "purple", "gray", "grey", "darkgrey"];
 
 /** A palette token → its themed colour; any other non-empty string is returned trimmed (a CSS colour); empty → undefined. */
 export function resolveStatusColor(color?: string | null): string | undefined {
@@ -48,18 +59,18 @@ export function resolveStatusColor(color?: string | null): string | undefined {
 }
 
 /**
- * Inline styles for a custom status colour. The dot is the colour itself; text is the colour mixed 55 % with the theme's
- * foreground (darker on light themes, lighter on dark ones, so a configured yellow or navy stays readable); a pill's
- * fill is the colour at 15 %. Pure CSS (`color-mix`): no build step, follows the nearest `.dark` scope.
+ * Inline styles for a custom status colour. The dot is the colour itself; plain `text` (no tint behind it) is the colour
+ * mixed 55 % with the theme's foreground (darker on light themes, lighter on dark ones, so a configured yellow or navy
+ * stays readable); a `pill` is filled with the colour at 15 % and its text mixed 45 % (Run 1 D-64: ≥ 4.5:1 on the tint,
+ * measured on Glass). Pure CSS (`color-mix`): no build step, follows the nearest `.dark` scope.
  */
 export function statusColorStyles(color?: string | null): { dot: React.CSSProperties; text: React.CSSProperties; pill: React.CSSProperties } | undefined {
   const c = resolveStatusColor(color);
   if (!c) return undefined;
-  const text = `color-mix(in oklab, ${c} 55%, hsl(var(--foreground)))`;
   return {
     dot: { backgroundColor: c },
-    text: { color: text },
-    pill: { backgroundColor: `color-mix(in srgb, ${c} 15%, transparent)`, color: text },
+    text: { color: `color-mix(in oklab, ${c} 55%, hsl(var(--foreground)))` },
+    pill: { backgroundColor: `color-mix(in srgb, ${c} 15%, transparent)`, color: `color-mix(in oklab, ${c} 45%, hsl(var(--foreground)))` },
   };
 }
 

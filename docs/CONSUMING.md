@@ -144,7 +144,9 @@ const location = useLocation(); const navigate = useNavigate();      // e.g. rea
   have no heading of their own. A `PageHeader` inside `AppShell` follows that: its text title (`string` or `{ en, ar }`)
   replaces the top bar's title while the header is mounted (the previous title comes back when it unmounts), and the
   header renders only its back button, subtitle, `meta` and `actions` — nothing if none is set. A node title (e.g.
-  `<EditableTitle>`) stays in the page. AppShell's `title` prop still wins over everything.
+  `<EditableTitle>`) stays in the page. AppShell's `title` prop still wins over everything. A `subtitle` or `meta` is
+  then its own strip under the top bar: pass one only when the page's design has that content (a record id, as below) —
+  never a made-up description of the page.
   ```tsx
   <AppShell …>
     <PageHeader title={{ en: "Website redesign", ar: "إعادة تصميم الموقع" }} subtitle="PRJ-0042"
@@ -385,7 +387,7 @@ System-Manager list menu entries and the permission-gated Link "Create a new X".
 **Core (`@solvfast/ui`)** — record and list building blocks without a backend: `RecordMenu`, `RenameDialog`,
 `ReminderDialog`, `ConnectionsPanel`, `EmailComposer`, `PrintPreviewFrame`; `GroupBySidebar` (`ListView aside`); views
 `ViewSwitcher`, `ImageView`, `KanbanBoard`, `CalendarMonth`; fields `FileDropzone`, `MonthInput`; `EmptyState`; and new
-props: `StatusBadge color`, `LifecycleStateItem.step`, `SearchCombobox options / multiple`, `Timeline onItemSelect`,
+props: `StatusBadge color`, `SearchCombobox options / multiple`, `Timeline onItemSelect`,
 `IconStatCard trend`, `Stepper overflowCue`, `ListView pageSizes / selectAllMatching / layout="cards"`.
 
 ```tsx

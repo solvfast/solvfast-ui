@@ -537,3 +537,48 @@ describe("FrappeListView wiring (Phase 27 Lead): report-view export entry and th
     expect(headers().length).toBeGreaterThan(n);
   });
 });
+
+// Run 1 · E-19 (P1): the list's "Export as report" exports the CHECKED rows (selected_items), in the UI language.
+describe("Run 1 E-19 — report export from the list: checked rows and the catalogue's labels (SIMULATED)", () => {
+  const checkRow = (i: number) => fireEvent.click(within(bodyRows()[i]!).getByRole("checkbox"));
+  it("two checked rows → export_query carries selected_items = those two names (not every matching row)", async () => {
+    const { seen, files } = dl(async () => ({ blob: new Blob(["server"]), filename: "ToDo.xlsx", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    const { mock } = mountList(["Exporter"], META(), { menu: { reportExport: true }, selectable: true }, undefined, files);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    const texts = [0, 2].map((i) => bodyRows()[i]!.textContent ?? "");
+    checkRow(0); checkRow(2);
+    openMenu("More actions");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Export as report/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Selected rows (2)")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: /Download/ }));
+    await waitFor(() => expect(seen.map((s) => s.method)).toEqual(["frappe.desk.reportview.export_query"]));
+    const sent = seen[0]!.args.selected_items;
+    const list = typeof sent === "string" ? JSON.parse(sent) as string[] : sent as string[];
+    expect(list).toHaveLength(2);
+    // each exported name is the document of a checked row (its description is that row's text), in selection order
+    list.forEach((name, i) => {
+      const doc = mock.rows.find((r) => r.name === name) as { description?: string } | undefined;
+      expect(doc, name).toBeTruthy();
+      expect(texts[i]).toContain(String(doc!.description).replace(/<[^>]*>/g, "").slice(0, 12));
+    });
+  });
+  it("NEGATIVE: nothing checked → no selected_items (the current filters)", async () => {
+    const { seen, files } = dl(async () => ({ blob: new Blob(["server"]), filename: "ToDo.xlsx", contentType: "text/csv" }));
+    mountList(["Exporter"], META(), { menu: { reportExport: true } }, undefined, files);
+    await waitFor(() => expect(bodyRows()).toHaveLength(20));
+    openMenu("More actions");
+    fireEvent.click(screen.getByRole("menuitem", { name: /Export as report/ }));
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /Download/ }));
+    await waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]!.args.selected_items).toBeUndefined();
+  });
+  it("Arabic: the dialog's chrome comes from the catalogue", async () => {
+    const { FrappeReportExportDialog } = await import("../src/frappe/list/FrappeReportExportDialog");
+    render(<ThemeProvider defaultLanguage="ar" storageKeys={null}><FrappeReportExportDialog api={{ download: vi.fn(), call: vi.fn() } as never} doctype="ToDo" open onOpenChange={() => {}} fields={["name"]} /></ThemeProvider>);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain("تصدير التقرير: ToDo");
+    expect(within(dialog).getByRole("button", { name: "تنزيل" })).toBeTruthy();
+    expect(dialog.textContent).not.toContain("File Format");
+  });
+});

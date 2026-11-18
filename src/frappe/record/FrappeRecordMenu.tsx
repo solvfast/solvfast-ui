@@ -17,6 +17,7 @@
  * Rights: `permissions.can` (default `usePermissions(bundle, doc, docinfo)`) — a client mirror; the server decides.
  */
 import * as React from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../primitives/alert-dialog";
 import { RecordMenu, type RecordMenuItem } from "../../record/RecordMenu";
 import { RenameDialog } from "../../record/RenameDialog";
 import { fmt } from "../../record/format";
@@ -72,8 +73,20 @@ export interface FrappeRecordMenuProps {
   emailProps?: Partial<Pick<FrappeEmailComposerProps, "templates" | "searchRecipients" | "initial" | "onSent">>;
   /** After a reminder was created. */
   onReminderCreated?: (r: { remindAt: string; name?: string }) => void;
+  /** Run 1 (C-81…C-84, Desk form.js:166-171, 1286-1295, toolbar.js:412-471): bind the menu's shortcuts — Ctrl/⌘+P Print,
+   *  Ctrl/⌘+E Email, Shift+D Duplicate, Shift+Ctrl/⌘+D Delete (asks first) — while this is the topmost such menu, outside
+   *  text fields and dialogs, only for the entries offered and enabled. Default false (a host with its own menu binds its
+   *  own keys); `FrappeForm` turns it on unless `hotkeys={false}`. */
+  shortcuts?: boolean;
   className?: string;
 }
+
+/** Mounted menus with shortcuts, in mount order: only the last (topmost) answers. */
+const shortcutStack: object[] = [];
+const inTextField = (el: EventTarget | null) => {
+  const n = el as HTMLElement | null;
+  return !!n && (n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "SELECT" || n.isContentEditable);
+};
 
 const LABEL: Record<FormMenuId, keyof Messages> = {
   print: "r35Print", email: "r35Email", links: "r35Links", duplicate: "r35Duplicate", copy: "r35CopyToClipboard", rename: "r35Rename",
@@ -141,6 +154,38 @@ export function FrappeRecordMenu(props: FrappeRecordMenuProps) {
     ...(extra ?? []).map((x) => ({ group: "extra", ...x })),
   ];
 
+  // Run 1 C-81…C-84: the menu's shortcuts (topmost menu only; not while typing or while a dialog is open)
+  const [askDelete, setAskDelete] = React.useState(false);
+  const latest = React.useRef({ entries, run });
+  latest.current = { entries, run };
+  React.useEffect(() => {
+    if (!props.shortcuts) return;
+    const token = {};
+    shortcutStack.push(token);
+    const onKey = (e: KeyboardEvent) => {
+      if (shortcutStack[shortcutStack.length - 1] !== token || e.defaultPrevented || inTextField(e.target)) return;
+      if (document.querySelector('[role="dialog"],[role="alertdialog"],[role="menu"]')) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const k = e.key.toLowerCase();
+      const id: FormMenuId | null = mod && !e.shiftKey && !e.altKey && k === "p" ? "print"
+        : mod && !e.shiftKey && !e.altKey && k === "e" ? "email"
+        : e.shiftKey && !mod && !e.altKey && k === "d" ? "duplicate"
+        : e.shiftKey && mod && !e.altKey && k === "d" ? "delete" : null;
+      if (!id) return;
+      const entry = latest.current.entries.find((x) => x.id === id);
+      if (!entry || entry.disabled) return;
+      e.preventDefault();
+      if (id === "delete") setAskDelete(true);
+      else void latest.current.run[id]();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      const i = shortcutStack.indexOf(token);
+      if (i >= 0) shortcutStack.splice(i, 1);
+    };
+  }, [props.shortcuts]);
+
   const autonameField = typeof meta.autoname === "string" && meta.autoname.startsWith("field:") ? meta.autoname.slice(6) : "";
   const autonameLabel = autonameField ? meta.fields.find((f) => f.fieldname === autonameField)?.label : undefined;
 
@@ -165,6 +210,23 @@ export function FrappeRecordMenu(props: FrappeRecordMenuProps) {
       {dialog === "email" && (
         <FrappeEmailComposer doc={doc} meta={meta} docinfo={info.data} open onOpenChange={(o) => setDialog(o ? "email" : null)} canEmail={can("email")}
           printSettings={printSettings} {...props.emailProps} />
+      )}
+      {askDelete && (
+        <AlertDialog open onOpenChange={(o) => { if (!o) setAskDelete(false); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{fmt(t("r35DeleteConfirm"), deleteTitle)}</AlertDialogTitle>
+              <AlertDialogDescription>{t("r35ConfirmBody")}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("recCancel")}</AlertDialogCancel>
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => { setAskDelete(false); setNotice(""); void (run.delete() as Promise<unknown>).catch((err) => setNotice(err instanceof Error ? err.message : String(err))); }}>
+                {t("r35Delete")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
       {dialog === "remind" && (
         <FrappeReminder doc={doc} open onOpenChange={(o) => setDialog(o ? "remind" : null)} onCreated={(r) => { setNotice(fmt(t("r35ReminderSet"), r.remindAt)); props.onReminderCreated?.(r); }} />

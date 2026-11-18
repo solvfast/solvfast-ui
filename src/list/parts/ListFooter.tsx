@@ -85,8 +85,24 @@ export interface BulkAction<T> {
   confirm?: BulkActionConfirm | ((ctx: BulkActionContext<T>) => BulkActionConfirm);
   /** Menu: a separator is drawn before the first action of a new group. */
   group?: string;
+  /**
+   * 0.8.0-dev.9 (L-02): records of the selection this action must not touch (e.g. closed or linked records for Delete),
+   * each with the reason. When it blocks any, the runner asks first even without `confirm`: it lists the blocked records
+   * with their reasons, its button names the count that will run ("Delete 2" — `confirm.confirmLabel` or the action's
+   * label, `{k}` = that count, appended when absent), only Close is offered when nothing may run, and `run` receives only
+   * the allowed keys (and, with `rowKey`, only their rows). Then `onSkipped` gets the blocked keys (e.g. to pin them in the
+   * list for "View skipped"). It sees the loaded selection (`ctx.keys` / `ctx.rows`); with an "all matching" selection the
+   * action must still refuse what it cannot act on itself.
+   */
+  preflight?: (ctx: BulkActionContext<T>) => BulkActionPreflight;
+  /** After a pre-flighted run: the keys `preflight` blocked (not run). */
+  onSkipped?: (keys: string[]) => void;
+  /** The key of a loaded row (lets the runner drop blocked rows from `run`'s rows). Without it `rows` are passed as loaded. */
+  rowKey?: (row: T) => string;
 }
 export interface BulkActionConfirm { title: Localized; description?: Localized; confirmLabel?: Localized }
+/** What `BulkAction.preflight` returns: the selected keys that must not run, with why. */
+export interface BulkActionPreflight { blocked: { key: string; reason: Localized }[] }
 
 /** The actions offered for a selection (`hidden` applied) with their disabled state. With `ctx.allMatching`, actions that
  *  cannot act on all matching records are disabled with `opts.allMatchingReason`. */
@@ -135,15 +151,37 @@ export function BulkActionBar<T>({ count, actions, render, onClear, keys, rows }
 export function useBulkActionRunner<T>() {
   const { language, t } = useLocale();
   const [busy, setBusy] = React.useState<string | null>(null);
-  const [asking, setAsking] = React.useState<{ action: BulkAction<T>; ctx: BulkActionContext<T>; confirm: BulkActionConfirm } | null>(null);
-  const exec = async (a: BulkAction<T>, ctx: BulkActionContext<T>) => {
+  const [asking, setAsking] = React.useState<{
+    action: BulkAction<T>; ctx: BulkActionContext<T>; confirm: BulkActionConfirm;
+    /** L-02: set when the action's `preflight` blocked some of the selection */
+    pre?: { blocked: { key: string; reason: Localized }[]; total: number };
+  } | null>(null);
+  const exec = async (a: BulkAction<T>, ctx: BulkActionContext<T>, skipped?: string[]) => {
     setBusy(a.key);
     // the context is passed only for an "all matching" selection: older actions keep their exact (keys, rows) call
     try { await (ctx.allMatching ? a.run(ctx.keys, ctx.rows, ctx) : a.run(ctx.keys, ctx.rows)); } finally { setBusy(null); }
+    if (skipped?.length) a.onSkipped?.(skipped);
   };
   const request = (a: BulkAction<T>, ctx: BulkActionContext<T>) => {
     const c = typeof a.confirm === "function" ? a.confirm(ctx) : a.confirm;
+    const selected = new Set(ctx.keys);
+    const blocked = a.preflight ? a.preflight(ctx).blocked.filter((b, i, all) => selected.has(b.key) && all.findIndex((x) => x.key === b.key) === i) : [];
+    if (blocked.length) {
+      const out = new Set(blocked.map((b) => b.key));
+      const rowKey = a.rowKey;
+      const allowed: BulkActionContext<T> = { ...ctx, keys: ctx.keys.filter((k) => !out.has(k)), rows: rowKey ? ctx.rows.filter((r) => !out.has(rowKey(r))) : ctx.rows };
+      setAsking({ action: a, ctx: allowed, confirm: c ?? { title: a.label }, pre: { blocked, total: ctx.keys.length } });
+      return;
+    }
     if (c) setAsking({ action: a, ctx, confirm: c }); else void exec(a, ctx);
+  };
+  const pre = asking?.pre;
+  const k = asking?.ctx.keys.length ?? 0;
+  const confirmText = (): string => {
+    if (!asking) return "";
+    if (!pre) return asking.confirm.confirmLabel ? loc(asking.confirm.confirmLabel, language) : t("confirm");
+    const base = loc(asking.confirm.confirmLabel ?? asking.action.label, language);
+    return base.includes("{k}") ? base.replace(/\{k\}/g, String(k)) : `${base} ${k}`;
   };
   const dialog = (
     <AlertDialog open={!!asking} onOpenChange={(o) => !o && setAsking(null)}>
@@ -152,13 +190,22 @@ export function useBulkActionRunner<T>() {
           <AlertDialogTitle>{asking ? loc(asking.confirm.title, language) : ""}</AlertDialogTitle>
           {asking?.confirm.description && <AlertDialogDescription>{loc(asking.confirm.description, language)}</AlertDialogDescription>}
         </AlertDialogHeader>
+        {pre && (
+          <div className="space-y-1.5 text-sm" data-bulk-preflight="">
+            <p>{k ? t("bpfWillRun").replace("{k}", String(k)).replace("{n}", String(pre.total)) : t("bpfNoneAllowed")}</p>
+            {k > 0 && <p className="text-muted-foreground">{t("bpfSkipped").replace("{m}", String(pre.blocked.length))}</p>}
+            <ul className="max-h-48 list-disc space-y-0.5 overflow-auto ps-5 text-muted-foreground" data-bulk-blocked="">
+              {pre.blocked.map((b) => <li key={b.key} data-key={b.key}><span className="font-medium text-foreground">{b.key}</span> — {loc(b.reason, language)}</li>)}
+            </ul>
+          </div>
+        )}
         <AlertDialogFooter>
-          <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-          <AlertDialogAction asChild onClick={() => { const a = asking; setAsking(null); if (a) void exec(a.action, a.ctx); }}>
-            <Button variant={asking?.action.tone === "destructive" ? "destructive" : "default"}>
-              {asking?.confirm.confirmLabel ? loc(asking.confirm.confirmLabel, language) : t("confirm")}
-            </Button>
-          </AlertDialogAction>
+          <AlertDialogCancel>{pre && !k ? t("bpfClose") : t("cancel")}</AlertDialogCancel>
+          {!(pre && !k) && (
+            <AlertDialogAction asChild onClick={() => { const a = asking; setAsking(null); if (a) void exec(a.action, a.ctx, a.pre?.blocked.map((b) => b.key)); }}>
+              <Button variant={asking?.action.tone === "destructive" ? "destructive" : "default"}>{confirmText()}</Button>
+            </AlertDialogAction>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -229,7 +229,8 @@ describe("P36d history — FrappeTimeline over the SIMULATOR (desk/form/load.py,
     await waitFor(() => expect(commentEl(String(mine.name))).toBeTruthy());
     // edit own
     fireEvent.click(within(commentEl(String(mine.name))).getByRole("button", { name: "Edit" }));
-    fireEvent.change(within(commentEl(String(mine.name))).getByRole("textbox"), { target: { value: "Edited note" } });
+    // Run 1 D-28: an HTML comment is edited in the rich editor (contenteditable): type by changing its content + input
+    { const box = within(commentEl(String(mine.name))).getByRole("textbox"); box.innerHTML = "Edited note"; fireEvent.input(box); }
     fireEvent.click(within(commentEl(String(mine.name))).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(callsOf(t, "frappe.desk.form.utils.update_comment")).toEqual([{ name: mine.name, content: "Edited note" }]));
     await waitFor(() => expect(commentEl(String(mine.name)).textContent).toContain("Edited note"));

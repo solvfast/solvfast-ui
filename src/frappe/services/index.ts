@@ -1,5 +1,5 @@
 /** Foundation services (pure functions). The Lead re-exports these from src/frappe/index.ts. */
-export { formatValue, numberFormatPrecision, formatNumber, formatCurrency, formatDate, formatDatetime, formatTime, formatDuration, secondsToDuration, roundNumber, fieldCurrency, convertZone, defaultFormatContext } from "./format";
+export { formatValue, numberFormatPrecision, formatNumber, formatCurrency, formatDate, formatDatetime, formatTime, formatDuration, secondsToDuration, roundNumber, fieldCurrency, convertZone, defaultFormatContext, parseUserDate, datetimeToUserInput, datetimeFromUserInput } from "./format";
 export type { FormatContext, CurrencyInfo, RoundingMethod } from "./format";
 export { translateLabel, translateText, withTranslations } from "./translate";
 export type { TranslationDictionary } from "./translate";
@@ -12,3 +12,4 @@ export { resolveIndicator, colourTone, styleColour, styleTone, feedbackTone, toL
 export type { IndicatorInput as ResolveIndicatorInput, IndicatorResult, IndicatorSource as ResolvedIndicatorSource, IndicatorToneName, IndicatorWord } from "./indicator";
 export { readFrappeBoot, formatContextFromBoot } from "./boot";
 export type { FrappeBoot, FrappeBootPayload } from "./boot";
+export { useFrappeTranslate, type FrappeTranslate } from "./useTranslate";

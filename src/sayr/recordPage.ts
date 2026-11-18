@@ -5,6 +5,14 @@ export const TRANSITION_METHOD = "sear_product.apis.tickets.tickets.execute_tran
 export const OPEN_CHECKLIST_METHOD = "sear_product.apis.sear_playbook_checklist.sear_playbook_checklist.open_checklist";
 export const TICK_STEP_METHOD = "sear_product.apis.sear_playbook_checklist.sear_playbook_checklist.tick_step";
 
+/**
+ * Sayr Studio's lifecycle builder (sear_product's `/sayr-framework` app).
+ * @deprecated since 0.10.0 — "View full lifecycle" opens the lifecycle diagram in place (`LifecycleGraphDialog`). Kept
+ * for 0.9.x hosts that pass it to `lifecycleHref`; removed in 0.11.0.
+ */
+export const defaultLifecycleHref = (lifecycle: string) =>
+  `/sayr-framework/workspace/build/sear_studio/life_cycles/${encodeURIComponent(lifecycle)}`;
+
 /** A lifecycle's whole diagram (View full lifecycle): every state, the first one, every transition. */
 export interface LifecycleGraphData {
   states: { state_key: string; name_en: string; name_ar: string | null; phase: string }[];

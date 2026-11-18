@@ -7,6 +7,7 @@
  * deeper levels reuse the child style with more indent).
  */
 import * as React from "react";
+import { NavTarget } from "./NavTarget";
 import { ArrowLeftToLine, ArrowRightToLine, ChevronDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../primitives/tooltip";
 import { useLocale } from "../theme/ThemeProvider";
@@ -73,11 +74,12 @@ function Group({ item, ctx, active, level }: { item: NavItem; ctx: TreeCtx; acti
             const cactive = ctx.isActive(child, ctx.currentPath);
             if (child.children?.length) return <Group key={child.id} item={child} ctx={ctx} active={cactive} level={level + 1} />;
             const CIcon = child.icon;
+            // Run 1 A-25: a link (new tab, copy link), routed through onNavigate on a plain click
             return (
-              <button key={child.id} onClick={() => child.href && ctx.onNavigate(child.href, child)} aria-current={cactive ? "page" : undefined} className={childClasses(cactive)}>
+              <NavTarget key={child.id} href={child.href} onGo={() => child.href && ctx.onNavigate(child.href, child)} aria-current={cactive ? "page" : undefined} className={childClasses(cactive)}>
                 {CIcon && <CIcon className="h-4 w-4 flex-shrink-0" />}
                 <span className="whitespace-nowrap">{loc(child.label, ctx.language)}</span>
-              </button>
+              </NavTarget>
             );
           })}
         </div>
@@ -86,7 +88,26 @@ function Group({ item, ctx, active, level }: { item: NavItem; ctx: TreeCtx; acti
   );
 }
 
+/** Run 1 (A-23, Desk workspace sidebar sections): a heading over its items, collapsible (aria-expanded). On the collapsed
+ *  rail the heading is dropped and its items stay. */
+function Section({ item, ctx, collapsed }: { item: NavItem; ctx: TreeCtx; collapsed: boolean }) {
+  const [open, setOpen] = React.useState(true);
+  const listId = React.useId();
+  if (collapsed) return <>{item.children!.map((c) => <Item key={c.id} item={c} ctx={ctx} collapsed />)}</>;
+  return (
+    <div className="pt-3 first:pt-0" data-nav-section="">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={listId}
+        className="flex w-full items-center justify-between gap-2 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground">
+        <span>{loc(item.label, ctx.language)}</span>
+        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} aria-hidden />
+      </button>
+      {open ? <div id={listId} className="space-y-0.5">{item.children!.map((c) => <Item key={c.id} item={c} ctx={ctx} collapsed={false} />)}</div> : null}
+    </div>
+  );
+}
+
 function Item({ item, ctx, collapsed }: { item: NavItem; ctx: TreeCtx; collapsed: boolean }) {
+  if (item.section && item.children?.length) return <Section item={item} ctx={ctx} collapsed={collapsed} />;
   const active = ctx.isActive(item, ctx.currentPath);
   // A parent with children is an accordion; on the collapsed rail it degrades to a leaf (no flyout).
   if (item.children?.length && !collapsed) return <Group item={item} ctx={ctx} active={active} level={0} />;
@@ -94,15 +115,15 @@ function Item({ item, ctx, collapsed }: { item: NavItem; ctx: TreeCtx; collapsed
   const href = firstHref(item);
   const Icon = item.icon;
   const inner = (
-    <button
-      onClick={() => href && ctx.onNavigate(href, item)}
+    <NavTarget
+      href={href} onGo={() => href && ctx.onNavigate(href, item)}
       className={leafClasses(active, collapsed)}
       aria-current={active ? "page" : undefined}
       aria-label={collapsed ? label : undefined}
     >
       {Icon && <Icon className="h-4 w-4 flex-shrink-0" />}
       {!collapsed && <span className="whitespace-nowrap">{label}</span>}
-    </button>
+    </NavTarget>
   );
   if (!collapsed) return inner;
   return (
@@ -121,6 +142,11 @@ export function Sidebar({
 }: SidebarProps) {
   const { language, isRTL, t } = useLocale();
   const ctx: TreeCtx = { currentPath, isActive, onNavigate, isRTL, language };
+  const navRef = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    const cur = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    cur?.scrollIntoView?.({ block: "nearest" });
+  }, [currentPath, collapsed]);
   const name = loc(brand.name, language);
   const logoClassName = brand.logoClassName ?? "w-11 h-11";
   const BrandIcon = brand.icon;
@@ -174,7 +200,8 @@ export function Sidebar({
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">{!collapsed && body}</div>
       ) : (
         <TooltipProvider delayDuration={100}>
-          <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+          {/* Run 1 A-23: a named landmark; the current item is scrolled into view */}
+          <nav ref={navRef} aria-label={t("navMain")} className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
             {items.map((item) => <Item key={item.id} item={item} ctx={ctx} collapsed={collapsed} />)}
           </nav>
         </TooltipProvider>

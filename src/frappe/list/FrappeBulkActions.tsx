@@ -11,6 +11,7 @@
  * says "N requested — the server reports failures in its messages", never a success count; `queued` says so.
  */
 import * as React from "react";
+import { useFrappeTranslate } from "../services/useTranslate";
 import { Ban, ChevronDown, Download, Pencil, Printer, Send, Shuffle, Tags, Trash2, UserMinus, UserPlus, Workflow } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../primitives/alert-dialog";
@@ -100,6 +101,8 @@ export interface FrappeBulkActionsProps<T> {
  */
 export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta, doctype, keys, rows, docMeta, roles, clear, options, onBusy, onMessage, onExport, exportLabel }: FrappeBulkActionsProps<T>) {
   const { t } = useLocale();
+  const trTranslate = useFrappeTranslate();
+  const trAction = (a: string) => trTranslate(a, null); // Run 1 B-38: Desk __(action) (list_view.js:1810)
   const qc = useQueryClient();
   const { session } = useFrappeSettings();
   const api = React.useMemo(() => withFrappeApi(client), [client]);
@@ -222,7 +225,7 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
       {wf.loading ? <DropdownMenuItem disabled>{t("loading")}</DropdownMenuItem>
         : wf.actions.length ? wf.actions.map((a) => (
           <DropdownMenuItem key={a} data-action={`workflow:${a}`} onSelect={() => runWorkflow(a)}>
-            <Workflow className="me-2 h-4 w-4" aria-hidden />{a}
+            <Workflow className="me-2 h-4 w-4" aria-hidden />{trAction(a)}
           </DropdownMenuItem>
         ))
         : <DropdownMenuItem disabled>{t("listBulkWorkflowNone")}</DropdownMenuItem>}
@@ -299,6 +302,8 @@ export function useFrappeBulkActions<T = Record<string, unknown>>({ client, meta
  *  and selection outcomes as `useFrappeBulkActions`. */
 export function FrappeBulkActions<T = Record<string, unknown>>(props: FrappeBulkActionsProps<T>) {
   const { t } = useLocale();
+  const trTranslate = useFrappeTranslate();
+  const trAction = (a: string) => trTranslate(a, null); // Run 1 B-38: Desk __(action) (list_view.js:1810)
   const { kinds, dialogs, busy, trigger, searchUsers, assignTo, labelOf, wf, loadWorkflowActions, runWorkflow } = useFrappeBulkActions<T>(props);
   if (!kinds.length) return null;
   return (
@@ -321,7 +326,7 @@ export function FrappeBulkActions<T = Record<string, unknown>>(props: FrappeBulk
               <DropdownMenuContent align="start">
                 {wf.loading ? <DropdownMenuItem disabled>{t("loading")}</DropdownMenuItem>
                   : wf.actions.length ? wf.actions.map((a) => (
-                    <DropdownMenuItem key={a} onSelect={() => runWorkflow(a)}>{a}</DropdownMenuItem>
+                    <DropdownMenuItem key={a} onSelect={() => runWorkflow(a)}>{trAction(a)}</DropdownMenuItem>
                   ))
                   : <DropdownMenuItem disabled>{t("listBulkWorkflowNone")}</DropdownMenuItem>}
               </DropdownMenuContent>

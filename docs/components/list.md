@@ -410,7 +410,8 @@ server orchestration (every step a server request); `DataImportDialog` orchestra
 | Export states | fields with label, key, "(Mandatory)"; Select All / Select Mandatory / Unselect All; `lockMandatory`; nothing selected → Export disabled + "Select at least one field to export."; loading ("Downloading…"); a rejected `onExport` → the error in the dialog (`renderError`); resolved → closed. |
 | Import steps | Upload (Import Type, file, Download Template) → Preview ("{file}: {n} rows, {m} columns", warnings by row / column, counts ready / errors / duplicates, duplicate handling, grid with each column's field, Map Columns) → Import (progress) → Result (the run's counts only). `runUnavailable` → Start Import disabled with the reason, nothing imported, no success. |
 | Labels | Export: the catalogue's `export*` keys (en / ar). Import: `DATA_IMPORT_LABELS_EN/AR` + `IMPORT_DIALOG_LABELS_EN/AR`, by the ThemeProvider language; `labels` overrides. |
-| XLSX | not in the package (no dependency): read / write it in the host with a spreadsheet library. |
+| XLSX | 0.8.0-dev.9: a minimal, dependency-free writer and reader ship in Core (§8b): `buildXlsx` for the "Excel" file type, `parseXlsx` in an adapter's `parse`. Styles, formulas, dates and several sheets need a spreadsheet library in the host. |
+| File hint | 0.8.0-dev.9 (L-07): the hint under the picker names what `adapter.accept` lists (`.csv` → "CSV"; `.csv,.xlsx` → "CSV or XLSX"; Arabic "CSV أو XLSX"; `importFileHint(accept, language)`); known types in a fixed order (CSV, TSV, TXT, XLS, XLSX, ODS), so the default accept — and ".csv,.xlsx,.xls" — keeps "CSV, XLS or XLSX". An explicit `labels.fileHint` wins. |
 
 ## 7. Realtime refresh
 
@@ -458,6 +459,105 @@ takes `{ global }`), `GroupByOption.groupOf` returning several buckets, `FilterF
 ```
 
 ---
+
+## 8a. Run 1 additions (0.8.0-dev.6)
+
+| Prop / behaviour | Row | What |
+|---|---|---|
+| `onResultChange({ rows, visibleColumns, filtered })` | I3 | Client mode reports every matching row (all pages, sorted), the visible columns and whether a filter / search is active; on query / search / sort / column / row changes, never on paging; not for the same result again; never in server mode. |
+| `totals` (`{ label?, defaultShown? }`), `ColumnDef.total`, `ColumnDef.currency` | E-14 | A `<tfoot>` totals row over every filtered row (server mode: loaded rows), per currency; "Show totals row" in the column manager, remembered with the prefs. |
+| `controls.sortMenuOptions` (`options`, `directionToggle`, `clearable`) | B-26 | Desk's sort selector shape; off by default. `FrappeListView` passes `sortOptionsFromMeta` when `sortMenu` is on. |
+| `emptyFilteredAction`, `emptyDescription`, `emptyIllustration` | B-55 | Filtered-empty "Create a new …" beside Clear filters; a description / illustration. |
+| `ColumnDef.href` / `title` | B-02 | A link cell (new tab with Ctrl/⌘ / middle click; a plain click still opens the row). `FrappeListView formHref` (default Desk's `/app/<slug>/<name>`) on the Subject. |
+| Keyboard | B-56 | Rows are one Tab stop (roving tabindex); ↑ / ↓, Space, Shift+↑ / ↓, Enter. |
+| `FrappeListView` | B-03, B-48, B-61, E-19 | Status column shown by default (generated columns); a new document starts with the list's "=" filters; labels, Select values, DocType name and status words from the provider's translations; "Export as report" exports the checked rows. |
+| Dialogs | B-42 | Every list dialog returns focus to the menu / button that opened it. |
+
+## 8b. Phase 4 additions (0.8.0-dev.9) — bulk edit, bulk tags, pre-flight, list print, XLSX
+
+All Core (`@solvfast/ui`), Frappe-free, additive: nothing changes for a host that does not use them. Strings: the
+`bke*`, `btg*`, `bpf*` keys of the catalogue (en / ar); `labels` override them (`Localized`, `{n}` = the count).
+
+**`BulkEditDialog` (L-01)** — Actions → Edit: set values on every selected record.
+
+```tsx
+<BulkEditDialog open={open} onOpenChange={setOpen} count={keys.length}
+  fields={[                                        // leave out what must not be bulk-edited (e.g. lifecycle-driven fields)
+    { key: "priority", label: "Priority", type: "select", options: [{ value: "low", label: "Low" }, { value: "high", label: "High" }] },
+    { key: "due", label: { en: "Due", ar: "الاستحقاق" }, type: "date" },
+    { key: "cost", label: "Cost", type: "currency" },
+    { key: "site", label: "Site", type: "link", search: async (q) => sites(q) },   // { value, label, description? }[]
+  ]}
+  onApply={async (values) => { for (const k of keys) await store.update(k, values); }} />   // values: { priority: "low", cost: 777, due: null }
+```
+
+| | |
+|---|---|
+| Rows | `multiple` (default true): [Field ▾][Value][×] rows and "Add field" (stops when every field has a row); each field can be chosen once. `multiple={false}`: Desk's single Field + Value. |
+| Value control | by `type`: `select` (options + "—"), `check` (Yes / No), `date` / `datetime` (`DateField` / `DateTimeField`), `time` (`TimeInput`), `int` / `float` / `currency` (`NumberInput`), `long-text` (`Textarea`), `link` (`LinkInput` over `search`; a text box without it), `text` (`Input`). |
+| Values | `onApply` gets `{ [key]: value }` for the rows with a field: numbers for int / float / currency, `true` / `false` for check, `null` for an empty value (the dialog says the field will be cleared), strings otherwise (`bulkEditTypedValue`). Apply is disabled until a row has a field. |
+| Outcome | a returned promise keeps the dialog busy; resolve → closed; reject → the error in the dialog, still open. The host shows its own toast / result. |
+| `./frappe` | `FrappeBulkActions`' Edit is unchanged (Desk's single field, Check sent as 0 / 1, `submit_cancel_or_update_docs`). |
+
+**`BulkTagsDialog` (L-03)** — Actions → Add tags / Remove tags.
+
+```tsx
+<BulkTagsDialog open={open} onOpenChange={setOpen} mode="add" count={keys.length}
+  suggestions={allTags}                                  // string[] or (q) => string[] | Promise<string[]>
+  onApply={(tags) => store.addTags(keys, tags)} />
+<BulkTagsDialog open={open} onOpenChange={setOpen} mode="remove" count={keys.length}
+  existing={countTags(rows.map((r) => r.tags))}          // [{ tag, count }] — "tag · n" checkboxes
+  onApply={(tags) => store.removeTags(keys, tags)} />
+```
+
+Add uses the package `TagInput` (Enter / comma adds a typed tag, suggestions as you type). Remove lists the selection's
+tags as "tag · n" checkboxes; with no tags in the selection it says "None of the selected records has tags." and Apply is
+disabled with that reason (hosts may also disable the menu item: `disabled: (ctx) => !countTags(...).length && reason`).
+
+**`BulkAction.preflight` (L-02)** — refuse part of a selection with reasons, run the rest.
+
+```tsx
+{ key: "delete", label: "Delete", tone: "destructive", rowKey: (r) => r.id,
+  confirm: (c) => ({ title: "Delete records?" }),
+  preflight: (ctx) => ({ blocked: ctx.rows.filter(isClosed).map((r) => ({ key: r.id, reason: "Closed records are read-only" })) }),
+  run: (keys) => store.remove(keys),                    // only the allowed keys
+  onSkipped: (keys) => { setPinned(keys); toast(`${keys.length} skipped`, { action: "View" }); } }
+```
+
+When `preflight` blocks any selected key, the runner's dialog lists the blocked keys with their reasons and says how many
+of the selection will run; the confirm button reads "{confirmLabel or label} {k}" ("Delete 2"; a `{k}` in `confirmLabel`
+is filled instead); when nothing may run only Close is offered. `run` receives only the allowed keys (and only their rows
+when `rowKey` is given); `onSkipped(blockedKeys)` follows the run. With nothing blocked the action runs exactly as before.
+It sees the loaded selection only — an "all matching" action must still refuse what it cannot act on.
+
+**`printListDocument` / `printList` (L-05)** — a clean list printout (no toolbar, checkboxes, row actions or pager).
+
+```tsx
+// rows: every row of the current result (ListView onResultChange: result.rows), formatted as text
+printList({ title: "Records", subtitle: "Search: pump", dir, lang,
+  columns: result.visibleColumns.map((c) => ({ key: c.key, label: c.label, align: c.type === "number" ? "end" : "start" })),
+  rows: result.rows.map((r) => ({ id: r.id, title: r.title, cost: fmtMoney(r.cost) })) });
+```
+
+`printListDocument(options)` returns the complete HTML document (heading, optional subtitle, the "{n} records" line —
+`countLabel` overrides, Arabic "عدد السجلات: {n}" — and one table with exactly the given columns and every row; values
+escaped; `script-src 'none'`); `printList` prints it from a hidden frame (`printHtmlDocument`). Default page A4,
+landscape above 6 columns (`page` overrides).
+
+**XLSX (L-06 / L-07)** — `buildXlsx(headers, rows, { sheetName?, rtl? }): Blob` writes one sheet (inline strings,
+finite numbers as numbers, `null` as an empty cell) in a stored ZIP; `parseXlsx(file): Promise<string[][]>` reads the first
+sheet of an XLSX (shared or inline strings, numbers as written, booleans "TRUE" / "FALSE"; deflated entries need the
+platform's `DecompressionStream`, present in current browsers; the XML is read with the browser's `DOMParser`, so it runs in
+the browser, not in plain Node; dates come back as Excel serial numbers; `.xls` is refused).
+
+```tsx
+<ExportDialog fileTypes={["Excel", "CSV"]} … onExport={({ fileType, fields }) => fileType === "Excel"
+  ? saveBlob(buildXlsx(headers, data, { sheetName: "Records", rtl: dir === "rtl" }), "records.xlsx")
+  : saveBlob(new Blob([buildCsv(headers, data)], { type: "text/csv" }), "records.csv")} />
+
+<DataImportDialog adapter={{ accept: ".csv,.xlsx", fields,                      // hint: "CSV or XLSX"
+  parse: async (file) => { const [headers, ...rows] = /\.xlsx$/i.test(file.name) ? await parseXlsx(file) : parseCsv(await file.text()); return { headers, rows }; } }} />
+```
 
 ## 9. Known limitations (not reproduced)
 

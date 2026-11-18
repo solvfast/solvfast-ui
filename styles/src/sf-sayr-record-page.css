@@ -1,0 +1,37 @@
+/* `SayrRecordPage surface="glass"` (0.10.0, opt-in; default "plain" adds no class, so none of this applies): the page also
+ * sets `sf-record-page` (sf-record-page.css). Here the header card and the section cards take the same pane as the rail
+ * cards (the package `Card`: .sf-glass-pane + --airy), with the engine's own variables:
+ *   - dark: the airy glass pane over the aurora — rim, crown, cast shadow, blur — the header keeping its brand tint;
+ *   - light: as the package draws its panes in light mode (glass.css "light surfaces solid") — a white card with the rim
+ *     and cast shadow; the page background and the fields are left as they are.
+ * Reference: Sada's post page (approved 2026-11-18), moved here from its app stylesheet. */
+.sf-sayr-record-glass [data-record-header], .sf-sayr-record-glass section[data-section] {
+  --pane-tint: 6%;
+  --pane-blur: 8px;
+  --pane-refraction: 1.2;
+  --pane-rim: color-mix(in srgb, var(--c-rim) calc(var(--rim-alpha) * 100%), transparent);
+  --pane-crown: color-mix(in srgb, var(--c-light) calc(var(--crown-alpha) * 100%), transparent);
+  --pane-cast: 0 8px 24px -8px var(--gd-22);
+  border-color: transparent;
+  border-radius: 20px;
+  background-color: color-mix(in srgb, var(--c-glass) var(--pane-tint), transparent);
+  -webkit-backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+  backdrop-filter: blur(var(--pane-blur)) saturate(calc(var(--pane-refraction) * 130%));
+  box-shadow: inset 0 1px 0 var(--pane-crown), inset 0 0 0 1px var(--pane-rim), var(--pane-cast);
+}
+.sf-sayr-record-glass [data-record-header] {
+  background-image: linear-gradient(to right, hsl(var(--primary) / 0.1), transparent 55%, hsl(var(--accent) / 0.1));
+}
+.sf-theme:not(.dark):not([data-theme="dark"]) .sf-sayr-record-glass [data-record-header], .sf-theme:not(.dark):not([data-theme="dark"]) .sf-sayr-record-glass section[data-section] {
+  background-color: hsl(var(--popover, 0 0% 100%));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .sf-sayr-record-glass [data-record-header], .sf-sayr-record-glass section[data-section] {
+    background-color: hsl(var(--card));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: hsl(var(--border));
+  }
+}

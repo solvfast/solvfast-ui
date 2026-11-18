@@ -602,7 +602,9 @@ describe("PageHeader inside AppShell — one page title (Sear's pattern)", () =>
     expect(h1s().map((h) => h.textContent)).toEqual(["Fixed"]);
     unmount();
     render(<Shell><PageHeader title={<span>Rich <b>title</b></span>} /></Shell>);
-    expect(h1s().map((h) => h.textContent)).toEqual(["Projects", "Rich title"]);
+    // Run 1 G19 (A-42): one <h1> per page — a node title stays in the page as a sub-heading (was a second <h1>)
+    expect(h1s().map((h) => h.textContent)).toEqual(["Projects"]);
+    expect(screen.getByRole("heading", { level: 2, name: "Rich title" })).toBeTruthy();
     cleanup();
     inLang("ar", <PageHeader title={{ en: "Tasks", ar: "المهام" }} />);
     expect(h1s().map((h) => h.textContent)).toEqual(["المهام"]);
@@ -632,25 +634,26 @@ describe("MobileNav — primary (0.3.0)", () => {
 
   it("without primary: unchanged (only top-level leaves fill the bar)", () => {
     inLang("en", <MobileNav items={tree} currentPath="/home" onNavigate={() => {}} />);
-    expect(within(bar()).getAllByRole("button").map((b) => b.textContent)).toEqual(["Home", "More"]);
+    // Run 1 A-25: the bar's items are links, More a button
+    expect([...bar().querySelectorAll("a, button")].map((b) => b.textContent)).toEqual(["Home", "More"]);
   });
 
   it("with primary: those items fill the bar (capped by maxItems); a group goes to its first child; More lists the whole tree", async () => {
     const nav = vi.fn();
     inLang("ar", <MobileNav items={tree} primary={[tree[0], tree[1], tree[2]]} maxItems={2} currentPath="/work/bugs" onNavigate={nav} />);
-    expect(within(bar()).getAllByRole("button").map((b) => b.textContent)).toEqual(["الرئيسية", "العمل", "المزيد"]);
-    const work = within(bar()).getByRole("button", { name: "العمل" });
+    expect([...bar().querySelectorAll("a, button")].map((b) => b.textContent)).toEqual(["الرئيسية", "العمل", "المزيد"]); // Run 1 A-25
+    const work = within(bar()).getByRole("link", { name: "العمل" });
     expect(work.getAttribute("aria-current")).toBe("page"); // a child of the group is current
     fireEvent.click(work);
     expect(nav).toHaveBeenLastCalledWith("/work/tasks", expect.objectContaining({ id: "work" }));
     await act(async () => { fireEvent.click(within(bar()).getByRole("button", { name: "المزيد" })); });
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getAllByRole("button").map((b) => b.textContent).filter((t) => t))
+    expect(within(sheet).getAllByRole("link").map((b) => b.textContent).filter((t) => t)) // Run 1 A-25: links
       .toEqual(expect.arrayContaining(["الرئيسية", "العمل", "المهام", "الأخطاء", "المشاريع", "كل المشاريع"]));
-    const bugs = within(sheet).getByRole("button", { name: "الأخطاء" });
+    const bugs = within(sheet).getByRole("link", { name: "الأخطاء" });
     expect(bugs.getAttribute("aria-current")).toBe("page");
     expect(bugs.style.paddingInlineStart).toBe("2rem"); // one level in
-    fireEvent.click(within(sheet).getByRole("button", { name: "كل المشاريع" }));
+    fireEvent.click(within(sheet).getByRole("link", { name: "كل المشاريع" }));
     expect(nav).toHaveBeenLastCalledWith("/projects", expect.objectContaining({ id: "all" }));
   });
 });

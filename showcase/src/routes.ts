@@ -90,7 +90,7 @@ export const GROUPS: Group[] = [
     { id: "frappe-list-view", title: l("Frappe list view", "عرض قائمة فرابيه"), description: l("FrappeListView on the simulated ToDo site: search, filters, saved filters, columns, sort, paging, selection, bulk actions, realtime, and the loading / empty / error states.", "FrappeListView على موقع ToDo المحاكى: البحث والتصفية والتصفيات المحفوظة والأعمدة والفرز والتصفّح والتحديد والإجراءات الجماعية والزمن الحقيقي وحالات التحميل والفراغ والخطأ."), Component: from(frappe, "FrappeListViewPage") },
     { id: "frappe-forms", title: l("Frappe forms", "نماذج فرابيه"), description: l("FrappeForm: Contact with child tables, new ToDo, Travel Request with depends_on and Table MultiSelect, submitted memo, save error, loading, permission denied.", "FrappeForm: جهة اتصال مع جداول فرعية، مهمة جديدة، طلب سفر مع depends_on واختيار متعدد، مذكرة معتمدة، خطأ حفظ، تحميل، رفض إذن."), Component: from(frappe, "FrappeFormsPage") },
     { id: "frappe-record", title: l("Record detail", "تفاصيل السجل"), description: l("FrappeStatusIndicator and FrappeTimeline with the comment composer, versions and assignment logs.", "FrappeStatusIndicator و FrappeTimeline مع صندوق التعليق والإصدارات وسجلات الإسناد."), Component: from(frappe, "FrappeRecordPage") },
-    { id: "frappe-workflow", title: l("Lifecycle", "دورة الحياة"), description: l("FrappeWorkflowActions on the Approval Memo lifecycle (a Frappe Workflow; stepper and compact), plus the generic LifecycleBar and ActionBar.", "FrappeWorkflowActions على دورة حياة مذكرة الاعتماد (Workflow في فرابيه؛ متتبّع ومضغوط)، مع LifecycleBar و ActionBar العامّين."), Component: from(frappe, "FrappeWorkflowPage") },
+    { id: "frappe-workflow", title: l("Lifecycle", "دورة الحياة"), description: l("FrappeWorkflowActions on the Approval Memo lifecycle (a Frappe Workflow; header Actions menu, Lifecycle rail and compact), plus the generic LifecycleRail, LifecycleActions and ActionBar.", "FrappeWorkflowActions على دورة حياة مذكرة الاعتماد (Workflow في فرابيه؛ قائمة إجراءات الترويسة وشريط دورة الحياة والمضغوط)، مع LifecycleRail و LifecycleActions و ActionBar العامّة."), Component: from(frappe, "FrappeWorkflowPage") },
     { id: "frappe-assign", title: l("Assignment & comments", "الإسناد والتعليقات"), description: l("FrappeAssignTo through the simulator, the generic AssigneeGroup / AssignPicker, and CommentComposer with mentions.", "FrappeAssignTo عبر المحاكي، و AssigneeGroup / AssignPicker العامّان، و CommentComposer مع الإشارات."), Component: from(frappe, "FrappeAssignPage") },
     { id: "frappe-permissions", title: l("Permissions playground", "ساحة الأذونات"), description: l("A role picker over usePermissions, canImport, canExport and bulkMenu: the rights, a permlevel-1 field's display status, and what the UI hides. Client-side mirror of Desk; the server is the authority.", "منتقي أدوار فوق usePermissions و canImport و canExport و bulkMenu: الحقوق وحالة عرض حقل permlevel 1 وما تخفيه الواجهة. مرآة في العميل لديسك؛ الخادم هو المرجع."), Component: from(frappe, "FrappePermissionsPage") },
     { id: "frappe-import-export", title: l("Import & export", "الاستيراد والتصدير"), description: l("Export for every session and the gated Import entry: FrappeDataImport runs a SIMULATED import (upload a CSV, preview, mapping, start) — the simulator inserts the valid rows into the page's memory only; exports are labelled SIMULATED files without document values.", "التصدير لكل جلسة ومدخل الاستيراد المقيّد: يشغّل FrappeDataImport استيراداً محاكى (رفع CSV، المعاينة، ربط الأعمدة، البدء) — يُدرج المحاكي الصفوف الصالحة في ذاكرة الصفحة فقط؛ وملفات التصدير محاكاة موسومة بلا قيم المستندات."), Component: from(frappe, "FrappeImportExportPage") },
@@ -281,5 +281,61 @@ const p36bSocial = () => import("./pages/p36b-social");
   const page: Page = { id: "print-p36e", title: l("Print (browser)", "الطباعة (المتصفح)"), description: l("PrintView and PrintDocumentsDialog: Desk's print page and list Print Documents dialog for a host that renders locally; the preview is the exact document the browser prints (Save as PDF there).", "PrintView و PrintDocumentsDialog: صفحة الطباعة ونافذة «طباعة المستندات» في ديسك لمضيف يعرض محليًا؛ المعاينة هي المستند نفسه الذي يطبعه المتصفح (حفظ PDF هناك)."), Component: from(p36ePrint, "PrintP36ePage") };
   group.pages.push(page);
   PAGES.push({ ...page, group });
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}
+
+// 0.8.0-dev.2 — the CRM record page (RecordPage, RecordHeaderCard crm, quick actions, RecordRail) with no app CSS
+{
+  const recordPage = () => import("./pages/record-page");
+  const group = GROUPS.find((g) => g.id === "patterns")!;
+  const page: Page = {
+    id: "record-page-crm",
+    title: l("Record page (CRM)", "صفحة السجل (CRM)"),
+    description: l("The CRM record page from the package: the toolbar, the header card with quick actions, the tabs area and the right rail (RecordRail) — the CRM's look (sf-record-page surfaces) in any app.", "صفحة سجل CRM من الحزمة: شريط الأدوات وبطاقة الرأس مع الإجراءات السريعة ومنطقة التبويبات والشريط الأيمن (RecordRail) — بمظهر CRM في أي تطبيق."),
+    Component: from(recordPage, "RecordPageDemoPage"),
+  };
+  group.pages.push(page);
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}
+
+// 0.8.0-dev.5 (P0 T8) — the record page parts composed for another domain: a dental clinic's patient
+{
+  const recordPageDental = () => import("./pages/record-page-dental");
+  const group = GROUPS.find((g) => g.id === "patterns")!;
+  const page: Page = {
+    id: "record-page-dental",
+    title: l("Record page (dental patient)", "صفحة السجل (مريض أسنان)"),
+    description: l("The record page parts for a dental clinic's patient: a patient journey (Actions menu + read-only rail), five tabs, an edit session, an app card, an app rail section and an embedded list — package components only.", "أجزاء صفحة السجل لمريض في عيادة أسنان: رحلة المريض (قائمة الإجراءات + شريط للقراءة فقط)، خمسة تبويبات، جلسة تعديل، بطاقة وقسم في الشريط من التطبيق وقائمة مضمّنة — مكوّنات الحزمة فقط."),
+    Component: from(recordPageDental, "RecordPageDentalPage"),
+  };
+  group.pages.push(page);
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}
+
+// 0.9.0-dev.1 — the type configuration page (TypeConfigPage, TypeFieldPicker: all fields / selected fields)
+{
+  const typeConfig = () => import("./pages/type-config");
+  const group = GROUPS.find((g) => g.id === "patterns")!;
+  const page: Page = {
+    id: "type-config",
+    title: l("Type configuration", "إعداد النوع"),
+    description: l("A type's settings page (Lead Type, Task Type, Asset Type…): appearance, settings, the Form section with the field library — all fields or selected fields — label checks and the save gate.", "صفحة إعداد النوع (نوع العميل المحتمل، نوع المهمة، نوع الأصل…): المظهر والإعدادات وقسم النموذج مع مكتبة الحقول — كل الحقول أو حقول محددة — وفحص التسميات وشرط الحفظ."),
+    Component: from(typeConfig, "TypeConfigDemoPage"),
+  };
+  group.pages.push(page);
+  PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
+}
+
+// 0.10 consolidation — the lifecycle diagram (LifecycleGraphView / LifecycleGraphDialog) and record editing (editScope)
+{
+  const c010 = () => import("./pages/consolidation-010");
+  const group = GROUPS.find((g) => g.id === "frappe")!;
+  const page: Page = {
+    id: "release-010",
+    title: l("0.10 — lifecycle diagram & record editing", "0.10 — مخطط دورة الحياة وتعديل السجل"),
+    description: l("LifecycleGraphView (a post's lifecycle, a branching one, and LifecycleGraphDialog through ./sayr) and FrappeForm sectionEdit with editScope \"section\" and \"record\" — SIMULATED form data.", "‏LifecycleGraphView (دورة حياة منشور، وأخرى متفرّعة، و LifecycleGraphDialog عبر ‎./sayr‎) و FrappeForm sectionEdit مع editScope «section» و«record» — بيانات نموذج محاكاة."),
+    Component: from(c010, "Consolidation010Page"),
+  };
+  group.pages.push(page);
   PAGES.splice(0, PAGES.length, ...GROUPS.flatMap((g) => g.pages.map((p) => ({ ...p, group: g }))));
 }

@@ -10,6 +10,7 @@
 import * as React from "react";
 import { ChevronDown, LayoutGrid, Moon, Sun } from "lucide-react";
 import { Button } from "../primitives/button";
+import { isModifiedClick } from "./navLink";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuSeparator,
   DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
@@ -46,12 +47,17 @@ export function AppSwitcher({ sections, currentAppId, home, exit, showThemeToggl
   const { language, t } = useLocale();
   const { isDark, toggleTheme } = useTheme();
 
+  // Run 1 A-25: each app is a link; a modified / middle click is the browser's (new tab), a plain one the app's
+  const browserClick = React.useRef(false);
   const row = (app: SwitcherApp) => {
     const isCurrent = app.id === currentAppId;
     return (
-      <DropdownMenuItem key={app.id} className="gap-2.5" onSelect={() => onNavigate(app.href)} aria-current={isCurrent ? "true" : undefined}>
-        {app.logoSrc && <img src={app.logoSrc} alt="" className="h-[26px] w-[26px] shrink-0 object-contain" />}
-        <span className={cn("text-start", isCurrent && "font-semibold text-primary")}>{loc(app.name, language)}</span>
+      <DropdownMenuItem key={app.id} asChild className="gap-2.5" aria-current={isCurrent ? "true" : undefined}
+        onSelect={() => { if (browserClick.current) { browserClick.current = false; return; } onNavigate(app.href); }}>
+        <a href={app.href} onClick={(e) => { if (isModifiedClick(e)) browserClick.current = true; else e.preventDefault(); }}>
+          {app.logoSrc && <img src={app.logoSrc} alt="" className="h-[26px] w-[26px] shrink-0 object-contain" />}
+          <span className={cn("text-start", isCurrent && "font-semibold text-primary")}>{loc(app.name, language)}</span>
+        </a>
       </DropdownMenuItem>
     );
   };

@@ -118,6 +118,24 @@ export interface ListTableProps<T> {
    * click, groups, likes and the selection header work in both.
    */
   layout?: "table" | "cards" | "auto";
+  /** Run 1 (E-14): a totals row (`<tfoot>`) over these rows: a "Total" row header, then the sum of each total column
+   *  (`ColumnDef.total`, default numeric fieldtypes), per currency when the column has `currency`. */
+  totals?: { rows: T[]; label?: React.ReactNode };
+}
+
+const NUMERIC_TYPES = new Set(["Int", "Float", "Currency", "Percent"]);
+/** Run 1 (E-14): the columns a totals row sums. */
+export const totalColumn = <T,>(c: ColumnDef<T>) => c.total ?? (NUMERIC_TYPES.has(c.fieldtype ?? "") || c.type === "number");
+/** Run 1 (E-14): a column's sum over rows, per currency ("" = none). Non-numbers are skipped. */
+export function columnSums<T>(c: ColumnDef<T>, rows: T[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    const v = Number((r as Record<string, unknown>)[fieldOf(c)]);
+    if ((r as Record<string, unknown>)[fieldOf(c)] == null || (r as Record<string, unknown>)[fieldOf(c)] === "" || !Number.isFinite(v)) continue;
+    const cur = c.currency?.(r) ?? "";
+    out.set(cur, (out.get(cur) ?? 0) + v);
+  }
+  return out;
 }
 
 /** "Select all {n} matching" in the selection header (D-crm G5). */
@@ -171,7 +189,7 @@ function usePhone(enabled: boolean): boolean {
  */
 export function ListTable<T>({
   columns, rows, rowKey, sort, onSortToggle, onRowClick, rowClassName, selection, loading, error, onRetry, empty, className,
-  groups, partial, like, selectionHeader, layout = "table",
+  groups, partial, like, selectionHeader, layout = "table", totals,
 }: ListTableProps<T>) {
   const { language, t } = useLocale();
   const phone = usePhone(layout === "auto");
@@ -205,6 +223,8 @@ export function ListTable<T>({
   // Desk's Ctrl/⌘-click on a row (list_view.js:1296-1306): ticks / unticks the row instead of opening it; a link inside
   // the row keeps its own Ctrl/⌘-click (new tab)
   const onRowActivate = (row: T, e: React.MouseEvent) => {
+    // Run 1 B-02: a modified click on a link inside the row is the browser's (new tab) — the row does not open
+    if ((e.target as HTMLElement).closest?.("a[href]") && (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0)) return;
     if (selection && (e.ctrlKey || e.metaKey) && !(e.target as HTMLElement).closest?.("a")) {
       e.preventDefault();
       selection.toggleRow(row);
@@ -213,15 +233,53 @@ export function ListTable<T>({
     onRowClick?.(row);
   };
 
+  // Run 1 B-56 (Desk list_view.js:1152-1259): the rows are one Tab stop (roving tabindex); ↑ / ↓ move between rows,
+  // Space ticks the focused row, Shift+↑ / ↓ extends the selection, Enter opens. Never while typing in a control.
+  const focusable = !!onRowClick || !!selection;
+  const [activeKey, setActiveKey] = React.useState<string | null>(null);
+  const firstKey = shown.length ? rowKey(shown[0]!) : null;
+  const tabStop = activeKey !== null && shown.some((r) => rowKey(r) === activeKey) ? activeKey : firstKey;
+  const rowIndex = React.useMemo(() => new Map(shown.map((r, i) => [rowKey(r), i])), [shown, rowKey]);
+  const onRowKey = (row: T, e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.target !== e.currentTarget) return; // a control inside the row has the key
+    const i = rowIndex.get(rowKey(row)) ?? -1;
+    if (e.key === "Enter") { if (onRowClick) onRowClick(row); return; }
+    if (e.key === " " && selection) { e.preventDefault(); selection.toggleRow(row); return; }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const j = e.key === "ArrowDown" ? Math.min(i + 1, shown.length - 1) : Math.max(i - 1, 0);
+    if (j === i) return;
+    const next = shown[j]!;
+    if (e.shiftKey && selection) { if (!selection.isSelected(row)) selection.setRowsSelected([row], true); selection.setRowsSelected([next], true); }
+    setActiveKey(rowKey(next));
+    const container = (e.currentTarget as HTMLElement).closest("[data-list-rows]");
+    container?.querySelector<HTMLElement>(`[data-row-index="${j}"]`)?.focus();
+  };
+
+  // Run 1 B-02: a column with `href` is a link; a plain click opens the row in the app (the browser's navigation is
+  // prevented) when the list opens rows, else the browser follows it
+  const linked = (c: ColumnDef<T>, row: T, content: React.ReactNode) => {
+    const href = c.href?.(row);
+    if (!href) return content;
+    return (
+      <a href={href} className="text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+        onClick={(e) => { if (onRowClick && !(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0)) e.preventDefault(); }}>
+        {content}
+      </a>
+    );
+  };
+
   // a row can sit in several groups (multi-bucket `groupOf`): its React key carries the group
   const renderRow = (row: T, group?: string) => {
     const on = !!selection?.isSelected(row);
     return (
       <tr
         key={group === undefined ? rowKey(row) : `${group}\u0000${rowKey(row)}`}
-        tabIndex={onRowClick ? 0 : undefined}
+        tabIndex={focusable ? (rowKey(row) === tabStop ? 0 : -1) : undefined}
+        data-row-index={rowIndex.get(rowKey(row))}
+        onFocus={(e) => { if (e.target === e.currentTarget) setActiveKey(rowKey(row)); }}
         onClick={(e) => onRowActivate(row, e)}
-        onKeyDown={(e) => { if (onRowClick && e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); }}
+        onKeyDown={(e) => onRowKey(row, e)}
         aria-selected={selection ? on : undefined}
         className={cn(
           "border-b border-border last:border-0",
@@ -236,8 +294,8 @@ export function ListTable<T>({
           </td>
         )}
         {columns.map((c) => (
-          <td key={c.key} className={cn("px-4 py-3", c.align === "end" && "text-end", c.className)}>
-            {c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} row={row} />}
+          <td key={c.key} className={cn("px-4 py-3", c.align === "end" && "text-end", c.className)} title={c.title?.(row)}>
+            {linked(c, row, c.render ? c.render(row) : <DefaultCell value={(row as Record<string, unknown>)[fieldOf(c)]} col={c} row={row} />)}
           </td>
         ))}
         {like && (
@@ -285,8 +343,10 @@ export function ListTable<T>({
       const on = !!selection?.isSelected(row);
       return (
         <li key={group === undefined ? rowKey(row) : `${group}\u0000${rowKey(row)}`} data-card="" data-selected={selection ? String(on) : undefined}
-          tabIndex={onRowClick ? 0 : undefined} onClick={(e) => onRowActivate(row, e)}
-          onKeyDown={(e) => { if (onRowClick && e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); }}
+          tabIndex={focusable ? (rowKey(row) === tabStop ? 0 : -1) : undefined} onClick={(e) => onRowActivate(row, e)}
+          data-row-index={rowIndex.get(rowKey(row))}
+          onFocus={(e) => { if (e.target === e.currentTarget) setActiveKey(rowKey(row)); }}
+          onKeyDown={(e) => onRowKey(row, e)}
           className={cn("flex items-start gap-3 border-b border-border px-3 py-3 last:border-0", onRowClick && "cursor-pointer outline-none hover:bg-accent/50 focus-visible:bg-accent/60", on && "bg-primary/5", rowClassName?.(row))}>
           {selection && (
             <div className="pt-0.5" onClick={(e) => onCheckClick(row, e)}>
@@ -329,7 +389,7 @@ export function ListTable<T>({
       <div className="p-8 text-center text-sm text-muted-foreground">{empty ?? t("noData")}</div>
     ) : null;
     return (
-      <Card className={cn("overflow-hidden", className)} data-layout="cards">
+      <Card className={cn("overflow-hidden", className)} data-layout="cards" data-list-rows="">
         {selection && any && (
           <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground" data-selection-header={selecting ? "" : undefined}>
             <Checkbox checked={allOn ? true : someOn ? "indeterminate" : false} onCheckedChange={(c) => selection.setRowsSelected(shown, c === true)} aria-label={t("selectAll")} />
@@ -361,7 +421,7 @@ export function ListTable<T>({
   return (
     <Card className={cn("overflow-hidden", className)}>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" data-list-rows="">
           <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               {selection && (
@@ -430,6 +490,28 @@ export function ListTable<T>({
               )}
             </tbody>
           ) : groups ? groups.map(renderGroup) : <tbody>{rows.map((r) => renderRow(r))}</tbody>}
+          {totals && any ? (
+            <tfoot className="border-t-2 border-border bg-muted/30 text-sm font-semibold" data-totals-row="">
+              <tr>
+                {selection && <td className="px-3 py-3" />}
+                {columns.map((c, i) => {
+                  if (i === 0) return <th key={c.key} scope="row" className="px-4 py-3 text-start">{totals.label ?? t("listTotalsRow")}</th>;
+                  if (!totalColumn(c)) return <td key={c.key} className="px-4 py-3" />;
+                  const sums = [...columnSums(c, totals.rows)];
+                  return (
+                    <td key={c.key} className={cn("px-4 py-3", c.align === "end" && "text-end")} data-total-for={c.key}>
+                      {sums.length === 0 ? <span className="text-muted-foreground">—</span> : sums.map(([cur, v], k) => (
+                        <span key={cur || k} className="block whitespace-nowrap" data-currency={cur || undefined}>
+                          <DefaultCell value={v} col={{ ...c, render: undefined }} />{cur ? <span className="ms-1 text-xs font-normal text-muted-foreground">{cur}</span> : null}
+                        </span>
+                      ))}
+                    </td>
+                  );
+                })}
+                {like && <td className={likeCell} />}
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </div>
     </Card>

@@ -72,8 +72,12 @@ export interface FrappeListMeta {
   fieldtypes: Map<string, string>;
 }
 
-const selectOptions = (df: DocField) =>
-  (df.options || "").split("\n").map((o) => o.trim()).filter(Boolean).map((o) => ({ value: o, label: o }));
+/** Run 1 (B-61): the DocType's labels / Select values in the session language — Desk `__(label, null, doctype)`. */
+export type MetaTranslate = (text: string, context?: string) => string;
+const same: MetaTranslate = (x) => x;
+
+const selectOptions = (df: DocField, tr: MetaTranslate = same, context?: string) =>
+  (df.options || "").split("\n").map((o) => o.trim()).filter(Boolean).map((o) => ({ value: o, label: tr(o, context) }));
 
 /** DocTypes known to be trees (nested set). Desk's list: `frappe.boot.nested_set_doctypes`. */
 export type TreeDoctypes = ReadonlySet<string> | readonly string[];
@@ -90,11 +94,11 @@ export function treeDoctypesOf(metas: DocMeta[]): string[] {
   return metas.filter((m) => !!(m as { is_tree?: unknown }).is_tree || (m.fields || []).some((df) => df.fieldname === "lft")).map((m) => m.name);
 }
 
-function toFilterField(df: DocField, trees?: TreeDoctypes): FilterField | null {
+function toFilterField(df: DocField, trees?: TreeDoctypes, tr: MetaTranslate = same, context?: string): FilterField | null {
   const type = TYPE_MAP[df.fieldtype];
   if (!type) return null;
-  const f: FilterField = { name: df.fieldname, label: df.label || df.fieldname, type, fieldtype: df.fieldtype };
-  if (type === "select") f.options = selectOptions(df);
+  const f: FilterField = { name: df.fieldname, label: df.label ? tr(df.label, context) : df.fieldname, type, fieldtype: df.fieldtype };
+  if (type === "select") f.options = selectOptions(df, tr, context);
   if (df.fieldtype === "Link") f.link_doctype = df.options;
   // Desk offers the nested-set operators on a Link whose target is a nested-set DocType (filter.js:440-446)
   if (df.fieldtype === "Link" && isTreeTarget(trees, df.options)) f.tree = true;
@@ -102,7 +106,7 @@ function toFilterField(df: DocField, trees?: TreeDoctypes): FilterField | null {
 }
 
 /** Filter fields for a DocType: its usable fields, then ID / Created On / Last Updated in the UI language. */
-export function filterFieldsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}, trees?: TreeDoctypes): FilterField[] {
+export function filterFieldsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}, trees?: TreeDoctypes, tr: MetaTranslate = same): FilterField[] {
   const usable = (meta.fields || []).filter((df) => !SKIP.has(df.fieldtype) && !df.hidden);
   const submittable = !!(meta as ListDocMeta).is_submittable;
   const extra: FilterField[] = [
@@ -117,24 +121,24 @@ export function filterFieldsFromMeta(meta: DocMeta, t: (k: keyof Messages) => st
       options: [{ value: "0", label: t("listDraft") }, { value: "1", label: t("listSubmitted") }, { value: "2", label: t("listCancelled") }] }] : []),
   ];
   return [
-    ...usable.map((df) => toFilterField(df, trees)).filter((f): f is FilterField => !!f),
+    ...usable.map((df) => toFilterField(df, trees, tr, meta.name)).filter((f): f is FilterField => !!f),
     ...STANDARD.map((s) => ({ name: s.name, label: t(s.key), type: s.type, fieldtype: s.fieldtype })),
     ...extra.filter((e) => !usable.some((df) => df.fieldname === e.name)),
-    ...childFilterFields(meta, children, t, trees).map((c) => c.field),
+    ...childFilterFields(meta, children, t, trees, tr).map((c) => c.field),
   ];
 }
 
 /** Fields of the DocType's child tables as filter fields (Desk's field_select lists them, labelled with the table). */
-export function childFilterFields(meta: DocMeta, children: Record<string, DocMeta>, t: (k: keyof Messages) => string, trees?: TreeDoctypes): { field: FilterField; ref: ChildFieldRef }[] {
+export function childFilterFields(meta: DocMeta, children: Record<string, DocMeta>, t: (k: keyof Messages) => string, trees?: TreeDoctypes, tr: MetaTranslate = same): { field: FilterField; ref: ChildFieldRef }[] {
   const out: { field: FilterField; ref: ChildFieldRef }[] = [];
   for (const table of (meta.fields || []).filter((df) => df.fieldtype === "Table" && !df.hidden && df.options && children[df.options])) {
     const child = children[table.options!];
     for (const df of (child.fields || []).filter((d) => !SKIP.has(d.fieldtype) && !d.hidden)) {
-      const f = toFilterField(df, trees);
+      const f = toFilterField(df, trees, tr, child.name);
       if (!f) continue;
       const composite = `${child.name}.${df.fieldname}`;
       out.push({
-        field: { ...f, name: composite, label: t("listChildTable").replace("{field}", f.label).replace("{table}", table.label || table.fieldname) },
+        field: { ...f, name: composite, label: t("listChildTable").replace("{field}", f.label).replace("{table}", table.label ? tr(table.label, meta.name) : table.fieldname) },
         ref: { doctype: child.name, fieldname: df.fieldname, table: table.fieldname },
       });
     }
@@ -143,9 +147,9 @@ export function childFilterFields(meta: DocMeta, children: Record<string, DocMet
 }
 
 /** Columns for a DocType (`in_list_view` fields visible; others offered in the column manager). */
-export function columnsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string): ColumnDef<Record<string, unknown>>[] {
+export function columnsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string, tr: MetaTranslate = same): ColumnDef<Record<string, unknown>>[] {
   // "Assigned To" / "Tags" are filter fields only: their columns are the row-metadata cells (list/cells.tsx)
-  const fields = filterFieldsFromMeta(meta, t).filter((f) => !ROW_OPTIONAL_FIELDNAMES.includes(f.name));
+  const fields = filterFieldsFromMeta(meta, t, {}, undefined, tr).filter((f) => !ROW_OPTIONAL_FIELDNAMES.includes(f.name));
   const usable = new Map((meta.fields || []).map((df) => [df.fieldname, df]));
   const listed = fields.filter((f) => usable.get(f.name)?.in_list_view).map((f) => f.name);
   const title = titleOf(meta, fields);
@@ -180,10 +184,11 @@ export function restrictMetaToReadable<M extends DocMeta>(meta: M, children: Rec
  * `opts.treeDoctypes`: Link targets that are trees (Desk: `frappe.boot.nested_set_doctypes`), added to the ones the
  * metas at hand reveal (`treeDoctypesOf`); their Link fields get `tree: true` and the nested-set operators.
  */
-export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}, opts: { treeDoctypes?: readonly string[] } = {}): FrappeListMeta {
+export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => string, children: Record<string, DocMeta> = {}, opts: { treeDoctypes?: readonly string[]; /** Run 1 B-61: labels and Select values in the session language. */ translate?: MetaTranslate } = {}): FrappeListMeta {
+  const tr = opts.translate ?? same;
   const trees = new Set([...treeDoctypesOf([meta, ...Object.values(children)]), ...(opts.treeDoctypes ?? [])]);
-  const filterFields = filterFieldsFromMeta(meta, t, children, trees);
-  const childFields = childFilterFields(meta, children, t, trees);
+  const filterFields = filterFieldsFromMeta(meta, t, children, trees, tr);
+  const childFields = childFilterFields(meta, children, t, trees, tr);
   const known = new Set([...(meta.fields || []).filter((df) => !SKIP.has(df.fieldtype)).map((df) => df.fieldname), ...STANDARD_FIELDNAMES, ...ROW_OPTIONAL_FIELDNAMES]);
   const fieldtypes = new Map<string, string>([
     ...(meta.fields || []).map((df) => [df.fieldname, df.fieldtype] as [string, string]),
@@ -205,8 +210,31 @@ export function buildFrappeListMeta(meta: DocMeta, t: (k: keyof Messages) => str
       creation: { fieldname: "creation", fieldtype: "Datetime" }, modified: { fieldname: "modified", fieldtype: "Datetime" },
     },
     hasField: (f: string) => known.has(f) && !f.includes("."), titleField, searchFields, defaultOrderBy: `${sortField} ${sortOrder}`, filterFields,
-    columns: columnsFromMeta(meta, t),
+    columns: columnsFromMeta(meta, t, tr),
     quickFilterFields: (meta.fields || []).filter((df) => df.in_standard_filter && !df.hidden && TYPE_MAP[df.fieldtype]).map((df) => df.fieldname),
     known, fieldtypes,
   };
+}
+
+/**
+ * Run 1 (B-26): Desk's sort-selector options (sort_selector.js:120-160): Last Updated On, the DocType's sort field, the
+ * title field, ID, Created On, Index, then every bold / mandatory / in-list-view value field — de-duplicated, labels in the
+ * session language. For `ListView controls.sortMenuOptions.options` (`FrappeListView` passes them when `sortMenu` is on).
+ */
+export function sortOptionsFromMeta(meta: DocMeta, t: (k: keyof Messages) => string, tr: MetaTranslate = same): { key: string; label: string }[] {
+  const byName = new Map((meta.fields || []).map((df) => [df.fieldname, df]));
+  const label = (f: string) => {
+    const std = STANDARD.find((s) => s.name === f);
+    if (std) return t(std.key);
+    if (f === "idx") return t("sortIndex");
+    const df = byName.get(f);
+    return df?.label ? tr(df.label, meta.name) : f;
+  };
+  const sortField = (meta.sort_field || "modified").split(",")[0]!.trim().split(/\s+/)[0]!;
+  const keys = ["modified", sortField, ...(meta.title_field ? [meta.title_field] : []), "name", "creation", "idx"];
+  for (const df of meta.fields || []) {
+    const valueType = !SKIP.has(df.fieldtype) && TYPE_MAP[df.fieldtype];
+    if (valueType && (df.reqd || (df as { bold?: number }).bold || df.in_list_view)) keys.push(df.fieldname);
+  }
+  return [...new Set(keys)].filter((k) => k === "modified" || k === "name" || k === "creation" || k === "idx" || byName.has(k)).map((k) => ({ key: k, label: label(k) }));
 }

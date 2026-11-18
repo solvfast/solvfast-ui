@@ -160,7 +160,7 @@ describe("P35 integration — FrappeForm menu + connections (SIMULATED)", () => 
     const t = site();
     mount(t);
     await titleInput();
-    await pick("Print");
+    await pick(/^Print/); // Run 1 C-81: the item now carries its Ctrl+P hint (name "Print Ctrl+P")
     const dlg = await screen.findByRole("dialog");
     await waitFor(() => expect(calls(t, "frappe.www.printview.get_html_and_style").length).toBeGreaterThan(0));
     expect(JSON.parse(String(calls(t, "frappe.www.printview.get_html_and_style")[0].args.doc))).toMatchObject({ doctype: "Deal", name: "D-1", title: "Big order" });
@@ -253,5 +253,78 @@ describe("P35 integration — FrappeProvider user defaults reach new documents (
     await memo();
     await new Promise((r) => setTimeout(r, 50));
     expect((await memo()).value).toBe("");
+  });
+});
+
+// Run 1 · C-81…C-84: FrappeForm binds the menu's shortcuts (Desk form.js:166-171, 1286-1295; toolbar.js:412-471);
+// C-67: the title opens the title / rename dialog (update_document_title). SIMULATED.
+describe("Run 1 C-81…C-84 form shortcuts and C-67 title dialog (SIMULATED)", () => {
+  const key = (k: string, o: KeyboardEventInit = {}) => fireEvent.keyDown(document.body, { key: k, ...o });
+  it("Ctrl+P opens Print, Ctrl+E the e-mail composer, Shift+D a duplicate, Shift+Ctrl+D asks before deleting", async () => {
+    const t = site();
+    mount(t);
+    await titleInput();
+    key("p", { ctrlKey: true });
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    await waitFor(() => expect(calls(t, "frappe.www.printview.get_html_and_style").length).toBeGreaterThan(0));
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    key("e", { ctrlKey: true });
+    expect((await screen.findByRole("dialog")).textContent).toMatch(/New Email[\s\S]*D-1/);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    key("D", { shiftKey: true, ctrlKey: true });
+    const confirm = await screen.findByRole("alertdialog");
+    expect(confirm.textContent).toContain("D-1");
+    fireEvent.click(within(confirm).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(calls(t, "frappe.client.delete")).toHaveLength(1));
+  });
+  it("Shift+D opens the copy in the form (a new, unsaved document)", async () => {
+    const t = site();
+    mount(t);
+    await titleInput();
+    key("D", { shiftKey: true });
+    await waitFor(() => expect(screen.getAllByText(/New Deal|Not Saved/).length).toBeGreaterThan(0));
+  });
+  it("NEGATIVE: not inside a text field; not with hotkeys={false}; a reader gets no Delete / Duplicate", async () => {
+    const t = site();
+    const a = mount(t);
+    const box = await titleInput();
+    fireEvent.keyDown(box, { key: "p", ctrlKey: true });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    a.unmount();
+    mount(t, { hotkeys: false });
+    await titleInput();
+    key("p", { ctrlKey: true });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    cleanup();
+    const r = site({ user: "v@x.org", roles: ["Viewer"] });
+    mount(r);
+    await screen.findAllByText("Big order");
+    key("D", { shiftKey: true, ctrlKey: true });
+    key("D", { shiftKey: true });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(calls(r, "frappe.client.delete")).toHaveLength(0);
+  });
+  it("C-67 the title opens the dialog: a new title and a new name go to update_document_title; onRenamed gets the name", async () => {
+    const t = site();
+    const renamed: string[] = [];
+    mount(t, { onRenamed: (n) => renamed.push(n) });
+    await titleInput();
+    fireEvent.click(document.querySelector("[data-title-edit]")!);
+    const dlg = await screen.findByRole("dialog");
+    fireEvent.change(within(dlg).getByLabelText("Title"), { target: { value: "Bigger order" } });
+    fireEvent.change(within(dlg).getByLabelText("New Name"), { target: { value: "D-9" } });
+    fireEvent.click(within(dlg).getByRole("button", { name: "Rename" }));
+    await waitFor(() => expect(calls(t, "frappe.model.rename_doc.update_document_title")).toHaveLength(1));
+    expect(calls(t, "frappe.model.rename_doc.update_document_title")[0]!.args).toMatchObject({ doctype: "Deal", docname: "D-1", name: "D-9", title: "Bigger order" });
+    await waitFor(() => expect(renamed).toEqual(["D-9"]));
+    expect(t.store.docs.get("Deal")?.get("D-9")?.title).toBe("Bigger order");
+  });
+  it("NEGATIVE: a reader gets a plain title (no dialog)", async () => {
+    const r = site({ user: "v@x.org", roles: ["Viewer"] });
+    mount(r);
+    await screen.findAllByText("Big order");
+    expect(document.querySelector("[data-title-edit]")).toBeNull();
   });
 });

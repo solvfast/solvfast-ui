@@ -22,13 +22,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "../../primitives/input";
 import { Label } from "../../primitives/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../primitives/select";
+import { useLocale } from "../../theme/ThemeProvider";
+import { useFrappeTranslate } from "../services/useTranslate";
 import type { FrappeApi } from "../client";
 import { FrappeErrorState } from "../feedback/FrappeErrorState";
 import type { FrappeFilter } from "../query";
 import { saveFile } from "./export";
 import { downloadReportExport, type CsvQuoting, type ReportExportFormat, type ReportExportResult } from "./reportExport";
 
-/** English defaults (Desk's own words); override to localize — the package catalogue has no report-export keys yet. */
+/** The dialog's strings. Defaults: the package catalogue (`rx*` keys, en / ar — Run 1 E-19; English = Desk's words). */
 export interface ReportExportDialogLabels {
   title: string; fileFormat: string; background: string; csvSettings: string; csvDelimiter: string; csvQuoting: string;
   quotingMinimal: string; quotingAll: string; quotingNonNumeric: string; quotingNone: string;
@@ -68,8 +70,22 @@ export interface FrappeReportExportDialogProps {
   labels?: Partial<ReportExportDialogLabels>;
 }
 
+/** The catalogue's labels in the UI language (Run 1 E-19). */
+export function reportExportLabels(t: (key: string) => string): ReportExportDialogLabels {
+  return {
+    title: t("rxTitle"), fileFormat: t("rxFileFormat"), background: t("rxBackground"), csvSettings: t("rxCsvSettings"), csvDelimiter: t("rxCsvDelimiter"),
+    csvQuoting: t("rxCsvQuoting"), quotingMinimal: t("rxQuotingMinimal"), quotingAll: t("rxQuotingAll"), quotingNonNumeric: t("rxQuotingNonNumeric"),
+    quotingNone: t("rxQuotingNone"), rows: t("rxRows"), selectedRows: t("rxSelectedRows"), allRows: t("rxAllRows"), exportAllRows: t("rxExportAllRows"),
+    exportAllMatching: t("rxExportAllMatching"), translateValues: t("rxTranslateValues"), download: t("rxDownload"), downloading: t("rxDownloading"),
+    cancel: t("rxCancel"), close: t("rxClose"),
+  };
+}
+
 export function FrappeReportExportDialog({ api, doctype, open, onOpenChange, fields, filters, or_filters, order_by, selectedNames, shownCount, totalCount, title, offerTranslate, onDone, labels }: FrappeReportExportDialogProps) {
-  const L = { ...REPORT_EXPORT_DIALOG_LABELS_EN, ...labels };
+  const { t } = useLocale();
+  const L = { ...reportExportLabels(t as (key: string) => string), ...labels };
+  const tr = useFrappeTranslate();
+  const shownTitle = title || tr(doctype, null); // Run 1 B-61: the DocType's name in the session language (the file name stays `title || doctype`)
   const hasSelection = !!selectedNames?.length;
   const [format, setFormat] = React.useState<ReportExportFormat>("Excel");
   const [background, setBackground] = React.useState(false);
@@ -110,7 +126,7 @@ export function FrappeReportExportDialog({ api, doctype, open, onOpenChange, fie
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{L.title.replace("{0}", title || doctype)}</DialogTitle>
+          <DialogTitle>{L.title.replace("{0}", shownTitle)}</DialogTitle>
           <DialogDescription>{doctype}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm">

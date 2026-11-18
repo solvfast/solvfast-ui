@@ -4,7 +4,7 @@
  */
 
 // Theme
-export { ThemeProvider, useTheme, useLocale, usePortalContainer } from "./theme/ThemeProvider";
+export { ThemeProvider, useTheme, useLocale, usePortalContainer, isRtlLanguage, RTL_LANGUAGES } from "./theme/ThemeProvider";
 export type { Theme, Direction, StorageKeys, ThemeProviderProps } from "./theme/ThemeProvider";
 export { defaultMessages } from "./theme/messages";
 export type { Language, Messages } from "./theme/messages";
@@ -109,7 +109,7 @@ export {
 } from "./primitives/navigation-menu";
 export { SearchCombobox } from "./primitives/search-combobox";
 export type { ComboOption, SearchComboboxProps } from "./primitives/search-combobox";
-export { RichText, RichTextEditor, sanitizeHtml, htmlIsEmpty } from "./primitives/rich-text-editor";
+export { RichText, RichTextEditor, sanitizeHtml, htmlIsEmpty, type SanitizeProfile } from "./primitives/rich-text-editor";
 export type { RichTextProps, RichTextEditorProps } from "./primitives/rich-text-editor";
 export { PageHeader } from "./primitives/page-header";
 export type { PageHeaderProps } from "./primitives/page-header";
@@ -169,10 +169,10 @@ export { createLocalStorageAdapter } from "./list/model/storage";
 export type { ListPrefs, ListPrefsStorage, SavedFilter, SavedFiltersStorage } from "./list/model/storage";
 
 // 0.4.0 — generic record pieces (Frappe-free). docs/CONTRACT-0.4.md §1
-export { Timeline, filterItems, sortItems, CommentComposer, draftToHtml, htmlToDraft, AssigneeGroup, AssignPicker, AssignDialog, LifecycleBar, ActionBar, StatusBadge, LikeToggle } from "./record";
+export { Timeline, filterItems, sortItems, CommentComposer, CommentRichEditor, draftToHtml, htmlToDraft, AssigneeGroup, AssignPicker, AssignDialog, ActionBar, StatusBadge, LikeToggle } from "./record";
 export type {
-  TimelineProps, TimelineLabels, TimelineFilter, CommentComposerProps, CommentComposerLabels, CommentDraft, AssigneeGroupProps, AssignPickerProps,
-  AssignLabels, AssignDialogProps, AssignDialogLabels, LifecycleBarProps, ActionBarProps, ActionBarLabels, StatusBadgeProps, LikeToggleProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
+  TimelineProps, TimelineLabels, TimelineFilter, CommentComposerProps, CommentComposerLabels, CommentDraft, CommentRichEditorProps, AssigneeGroupProps, AssignPickerProps,
+  AssignLabels, AssignDialogProps, AssignDialogLabels, ActionBarProps, ActionBarLabels, StatusBadgeProps, LikeToggleProps, Tone, RecordUser, TimelineKind, TimelineChange, TimelineItem,
   Assignee, AssignDetails, MentionOption, UserOption, LifecycleStateItem, LifecycleActionItem,
 } from "./record";
 
@@ -218,10 +218,18 @@ export type {
 export { STATUS_PALETTE, resolveStatusColor, statusColorStyles } from "./primitives/status-dot";
 export type { LifecycleStep } from "./record";
 // Lifecycle — the shared record lifecycle rail + diagram look (CRM, Tickets). docs/components/record.md §9
-export { RecordHeaderCard, FieldPreview, previewKind } from "./record";
-export type { RecordHeaderCardProps, RecordHeaderFact, FieldPreviewProps } from "./record";
+export { RecordHeaderCard, RecordHeaderIcon, FieldPreview, previewKind } from "./record";
+// RecordPage — the CRM record page layout and header quick actions (0.8.0-dev.2). docs/components/record.md §11
+export { RecordPage, RecordQuickAction, RecordQuickActionMenu, RecordTabs } from "./record";
+export type { RecordPageProps, RecordPageSurface, RecordQuickActionProps, RecordQuickActionMenuProps, RecordQuickActionMenuItem, RecordTab, RecordTabsProps } from "./record";
+// The record page's edit session and About cards (0.8.0-dev.2). docs/components/record.md §11
+export { RecordEditSession, RecordEditableCard, RecordNotSavedPill, RecordSaveButton, useRecordEditSession, RecordInfoTile, RecordInfoRow, RecordScoreRing, RecordFieldList, RecordInsightCard, RecordClosedNotice, RecordInteractions, RecordField, RecordFieldGrid, RecordSectionCard } from "./record";
+export type { RecordEditSessionProps, RecordEditSessionApi, RecordEditSessionLabels, RecordSaveRegion, RecordEditableCardProps, RecordUnsavedDialogProps, RecordInfoTileProps, RecordInfoRowProps, RecordScoreRingProps, RecordFieldListItem, RecordInsightCardProps, RecordInteraction, RecordInteractionsProps, RecordSectionCardProps } from "./record";
+export type { RecordHeaderCardProps, RecordHeaderCardVariant, RecordHeaderFact, FieldPreviewProps } from "./record";
 export { LifecycleRail, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleStateCard, LifecycleEdgeLabel, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS } from "./record";
-export { LifecycleGraph, layoutLifecycle, type LifecycleGraphProps, type LifecycleGraphState, type LifecycleGraphTransition } from "./record";
+export { LifecycleActions, lifecycleTone, lifecycleRoots, lifecyclePath, lifecycleTransitionsFrom, lifecycleNext, lifecycleGraph } from "./record";
+export type { LifecycleActionsProps, LifecycleActionsItem, LifecycleDefinition, LifecycleStateDef, LifecycleTransitionDef, LifecycleNextItem, LifecycleGraph } from "./record";
+export { LifecycleGraphView, layoutLifecycle, type LifecycleGraphViewProps, type LifecycleLayout, type LifecycleLayoutNode, type LifecycleLayoutEdge } from "./record";
 export type {
   LifecycleRailProps, LifecycleRailStep, LifecycleRailNext, LifecycleRailLabels, LifecycleDiagramDialogProps, LifecycleDiagramLegendLabels,
   LifecycleStateCardProps, LifecycleNodeKind, LifecyclePhase,
@@ -235,9 +243,31 @@ export { FieldDesigner, toLayout as designerLayout, fromLayout as designerItems,
 export type { FieldDesignerProps, FieldDesignerAdapter, DesignerState, DesignerFieldSet, DesignerSetField, DesignerRemoval, DesignerPending, DesignerItem, DesignerKind } from "./record";
 export { FieldInspector, INSPECTED_PROPERTIES, ownKeys as designerKeys } from "./record";
 export type { FieldInspectorProps, FieldDefinition, FieldLinkFilter, FieldTypeProperty, FieldTypeInfo, FieldTypeRegistry } from "./record";
+// Form builder (steps → sections → fields, the field types, field properties) — docs/components/form-builder.md
+export * from "./record/form-builder";
+// Type configuration page (Lead Type, Deal Type, Task Type…) — docs/components/type-config.md
+export {
+  TypeConfigPage, TypeConfigSection, TypeAppearanceSection, TypeSettingsGrid, TypeSettingField, TypeConfigFooter,
+  TypeWizardToggle, TypeFormIssues, TypeFieldPicker, TypeFormSection, useFieldImportSummary,
+  planFieldImport, appendImportedSections, fieldImportStatus, typeFormConflicts, typeFormReservedWarnings, typeFormFields,
+  typeSaveBlock, normLabel,
+} from "./record";
+export type {
+  TypeConfigPageProps, TypeConfigSectionProps, TypeAppearanceSectionProps, TypeSettingFieldProps, TypeConfigFooterProps,
+  TypeWizardToggleProps, TypeFormIssuesProps, TypeFieldPickerProps, TypeFieldGroup, TypeFieldOption, TypeFieldImport,
+  TypeFormSectionProps, TypeConfigLabels,
+  TypeFormFieldLike, TypeFormSectionLike, TypeFormStepLike, TypeFormLike, ReservedLabel, FieldImportMode, FieldImportStatus,
+  FieldImportPlan, PlanFieldImportArgs, TypeFieldConflict, TypeSaveBlock, TypeSaveState,
+} from "./record";
 export { EmptyState } from "./primitives/empty-state";
 export type { EmptyStateProps } from "./primitives/empty-state";
 export type { RichTextEditorHandle } from "./primitives/rich-text-editor";
+// RecordRail — the CRM record page's right rail (Customize sections, cards, Assignment / Organization / Tasks / Articles
+// modules, footer). NOT the Desk form sidebar (FormSidebar). docs/components/record.md §10
+export { RecordRail, RecordRailCard, RecordRailSection, RecordRailRow, RecordRailCustomize, RecordRailFooter, RecordRailAssignment, RecordRailLinkedRecord, RecordRailTasks, RecordRailArticles, RecordRailArticleReader, recordRailCardClass, RECORD_RAIL_DEFAULT_ACCENT } from "./record";
+export type {
+  RecordRailProps, RecordRailSectionDef, RecordRailCardProps, RecordRailDragHandle, RecordRailSectionProps, RecordRailSectionSpec, RecordRailSectionLabels, RecordRailSectionIcons, RecordRailRowProps, RecordRailCustomizeProps, RecordRailCustomizeOption, RecordRailFooterProps, RecordRailFooterLine, RecordRailAssignmentProps, RecordRailLinkedRecordProps, RecordRailTasksProps, RecordRailTask, RecordRailArticlesProps, RecordRailArticle, RecordRailArticleReaderProps,
+} from "./record";
 
 // P35 views — Core list views (Frappe-free): view switcher, Image, Kanban, Calendar
 export {
@@ -317,3 +347,26 @@ export type {
   DocStatus, DocMessage, SubmitMessageKey, DocstatusAction, DocstatusResult, WorkflowDocAction, WorkflowDocResult,
   WorkflowStateDoc, WorkflowTransitionDoc, DocstatusField,
 } from "./record";
+
+// 0.8.0-dev.9 — Phase 4 (CRM parity proposals; docs/components/list.md §Bulk edit / tags, record.md, search.md)
+// L-01 / L-03: Core bulk edit and bulk tags dialogs; L-02: BulkAction.preflight (type below)
+export { BulkEditDialog, BulkEditValueInput, bulkEditTypedValue } from "./list/bulk/BulkEditDialog";
+export type { BulkEditDialogProps, BulkEditField, BulkEditFieldType, BulkEditLabelKey } from "./list/bulk/BulkEditDialog";
+export { BulkTagsDialog, countTags } from "./list/bulk/BulkTagsDialog";
+export type { BulkTagsDialogProps, BulkTagCount, BulkTagsLabelKey } from "./list/bulk/BulkTagsDialog";
+export type { BulkActionPreflight } from "./list/parts/ListFooter";
+// L-05: the list printout (a complete HTML document) and its browser print
+export { printListDocument, printList } from "./record";
+export type { PrintListOptions, PrintListColumn } from "./record";
+// L-06 / L-07: a dependency-free XLSX writer / reader, and the import file hint from `accept`
+export { buildXlsx, buildXlsxBytes, parseXlsx, xlsxParts, xlsxColumnName, xlsxSheetName, zipStored, readZipEntries, crc32 } from "./list/io/xlsx";
+export type { BuildXlsxOptions, XlsxCell, ZipEntryInput, ZipEntry } from "./list/io/xlsx";
+export { importFileHint, DEFAULT_IMPORT_ACCEPT } from "./list/io/importLabels";
+// M-07: RecordMenu bindShortcuts (prop) and its shortcut parser
+export { parseShortcut, shortcutMatches } from "./record";
+export type { ParsedShortcut } from "./record";
+// S-07: Desk's fuzzy ranking and a framework-free route history (the Frappe entry re-exports the same fuzzy functions)
+export { fuzzyMatch, fuzzySearch, fillTemplate } from "./lib/fuzzy";
+export type { FuzzyHit } from "./lib/fuzzy";
+export { createRouteHistory } from "./lib/routeHistory";
+export type { RouteHistory, RouteHistoryOptions, RouteHistoryStorage } from "./lib/routeHistory";

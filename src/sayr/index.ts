@@ -1,13 +1,13 @@
 // @solvfast/ui/sayr — the only entry that calls Sayr's own methods (sear_product). Core and ./frappe never import it.
 export { createSayrFieldDesignerAdapter, sayrToken } from "./fieldDesignerAdapter";
-export type { SayrApi, SayrFieldDesignerOptions } from "./fieldDesignerAdapter";
+export type { SayrApi, SayrFieldDesignerOptions, SayrNewType } from "./fieldDesignerAdapter";
 export { SayrFieldDesigner } from "./SayrFieldDesigner";
 export type { SayrFieldDesignerProps } from "./SayrFieldDesigner";
 export { SayrRecordPage } from "./SayrRecordPage";
 export type { RecordPageTab, SayrRecordPageProps } from "./SayrRecordPage";
 export { RECORD_RAIL_CARDS, railOrder } from "./rail";
-export type { RecordRailCard, RecordRailExtraCard } from "./rail";
-export { RECORD_PAGE_METHOD, TRANSITION_METHOD, type LifecycleGraphData } from "./recordPage";
+export type { SayrRailCardId, RecordRailCard, RecordRailExtraCard } from "./rail";
+export { RECORD_PAGE_METHOD, TRANSITION_METHOD, defaultLifecycleHref, type LifecycleGraphData } from "./recordPage";
 export { LifecycleGraphDialog, type LifecycleGraphDialogProps, type LifecyclePathStep } from "./LifecycleGraphDialog";
 export type { RecordPageData, ChecklistData } from "./recordPage";
 export { SayrNewRecordPage } from "./SayrNewRecordPage";

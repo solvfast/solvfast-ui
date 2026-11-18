@@ -13,7 +13,8 @@ import { INSPECTED_PROPERTIES, ownKeys, type FieldTypeRegistry } from "../src/re
 import {
   appendTab, fromLayout, insertItem, insertSectionAfter, removeSection, removeTab, stepItem, toLayout,
 } from "../src/record/fieldLayout";
-import { createSayrFieldDesignerAdapter, sayrToken, type SayrApi } from "../src/sayr";
+import { createSayrFieldDesignerAdapter, sayrToken, type SayrApi, type SayrNewType } from "../src/sayr";
+import { withMadeFields } from "../src/sayr/fieldDesignerAdapter";
 
 beforeAll(() => {
   globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
@@ -235,7 +236,7 @@ describe("FD.ui — FieldDesigner (in-memory adapter)", () => {
     expect(saved.map((i) => i.id)).toEqual([...LOADED.map((i) => i.id), "custom_extra"]);
   });
 
-  it("FD.ui.7d with wizard mode on, a step the author added moves (buttons or drag) with its fields; the first step stays first", async () => {
+  it("FD.ui.7f with wizard mode on, a step the author added moves (buttons or drag) with its fields; the first step stays first", async () => {
     const adapter = memoryAdapter({ items: [
       ...LOADED,
       brk("@tab::One", "tab_break", { label: "One", own: true }), f("custom_one", { label: "One Field", own: true, fieldtype: "Data" }),
@@ -522,6 +523,28 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
     expect(order.args.target_doctype).toBe("SRF Ticket Brand New");
     expect(JSON.parse(order.args.order as string)).toEqual(["title", "sear_sla_section", "@SET-1::iban"]);
     expect(calls.at(-1)).toMatchObject({ method: "sear_product.apis.field_library.deployments.doctype_deployment", args: { target_doctype: "SRF Ticket Brand New" } });
+  });
+
+  it("FD.sayr.10 a new type's first save leaves a hidden field its DocType was made with off the arranged order, as load does", async () => {
+    const NEW = { refusal: null, deployment: null, family: { role: "child", parent: "SRF Ticket", shared: ["title"] },
+      target_fields: [{ fieldname: "title", label: "Title", fieldtype: "Data" }] };
+    const { api, calls } = recordingApi({
+      "sear_product.apis.field_library.deployments.new_type_deployment": () => NEW,
+      "frappe.client.insert": () => ({}),
+      // Made with the SLA section and, last, a hidden system link (FD.sayr.9's kind of field).
+      "sear_product.apis.field_library.deployments.doctype_deployment": (a) => ({ ...NEW, target_doctype: a.target_doctype,
+        target_fields: [...NEW.target_fields, { fieldname: "sear_sla_section", label: "SLA", fieldtype: "Section Break" },
+          { fieldname: "source_message", label: "Source Message", fieldtype: "Link", hidden: 1 }] }),
+    });
+    const target: SayrNewType = { parent: "SRF Ticket", doctype: async () => "SRF Ticket Brand New" }; // public type (D-9)
+    const adapter = createSayrFieldDesignerAdapter(api, target);
+    const { items } = await adapter.load();
+    await adapter.save([...items, { id: "@SET-1::iban", kind: "field" as const, label: "IBAN" }]);
+    const inserted = JSON.parse(calls.find((c) => c.method === "frappe.client.insert")!.args.doc as string);
+    expect(inserted.fields[0]).toMatchObject({ field_preset: "SET-1", field_key: "iban", insert_after: "sear_sla_section" });
+    const order = JSON.parse(calls.find((c) => c.method.endsWith("save_field_order"))!.args.order as string);
+    expect(order).toEqual(["title", "sear_sla_section", "@SET-1::iban"]);
+    expect(withMadeFields([], [{ fieldname: "a", label: "A", fieldtype: "Data", hidden: true }, { fieldname: "b", label: "B", fieldtype: "Data", hidden: 0 }]).map((i) => i.id)).toEqual(["b"]);
   });
 
   it("FD.sayr.9 a hidden field of the type's own (a system link) is left off the canvas and out of the saved order", async () => {

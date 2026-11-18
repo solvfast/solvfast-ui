@@ -42,6 +42,10 @@ export interface ListViewControls {
   columns?: boolean;
   /** PMO's "Sort by" menu (with Clear). Default off — header sorting is always there. */
   sortMenu?: boolean;
+  /** Run 1 (B-26, Desk sort_selector.js): the Sort-by menu's options independent of the visible columns (e.g. modified,
+   *  name, creation, the title field — `frappeSortOptions(meta)`); a separate direction button; `clearable: false` drops
+   *  Clear. Only with `sortMenu`. Defaults: the visible columns, no direction button, clearable (the 0.6 menu). */
+  sortMenuOptions?: { options?: { key: string; label: import("../lib/localized").Localized }[]; directionToggle?: boolean; clearable?: boolean };
   /** PMO's quick-filter picker (users choose the fields). Default off. */
   quickFiltersCustomizable?: boolean;
 }
@@ -102,6 +106,17 @@ export interface ListViewProps<T> extends UseListStateOptions<T> {
   emptyAction?: { label: React.ReactNode; onClick: () => void };
   /** Message when filters or search hide every row (default: "No records match the current filters."). */
   emptyFilteredMessage?: React.ReactNode;
+  /** Run 1 (B-55, Desk list_view.js:497-537): a second button in the filtered-empty state, beside Clear filters (e.g.
+   *  "Create a new …" for a user who may create). */
+  emptyFilteredAction?: { label: React.ReactNode; onClick: () => void };
+  /** Run 1 (E-14, the CRM's money lists, Desk report view "Show Totals"): a totals row (`<tfoot>`) summing the total
+   *  columns (`ColumnDef.total`, default numeric fieldtypes) over every filtered row (server mode: the loaded rows), per
+   *  currency when a column has `currency`; the user's "Show totals row" switch in the column manager, remembered with
+   *  the prefs (`defaultShown`, default true). */
+  totals?: boolean | { label?: React.ReactNode; defaultShown?: boolean };
+  /** Run 1 (B-55): a line under the empty message (e.g. the DocType's description) and an illustration above it. */
+  emptyDescription?: React.ReactNode;
+  emptyIllustration?: React.ReactNode;
   /** Content between the toolbar and the table (e.g. a row of state chips). */
   belowToolbar?: React.ReactNode;
   /**
@@ -173,9 +188,10 @@ export function ListView<T>(props: ListViewProps<T>) {
   const { t } = useLocale();
   const {
     like, onRowClick, rowClassName, rowActions, selectable, bulkActions, renderBulkActions, loading, error, onRetry,
-    emptyMessage, toolbarActions, primaryAction, selectionMode = "header", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage, pageSizes, aside, asideOpen, selectAllMatching, layout, savedFiltersGlobal,
+    emptyMessage, toolbarActions, primaryAction, selectionMode = "header", renderActionsMenu, onActionsOpenChange, actionsLabel, controls = {}, loadOptions, onLoadMore, searchHint, className, totalLabel, hasMore, onTotalClick, onSelectionChange, belowToolbar, emptyAction, emptyFilteredMessage, emptyFilteredAction, emptyDescription, emptyIllustration, pageSizes, aside, asideOpen, selectAllMatching, layout, savedFiltersGlobal,
   } = props;
-  const s = useListState(props);
+  const totalsCfg = props.totals ? (props.totals === true ? {} : props.totals) : null;
+  const s = useListState({ ...props, totalsDefaultShown: totalsCfg?.defaultShown });
   const c = { search: true, savedFilters: true, filter: true, columns: true, sortMenu: false, quickFiltersCustomizable: false, ...controls };
 
   // Row actions stay the last column and are not offered in the column manager, filters or sort (Sear's Field Library
@@ -191,18 +207,27 @@ export function ListView<T>(props: ListViewProps<T>) {
       matching: selectAllMatching && !s.grouped ? { total: s.total, label: totalLabel || undefined, active: s.allMatching, onSelect: s.selectAllMatching } : undefined,
     } : undefined,
     layout,
+    totals: totalsCfg && s.showTotals ? { rows: s.totalRows, label: totalsCfg.label } : undefined,
     columns, rowKey: s.rowKey, sort: s.sort, onSortToggle: s.toggleSort, onRowClick, rowClassName, like,
     selection: selectable ? { isSelected: s.isSelected, toggleRow: s.toggleRow, setRowsSelected: s.setRowsSelected } : undefined,
     loading, error, onRetry,
     // Desk (list_view.js:497-537): "no matching records" (with a way out) is not "you have none yet" (with the create action)
     empty: filtered ? (
       <div className="flex flex-col items-center gap-2">
+        {emptyIllustration ? <div aria-hidden data-empty-illustration="">{emptyIllustration}</div> : null}
         <span>{emptyFilteredMessage ?? t("listEmptyFiltered")}</span>
-        <Button variant="outline" size="sm" onClick={() => { s.setQuery(EMPTY_QUERY); s.setSearch(""); }}>{t("listClearFilters")}</Button>
+        {emptyFilteredAction ? (
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => { s.setQuery(EMPTY_QUERY); s.setSearch(""); }}>{t("listClearFilters")}</Button>
+            <Button size="sm" onClick={emptyFilteredAction.onClick}>{emptyFilteredAction.label}</Button>
+          </div>
+        ) : <Button variant="outline" size="sm" onClick={() => { s.setQuery(EMPTY_QUERY); s.setSearch(""); }}>{t("listClearFilters")}</Button>}
       </div>
     ) : (
       <div className="flex flex-col items-center gap-2">
+        {emptyIllustration ? <div aria-hidden data-empty-illustration="">{emptyIllustration}</div> : null}
         <span>{emptyMessage ?? t("noData")}</span>
+        {emptyDescription ? <span className="max-w-md text-xs text-muted-foreground" data-empty-description="">{emptyDescription}</span> : null}
         {emptyAction && <Button size="sm" onClick={emptyAction.onClick}>{emptyAction.label}</Button>}
       </div>
     ),
@@ -245,8 +270,10 @@ export function ListView<T>(props: ListViewProps<T>) {
           {c.savedFilters && s.canSave && <SavedFilters saved={s.saved} activeCount={s.activeCount} onApply={s.applySaved} onSave={s.saveCurrent} onDelete={s.removeSaved} canSaveGlobal={savedFiltersGlobal} />}
           {c.filter && <FilterBuilder fields={s.filterFields} query={s.query} onChange={s.setQuery} activeCount={s.activeCount} loadOptions={loadOptions} fiscalYears={props.fiscalYears} loadFiscalYears={props.loadFiscalYears} />}
           {s.groupByOptions.length > 0 && <GroupByMenu options={s.groupByOptions} value={s.groupBy} onChange={s.setGroupBy} />}
-          {c.sortMenu && <SortMenu columns={s.visibleColumns} sort={s.sort} onChange={s.setSort} />}
-          {c.columns && <ColumnManager columns={s.columns} visibleKeys={s.visibleKeys} onChange={s.setVisibleKeys} />}
+          {c.sortMenu && <SortMenu columns={c.sortMenuOptions?.options ? (c.sortMenuOptions.options as unknown as ColumnDef<T>[]) : s.visibleColumns} sort={s.sort} onChange={s.setSort}
+            directionToggle={c.sortMenuOptions?.directionToggle} clearable={c.sortMenuOptions?.clearable} />}
+          {c.columns && <ColumnManager columns={s.columns} visibleKeys={s.visibleKeys} onChange={s.setVisibleKeys}
+            totalsToggle={totalsCfg ? { checked: s.showTotals, onChange: s.setShowTotals } : undefined} />}
           {toolbarActions}
           {header && selectedKeys.length > 0 && renderBulkActions?.(actionCtx)}
           {hasActions

@@ -48,16 +48,17 @@ describe("Sidebar", () => {
 
   it("opens the active group down to the third level and marks the leaf current", () => {
     renderSidebar("/app/lib/a/one");
-    const leaf = screen.getByRole("button", { name: "Box 1" });
+    // Run 1 A-25: navigation leaves are links (<a href>, new tab / copy link); groups stay buttons
+    const leaf = screen.getByRole("link", { name: "Box 1" });
     expect(leaf.getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("button", { name: /Library/ }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("navigates through the adapter (no router) and toggles groups", () => {
     const { nav } = renderSidebar("/app/home");
-    expect(screen.queryByRole("button", { name: "Shelf A" })).toBeNull(); // group closed when inactive
+    expect(screen.queryByRole("link", { name: "Shelf A" })).toBeNull(); // group closed when inactive (Run 1 A-25: links)
     fireEvent.click(screen.getByRole("button", { name: /Library/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Shelf B" }));
+    fireEvent.click(screen.getByRole("link", { name: "Shelf B" }));
     expect(nav).toHaveBeenCalledWith("/app/lib/b", expect.objectContaining({ id: "lib-b" }));
     fireEvent.click(screen.getByRole("button", { name: "Acme" }));
     expect(nav).toHaveBeenLastCalledWith("/app");
@@ -66,12 +67,12 @@ describe("Sidebar", () => {
   it("exclude keeps the parent inactive under a sibling's sub-tree", () => {
     renderSidebar("/app/lib/config");
     expect(screen.getByRole("button", { name: /Library/ }).className).not.toContain("bg-primary/10");
-    expect(screen.getByRole("button", { name: "Configuration" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "Configuration" }).getAttribute("aria-current")).toBe("page"); // Run 1 A-25: a link
   });
 
   it("collapsed rail: groups degrade to leaves that navigate to the parent", () => {
     const { nav } = renderSidebar("/app/home", { collapsed: true });
-    fireEvent.click(screen.getByRole("button", { name: "Library" }));
+    fireEvent.click(screen.getByRole("link", { name: "Library" })); // Run 1 A-25: a link
     expect(nav).toHaveBeenCalledWith("/app/lib", expect.anything());
   });
 });
@@ -134,7 +135,8 @@ describe("NotificationPanel", () => {
   it("badge caps at 9+, filters, marks all, opens rows and closes", () => {
     const opened: string[] = []; const markAll = vi.fn();
     render(<ThemeProvider defaultLanguage="en"><NotificationPanel items={items} onItemClick={(n) => opened.push(n.id)} onMarkAllRead={markAll} /></ThemeProvider>);
-    const bell = screen.getByRole("button", { name: "Notifications" });
+    // Run 1 A-09: the bell is named with the unread count ("Notifications" → "Notifications, 10 unread")
+    const bell = screen.getByRole("button", { name: "Notifications, 10 unread" });
     expect(within(bell).getByText("9+")).toBeTruthy();
     fireEvent.click(bell);
     const panel = screen.getByRole("complementary", { name: "Notifications" });

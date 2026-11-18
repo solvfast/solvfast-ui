@@ -14,7 +14,7 @@ Tests: `tests/core-p35.test.tsx` (names `CORE.<gap>`). Showcase: Components → 
 |---|---|---|
 | P34 follow-up (D-crm A18) | `AssigneeGroup` | `variant="list"` shows `Assignee.description` under the name |
 | G17 | `StatusBadge`, `StatusDot` | `color?: string` (CSS colour or palette token); `STATUS_PALETTE`, `resolveStatusColor`, `statusColorStyles` |
-| G7 | `LifecycleBar` | `LifecycleStateItem.step?: "past" \| "current" \| "future" \| "skipped" \| "failed"`; type `LifecycleStep` |
+| G7 | `LifecycleRail` (path = the states entered), `LifecycleStepDot` | type `LifecycleStep` (`"past" \| "current" \| "future" \| "skipped" \| "failed"`) |
 | G14 | `FileDropzone` (new) | click / keyboard / drag-drop, `accept`, `maxSize`, `maxFiles`, `multiple`, messages, list + remove; `fileMatchesAccept`, `validateFiles`, `formatFileSize` |
 | G16 | `SearchCombobox` | `options`, `multiple`, `values`, `onValuesChange`, `variant="field"`, `disabled`, `invalid`; `search` / `onSelect` now optional |
 | G13 | `Timeline` | renders `TimelineItem.icon`; `TimelineItem.tone`; `onItemSelect(item, event)`; `showActor` |
@@ -52,7 +52,7 @@ description is the 0.6.0 row. The `avatars` variant is unchanged.
   `danger`/`destructive`/`red`, `violet`/`purple`, `teal`, `sky`, `cyan`, `flame`, `orange`, `midnight`, `forest` — they map
   to the theme's HSL variables, so they follow light / dark. Any other string is used as a CSS colour.
 - Contrast: the dot is the colour itself; the pill's fill is the colour at 15 %; the pill's **text** is
-  `color-mix(in oklab, <colour> 55%, hsl(var(--foreground)))` — darker than the colour on light themes and lighter on dark
+  `color-mix(in oklab, <colour> 55%, hsl(var(--foreground)))` (a pill's text on its tint: 45 % since Run 1 D-64) — darker than the colour on light themes and lighter on dark
   ones, so a configured yellow or navy stays readable (not measured against WCAG for every colour). Pure CSS: it follows the
   nearest `.dark` scope, no build step, no theme lookup in JS.
 - The label is always shown: colour is never the only carrier.
@@ -60,24 +60,20 @@ description is the 0.6.0 row. The `avatars` variant is unchanged.
   the default cell a `StatusBadge` with the row's configured colour / tone (a custom `render` still wins; empty values keep "—").
   Without `status` the 0.6.0 Select badge is rendered. `DefaultCell` takes an optional `row` for it.
 
-## LifecycleBar — per-step state (G7)
+## A Lost deal's lifecycle (G7)
 
 ```tsx
-<LifecycleBar current="lost" states={[
-  { id: "new", label: "New", step: "past" },
-  { id: "proposal", label: "Proposal", step: "past" },
-  { id: "won", label: "Won", step: "skipped" },
-  { id: "lost", label: "Lost", step: "failed", by: "Omar", at },
+<LifecycleRail ended path={[
+  { id: "new", label: "New", meta: "Rana · Nov 8" },
+  { id: "proposal", label: "Proposal", meta: "Omar · Nov 12" },
+  { id: "lost", label: "Lost", meta: "Omar · Nov 14" },
 ]} />
 ```
 
-- A state's `step` overrides its position (before `current` = past, after = future). States without `step` keep the
-  positional value, so callers can set only the exceptions.
-- `skipped`: dashed circle with a dash, struck-through muted label, screen-reader suffix "Skipped" / "تم تخطّيها".
-- `failed`: destructive circle with an X, destructive label, suffix "Failed" / "فشلت"; its `by` / `at` line shows like a past
-  state's. When the failed state is the `current` one it also carries `aria-current="step"` and the current marker, and the
-  badge uses the `danger` tone unless the state has its own `tone`.
-- `data-step` on each `<li>` reports the resolved step.
+- The rail's path is the states the record **entered**, oldest first, so a Lost deal never shows Won as reached (on Frappe
+  data `FrappeWorkflowActions variant="rail"` builds it from the workflow log; record.md §9.4–9.5).
+- `LifecycleStepDot step` draws the dot of a host's own lifecycle UI: `skipped` = dashed circle with a dash, `failed` =
+  destructive circle with an X (both themes, semantic tokens).
 
 ## FileDropzone (G14)
 

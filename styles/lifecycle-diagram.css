@@ -1,0 +1,21 @@
+/* @solvfast/ui/lifecycle-diagram.css — the React Flow zoom controls on the theme tokens (Run 1 I1; from the CRM's
+ * LifecycleDiagramPopup.css). Load after "reactflow/dist/style.css". */
+.lifecycle-diagram-canvas .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.08), 0 4px 12px hsl(var(--foreground) / 0.08);
+}
+.lifecycle-diagram-canvas .react-flow__controls-button {
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  fill: currentColor;
+}
+.lifecycle-diagram-canvas .react-flow__controls-button:last-child { border-bottom: 0; }
+.lifecycle-diagram-canvas .react-flow__controls-button svg { fill: currentColor; }
+.lifecycle-diagram-canvas .react-flow__controls-button:hover { background: hsl(var(--muted)); }
+.lifecycle-diagram-canvas .react-flow__controls-button:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: -2px;
+}

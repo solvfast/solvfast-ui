@@ -63,6 +63,9 @@ GlobalSearchBar({ source, onSelect(item, { newTab }), placeholder?, debounceMs =
                   dialogDebounceMs?, className?, inputClassName? })
 GlobalSearchDialog({ open, onOpenChange, source, onSelect, initialQuery?, debounceMs = 300, minChars = 2, sectionSize = 4, pageSize = 20 })
 markSegments(text, marks) → TextSegment[]; Marked
+// 0.8.0-dev.9 (S-07) — Frappe-free helpers in Core (the Frappe entry re-exports the same fuzzy functions)
+fuzzyMatch(pattern, str) → [matched, score, indices]; fuzzySearch(keywords, text) → { score, marks }; fillTemplate(template, value, marks)
+createRouteHistory<T>({ max = 100, storage?, key = "sf-route-history", equals? }) → { record(entry), list() /* oldest first */, recent(n?) /* newest first */, clear() }
 
 // @solvfast/ui/frappe
 useFrappeGlobalSearch({ onNavigate(url, info: DeskSearchTarget & { newTab }), boot?, translate?, history?, routeTitles?, currentList?,

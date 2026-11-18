@@ -33,7 +33,17 @@ export interface ThemeProviderProps {
   className?: string;
   /** Override or extend the package's chrome strings (merged per language). */
   messages?: { [L in Language]?: Partial<Messages> };
+  /** Run 1 (A-22): the user's language code as the site knows it (e.g. Frappe boot `lang`: "he", "fa", "ar-SA"). It
+   *  sets the reading direction (Frappe's RTL languages: ar, he, fa, ps — jinja_globals.py:141-146) and the `lang`
+   *  attribute; the chrome strings stay en / ar (Arabic for an "ar*" code unless `language` is given). */
+  locale?: string;
 }
+
+/** Frappe's right-to-left languages (frappe/utils/jinja_globals.py:141-146 `is_rtl`). */
+export const RTL_LANGUAGES: readonly string[] = ["ar", "he", "fa", "ps"];
+/** Run 1 (A-22): whether a language code reads right-to-left ("he", "fa-IR", "ar_SA" …). */
+export const isRtlLanguage = (code: string | null | undefined): boolean =>
+  !!code && RTL_LANGUAGES.includes(code.toLowerCase().split(/[-_]/)[0]!);
 
 interface ThemeContextValue {
   theme: Theme;
@@ -45,6 +55,11 @@ interface ThemeContextValue {
   setLanguage: (l: Language) => void;
   toggleLanguage: () => void;
   t: (key: keyof Messages) => string;
+  /** Run 1 (A-22): the user's language code (`locale`), or the chrome language when none is set. */
+  locale: string;
+  /** Run 1 (A-22): set the user's language code (direction from Frappe's RTL list; chrome Arabic for "ar*", else
+   *  English) — e.g. FrappeProvider applies boot `lang`. */
+  setLocale: (code: string) => void;
 }
 
 const ThemeContext = React.createContext<ThemeContextValue | null>(null);
@@ -93,6 +108,7 @@ export function ThemeProvider({
   scope = "document",
   className,
   messages,
+  locale: localeProp,
 }: ThemeProviderProps) {
   const themeKeys = storageKeys ? asList(storageKeys.theme ?? DEFAULT_KEYS.theme) : [];
   const langKeys = storageKeys ? asList(storageKeys.language ?? DEFAULT_KEYS.language) : [];
@@ -105,9 +121,12 @@ export function ThemeProvider({
     const v = store.read(langKeys);
     return v === "ar" || v === "en" ? v : defaultLanguage;
   });
+  const [localeState, setLocaleState] = React.useState<string | undefined>(undefined);
   const theme = themeProp ?? themeState;
-  const language = languageProp ?? langState;
-  const direction: Direction = language === "ar" ? "rtl" : "ltr";
+  const language = languageProp ?? (localeProp ? (localeProp.toLowerCase().startsWith("ar") ? "ar" : "en") : langState);
+  const locale = localeProp ?? localeState ?? language;
+  // Run 1 A-22: the direction follows Frappe's RTL list (he / fa / ps users read right-to-left with English chrome)
+  const direction: Direction = isRtlLanguage(locale) ? "rtl" : "ltr";
 
   const setTheme = React.useCallback(
     (t: Theme) => {
@@ -118,7 +137,7 @@ export function ThemeProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [themeProp, onThemeChange, themeKeys.join("|")],
   );
-  const setLanguage = React.useCallback(
+  const applyLanguage = React.useCallback(
     (l: Language) => {
       if (languageProp === undefined) setLangState(l);
       store.write(langKeys, l);
@@ -127,6 +146,12 @@ export function ThemeProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [languageProp, onLanguageChange, langKeys.join("|")],
   );
+  // choosing a chrome language (the toggle) drops a site locale set earlier: the direction follows the choice again
+  const setLanguage = React.useCallback((l: Language) => { setLocaleState(undefined); applyLanguage(l); }, [applyLanguage]);
+  const setLocale = React.useCallback((code: string) => {
+    setLocaleState(code);
+    applyLanguage(code.toLowerCase().startsWith("ar") ? "ar" : "en");
+  }, [applyLanguage]);
 
   // document scope: apply to <html> (and undo on unmount so the page is left as it was found)
   React.useLayoutEffect(() => {
@@ -136,7 +161,7 @@ export function ThemeProvider({
     html.classList.add("sf-theme");
     html.classList.toggle("dark", theme === "dark");
     html.setAttribute("data-theme", theme);
-    html.setAttribute("lang", language);
+    html.setAttribute("lang", locale);
     html.setAttribute("dir", direction);
     return () => {
       html.className = prev.cls;
@@ -145,7 +170,7 @@ export function ThemeProvider({
         else html.setAttribute(attr, v);
       }
     };
-  }, [scope, theme, language, direction]);
+  }, [scope, theme, locale, direction]);
 
   const merged = React.useMemo(() => ({ ...defaultMessages[language], ...(messages?.[language] ?? {}) }), [language, messages]);
   const value = React.useMemo<ThemeContextValue>(
@@ -159,8 +184,10 @@ export function ThemeProvider({
       setLanguage,
       toggleLanguage: () => setLanguage(language === "ar" ? "en" : "ar"),
       t: (key) => merged[key] ?? String(key),
+      locale,
+      setLocale,
     }),
-    [theme, setTheme, language, direction, setLanguage, merged],
+    [theme, setTheme, language, direction, setLanguage, merged, locale, setLocale],
   );
 
   const [portalHost, setPortalHost] = React.useState<HTMLElement | null>(null);
@@ -169,7 +196,7 @@ export function ThemeProvider({
   if (scope === "element") {
     return (
       <ThemeContext.Provider value={value}>
-        <div className={["sf-theme", theme === "dark" ? "dark" : "", className ?? ""].join(" ").trim()} data-theme={theme} lang={language} dir={direction}>
+        <div className={["sf-theme", theme === "dark" ? "dark" : "", className ?? ""].join(" ").trim()} data-theme={theme} lang={locale} dir={direction}>
           <PortalContainerContext.Provider value={portalHost}>{content}</PortalContainerContext.Provider>
           <div ref={setPortalHost} data-sf-portal-host="" />
         </div>
@@ -182,12 +209,13 @@ export function ThemeProvider({
 /** Fallback used when a component renders outside <ThemeProvider>: reads <html> and never throws. */
 function fallback(): ThemeContextValue {
   const html = typeof document !== "undefined" ? document.documentElement : null;
-  const language: Language = html?.getAttribute("lang") === "ar" ? "ar" : "en";
+  const lang = html?.getAttribute("lang") ?? "en";
+  const language: Language = lang.toLowerCase().startsWith("ar") ? "ar" : "en";
   const theme: Theme = html?.classList.contains("dark") ? "dark" : "light";
-  const direction: Direction = language === "ar" ? "rtl" : "ltr";
+  const direction: Direction = isRtlLanguage(lang) ? "rtl" : "ltr";
   const noop = () => {};
   return {
-    theme, setTheme: noop, toggleTheme: noop,
+    theme, setTheme: noop, toggleTheme: noop, locale: lang, setLocale: noop,
     language, direction, isRTL: direction === "rtl", setLanguage: noop, toggleLanguage: noop,
     t: (key) => defaultMessages[language][key] ?? String(key),
   };
@@ -205,8 +233,8 @@ export function useTheme() {
 
 /** Language, direction and the package's translated chrome strings. Safe outside a provider. */
 export function useLocale() {
-  const { language, direction, isRTL, setLanguage, toggleLanguage, t } = useThemeContext();
-  return { language, direction, isRTL, setLanguage, toggleLanguage, t };
+  const { language, direction, isRTL, setLanguage, toggleLanguage, t, locale, setLocale } = useThemeContext();
+  return { language, direction, isRTL, setLanguage, toggleLanguage, t, locale, setLocale };
 }
 
 /** Where popups should portal to: the element-scope host, or undefined (document.body). */

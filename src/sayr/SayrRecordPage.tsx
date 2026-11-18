@@ -23,12 +23,16 @@ import { Skeleton } from "../primitives/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "../primitives/tabs";
 import { LifecycleRail, type LifecycleRailNext } from "../record/LifecycleRail";
 import { LifecycleGraphDialog } from "./LifecycleGraphDialog";
+import { openLifecycleHref, warnLifecycleHrefDeprecated } from "./lifecycleModel";
 import { fmt, initials } from "../record/format";
 import { RecordHeaderCard } from "../record/RecordHeaderCard";
+import type { RecordPageSurface } from "../record/RecordPage";
 import { htmlToText } from "../record/sanitize";
 import { useLocale } from "../theme/ThemeProvider";
 import type { FrappeDoc } from "../frappe/contract";
 import { FrappeForm, type FrappeFormProps } from "../frappe/form/FrappeForm";
+import { FrappeFormServices, useFormServices, type FormServices } from "../frappe/form/services";
+import type { FrappeFormHeaderContext } from "../frappe/form/FrappeFormView";
 import { useFrappeApi, useFrappeSettings } from "../frappe/FrappeProvider";
 import { useDoc, useMetaBundle, usePermissions, useRefreshDoc } from "../frappe/hooks";
 import { FrappeAssignTo } from "../frappe/record/FrappeAssignTo";
@@ -57,6 +61,10 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   backLabel?: string;
   /** The record's type, shown as a chip in the header (e.g. "Bug"). */
   typeLabel?: string;
+  /** Where "View full lifecycle" opens, in a new tab (0.9.0's behaviour). Without it the lifecycle diagram opens in
+   *  place (`LifecycleGraphDialog`).
+   *  @deprecated since 0.10.0 — removed in 0.11.0. The first use warns once in development. */
+  lifecycleHref?: (lifecycle: string) => string;
   /** Where the hidden cards are kept (localStorage). Default `sf-record-rail:<doctype>`. */
   railStorageKey?: string;
   /** All fields as one form, no tabs (a family type without wizard mode). Default: the DocType's tabs as a
@@ -64,10 +72,23 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   oneForm?: boolean;
   /** The app's own cards (e.g. the record's CRM contact and organization), after Playbook. */
   extraCards?: readonly RecordRailExtraCard[];
-  /** The fields open read-only; each section's Edit opens that section only, with its own Cancel, and the header's
-   *  Save saves every open section and closes them (FrappeForm `sectionEdit`). Default: always editable (where the user
-   *  may write). */
+  /** The fields open read-only, as section cards (FrappeForm `sectionEdit`); `editScope` says what an Edit opens. Opening
+   *  is not a change: the record counts as not saved only once a value changes. Save saves every open section and
+   *  closes them. Default: always editable (where the user may write). */
   viewFirst?: boolean;
+  /** With `viewFirst`: `"section"` (default) — each section has its own Edit and Cancel; `"record"` — one Edit by the
+   *  record's name (`data-record-edit`) opens every editable section, the toolbar has Save and one Cancel
+   *  (`data-record-cancel-edit`) that puts back the saved copy, and Save goes back to reading. */
+  editScope?: "section" | "record";
+  /** 0.10.0, opt-in: `"glass"` gives the page the record page's glass surfaces (`sf-record-page`, as `RecordPage`) and
+   *  makes the header card and the section cards the same pane as the rail cards — light: a white card with the rim and
+   *  cast shadow; dark: the airy glass pane over the aurora (`sf-sayr-record-glass`, glass.css). Default `"plain"`: the
+   *  page looks exactly as before (no class, no rule applies). Needs glass.css. */
+  surface?: RecordPageSurface;
+  /** The record's state shows in the header card, by the title, and not in the form's toolbar (no state indicator, no
+   *  workflow state badge). Default: true when the record has a Sayr lifecycle (the page's `record_page` data), else
+   *  false — a Frappe Workflow's or a `status` field's state then shows in the toolbar, as in 0.9.0. */
+  stateInHeader?: boolean;
   /** A key line in the header card, under the title (e.g. job title · organization), or made from the record. */
   headerLine?: React.ReactNode | ((doc: FrappeDoc) => React.ReactNode);
   /** The record's own buttons in the header card (e.g. Meeting, Note, More). */
@@ -111,8 +132,8 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 }
 
 export function SayrRecordPage({
-  doctype, name, onBack, backLabel, typeLabel, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
-  onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, ...form
+  doctype, name, onBack, backLabel, typeLabel, lifecycleHref, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
+  onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, surface = "plain", ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
   const api = useFrappeApi();
@@ -123,6 +144,23 @@ export function SayrRecordPage({
   const doc = loaded.data?.doc as FrappeDoc | undefined;
   const docinfo = loaded.data?.docinfo;
   const permissions = usePermissions(meta.data, doc, docinfo);
+  // The fields Sayr's deployment adds to every lifecycle DocType carry fixed English labels; a site without their
+  // translation showed them (and a section titled from them) in English on an Arabic page. Only those labels, only while
+  // the site has no translation of its own: the package's words for them.
+  const outerServices = useFormServices();
+  const sayrLabels = React.useMemo(() => {
+    const own: Record<string, string> = { sear_lifecycle: "Lifecycle", sear_state_since: "Status Since" };
+    const ours: Record<string, string> = { sear_lifecycle: t("rpLifecycle"), sear_state_since: t("rpStateSince") };
+    const m = new Map<string, string>();
+    for (const f of meta.data?.meta.fields ?? []) if (own[f.fieldname] && f.label === own[f.fieldname]) m.set(f.label, ours[f.fieldname]);
+    return m;
+  }, [meta.data, t]);
+  const formServices = React.useMemo<Partial<FormServices>>(() => ({
+    translate: (bundle, text) => {
+      const done = outerServices.translate(bundle, text);
+      return done === text ? (sayrLabels.get(text) ?? done) : done;
+    },
+  }), [outerServices, sayrLabels]);
   const canWrite = !!doc && permissions.can("write");
   const [dirty, setDirty] = React.useState(false);
   const [formKey, setFormKey] = React.useState(0);
@@ -180,7 +218,13 @@ export function SayrRecordPage({
   const imageField = meta.data?.meta.image_field;
   const photo = imageField && doc?.[imageField] ? String(doc[imageField]) : null;
 
-  const header = (
+  // The state shows once: by the title when the record has a Sayr lifecycle, else in the form's toolbar (a Frappe
+  // Workflow's badge, the status indicator). The host decides when it says so.
+  // The state shows by the title only when the record has a Sayr lifecycle. While record_page loads the answer is not known:
+  // keep the toolbar state hidden until then, so on a lifecycle record it never shows and then disappears (only appears).
+  const stateInHeader = form.stateInHeader ?? (page.pending ? true : !!lc);
+
+  const header = ({ editAction }: FrappeFormHeaderContext) => (
     <RecordHeaderCard
       title={title}
       name={name}
@@ -190,6 +234,7 @@ export function SayrRecordPage({
       chips={typeLabel ? <Badge variant="brand">{typeLabel}</Badge> : undefined}
       subtitle={typeof headerLine === "function" ? (doc ? headerLine(doc) : undefined) : headerLine}
       actions={headerActions}
+      nameAction={editAction}
     >
       {data ? null : <Skeleton className="h-4 w-48" />}
     </RecordHeaderCard>
@@ -220,7 +265,11 @@ export function SayrRecordPage({
           ended={lc.actions.length === 0}
           // The server lists only actions this user may take; a state's edit lock does not apply to a transition.
           onSelectNext={(n) => void runTransition(n)}
-          onViewAll={() => setDiagram(true)}
+          onViewAll={() => {
+            if (!lifecycleHref) return setDiagram(true);
+            warnLifecycleHrefDeprecated("SayrRecordPage");
+            openLifecycleHref(lifecycleHref, lc.lifecycle);
+          }}
         />
       )}
       {lc ? (
@@ -287,8 +336,10 @@ export function SayrRecordPage({
   };
 
   return (
-    <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-4" data-sayr-record-page>
+    <div className={cn("grid grid-cols-1 items-start gap-5 lg:grid-cols-4", surface === "glass" && "sf-record-page sf-sayr-record-glass")}
+      data-sayr-record-page data-surface={surface === "glass" ? "glass" : undefined}>
       <div className="min-w-0 lg:col-span-3">
+        <FrappeFormServices value={formServices}>
         <FrappeForm
           key={formKey}
           {...form}
@@ -298,8 +349,7 @@ export function SayrRecordPage({
           toolbarStart={back}
           tabBar="record"
           sectionEdit={!!viewFirst}
-          // The header card shows the state, by the record's title.
-          stateInHeader
+          stateInHeader={stateInHeader}
           pageTabBar={pageTabs?.length ? (
             <Tabs value={openTab} onValueChange={showTab}>
               <TabsList className="flex w-full max-w-full overflow-x-auto" aria-label={t("rpPageTabs")} data-page-tabs>
@@ -318,6 +368,7 @@ export function SayrRecordPage({
           onDirtyChange={(d) => { setDirty(d); onDirtyChange?.(d); }}
           onSaved={(saved, action) => { void refresh(); onSaved?.(saved, action); }}
         />
+        </FrappeFormServices>
       </div>
       <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start" aria-label={t("rpVisibleSections")}>
         <CustomizeSections hidden={hidden} onToggle={toggle} extra={extraCards} />

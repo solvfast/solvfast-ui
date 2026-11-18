@@ -1152,6 +1152,22 @@ export function createFixtureTransport(backend: FixtureBackend, options: Fixture
       for (const t of store.todos.values()) if (t.reference_type === doctype && t.reference_name === old) t.reference_name = next;
       return { message: next };
     },
+    // Run 1 C-67 (rename_doc.py update_document_title): set the title field, then rename when the name changed
+    "frappe.model.rename_doc.update_document_title": (a, backend, ctx) => {
+      const doctype = String(a.doctype), docname = String(a.docname);
+      const meta = requireMeta(doctype);
+      const cur = get(doctype, docname);
+      if (P && !P.hasPermission(doctype, "write", cur)) fail(403, "PermissionError", `You need write permission on ${doctype} ${docname}`);
+      const titleField = (meta as { title_field?: string }).title_field;
+      let name = docname;
+      if (a.title != null && titleField && cur[titleField] !== a.title) table(doctype).set(docname, { ...cur, [titleField]: a.title, modified: stamp() } as FrappeDoc);
+      const next = a.name == null || a.name === "" ? docname : String(a.name);
+      if (next !== docname) {
+        if (!(meta as { allow_rename?: unknown }).allow_rename) fail(417, "ValidationError", `${doctype} not allowed to be renamed`);
+        name = String((handlers["frappe.rename_doc"]!({ doctype, old: docname, new: next, merge: a.merge }, backend, ctx) as { message: string }).message);
+      }
+      return { message: name };
+    },
     "frappe.client.validate_link": (a) => {
       const doctype = String(a.doctype);
       const meta = requireMeta(doctype);

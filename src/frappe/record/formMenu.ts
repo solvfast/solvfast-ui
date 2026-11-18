@@ -27,7 +27,8 @@
  *  | new       | :514-529 `perm[0].create`, not single, not `meta.in_create`; condition: not new. Shortcut Ctrl+B.          |
  *
  * Not reproduced: "Jump to field" (Ctrl+J), "Edit DocType" (developer mode), "Repeat" (Auto Repeat), "Print" action
- * icon. Shortcuts are HINTS: the menu does not bind keys (the host may).
+ * icon. Shortcuts: `FrappeRecordMenu shortcuts` binds Print (Ctrl+P), Email (Ctrl+E), Duplicate (Shift+D) and Delete
+ * (Shift+Ctrl+D) — Run 1 C-81…C-84; FrappeForm turns it on. Otherwise they are hints (the host may bind them).
  * The rights are the client's mirror (`usePermissions`); the server re-checks every action.
  */
 import type { DocTypeMeta, FrappeDoc, PermType } from "../contract";
@@ -91,7 +92,7 @@ export function formMenuItems(input: FormMenuInput): FormMenuEntry[] {
   const out: FormMenuEntry[] = [];
   const add = (e: FormMenuEntry, when: boolean) => { if (when && !exclude.includes(e.id)) out.push(e); };
 
-  add({ id: "print", group: "output" }, has.print !== false && !single && !fresh && can("print") && printAllowedForStatus(meta, doc, printSettings));
+  add({ id: "print", group: "output", shortcut: "Ctrl+P" }, has.print !== false && !single && !fresh && can("print") && printAllowedForStatus(meta, doc, printSettings));
   add({ id: "email", group: "output", shortcut: "Ctrl+E" }, has.email !== false && !fresh && can("email") && ds < 2);
   add({ id: "links", group: "output" }, !!has.links && !single && !fresh);
   add({ id: "duplicate", group: "document", shortcut: "Shift+D" }, !!has.duplicate && can("create") && !on(meta.allow_copy));

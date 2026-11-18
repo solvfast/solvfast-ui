@@ -6,18 +6,126 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
-## 0.7.0-dev.37 — The record header no longer repeats who created the record
+## 0.11.0-dev.1 — The record header no longer repeats who created the record
 
 Visual. `SayrRecordPage`'s header card no longer shows who created the record and when: the rail's footer card shows it
 (with who last edited it), so it is not repeated (message `rpCreatedOn` removed). Test RP.header.2.
 
-## 0.7.0-dev.36 — The form designer names the Sayr Platform Administrator role
+## 0.10.0 — one line again: the 0.9.0 release and the 0.7.x line, consolidated (2026-11-18)
 
-Patch. `createSayrFieldDesignerAdapter`'s refusal (403) says "Designing this form needs the Sayr Platform
-Administrator role.": Sayr's roles are named Sayr, no longer Sear. The Arabic text is unchanged (منصة سير).
-Test FD.sayr.5.
+The published **0.9.0** with the 0.7.x `main` line (**0.7.0-dev.23 … dev.36**, never published) merged into it (a true
+merge: both histories are kept), then the conflicts and duplicates resolved. Every export and component prop of 0.9.0
+is still there (`npm run check:api` against `api/0.9.0.json`: 0 removals); the breaking changes below are behavioural
+or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest suite of both lines.
 
-## 0.7.0-dev.35 — A record is edited section by section; the state shows once; an unsaved-changes dialog
+### BREAKING (relative to 0.9.0)
+- **"View full lifecycle" opens the lifecycle diagram in place** (`LifecycleGraphDialog`) on `SayrRecordPage` and
+  `SayrNewRecordPage`, instead of opening Sayr Studio in a new tab. A host that passes `lifecycleHref` keeps 0.9.0's
+  new-tab link (deprecated, below). Needs a Sayr server sending `initial_state` / `transitions` (sear_product b45f539
+  and 3fc2461); with an older server the dialog shows the states without arrows.
+- `FrappeTypeForm` `designer(typeDoctype, ctx)`: `typeDoctype` is now `string | null` (null: a new type, designed on its
+  creation page with `ctx.newType`). Strictly typed callers accept `null`.
+- `SayrRecordPage` / `SayrNewRecordPage` `extraCards`: a card whose `id` is a built-in card's (`notes`, `attachments`, …)
+  replaces that card in its place (0.9.0 kept the built-in).
+- `SayrRecordPage` leaves out the Lifecycle, SLA and Playbook cards when the record's DocType has no lifecycle deployed
+  (0.9.0 showed them with "No lifecycle / No SLA / No playbook").
+- `workflowLifecycle()` gives Frappe Workflow states a phase: submitted (doc_status 1), cancelled (2) and terminal
+  states are `closed`, the others `open` (0.9.0: all `open`). A closed Danger or unstyled state carries a colour for
+  `lifecycleTone`. Hosts that drew every Frappe state as open see closed icons and tones.
+
+### Deprecated (removed in 0.11.0 unless stated)
+- `lifecycleHref` on `SayrRecordPage` and `SayrNewRecordPage`, and the `defaultLifecycleHref` export
+  (`@solvfast/ui/sayr`). Passing `lifecycleHref` keeps the 0.9.0 link and logs one console warning in development.
+- `RecordRailCard` in `@solvfast/ui/sayr` (alias of `SayrRailCardId`) and `RecordHeaderCard` `variant="crm"` (alias
+  of `"page"`): removed by 1.0.
+
+### Added
+- From the 0.7.x line (entries below): translated link DocTypes (`FrappeProvider` `translatedDoctypes`); the type form
+  designed on its creation page and wizard-mode step moves; **`SchedulingCalendar`**; rail extra cards with `title` /
+  `action`; **record page tabs** (`pageTabs`, `pageTab`, `onPageTabChange`, `RecordPageTab`); `headerLine` /
+  `headerActions` and `RecordHeaderCard` `nameAction` / `subtitle` / `actions`; **`viewFirst`** with section editing
+  (`FrappeForm` `sectionEdit`, `UnsavedChangesDialog` in `./frappe`); the in-page lifecycle diagram
+  (`LifecycleGraphDialog`, `LifecycleGraphData`, `LifecyclePathStep` in `./sayr`).
+- **`editScope?: "section" | "record"`** on `SayrRecordPage` (with `viewFirst`) and `FrappeForm` / `FrappeFormView`
+  (with `sectionEdit`). `"section"` (default): each section's own Edit / Cancel. `"record"`: one **Edit** by the
+  record's name (`data-record-edit`) opens every editable section; Save and one **Cancel** (`data-record-cancel-edit`);
+  no section buttons. Same mechanism, same read view. `header` may be `(ctx: FrappeFormHeaderContext) => node`.
+- **`stateInHeader?: boolean`** on `SayrRecordPage`: default on only when the record has a Sayr lifecycle.
+- **Lifecycle: one model, two renderers.** `LifecycleGraphView` (core, dependency-free SVG; the 0.7.x `LifecycleGraph`
+  component, renamed) draws the core `LifecycleGraph` model: `graph`, `initial?`, `currentLabel?`, `labels?`, `dir?`,
+  `className?`. `layoutLifecycle(graph, initial?, { rtl? })` returns the placed states and routed edges
+  (`LifecycleLayout`, `LifecycleLayoutNode`, `LifecycleLayoutEdge`). `LifecycleFlow` (`./lifecycle-diagram`, React Flow)
+  draws the same model. `LifecycleGraph` nodes may carry `meta` / `metaTitle` (additive).
+- `FrappeWorkflowActions` `hideCurrent` (compact: no state badge — the page shows the state elsewhere).
+- Type `SayrNewType` exported from `./sayr`. Messages `lcDiagram`, `lcTransitions`, `lcTransitionItem`,
+  `lcTransitionItemPlain`, `lcReached`, `rpEdit`, `rpCancelEdit`.
+- `npm run check:api` / `api:report`: the public API report and its check against the published 0.9.0.
+
+### Changed / fixed
+- **Opening a section is not a change**: Not Saved, an enabled Save, `onDirtyChange(true)`, the leave guard and the
+  "modified after you opened it" banner react only to a changed value (0.7.0-dev.35 marked the form dirty on opening).
+  A clean refresh just updates the values; Reload of a newer copy also updates what Cancel puts back.
+  While a section is open and nothing has changed, Save is **held**: shown and clickable (`data-primary-held`), never
+  disabled — pressing it right after typing commits the field and saves on that first press; with nothing changed it
+  just closes the open sections (no request).
+  While held, an invisible, unannounced placeholder keeps Not Saved's place, so the first change does not move Save on
+  a narrow, wrapping toolbar (a press landing there was lost on phones).
+- `SayrRecordPage` no longer hides a Frappe Workflow's or a status field's state on records without a Sayr lifecycle
+  (0.7.0-dev.35 showed it nowhere); while the record page loads, the toolbar state never flashes on a lifecycle record.
+- Read view: Desk's column order kept, description-list semantics, theme-token icon tiles, no capitals or letter-spacing
+  on Arabic labels.
+- **`SayrRecordPage surface`** (new, opt-in): `"glass"` gives the page the record page's glass surfaces and makes the
+  header card and the section cards the rail cards' pane (light: white with rim and shadow; dark: airy glass). Default
+  `"plain"`: unchanged (the root keeps its classes; glass.css's new rules are all scoped to `sf-sayr-record-glass`).
+- `AssignDialog` ("Add to ToDo"): a long user name or e-mail no longer widens the dialog past its edge (the row label,
+  its description, the picked chips and the dialog body shrink and truncate; was 49 px over at 1440 and 171 px at 390 on
+  Sada); a Latin e-mail on an Arabic page is cut at its end.
+- Section cards: an unlabelled section after the first is titled from its own visible fields ("Lifecycle · Status Since";
+  translated), so two cards never both read "Details" (the first unlabelled section stays "Details"); a section's Edit
+  button is named with its title.
+- `SayrRecordPage`: the two fields Sayr's deployment adds to a lifecycle DocType (`sear_lifecycle` "Lifecycle",
+  `sear_state_since` "Status Since") read in the UI language when the site has no translation of them (ar: "دورة الحياة",
+  "الحالة منذ"), so the card titled from them is not English on an Arabic page. A site translation, or a label the site
+  renamed, is used as is.
+- `LifecycleGraphView`: mirrors in right-to-left languages (was forced left-to-right), a text alternative (hidden list
+  of transitions, each state's progress; en / ar), self-transitions drawn as loops, arrow-head ids unique per graph.
+- `LifecycleDiagramDialog` (and so `LifecycleGraphDialog`): closing it gives focus back to the button that opened it, as
+  the package's other dialogs do (Radix alone dropped it on `<body>` when there is no `DialogTrigger`).
+- `LifecycleGraphView`: an arrow's label keeps off the Current badge and the done tick at a state's top end corner; a
+  self-loop's label starts just past the card's end edge (on the current state it sat on the badge).
+- A new type's first save no longer brings the DocType's hidden fields back into the arranged order.
+- Arabic: wizard steps "Move earlier / Move later" said forward / back (the inverse) — now «نقل لموضع أسبق» /
+  «نقل لموضع لاحق»; the History tab is «سجل النشاط» («السجل» means "record" across the DS).
+- Messages: the duplicate `lcPhase*` keys of the 0.7.x line are removed (0.9.0's wording kept).
+- Tests: the second `FD.ui.7d` is renumbered `FD.ui.7f`.
+
+### Migration
+- **From 0.9.0:** no code change needed. Check the behaviour changes above (lifecycle dialog; Lifecycle/SLA/Playbook
+  cards on DocTypes without a lifecycle; Frappe Workflow phases). To keep linking to Sayr Studio for now, pass
+  `lifecycleHref={defaultLifecycleHref}` (deprecated).
+- **From 0.7.0-dev.23 … dev.36 (the 0.7.x line):** you also get the 0.8.0 / 0.9.0 changes since 0.7.0-dev.22 (see 0.8.0
+  and 0.9.0 below), notably: `LifecycleBar` and `FrappeWorkflowActions variant="steps"` / `currentMarker` /
+  `showCurrentEntry` are gone (use `variant="rail"` — read-only unless `applyFromRail` — or `"actions"`); new default
+  form behaviour (shortcuts Ctrl/⌘+P/E, Shift+D; fields locked while saving; the "modified after you opened it"
+  banner). The 0.7.x `LifecycleGraph` component is now `LifecycleGraphView` and takes the model (`graph`).
+  `viewFirst` hosts that relied on dev.32's one Edit pass `editScope="record"`.
+- **Sayr server:** sear_product with b45f539 (record page: `initial_state`, `transitions`), 3fc2461 (type preview) and
+  61e1308 (`new_type_deployment`, `target_fields[].hidden`).
+
+## 0.7.0-dev.23 … 0.7.0-dev.35 — the 0.7.x `main` line, folded into 0.10.0 (never published)
+
+These builds were made on `main` after it diverged from the 0.8.x/0.9.x line at 0.7.0-dev.22 (e26ab97). As SemVer
+pre-releases of 0.7.0 they sort **below** the published 0.7.0; 0.10.0 supersedes all of them. Two labels were used for
+two different builds each: **dev.33** (7afb046, then 108f768 — the LifecycleGraph arrow-routing fix) and **dev.35**
+(ceb058e, then 86cba02 — the read view as the CRM reference). Their entries are kept as written.
+
+### 0.7.0-dev.36 — The form designer names the Sayr Platform Administrator role
+
+Patch (main 67ec684, merged into 0.10.0). `createSayrFieldDesignerAdapter`'s refusal (403) says "Designing this form
+needs the Sayr Platform Administrator role.": Sayr's roles are named Sayr, no longer Sear. The Arabic text is unchanged
+(منصة سير). Test FD.sayr.5.
+
+### 0.7.0-dev.35 — A record is edited section by section; the state shows once; an unsaved-changes dialog
 
 Visual. `FrappeFormView` / `FrappeForm` `sectionEdit`: a saved record reads until a section's own **Edit**, which opens
 that section only, with its own **Cancel** (that section's saved values back); an open section counts as not saved
@@ -28,18 +136,20 @@ gone (`data-record-edit`, `data-record-cancel-edit`, messages `rpEdit` / `rpCanc
 header card shows the state (`LifecycleBar` / `FrappeWorkflowActions` `hideCurrent`).
 New `UnsavedChangesDialog` (`@solvfast/ui/frappe`): Save and leave / Discard / Keep editing, for a host's router guard.
 The read view is the CRM reference's: with `sectionEdit` each section is a card (icon tile, title, Edit / Cancel) and a
-section that reads shows its fields as rows (`ReadRow`: an icon tile by field type, the label small and upper-case, the
-value under it, "— Not provided" when empty), two to a line; help texts show only while editing.
+section that reads shows its fields as rows (an internal read row: an icon tile by field type, the label small and
+upper-case, the value under it, "— Not provided" when empty), two to a line; help texts show only while editing.
+*(0.10.0: the read row is internal, not exported; 0.10.0 keeps Desk's column order, uses a description list and no
+upper-case on Arabic labels.)*
 Tests RP.view.1–4, UC.1–2.
 
-## 0.7.0-dev.34 — A record's view shows its blank fields; no lifecycle cards where no lifecycle is deployed
+### 0.7.0-dev.34 — A record's view shows its blank fields; no lifecycle cards where no lifecycle is deployed
 
 Visual. `FrappeFormView viewOnly` (and `SayrRecordPage viewFirst`) keeps a blank field it could edit, read and empty,
 so its label stays and a section keeps its columns; before, it was hidden, and a section showed a lone field on one
 side. `SayrRecordPage` leaves out the Lifecycle, SLA and Playbook cards when the record's DocType has no lifecycle
 deployed (a contact, an organization) instead of saying "No lifecycle / No SLA / No playbook". Test RP.lifecycle.2.
 
-## 0.7.0-dev.33 — View full lifecycle opens the whole diagram in a dialog
+### 0.7.0-dev.33 — View full lifecycle opens the whole diagram in a dialog
 
 **BREAKING** (small): `SayrRecordPage` / `SayrNewRecordPage` `lifecycleHref` and `defaultLifecycleHref` are removed:
 "View full lifecycle" no longer opens Sayr Studio in a new tab. It opens `LifecycleGraphDialog`: every state and
@@ -51,7 +161,7 @@ Additive: `LifecycleGraph` (a dependency-free layered diagram with arrows, label
 `lcPhaseOpen`, `lcPhaseOnHold`, `lcPhaseClosed`, `lcZoomIn`, `lcZoomOut`, `lcFit`, `rpLifecycleOf`, `rpCurrently`.
 Tests RP.lifecycle.3, RP.new.2.
 
-## 0.7.0-dev.32 — A record page can open view-first, with Edit; the header takes a key line and buttons
+### 0.7.0-dev.32 — A record page can open view-first, with Edit; the header takes a key line and buttons
 
 Additive. `SayrRecordPage viewFirst`: the record's fields open read-only (blank ones hidden, as Desk does) with no Save;
 **Edit**, beside the record's code, makes them editable with **Cancel** and **Save**, and a Save or a Cancel (which
@@ -61,20 +171,21 @@ Save / Update nor Ctrl+S; workflow actions and the menu stay) and `RecordHeaderC
 `actions`; the header card shows the record's photo (its
 DocType's `image_field`) instead of its initials; `renderField` is told the field's `status` ("Read" in the view), so an app-drawn field can read too. Messages `rpEdit`, `rpCancelEdit`. Tests RP.view.1–3.
 
-## 0.7.0-dev.31 — The type form designer leaves hidden fields out
+### 0.7.0-dev.31 — The type form designer leaves hidden fields out
 
 A type's own hidden fields (a system link, a derived title) are no longer shown on the designer's canvas as locked
 fields: nobody places them. They stay out of the saved order too, and Sayr keeps them after the arranged fields.
 A field added in the designer and set hidden stays on the canvas. Test FD.sayr.9.
 
-## 0.7.0-dev.30 — A new type's form keeps the fields its DocType was made with
+### 0.7.0-dev.30 — A new type's form keeps the fields its DocType was made with
 
 Fix. A new type is made with more than its shared fields (e.g. the SLA section its Configuration deploys), which its
 design could not show; a step added after the shared block was then anchored inside them and refused. Its Save now reads
-the made form first and places those fields after the shared block, before the form's own rows (`withMadeFields`).
+the made form first and places those fields after the shared block, before the form's own rows. *(0.10.0: hidden made
+fields stay out, as on load.)*
 FD.sayr.8 covers it.
 
-## 0.7.0-dev.29 — A new type's form is designed on its creation page
+### 0.7.0-dev.29 — A new type's form is designed on its creation page
 
 Additive for apps; one signature widens. jsdom tests only. Needs Sayr's `deployments.new_type_deployment`.
 
@@ -85,12 +196,12 @@ Additive for apps; one signature widens. jsdom tests only. Needs Sayr's `deploym
 - `SayrFieldDesigner` takes `doctype: string | null` and `newType`; `createSayrFieldDesignerAdapter(api, target)` takes a
   DocType or a `SayrNewType`. Tests FD.sayr.8, FAM.screens.6.
 
-## 0.7.0-dev.28 — SayrRecordPage: a page tab keeps what was just typed
+### 0.7.0-dev.28 — SayrRecordPage: a page tab keeps what was just typed
 
 Fix. A page tab opens on mouse-down, before the focused field loses focus and commits what was typed; the form's body
 then left with it and the edit was lost. The tab now takes focus off the field first. Test RP.tabs.3.
 
-## 0.7.0-dev.27 — SayrRecordPage: page tabs (About, History, the app's own)
+### 0.7.0-dev.27 — SayrRecordPage: page tabs (About, History, the app's own)
 
 Additive (a page given no `pageTabs` is unchanged). jsdom tests only.
 
@@ -102,7 +213,7 @@ Additive (a page given no `pageTabs` is unchanged). jsdom tests only.
   and fields while set).
 - Messages: `rpAbout`, `rpHistory`, `rpPageTabs`. Tests RP.tabs.1–2.
 
-## 0.7.0-dev.26 — SayrRecordPage: an app card can replace a built-in card, with a title and an action
+### 0.7.0-dev.26 — SayrRecordPage: an app card can replace a built-in card, with a title and an action
 
 Additive (nothing changes for an app that passes no such card). jsdom tests only.
 
@@ -112,7 +223,7 @@ Additive (nothing changes for an app that passes no such card). jsdom tests only
   that card in its place; `railOrder` no longer lists it twice. `SayrNewRecordPage` keeps the built-in preview.
 - Test RP.cards.6.
 
-## 0.7.0-dev.25 — SchedulingCalendar: guests' events on one grid, a meeting's time picked on it
+### 0.7.0-dev.25 — SchedulingCalendar: guests' events on one grid, a meeting's time picked on it
 
 Additive (new component; nothing else changes). jsdom tests only.
 
@@ -129,13 +240,13 @@ Additive (new component; nothing else changes). jsdom tests only.
   `schedView`, `schedWorkingHoursOnly`, `schedBusy`, `schedMore`, `schedLegend`, `schedProposal`, `schedProposalHint`,
   `schedResizeProposal`, `schedResizePanel`, `schedGrid`.
 
-## 0.7.0-dev.24 — Wizard mode: steps move, turning it off asks first
+### 0.7.0-dev.24 — Wizard mode: steps move, turning it off asks first
 
 Hosts that pass `FieldDesigner`'s `wizard` / show family records. jsdom tests only.
 
 - `FieldDesigner` with wizard mode on: a step the author added moves to another place, with all its sections and
   fields: drag it onto another step, or select it and use Move earlier / Move later. The first step (the form's
-  standard fields) stays first. Core `moveTab(items, from, to)` in the layout helpers.
+  standard fields) stays first. *(0.10.0 note: the `moveTab` layout helper is internal — not exported from the package.)*
 - Turning wizard mode off when the author added steps asks first ("Turn off Wizard mode?"); Turn off merges their
   sections into one form in step order, Cancel keeps the steps.
 - The Wizard mode help reads "Split the form into ordered steps, shown one after another when a record is created."
@@ -143,7 +254,7 @@ Hosts that pass `FieldDesigner`'s `wizard` / show family records. jsdom tests on
 - Messages: `fdMoveStepEarlier`, `fdMoveStepLater`, `fdConfirmMergeTitle`, `fdConfirmMergeBody`, `fdConfirmMergeAction`,
   `famStepOf`; `fdWizardHint` reworded.
 
-## 0.7.0-dev.23 — links show translated DocTypes in the UI language
+### 0.7.0-dev.23 — links show translated DocTypes in the UI language
 
 Additive. jsdom tests only.
 
@@ -152,6 +263,537 @@ Additive. jsdom tests only.
   Other DocTypes keep the name or the title.
 - `FrappeProvider` / `FrappeSettings` `translatedDoctypes`; `readFrappeBoot` reads `translated_doctypes` from the page
   boot (`FrappeBoot.translatedDoctypes`).
+
+## 0.9.0 — 2026-11-15
+
+Stable release of the 0.9.0 line (owner-approved). **0.9.0 is the verified 0.9.0-dev.3 source**: the only changes are
+the version (`package.json`, the root entries of `package-lock.json`) and this entry. Additive — no 0.8.0 export changed
+or was removed; the public API is the dev.3 API, names unchanged (owner decision). The detail is in the dev.1–dev.3
+entries below.
+
+- **Type configuration page** — `TypeConfigPage` and its parts; the field library in two modes (**All fields**,
+  **Selected fields**); import and label rules (`planFieldImport`, `typeFormConflicts`, `typeSaveBlock`, …). No default
+  page subtitle or section description. docs/components/type-config.md
+- **Form builder** — `FormBuilder` (wizard steps, sections side by side, 1–4 field columns, 28 field types, every
+  Field Library property, locked standard fields, drag and drop with keyboard / panel alternatives, interactive canvas
+  previews that are never saved), `FieldTypePicker`, `FormFieldInspector`, `FieldLivePreview`, the field-type registry
+  and a pure model. `TypeFormSection builder` renders it. docs/components/form-builder.md
+- **Glass** — the record page's surface rules also apply inside `TypeConfigPage` and `FormBuilder` (no new values).
+- **Docs** — `CONSUMING.md`: a `PageHeader` subtitle inside `AppShell` is its own strip; only for content the design has.
+
+Upgrade from 0.8.0: no change needed. Verified: CRM Lead / Deal / Task Type pages migrated in the lab and compared with
+0.8.0 behaviour; drag and drop verified in Chromium (Firefox / WebKit not available in the lab — every drag action also
+has a panel / keyboard path).
+
+## 0.9.0-dev.3 — form builder: interactive previews, moving without dragging (Core, additive)
+
+- **Interactive canvas previews** (`FormBuilder interactivePreviews`, default on): each field on the canvas is its real
+  control to try — type, pick, tick, rate, format text — as in the Field Library builder. What is entered there lives
+  only in the preview (`FieldLivePreview`): it starts from the field's default value, starts over when the type or the
+  default changes, and has no way to change the field or the form; configuration stays in `FormFieldInspector`, whose
+  panel says so. `interactivePreviews={false}`: the decorative previews of 0.9.0-dev.2.
+- **Moving without dragging** (any browser, keyboard): a field's panel has **Move to** (section, column); a section's
+  panel has **Move to step** (wizard) and **Place beside** (another section of its step, or its own row). Together with
+  the Arrow / Alt + Arrow handles, every drag action has a non-drag path.
+- Field and section handles are focusable `role="button"` spans (Enter / Space select, arrows reorder): Firefox starts no
+  drag from a draggable `<button>`.
+- Messages: `fbPreview*`, `fbMove*`, `fbPlaceBeside`, `fbOwnRow`, … (en + ar).
+
+## 0.9.0-dev.2 — the form builder (Core, additive)
+
+The type form builder of the SOLV FAST Field Library / CRM type pages, extracted as a package capability and plugged
+into the type configuration page. docs/components/form-builder.md
+
+- **`FormBuilder`** — steps (wizard mode: add, rename, icon, show-when condition, reorder by drag or Alt + Arrow, move
+  sections onto a step, delete with "move sections to…" or delete), sections (add at the end or between, rename,
+  description, 1–3 field columns — 4 with `advancedFieldTypes` — side by side in rows of up to 3 by dropping on an edge,
+  collapsible / starts collapsed, reorder by drag or Arrow keys, delete with "move fields to…" or delete — standard
+  fields are always rescued), fields (add into a column, move between sections and columns, reorder by drag or Arrow
+  keys, full width, delete; standard `core` fields locked with `lockCore`), empty-step warning. Controlled
+  (`value` / `onChange`, `{ wizard, steps }`), glass surfaces (`sf-form-builder`).
+- **`FieldTypePicker`** ("Add a field") — the 28 Field Library types in 9 groups with icons, names and descriptions
+  (en / ar), search; Table and Display Value with `advanced`. Registry `FORM_FIELD_TYPES` (capabilities per type),
+  `FORM_FIELD_GROUPS`, `fieldTypeInfo`, `pickFieldTypes`, `tableColumnTypes`.
+- **`FormFieldInspector`** — the property sections each type takes: Basics (title, helper, placeholder / search hint,
+  required, type-aware default value), Value from, Table (rows source, columns: type, user-entered / derived, options,
+  one nested level), Choices (options; Arabic labels and live sources with `advanced`), Link target (object, inline
+  "Limit the records shown" rules), Validation (unique, max length, min / max), Conditions (show / required / read-only
+  when), Auto-fill, Display (list view, print, closed, filter, search, bold, hidden, read only, translatable).
+- **App data in, no app code**: `linkTargets`, `sources`, `stepIcons`, `renderCondition`, `renderTitleInput`,
+  `renderFieldProperties`, `renderSectionProperties`, `labels`.
+- **Model** (pure, exported): `newFormField`, `newSection`, `newStep`, `normalizeForm`, `setWizard` / `enableWizard` /
+  `disableWizard`, `addSection`, `deleteSection`, `moveSection`, `placeAside`, `setSectionColumns`, `nudgeSection`,
+  `addField`, `removeField`, `updateField`, `moveField`, `nudgeField`, `addStep`, `updateStep`, `reorderStep`,
+  `removeStep`, `rowGroups`, `rowCountOf`, `maxFieldCols`, … and the types `FormBuilderValue` / `FormBuilderStep` /
+  `FormBuilderSection` / `FormBuilderField`.
+- **`TypeFormSection builder`** renders the builder; its wizard switch drives it. `TypeWizardToggle` = `WizardToggle`.
+- **Glass**: the record page's surface rules (glass.css, from styles/src/sf-record-page.css) now also apply inside
+  `TypeConfigPage` (`sf-type-config`) and `FormBuilder` (`sf-form-builder`) — the CRM's surfaces in both themes, with no
+  new values. Inside the CRM both rule sets apply with identical declarations.
+- Messages `fb*` (en + ar). Showcase: *Type configuration* uses the builder; *FormBuilder on its own*.
+- Tests: `tests/form-builder.test.tsx`.
+
+## 0.9.0-dev.1 — the type configuration page (Core, additive)
+
+A type's settings page (Lead Type, Deal Type, Task Type, Asset Type…) as reusable parts, extracted from the CRM's
+Lead / Deal / Task Type pages, which now use them. No existing export changed. docs/components/type-config.md
+
+- **UI** (`@solvfast/ui`): `TypeConfigPage` (one header: the app's title, a subtitle only when passed; ordered sections;
+  action row), `TypeConfigSection`, `TypeAppearanceSection` (the `IconColorPicker`, or the app's picker), `TypeSettingsGrid`,
+  `TypeSettingField` (label, required mark, manage link, the app's control, hint lines), `TypeFormSection` (library
+  button + picker, wizard switch, label problems, then the app's form designer), `TypeWizardToggle`, `TypeFormIssues`,
+  `TypeConfigFooter`, and **`TypeFieldPicker`** — field selection in two modes: **All fields** (a whole library group in
+  one click) and **Selected fields** (fields picked one by one across groups, with search; fields that cannot be added
+  are shown with the reason). `useFieldImportSummary` words an import's result.
+- **Rules** (pure, structural types — any steps → sections → fields model fits): `planFieldImport` (one-time copy; standard
+  fields never; reserved and present labels skipped and counted; new ids; side-by-side rows kept; empty sections dropped;
+  `mode: "all" | "selected"`), `appendImportedSections`, `fieldImportStatus`, `typeFormConflicts` (blocking label clashes,
+  with an `exempt` predicate), `typeFormReservedWarnings`, `typeFormFields`, `typeSaveBlock` (`busy` / `name` /
+  `conflicts` / `unchanged`), `normLabel`.
+- **Messages**: `tc*` (en + ar). No default page subtitle or section description.
+- **Showcase**: Patterns → *Type configuration* (an Asset Type page; the picker alone).
+- Tests: `tests/type-config.test.tsx` (rules, parts, both picker modes, a whole non-CRM type page).
+- Docs: `docs/CONSUMING.md` — a `PageHeader` `subtitle` / `meta` inside `AppShell` is its own strip under the top bar; pass
+  one only when the page's design has that content, never a made-up page description.
+
+## 0.8.0 — 2026-11-14
+
+Stable release of the 0.8.0 line (owner-approved). **0.8.0 is byte-for-byte the 0.8.0-dev.10 source**: the only changes
+are the version (`package.json`, the root entries of `package-lock.json`) and this entry. The per-step detail is in the
+0.8.0-dev.1 … 0.8.0-dev.10 entries below; this entry summarises the line relative to the last published release,
+**0.7.0**. One **BREAKING** change (the legacy lifecycle stepper, below); everything else is additive or an intentional,
+recorded behaviour / visual change.
+
+**BREAKING — removed**
+- **`LifecycleBar`** and its type **`LifecycleBarProps`** (`@solvfast/ui`) — the old vertical stepper, deprecated since
+  0.8.0-dev.5.
+- **`FrappeWorkflowActions variant="steps"`** (`@solvfast/ui/frappe`) and its stepper-only props **`currentMarker`** and
+  **`showCurrentEntry`**. `FrappeWorkflowActionsProps["variant"]` is now `"compact" | "actions" | "rail"` (a JavaScript
+  caller still passing `"steps"` gets the compact badge + menu).
+- The stepper's six message keys (en + ar): `recCurrentState`, `lcSteps`, `lcStepDone`, `lcStepNotReached`,
+  `coreStepSkipped`, `coreStepFailed`.
+
+**Retained lifecycle API** (unchanged by the removal)
+- Core contract (framework-free): `LifecycleDefinition` + `lifecycleTone`, `lifecycleRoots`, `lifecyclePath`,
+  `lifecycleTransitionsFrom`, `lifecycleNext`, `lifecycleGraph`.
+- Components: `LifecycleRail`; `LifecycleActions` (the header Actions menu, built on `ActionBar`);
+  `LifecycleDiagramDialog`, `LifecycleStateCard`, `LifecycleEdgeLabel`, `LifecycleDiagramLegend`,
+  `LIFECYCLE_DIAGRAM_COLORS`, `LifecycleStepDot`; `ActionBar`, `StatusBadge`, type `LifecycleStep`, `lifecycleStates` /
+  `LifecycleStateItem`, `stateEntries`.
+- `@solvfast/ui/lifecycle-diagram`: `LifecycleFlowDialog` (with `LifecycleFlow`, `lifecycleFlowLayout`, `roundedPath`).
+- `FrappeWorkflowActions`: `variant="compact"` (the default; FrappeForm's toolbar — same DOM and classes as before,
+  proven against the 0.8.0-dev.9 capture), `variant="actions"`, `variant="rail"`. Frappe workflow semantics are unchanged.
+
+**Migration**
+- The stepper (`<LifecycleBar variant="steps">`) → **`LifecycleRail`** (`path`, `next`, `ended`, `onViewAll`); for the
+  full diagram, **`lifecycleGraph`** with **`LifecycleFlowDialog`** (`@solvfast/ui/lifecycle-diagram`).
+- The stepper's actions → **`LifecycleActions`** or, on Frappe data, **`FrappeWorkflowActions variant="actions"`**.
+- `<LifecycleBar variant="compact">` (badge + menu) → `StatusBadge` + `ActionBar` side by side, or on Frappe data
+  `FrappeWorkflowActions` with the default `variant="compact"`.
+- A Frappe Lifecycle card → **`FrappeWorkflowActions variant="rail"`** (read-only by default; `applyFromRail` to run
+  transitions from it).
+- Callers of **`FrappeWorkflowActions variant="steps"`** → **`variant="rail"`**. `currentMarker` / `showCurrentEntry`
+  have no replacement (the rail marks the current state itself; `railLabels.current`).
+
+**Added since 0.7.0** (additive; see the dev entries)
+- The Sayr families line (`@solvfast/ui/sayr`; entries labelled 0.7.0-dev.8 … 0.7.0-dev.22, built after 0.7.0 and never
+  published) and `RecordRail` with its rail modules (0.8.0-dev.1); `FrappeWorkflowActions variant="rail"`,
+  `FrappeFormView` / `FrappeForm` `aside`.
+- The record page: `RecordPage` (`surface` "glass" | "plain"), `RecordHeaderCard variant="page"` (`"crm"` kept as a
+  deprecated alias), `RecordTabs` (`overflow`, `hidden` tabs), `RecordSectionCard`, `RecordEditSession` and the About
+  cards (0.8.0-dev.2 … dev.5).
+- The Lifecycle contract, `LifecycleActions`, `FrappeWorkflowActions variant="actions"`, `workflowLifecycle`
+  (0.8.0-dev.5); the new entry **`@solvfast/ui/lifecycle-diagram`** with **new optional peer dependencies `reactflow`
+  ^11.11.4 and `@dagrejs/dagre` ^3.1.3** (only that entry imports them) and its stylesheet
+  `@solvfast/ui/lifecycle-diagram.css` (0.8.0-dev.6).
+- Run 1 P1 / P2 closures (0.8.0-dev.6): data-loss fixes (Text Editor "desk" sanitizer profile, Datetime, comment edit,
+  save freeze), accessibility and navigation work, one translation path for the list layer, `ListView` totals /
+  `onResultChange` / sort-menu options, form shortcuts, and more.
+- Phase 4 CRM parity additions (0.8.0-dev.9): `BulkEditDialog`, `BulkTagsDialog`, `BulkAction.preflight`,
+  `printListDocument` / `printList`, the XLSX writer and reader, `RecordMenu bindShortcuts`, `RecordRailAssignment team`
+  changes, `fuzzyMatch` / `fuzzySearch` / `fillTemplate` / `createRouteHistory` in Core.
+
+**Behaviour and visual changes to note when upgrading from 0.7.0** (each recorded in its dev entry)
+- D-64 (0.8.0-dev.6 … dev.8): Desk indicator colours resolve to theme tokens; tinted pills' text (`StatusBadge` tone
+  pills, `Badge` success / warning / info, `statusColorStyles(...).pill`) is mixed 45 % with the foreground for contrast;
+  `statusColorStyles(...).text` stays at 55 %.
+- B-03: the list's Status (indicator) column is shown by default (the `status` field's own column is then hidden).
+- C-25: `DateTimeField` no longer rounds the minute down to the interval.
+- Dialog / sheet focus returns to the opener; navigation items are links (`<a href>`); `PageHeader` renders a node title
+  inside an `AppShell` as `<h2>`.
+
+**For users of the 0.8.0 pre-releases** (not in 0.7.0): since 0.8.0-dev.5, `FrappeWorkflowActions variant="rail"` (added in
+0.8.0-dev.1) is read-only by default (`applyFromRail` restores the clickable rail).
+
+## 0.8.0-dev.10 — removal of the legacy lifecycle component — **BREAKING (0.8.0 pre-release line)**
+
+Owner-approved cleanup. The CRM uses only the new lifecycle implementation (`LifecycleRail`, `LifecycleActions`,
+`lifecycleGraph` / `lifecycleNext` / `lifecyclePath` / `lifecycleTone`, `LifecycleFlowDialog`, the docstatus helpers); the
+old vertical stepper, deprecated since 0.8.0-dev.5, is removed. No runtime dependency change.
+
+**Removed (BREAKING)**
+- **`LifecycleBar`** and its type **`LifecycleBarProps`** (`@solvfast/ui`; `src/record/LifecycleBar.tsx`).
+- **`FrappeWorkflowActions variant="steps"`** (`@solvfast/ui/frappe`) and its stepper-only props **`currentMarker`** and
+  **`showCurrentEntry`**. `FrappeWorkflowActionsProps["variant"]` is now `"compact" | "actions" | "rail"`; the console
+  deprecation warning is gone with it. (A JavaScript caller still passing `"steps"` gets the compact badge + menu.)
+- The stepper's chrome strings, now unused (en + ar): `recCurrentState`, `lcSteps`, `lcStepDone`, `lcStepNotReached`,
+  `coreStepSkipped`, `coreStepFailed`.
+
+**Migration**
+- The stepper (`<LifecycleBar variant="steps">`, `FrappeWorkflowActions variant="steps"`) → **`LifecycleRail`** (generic:
+  `path` = the states entered with `meta` "who · when", `next`, `ended`, `onViewAll`) or, on Frappe data,
+  **`FrappeWorkflowActions variant="rail"`** (path from the workflow log, read-only by default; `applyFromRail` to run
+  transitions from it).
+- The menu inside the stepper → **`LifecycleActions`** (generic header Actions menu) or **`FrappeWorkflowActions
+  variant="actions"`**.
+- `<LifecycleBar variant="compact">` (badge + menu) → `StatusBadge` + `ActionBar` side by side (both unchanged), or on
+  Frappe data **`FrappeWorkflowActions`** with the default `variant="compact"`.
+- `currentMarker` / `showCurrentEntry`: no replacement (the rail marks the current state itself; `railLabels.current`).
+
+**Unchanged**
+- `FrappeWorkflowActions variant="compact"` (the default; FrappeForm's toolbar) renders the same DOM and classes as before
+  (`StatusBadge` + `ActionBar`, now rendered by FrappeWorkflowActions itself): proven against HTML captured on 0.8.0-dev.9
+  (`tests/fixtures/workflow-actions-compact.before.json`, 17 scenarios). `actions` and `rail` are unchanged. Frappe
+  workflow semantics (apply_workflow, transitions, roles / permissions, docstatus, confirm, beforeApply / afterApply,
+  mandatory checks) are unchanged.
+- Kept: `ActionBar`, `StatusBadge`, `LifecycleStepDot`, type `LifecycleStep`, `lifecycleStates` / `LifecycleStateItem`
+  (the compact badge's label and tone; `by` / `at` / `step` stay on the type as host data — no package component renders
+  them), `stateEntries` (the rail's who · when).
+
+Tests: `tests/workflow-actions-compact-dom.test.tsx` (compact DOM = the dev.9 capture; compact / actions / rail apply
+through the simulated fixture transport), `tests/lifecycle-legacy-removed.test.ts` (not exported from `.` / `./frappe`,
+the retained API is, dist scan). Stepper-only tests removed; their retained assertions ported to the rail and the dot atom.
+Docs: `record.md` §1, §2.1, §2.5, §3.1, §3.6, §8.3, §9.5; `p35-core.md` G7; `CONSUMING.md`. Showcase: the stepper demos
+are now `LifecycleRail` / `LifecycleActions`.
+
+## 0.8.0-dev.9 — Phase 4: CRM parity proposals (Core, additive)
+
+Owner-approved Phase 4 of the CRM parity plan (gap ids from the CRM parity gap audit §3). Everything is **additive**: no
+existing API changes, no visual change to an existing component unless the host opts in, no new dependency. Core stays
+Frappe-free (`check:boundaries`). Tests: `tests/phase4-parity-dev9.test.tsx`, `tests/phase4-io-dev9.test.ts`. Docs:
+`list.md` §6c and §8b, `record.md` §5.1 and §10.3, `search.md` API.
+
+- **L-01 `BulkEditDialog`** (new): set values on every selected record — several [Field][Value] rows (each field once;
+  `multiple={false}` = Desk's single field), the field type's own value control (select, check, date, datetime, time,
+  int / float / currency, text, long-text, link via `search`), typed values to `onApply` (numbers, booleans, empty → `null`);
+  Apply disabled until a row has a field; a rejected `onApply` is shown in the dialog. Also `BulkEditValueInput`,
+  `bulkEditTypedValue`. `FrappeBulkActions`' Edit is unchanged.
+- **L-03 `BulkTagsDialog`** (new): `mode="add"` (the package `TagInput`, suggestions as a list or a search) and
+  `mode="remove"` ("tag · n" checkboxes from `existing`; with no tags it says so and Apply is disabled with that reason).
+  `countTags(tagLists)` builds `existing`.
+- **L-02 `BulkAction.preflight`** (new, optional): `preflight(ctx) → { blocked: { key, reason }[] }`. When it blocks any
+  selected key the runner lists them with reasons, its button counts what will run ("Delete 2"), only Close is offered when
+  nothing may run, `run` receives only the allowed keys (rows too with the new optional `rowKey`), then `onSkipped(keys)`.
+  Actions without `preflight` run exactly as before.
+- **L-05 `printListDocument` / `printList`** (new): a clean list printout — heading, optional subtitle, "{n} records", one
+  table with exactly the given columns and every given row, escaped, no app chrome; printed through `printHtmlDocument`.
+- **L-06 XLSX writer** (new): `buildXlsx(headers, rows, { sheetName?, rtl? }): Blob` — one sheet, inline strings and
+  numbers, stored ZIP with CRC-32, deterministic (`buildXlsxBytes`, `xlsxParts`, `zipStored`, `crc32` exported too). A host
+  passes `ExportDialog fileTypes={["Excel", "CSV"]}` and writes Excel with it.
+- **L-07 XLSX reader and import hint**: `parseXlsx(file): Promise<string[][]>` (first sheet; shared / inline strings,
+  numbers, booleans; deflated entries through the platform's `DecompressionStream`; `.xls` refused). `DataImportDialog`'s
+  file hint now names what `adapter.accept` lists (`importFileHint`: ".csv" → "CSV", ".csv,.xlsx" → "CSV or XLSX", en / ar;
+  known types in a fixed order) unless `labels.fileHint` is given; the default accept, and ".csv,.xlsx,.xls", keep
+  "CSV, XLS or XLSX". The hint paragraph gains a `data-import-file-hint` attribute.
+- **M-07 `RecordMenu bindShortcuts`** (new, opt-in): the items' `shortcut` hints become working keys through the same
+  confirm as a click; not while typing, while a dialog / menu is open, for hidden / disabled items or a disabled / busy
+  menu; exact modifiers, "Ctrl" also ⌘; removed on unmount. `parseShortcut`, `shortcutMatches` exported.
+- **AS-06 `RecordRailAssignment team`**: `team` also takes `onChange`, `options`, `changeLabel` → a "Change team" menu on
+  the team row. Without `onChange` the row's markup is unchanged.
+- **S-07** Core now exports `fuzzyMatch`, `fuzzySearch`, `fillTemplate` (moved from the Frappe layer to `src/lib/fuzzy.ts`;
+  `@solvfast/ui/frappe` re-exports the same functions) and the new framework-free `createRouteHistory({ max, storage?,
+  key?, equals? })` (`record`, `list`, `recent`, `clear`).
+- Strings: new catalogue keys `bke*`, `btg*`, `bpf*`, `rrChangeTeam` (en / ar).
+
+## 0.8.0-dev.8 — Run 1: D-64 scope correction
+
+- **D-64 scope**: 0.8.0-dev.7 also moved `statusColorStyles(...).text` (plain text with no tint, e.g. the CRM's rail
+  card status labels) to 45 %; the CRM parity run (`p0-lab/runs/run1-run1c-rail`) showed it as a visible change outside
+  D-64 (decision 8 covers text on a tint). `text` is back to P35's 55 %; only `.pill` (text on its 15 % tint) uses 45 %.
+  Test: `run1-acceptance` "D-64 scope". 0.8.0-dev.7 is superseded (lab only, never published).
+
+## 0.8.0-dev.7 — Run 1: D-64 contrast correction and acceptance tests
+
+- **D-64 contrast correction (visible, decision 8)**: tinted pills' text is now the colour mixed **45 %** with the
+  foreground (was 55 % in 0.8.0-dev.6): `StatusBadge` tone pills, `Badge` success / warning / info and
+  `statusColorStyles(...).pill` (custom / Desk colours on a tint). `statusColorStyles(...).text` (plain text, no tint)
+  keeps 55 % (unchanged since P35). Measured in a browser on the CRM lab build (`p0-lab/runs/run1-d64-*`), the
+  0.8.0-dev.6 info pills on Glass reached only 4.42:1 (the palette calculation had assumed a white card). At 45 % every
+  palette colour is ≥ 5.31:1 on the tint over white, Glass (246 / 246 / 248) and a darker panel (236 / 236 / 240), light
+  and dark (`p0-lab/run1/d64-contrast-measured.py`). Tests pinning the mix (`core-p35` P35 colour, `run1-step4` D-64) follow.
+- Tests: `tests/run1-acceptance.test.tsx` asserts the audit acceptance items the ledger reconciliation found unasserted
+  (A-25, A-29, B-02, B-26, B-38, B-42, B-55, B-56, B-61, C-25, C-79, C-81…C-84, D-08, D-41, D-54, D-64, E-14). No
+  behaviour change. E-14 "export sends add_totals_row" stays open (`it.todo`).
+
+## 0.8.0-dev.6 — Run 1: P1 / P2 closures
+
+Run 1 of the P1 / P2 roadmap (owner authorization 2026-11-13; rows keep their Phase-30 ids, `docs/specs/` and
+`p0-lab/run1/LEDGER.md` hold the per-row record). Real site: every server-dependent row is simulator-tested only (I5 pending).
+
+**Step 1 — data loss and P1 defects**
+- **C-29 Text Editor (data loss)**: `sanitizeHtml(html, profile)` / `RichText profile` / `RichTextEditor profile` — new
+  `"desk"` profile keeps what Desk's Text Editor (Quill 2) stores: headings, tables, images (http(s), `/files/…`,
+  png/jpeg/gif/webp data URLs), colours / alignment / direction (a listed set of CSS properties; no `url()`, expressions,
+  escapes or positioning), Quill's `ql-*` classes and `data-list` / `data-row`, mention spans, site-relative links.
+  `FrappeField` Text Editor (edit and read) uses it. The default `"basic"` profile is **unchanged** (CRM `RichTextEditor`,
+  `EmailComposer`). The editor never emits on mount or on a synced value. New handle method `replaceBeforeCaret`, props
+  `onKeyDown` / `onInputCaret`.
+- **C-24 Date**: `DateField` opt-in aids `clearable` (Clear button; the selected day again clears), `showToday`,
+  `parseDisplay` + `parseHint` (typed entry in the popover), `invalid`. `FrappeField` Date uses them (typed in the site's
+  `date_format` via `parseUserDate`); a required empty Date is `aria-invalid`. Without the props the DS field is unchanged.
+- **C-25 Datetime (data loss)**: the minute is never rounded down to the interval any more (an off-interval minute is kept
+  in the list) — **behaviour fix for every `DateTimeField`**, including the CRM's call forms (10:37 stayed 10:30 on Apply).
+  Opt-in `withSeconds` (value `YYYY-MM-DDTHH:mm:ss`; Apply without touching the time keeps the seconds), `showNow`,
+  `clearable`, `invalid`. `FrappeField` Datetime: every minute, seconds kept, Clear / Now, edited in the user's time zone
+  and stored in the system's (`datetimeToUserInput` / `datetimeFromUserInput`; simulator only).
+- **D-28 comment edit (data loss)**: an HTML comment is edited in `CommentRichEditor` (new export: `RichTextEditor` with the
+  "desk" profile + @mentions): formatting, links, images and mentions survive; image-only comments can be saved.
+  Plain-text comments (`bodyFormat: "text"`) keep `CommentComposer`. New comments are still written in `CommentComposer`.
+- **C-71 save freeze (data loss)**: `FrappeFormView`'s fields are `inert` + `aria-busy` while saving / cancelling; a value
+  written during the request is re-applied over the server's answer (the form stays Not Saved).
+- **D-55 / K1**: `FrappeWorkflowActions` outside `FrappeForm`: `frm` (the host form's controller) runs Desk's sequence
+  (check_mandatory → before_workflow_action → apply → after_workflow_action); without it, the document is checked against
+  its meta's mandatory fields (Missing Fields dialog; `checkMandatory={false}` opts out).
+- **E-19 report export**: the list's "Export as report" sends the checked rows as `selected_items`; the dialog's labels
+  come from the catalogue (`rx*`, en / ar; `reportExportLabels(t)`).
+**Step 2 — P1 accessibility**
+- **A-09 `NotificationPanel`**: focus moves into the panel on open and back to the bell on close (Escape, ×, outside,
+  a row); the bell is named with the unread count ("Notifications, 3 unread", en / ar) and controls the panel; opt-in
+  `onMarkRead` (per-row "Mark as read", does not open the row) and `loading`. Look unchanged.
+- **A-27 `MobileNav`**: default mode lists a group's whole sub-tree in More (indented) — every child reachable on a phone;
+  the bar is a named landmark (`ariaLabel`, default "Main navigation"); More has `aria-haspopup` / `aria-controls`.
+  (The CRM passes `primary`: unchanged.)
+- **B-42 focus return (G28)**: `DialogContent`, `AlertDialogContent` and `SheetContent` give focus back to the element
+  that opened them (a menu item → its menu's trigger; `DropdownMenuItem` notes it) — every list dialog opened from the ⋯
+  or Actions menu now returns focus to its trigger. New prop `returnFocus` overrides. No visual change.
+- **D-01 / D-07 `AssigneeGroup variant="avatars"`**: the stack is one button named with every assignee (overflow included)
+  that opens the full list with Remove / Done (keyboard and touch); the hover-only remove on an avatar is gone (it was
+  unreachable). `FrappeAssignTo`: `canWrite` omitted → the user's write right (`usePermissions`, meta loaded); a failed
+  `get_docinfo` is an error, not "nobody assigned". The CRM uses `variant="list"`: unchanged.
+- **D-62 lifecycle stepper**: `FrappeWorkflowActions variant="steps"` (deprecated, kept) ticks only states the record
+  entered; a state it never entered before the current one is "skipped". `LifecycleBar`'s list is named "Lifecycle"
+  (translated; was the untranslated "lifecycle") and each step has a screen-reader state (completed / not reached).
+- Tests changed with the behaviour: `shell` NotificationPanel test (bell name now counts unread);
+  `frappe-lifecycle-rail` steps test selects the list by `data-lifecycle-steps` (its name is translated now).
+
+**Step 3 — one translation path**
+- **B-61 (G58)**: the list layer reads the provider's translations (Desk `__(text, null, doctype)`; `FrappeProvider
+  translations`, boot `__messages`, the meta's own): column / filter labels, child-table labels, Select options and
+  Select cell values (stored values unchanged), the DocType's name (Add, empty states), status words.
+  `useFrappeTranslate(bundle)` (new, `@solvfast/ui/frappe`), `buildFrappeListMeta(…, { translate })`,
+  `useFrappeList().translate`. English sites without a dictionary: unchanged.
+- **B-03 (decision B-D2)**: the Status (indicator) column is **shown by default** (was offered, hidden); as Desk
+  (list_view.js:412-416) the `status` field's own column is then hidden (still offered). `rowMeta` options unchanged.
+- **B-38** bulk workflow actions, **D-54** `FrappeWorkflowActions` / `FrappeStatusIndicator` (default `translate` = the
+  provider's translations; was identity), **B-39** the exporter's DocType, group, ID and field labels, the report export's
+  DocType title: in the session language.
+- **D-41**: a communication's delivery status in the session language (site translation, then the package's `commStatus*`
+  catalogue); the medium as the entry icon (Email / Phone / Meeting / Other — form_timeline.js:227-238).
+  `FrappeTimeline`'s default `translate` is the provider's (was identity).
+- **A-51 dialog base**: the × is named from the catalogue (was "Close" in every language; `DialogContent`, `SheetContent`);
+  new `DialogContent` props `dismissible={false}` (Desk `static`: no Escape / outside close, no ×), `hideClose`,
+  `size` ("sm" | "md" | "lg" | "xl" | "full"; "md" = the unchanged default); `DialogTitle indicator`.
+- Tests changed with the behaviour: `list-query` "spends Desk's Status slot" (the indicator now takes the slot, the
+  status field column is hidden — expected headers unchanged, test renamed).
+
+**Step 4 — accessibility and navigation**
+- **A-28** `AppShell`: a "Skip to main content" link (en / ar) is the first Tab stop; `<main>` is focusable.
+- **A-29** `AppShell documentTitle` (default on): the tab title is "{page} · {brand}" (function or `false`); restored on unmount.
+- **A-23** `Sidebar`: a named landmark ("Main navigation"); the current item is scrolled into view; `NavItem.section` = a
+  collapsible heading over its items.
+- **A-25** navigation targets are links (`<a href>`): Sidebar items, MobileNav items, AppSwitcher apps — a plain click
+  still goes through `onNavigate`, Ctrl / ⌘ / middle click open a new tab. No visual change.
+- **B-02** `ColumnDef.href` / `title` (Core); `FrappeListView` / `useFrappeList` `formHref`: the Subject is a link to Desk's
+  `/app/<slug>/<name>` (titled, the name when the title is empty); Ctrl/⌘-click on a link no longer opens the row.
+- **B-56** list keyboard: the rows are one Tab stop (roving tabindex); ↑ / ↓ move, Space ticks, Shift+↑ / ↓ extends,
+  Enter opens; ignored inside controls. Table and card layouts.
+- **C-08** `FrappeField`: `aria-required` on required controls, the description is the control's `aria-describedby`;
+  Rating and Text Editor take the invalid / required state; `Input`, `Textarea`, `SelectTrigger` show `aria-invalid`.
+- **C-57** `DataGrid`: one Tab stop per row (its first editable cell); Enter / F2 opens the row with that editor focused;
+  ↑ / ↓ in an editor move to the same column of the previous / next row; Tab past the last editor of the last row adds a
+  row; Add Row opens the new row with its first editor focused.
+- **A-22** `ThemeProvider locale` + `useLocale().locale / setLocale`, `isRtlLanguage`, `RTL_LANGUAGES` (ar, he, fa, ps):
+  the direction follows Frappe's RTL list; chrome stays en / ar. `FrappeProvider` applies `boot.lang`
+  (`applyBootLanguage={false}` opts out).
+- **A-61** `FrappeProvider onSessionExpired` ("redirect" = Desk's `/login?redirect-to=…`, or a function): fired once per
+  burst for any query / mutation answering session expired. Opt-in (no global action by default). `loginRedirectUrl`.
+- **C-79** `FrappeFormView`: a newer server copy while dirty shows "modified after you opened it" + Reload (keeps the
+  edits until Reload); `FrappeForm realtime` (doc_subscribe); `FrappeForm` shows the newer of its save answer and the
+  loaded copy (was: its own save hid a later change).
+- **D-43** communications paging counts automated messages (Desk: 21 of both kinds); no duplicates when paging.
+- **D-64 (intentional visible change, decision 8)**: Desk's indicator colour names all resolve to theme tokens (new
+  `--indicator-blue / -light-blue / -pink / -darkgrey`, light and dark; `DESK_INDICATOR_COLOURS`); the Frappe form header,
+  record chip and list Status pill paint Desk's colour. **Tinted pills' text is darker / lighter for contrast** (≥ 4.5:1
+  on the tint): `StatusBadge` tone pills and `Badge` success / warning / info — visible on every CRM status badge.
+- Tests changed with the behaviour: `shell` / `merged` / `run1-step2` nav items are queried as links (A-25); `list` F22
+  (one Tab stop: other rows `tabindex=-1`, B-56); `fields` DataGrid add test (the new row opens for editing first,
+  C-57). A Sayr-named AppShell test pins the backdrop as the shell's first child: the skip link is placed after it (no
+  Sayr file changed).
+
+**Step 5 — CRM-evidenced completion**
+- **C-81…C-84 form shortcuts (decision 10)**: `FrappeRecordMenu shortcuts` binds Ctrl/⌘+P Print, Ctrl/⌘+E Email, Shift+D
+  Duplicate, Shift+Ctrl/⌘+D Delete (asks first) — topmost menu only, not while typing or with a dialog open, only for the
+  entries offered. `FrappeForm` turns it on (off with `hotkeys={false}` / `menu={{ shortcuts: false }}`). A host with its
+  own menu (the CRM's `useRecordMenu`, which binds on `window`) gets no package binding: no double handlers. Print shows
+  its Ctrl+P hint.
+- **B-26** `ListView controls.sortMenuOptions` (`options` independent of the visible columns, `directionToggle`,
+  `clearable`), `SortMenu directionToggle / clearable`; `sortOptionsFromMeta` (Desk's sort-selector options) — passed by
+  `FrappeListView` when the host turns `sortMenu` on. Off by default (decision B-D3).
+- **B-48** `FrappeListView`: a new document starts with the list's "=" / tree filters on editable non-standard fields (Desk
+  make_new_doc); the app's `create.defaults.routeOptions` win.
+- **B-55** `ListView emptyFilteredAction`, `emptyDescription`, `emptyIllustration`; `FrappeListView` offers "Create a new
+  {DocType}" in the filtered-empty state to a user who may create (decision B-D5) and the DocType's description.
+- **A-33** `StatCard` / `IconStatCard`: `state` ("loading" | "empty" N/A | "error"), `errorText`, `format`, `compact`
+  (1.2M), `menu`. Without them: unchanged. (The Frappe Number Card binding stays deferred: decision 5.)
+- **A-42 / C-67** `EditableTitle`: an async `onSave` shows the new title busy and reverts with the message on failure;
+  `className`. `PageHeader`: inside an AppShell a node title is an `<h2>` (one `<h1>` per page — G19); `titleInShell`
+  makes it the top bar's `<h1>` (e.g. an EditableTitle). `RenameDialog title / allowNameChange`. `FrappeFormView
+  onRenameTitle` + `FrappeForm onRenamed`: the form title opens Desk's title / rename dialog
+  (`frappe.model.rename_doc.update_document_title`; simulator handler added).
+- **E-14** `ListView totals`: a `<tfoot>` totals row (a "Total" row header; numeric columns or `ColumnDef.total`; summed
+  over every filtered row; per currency with `ColumnDef.currency`), the user's "Show totals row" switch in the column
+  manager remembered with the prefs (`ListPrefs.showTotals`). The Report view's own totals card is unchanged (shipped
+  views frozen, decision 3).
+- Tests changed with the behaviour: `merged` PageHeader test (a node title in a shell is an `<h2>`, not a second
+  `<h1>`); `frappe-form-integration` FV.K4 picks `/^Print/` (the item now carries its Ctrl+P hint).
+
+**Step 6 — tests-only closures** (the behaviour existed; now asserted): A-05 awesome-bar new tab (Ctrl/⌘-click,
+Ctrl+Enter); A-06 Dashboard rows, frequent links, "Find x in Y"; C-69 the beforeunload guard; D-08 a refused Done shown
+inline; D-13 the share dialog in Arabic / RTL; E-01 the view switcher by keyboard (en / ar); E-59 moves within a Kanban
+column (drop + Desk's update_order args). One addition with E-59: **`KanbanBoard` Alt+↑ / ↓ reorder a card within its
+column** — the keyboard equivalent of the existing in-column drag (accessibility; the shipped view otherwise unchanged).
+
+**Step 7 — initiative P1**
+- **I1 `@solvfast/ui/lifecycle-diagram`** (new entry, owner decision E3 option B): `LifecycleFlow`, `LifecycleFlowDialog`,
+  `lifecycleFlowLayout`, `roundedPath` — the CRM's React Flow + dagre diagram ported onto Core's `lifecycleGraph`
+  contract and look. **New optional peer dependencies `reactflow` ^11.11.4 and `@dagrejs/dagre` ^3.1.3** (dev-installed at
+  the CRM's exact versions); only this entry imports them (boundary check: Core and the other entries never do).
+  Stylesheet `@solvfast/ui/lifecycle-diagram.css` (the zoom controls on the theme tokens; load after
+  `reactflow/dist/style.css`). Phase words `lcPhaseOpen / OnHold / Closed` (en / ar).
+- **I3 `ListView onResultChange`** (docs/specs/LISTVIEW-API.md §4): client mode reports `{ rows, visibleColumns, filtered }`
+  (every matching row, sorted, all pages) on query / search / sort / column / row changes; never on paging; never in
+  server mode.
+- **D-64 fix-up**: the four new indicator tokens moved to `styles/src/sf-components.css` (`styles/theme.css` is
+  generated: the step 4 edit was regenerated away by the build and never shipped; the tests could not see CSS variables).
+  **C-29 styles**: `.sf-rich-text` now styles what the desk profile keeps (h1/h2/h4–h6, tables, images, pre, hr, Quill
+  alignment / direction / indent classes).
+
+**Review fixes (before the CRM parity run)**
+- B-61: a translated Select cell keeps its pill (`Badge`), as the untranslated one.
+- C-29: a site-relative URL may not start `/\` (browsers read `/\host` as `//host`) — href and img src.
+- A-25: a navigation item without an `href` stays a button (`NavTarget`: link with href, button without).
+- I3: `onResultChange` does not re-fire for the same result (same row objects, columns, flag) — a host that re-renders
+  with a fresh array and sets state in the callback cannot loop.
+- C-25: Apply without touching the date or time returns the value exactly as it was (never rebuilt through a local Date).
+- A-22: `boot.lang` is applied once per page load and language — a provider mounted again never undoes the user's switch.
+- B-03: with curated columns (`columns`), the indicator column stays offered, hidden (the app decides; no second Status).
+- `.sf-rich-text` Quill bullet lists (`li[data-list=bullet]`) show bullets; the list rows' index map is computed once.
+- `VENDORED.md` lists every Run 1 edit to a vendored primitive (a re-vendor would revert them).
+
+- Tests changed with the behaviour (old → new): `merged`/sanitizer pins unchanged; comment-edit tests in `record`,
+  `social-p36b` (P36B.social.18), `history-p36d` (P36D.history.8) now type into the rich editor; `trace-p36e`
+  P36E.trace.11 asserted the Date defect (no clear, no typing) and now asserts the fix.
+
+## 0.8.0-dev.5 — P0: RecordTabs, RecordSectionCard, the Lifecycle contract, a second-domain showcase, the ListView spec
+
+Additive; nothing changes for existing code.
+- **T5 `RecordTabs`**: `overflow?: "fill" | "scroll"` (default `"fill"` = the 0.8.0-dev.4 markup, tested), `ariaLabel?`, and
+  `RecordTab.hidden?`. `"scroll"` is the CRM's scrollable tab bar (Deal / Ticket / Order Activities sub-tabs: an
+  `overflow-x-auto` wrapper, a `min-w-max` list, `whitespace-nowrap` tabs). `hidden` = the CRM's conditional (feature
+  flagged) tabs. Keyboard (arrows, RTL reversed) skips hidden tabs (tested).
+- **T6 `RecordSectionCard`**: a read-only record page card — the shell of `RecordEditableCard` without editing (same DOM
+  as a read-only editable card, tested). Docs §11.5: composing a record page (slots; Core vs adapter vs app).
+- **T7 Lifecycle** (docs §9.4–§9.5; reference: CRM-REFERENCE.md §3):
+  - Core contract `record/lifecycle.ts` (framework-free): `LifecycleDefinition`, `lifecycleTone`, `lifecycleRoots`,
+    `lifecyclePath` (shortest path), `lifecycleTransitionsFrom`, `lifecycleNext`, `lifecycleGraph` (diagram model; no
+    renderer in Core).
+  - `LifecycleActions`: the header Actions menu (plain items, immediate run, per-item disabled reason, blocked button).
+  - `FrappeWorkflowActions`: new `variant="actions"` (the header menu, `blockedReason`, `blockedIcon`); `variant="rail"` is
+    now **read-only by default** (where the workflow goes from here) — `applyFromRail` keeps the previous clickable rail
+    (an intentional change of the rail's default; its only consumer is the CRM lab). `variant="steps"` **deprecated**
+    (kept, unchanged; warns once in the console). `compact` unchanged. `workflowLifecycle(workflow)` (`@solvfast/ui/frappe`).
+    Consumer check: no app passes `steps` to the package (the CRM maps its own `steps` to `rail`); the showcase's
+    workflow demo now shows `actions` + `rail`.
+- **T8** showcase › Record page (dental patient): the record page parts for another domain, package components only (a
+  patient journey on the Lifecycle contract, five scrolling tabs, an edit session, an app card and rail section, an
+  embedded ListView). Captured in light / dark × en / ar × 390 / 820 / 1440: no CRM CSS or strings, no truncated tab.
+- **T9** `docs/specs/LISTVIEW-API.md`: the ListView API classified against the CRM's lists (covered / gap / app-level /
+  not required / future). One proposed change (not implemented): `onResultChange` in client mode.
+- **T10** parity: a CRM build from the frozen control snapshot `20261112T183811Z-crm-p0` with this package (and the CRM-side
+  lab patches) compared with the control build, every capture and behaviour suite in one session. Record:
+  `docs/audit/p08/P0-FINAL.md`. Not published; the live CRM is unchanged.
+
+## 0.8.0-dev.4 — RecordPage `surface` (P0 T4)
+
+Additive; nothing changes for existing code (glass stays the default).
+- `RecordPage` **`surface?: "glass" | "plain"`** (new type `RecordPageSurface`). `"glass"` is the **default**: no
+  `surface` and `surface="glass"` render exactly what 0.8.0-dev.3 rendered (root class `sf-record-page p-4 md:p-6
+  max-w-[1600px] mx-auto`; same DOM, tested). `"plain"` is an explicit opt-out: no `sf-record-page`, so no record page
+  glass styling; the components keep their own surfaces. Nothing else differs between the two (DOM, roles, focus order).
+- The glass rules and tokens are unchanged; `glass.css` is byte-identical to 0.8.0-dev.3 (`sf-record-page.css` changed
+  in its source comment only). Showcase: the record page demo passes `surface` and has a Glass / Plain switch.
+
+## 0.8.0-dev.3 — neutral RecordPage naming (P0 T3)
+
+No visual or behaviour change; existing code keeps working.
+- `RecordHeaderCard`: **`variant="page"`** is the record page header's name. `variant="crm"` (0.8.0-dev.2) stays as a
+  **deprecated alias** with identical output (tested: the same DOM for every prop, en and ar, alone and inside a
+  `RecordPage`). New exported type `RecordHeaderCardVariant` (`"default" | "page" | "crm"`).
+  The page header's `data-record-header` attribute now reads `"page"` (was `"crm"`; no consumer selects on it).
+- Messages: the internal module `messages-ws/recordPageCrm.ts` is now one module per component, as the other message
+  modules: `recordEditSession.ts` (`res*`) and `recordAbout.ts` (`rpg*`). Not exported; keys and wording are unchanged
+  (tested against the 0.8.0-dev.2 values).
+- Docs: the prop docs of `RecordPage`, `RecordQuickActionMenu`, `RecordMenu` and `RecordRail` and the file docs of
+  `RecordRail`, `RecordAbout`, `RecordEditSession` and `RecordHeaderCard` use neutral wording (no app component names). The
+  CRM record page is named only as the reference. Showcase: `variant="page"`.
+
+## 0.8.0-dev.2 — the CRM record page: RecordPage, the CRM header, the edit session, the About cards
+
+Additive (nothing changes for a consumer that does not use the new components or props). docs/components/record.md §11.
+- `RecordPage` (+ `sf-record-page` surfaces in glass.css: the CRM's airy glass cards, any app), `RecordHeaderCard
+  variant="crm"` + `RecordHeaderIcon`, `RecordQuickAction`, `RecordQuickActionMenu`, `RecordTabs`.
+- `RecordEditSession` (page-level Save and single-card models, the unsaved-changes prompt), `RecordEditableCard`,
+  `RecordNotSavedPill`, `RecordSaveButton`, `useRecordEditSession`; `res*` messages.
+- About cards: `RecordInfoTile`, `RecordInfoRow`, `RecordScoreRing`, `RecordFieldList`, `RecordInsightCard`,
+  `RecordClosedNotice`, `RecordInteractions`; `rpg*` messages.
+- `RecordMenu`: `contentClassName`, `shortcutDir`, `layout` (defaults unchanged).
+- Evidence: a lab build of the CRM on these components matched the live CRM Deal page — main column and toolbar in 15
+  states (tabs, menus, title edit, profile edit / dirty / refused, the unsaved prompt, prerequisites edit, won and lost
+  deals) × 4 combinations: structural signatures and screenshots identical (the ⋯ menu: one more <span> per item, same
+  pixels); the edit flow behaves identically (40 checks on both). jsdom tests: record-page, record-edit-session.
+
+## 0.8.0-dev.1 — integration: 0.7.0 + the Sayr families line + RecordRail
+
+The first prerelease after 0.7.0 (`feat/0.8.x/integration`, from tag `v0.7.0`). It merges `feat/0.7.x/families` at
+`e26ab97` and `feat/0.7.x/p0-record-rail`. The families entries below keep the labels they were vendored under
+(0.7.0-dev.8 … 0.7.0-dev.22: built after 0.7.0 but never published to the registry; as SemVer prereleases those labels
+sort below 0.7.0, which is why this line continues as 0.8.0-dev.N). 0.7.0's group-by fixes, which the families line
+did not have, are included. Nothing below changes for a consumer of 0.7.0 that does not use the new APIs.
+
+### RecordRail, Lifecycle on Frappe data, FormView aside (from `feat/0.7.x/p0-record-rail`)
+
+**RecordRail — the CRM record page's right rail as DS components** (docs/components/record.md §10)
+- New Core `RecordRail`, `RecordRailCard`, `RecordRailSection`, `RecordRailRow`, `RecordRailCustomize`,
+  `RecordRailFooter`, and the modules `RecordRailAssignment`, `RecordRailLinkedRecord` (Organization),
+  `RecordRailTasks`, `RecordRailArticles` + `RecordRailArticleReader`; `recordRailCardClass` for the Attachments card
+  (`FrappeAttachments`). A 1:1 port of the CRM's rail pieces (same DOM and classes); on the CRM Deal page the migrated
+  rail is pixel-identical to the pre-migration capture. Hosts can pass their own glyphs.
+- The Desk form sidebar (`FormSidebar`, `FrappeFormSidebar`) is unchanged; both sidebar systems remain.
+- `rr*` messages (en / ar).
+
+**Lifecycle on Frappe data**
+- `FrappeWorkflowActions variant="rail"`: the record's Lifecycle as `LifecycleRail` (path from workflow logs / versions,
+  the server's transitions as buttons that apply them, back-moves tagged, End of lifecycle only when no transition
+  leaves the state). `onViewAll`, `railLabels`. `compact` and `steps` are unchanged.
+- `LifecycleRail` gains `onSelectNext` (the same change as on `feat/0.7.x/families`).
+
+**FormView**
+- `FrappeFormView` / `FrappeForm` `aside`: a record rail next to the form (3 + 1 columns from `lg` up). Absent → the
+  layout is unchanged.
+
+### Naming
+- `@solvfast/ui/sayr`: the rail's card-id type is now `SayrRailCardId`. `RecordRailCard` stays there as a **deprecated
+  alias** (same type), because the core entry's `RecordRailCard` is the CRM rail's card component.
 
 ## 0.7.0-dev.22 — a family's extra registry columns and the new record's form hooks
 
@@ -357,10 +999,13 @@ Additive: nothing changes for a consumer that does not use the new components. j
   `withdraw_deployment`, `deployment_removal_impact`), `sayrToken`. `check-boundaries` keeps core, `./frappe` and the
   other entries from reaching it.
 
-## 0.7.0-dev.7 — Sayr's Appearance and First Day of the Week
+## 0.7.0 — Sayr's Appearance and First Day of the Week
 
-Additive: nothing changes for a consumer that does not pass the new props. Ported from Sayr (sear_product), where these
-pieces lived in the app; Sayr and ServeFast now take them from the package. jsdom tests only; no real-site run.
+Stable package release. Additive, plus the group-by sidebar compatibility fixes under **Fixes** below (they change
+what `FrappeGroupBySidebar` and `useGroupByCounts` do with numeric server values); apart from those, nothing changes
+for a consumer that does not pass the new props. Ported from Sayr (sear_product), where these pieces lived in the app;
+Sayr and ServeFast now take them from the package. Automated package tests and builds passed; no authenticated
+real-site validation has been performed.
 
 **Brand colours** (Sayr: System Settings › Appearance)
 - New `applyBrandTheme(brand, isDark, defaults?)`, `brandTokens`, `hexToHsl`, `DEFAULT_BRAND_COLORS` and the
@@ -389,6 +1034,18 @@ pieces lived in the app; Sayr and ServeFast now take them from the package. jsdo
   `sysdefaults.first_day_of_the_week`.
 - `DateField` / `DateTimeField` `weekStartsOn`; `FrappeField` Date and Datetime pass the FormatContext's. Unset: the
   calendar locale's (Saturday in Arabic, Sunday in English), as before.
+
+**Fixes** (`FrappeGroupBySidebar`; Frappe's `get_group_by_count` sends Check and Int values as JSON numbers)
+- `useGroupByCounts` now matches its `GroupByCount.name: string | null` type: a numeric `name` becomes its decimal
+  string (`0` → `"0"`). Strings, null and `count` are passed as sent. An app that read the numbers from the hook gets
+  strings now.
+- Check: `0` / `"0"` / `false` show No, anything else Yes (Desk's `name == "0"`, list_sidebar_group_by.js:223); a click
+  filters `= 0` / `= 1`; a filter-builder Check filter (`"true"` / `"false"`) shows as applied and is removed on click.
+  Before, a numeric value showed Yes for both and a click sent no request.
+- Int: a numeric value filters `= n`, shows as applied when the filter builder set it, and works with the section
+  search. Before, a click threw (`value.trim`) and unmounted the list, and the search threw.
+- String values (and every other field) behave as before. The server's number shape was checked with a read-only
+  server-side call on a local Frappe 15.109 bench; the hook and sidebar flows are jsdom tests (stubbed / SIMULATED).
 
 ## 0.7.0-dev.6 — P36e FrappeField trace, field types, FrappeField without a server, Frappe-like print, docstatus, Lifecycle rail
 

@@ -42,6 +42,10 @@ export interface AppShellProps
   mobile?: Pick<MobileNavProps, "maxItems" | "exit" | "primary">;
   /** 0.7.0-dev.7: a workspace background behind the sidebar and pages (over the dark aurora). Page roots stay clear. */
   background?: WorkspaceBackground;
+  /** Run 1 (A-29, WCAG 2.4.2): the browser tab's title follows the page — default "{page title} · {brand}" (Desk
+   *  page.js:747-764 / toolbar.js:71-74 set it per page); a function builds it; `false` leaves `document.title` alone.
+   *  The previous title is restored when the shell unmounts. */
+  documentTitle?: boolean | ((pageTitle: string, brand: string) => string);
   children: React.ReactNode;
 }
 
@@ -58,9 +62,11 @@ function readBool(key: string | null | undefined): boolean | undefined {
 export function AppShell({
   brand, items, currentPath, onNavigate, isActive, title, switcher, sidebarBody,
   collapsed: collapsedProp, defaultCollapsed = false, onCollapsedChange, collapsedStorageKey = "sf-sidebar-collapsed",
-  mobile, help, search, notifications, showLanguageToggle, showThemeToggle, actions, companyLogo, user, background, children,
+  mobile, help, search, notifications, showLanguageToggle, showThemeToggle, actions, companyLogo, user, background, documentTitle = true, children,
 }: AppShellProps) {
-  const { language, isRTL } = useLocale();
+  const { language, isRTL, t } = useLocale();
+  const mainId = React.useId();
+  const mainRef = React.useRef<HTMLElement>(null);
   const { isDark } = useTheme();
   const [collapsedState, setCollapsedState] = React.useState<boolean>(() => readBool(collapsedStorageKey) ?? defaultCollapsed);
   const collapsed = collapsedProp ?? collapsedState;
@@ -74,16 +80,45 @@ export function AppShell({
 
   const brandName = loc(brand.name, language);
   const active = deepestActive(items, currentPath);
-  const [publishedTitle, titleApi] = useShellTitleHost();
+  const [publishedTitle, titleApiBase] = useShellTitleHost();
+  // Run 1 G19: a PageHeader's node title (titleInShell) is portalled into the top bar's <h1>; while claimed, the
+  // shell's own text is not shown (one title)
+  const [titleSlot, setTitleSlot] = React.useState<HTMLElement | null>(null);
+  const [claims, setClaims] = React.useState<string[]>([]);
+  const titleApi = React.useMemo(() => ({
+    ...titleApiBase, slot: titleSlot,
+    claim: (id: string) => setClaims((c) => (c.includes(id) ? c : [...c, id])),
+    release: (id: string) => setClaims((c) => c.filter((x) => x !== id)),
+  }), [titleApiBase, titleSlot]);
   const pageTitle = title ? loc(title, language)
     : publishedTitle ? loc(publishedTitle, language)
     : active ? loc(active.label, language) : brandName;
+
+  // Run 1 A-29: the tab title follows the page; restored on unmount (the restore effect is declared first so it reads
+  // the title from before the shell set it)
+  const titleFn = typeof documentTitle === "function" ? documentTitle : null;
+  React.useEffect(() => {
+    if (documentTitle === false || typeof document === "undefined") return;
+    const before = document.title;
+    return () => { document.title = before; };
+  }, [documentTitle === false]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
+    if (documentTitle === false || typeof document === "undefined") return;
+    const next = titleFn ? titleFn(pageTitle, brandName) : pageTitle && pageTitle !== brandName ? `${pageTitle} · ${brandName}` : brandName;
+    if (next) document.title = next;
+  }, [documentTitle, titleFn, pageTitle, brandName]);
 
   return (
     <div className={`sf-app flex h-dvh w-full overflow-hidden bg-background text-foreground${background ? " relative isolate" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
       {/* Behind everything in the shell's own stacking context: above its background (and the dark aurora), below the
           sidebar and pages. In dark the colours sit on the aurora instead of their own base, as on Sayr's home page. */}
       {background && <WorkspaceBackdrop bg={background} isDark={isDark} base={isDark ? "transparent" : undefined} className="-z-10" />}
+      {/* Run 1 A-28 (WCAG 2.4.1): the first Tab stop (after the decorative backdrop, which takes no focus) skips the navigation; it focuses <main> without touching the URL
+          (the app's router owns it) */}
+      <a href={`#${mainId}`} onClick={(e) => { e.preventDefault(); mainRef.current?.focus(); }} data-skip-link=""
+        className="sr-only focus:not-sr-only focus:absolute focus:start-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring">
+        {t("skipToContent")}
+      </a>
       <Sidebar
         brand={brand} items={items} body={sidebarBody} currentPath={currentPath} onNavigate={onNavigate}
         isActive={isActive} collapsed={collapsed} onCollapsedChange={setCollapsed} switcher={switcher}
@@ -94,13 +129,13 @@ export function AppShell({
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="absolute inset-x-0 top-0 z-50">
           <Navbar
-            title={pageTitle} help={help} search={search} notifications={notifications}
+            title={<><span ref={setTitleSlot} data-title-slot="" className="contents" />{claims.length ? null : pageTitle}</>} help={help} search={search} notifications={notifications}
             showLanguageToggle={showLanguageToggle} showThemeToggle={showThemeToggle} actions={actions}
             companyLogo={companyLogo} user={user}
             logo={brand.logoSrc ? { src: brand.logoSrc, alt: brandName, onClick: brand.href ? () => onNavigate(brand.href!) : undefined } : undefined}
           />
         </div>
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pt-14 pb-16 md:pb-0">
+        <main ref={mainRef} id={mainId} tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto outline-none overflow-x-hidden overscroll-contain pt-14 pb-16 md:pb-0">
           <ShellTitleContext.Provider value={titleApi}>{children}</ShellTitleContext.Provider>
         </main>
       </div>

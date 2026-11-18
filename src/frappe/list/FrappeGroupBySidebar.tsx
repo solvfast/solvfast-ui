@@ -10,13 +10,17 @@ import { useListActions } from "../../list/ListActionsContext";
 import { useLocale } from "../../theme/ThemeProvider";
 import type { FrappeClient } from "../client";
 import { useFrappeClient } from "../FrappeProvider";
-import type { FrappeFilter } from "../query";
+import { checkFilterValue, type FrappeFilter } from "../query";
 
 export interface GroupByCount { name: string | null; count: number }
 /** Desk's default sidebar group-by fields (list_sidebar_group_by.js:9). */
 export const DEFAULT_SIDEBAR_GROUP_BY = ["assigned_to", "owner"];
 /** The filter field a sidebar field stands for: Desk's `assigned_to` is `_assign` (list_sidebar_group_by.js:108, 250). */
 export const sidebarFilterField = (field: string) => (field === "assigned_to" ? "_assign" : field);
+
+/** Desk labels a Check group value "No" when `name == "0"` (loose, list_sidebar_group_by.js:222-223): 0, "0" or false.
+ *  Frappe sends these values as JSON numbers (int(1) / smallint column, no cast in get_group_by_count, listview.py:62-71). */
+const isCheckNo = (name: unknown) => name === 0 || name === "0" || name === false;
 
 /** Desk drops the field's own condition before counting (list_sidebar_group_by.js:163-169). */
 export function filtersWithout(filters: readonly FrappeFilter[] | undefined, field: string): FrappeFilter[] {
@@ -29,9 +33,17 @@ export function filtersWithout(filters: readonly FrappeFilter[] | undefined, fie
 export function sortGroupByCounts(counts: GroupByCount[], user: string | undefined): GroupByCount[] {
   const live = counts.filter((c) => c.count !== 0);
   const me = user ? live.find((c) => c.name === user) : undefined;
-  const rest = live.filter((c) => !["Guest", "Administrator", user].includes(c.name ?? undefined));
+  // a null name ("Not Set") is never in the list, with or without a session user
+  const dropped = user ? ["Guest", "Administrator", user] : ["Guest", "Administrator"];
+  const rest = live.filter((c) => c.name === null || !dropped.includes(c.name));
   return me ? [me, ...rest] : rest;
 }
+
+/** Frappe sends Int and Check group values as JSON numbers (int / bigint column, no cast in get_group_by_count,
+ *  listview.py:62-71). `GroupByCount.name` is a string: a number becomes its decimal string; anything else (strings,
+ *  null) and `count` are passed as sent. */
+const normalizeGroupByCount = (x: GroupByCount): GroupByCount =>
+  typeof (x as { name?: unknown } | null)?.name === "number" ? { ...x, name: String(x.name) } : x;
 
 /** `get_group_by_count` per field, with the current filters minus the field's own (one request per field). */
 export function useGroupByCounts(doctype: string, fields: readonly string[], filters: readonly FrappeFilter[] | undefined, opts: { client?: FrappeClient; enabled?: boolean; user?: string } = {}) {
@@ -47,7 +59,7 @@ export function useGroupByCounts(doctype: string, fields: readonly string[], fil
         staleTime: 30_000,
         queryFn: async () => {
           const res = await client.call("frappe.desk.listview.get_group_by_count", { doctype, current_filters: JSON.stringify(current), field });
-          return Array.isArray(res.message) ? (res.message as GroupByCount[]) : [];
+          return Array.isArray(res.message) ? (res.message as GroupByCount[]).map(normalizeGroupByCount) : [];
         },
       };
     }),
@@ -108,13 +120,21 @@ export function FrappeGroupBySidebar({ doctype, fields, filters, labelOf, userNa
   const label = (field: string, name: string | null) => {
     if (name === null || name === "") return t("listNotSet");
     if (user && name === user) return t("listMe");
-    if (checkFields.includes(field)) return name === "0" ? t("no") : t("yes");
+    if (checkFields.includes(field)) return isCheckNo(name) ? t("no") : t("yes");
     if (field === "assigned_to" || userFields.includes(field)) return userName(name);
     return name;
   };
+  // a Check value is applied as "0" / "1" whatever its JSON type (the request coerces it to 0 / 1)
+  const valueOf = (field: string, name: string | null) => {
+    const v = name ?? "";
+    return v !== "" && checkFields.includes(field) ? (isCheckNo(v) ? "0" : "1") : v;
+  };
+  // Numbers from the server arrive as strings (useGroupByCounts), so a value is a string end to end — the label, the
+  // applied condition and its match — and the request turns it back into the column's number (query.ts `coerce`).
+  // Desk shows `__(name)` (the number as is) and filters `= name` (list_sidebar_group_by.js:216-271).
   const sections: GroupBySidebarSection[] = counts.map((c) => ({
     field: c.field, label: labelOf(c.field), loading: c.loading, error: c.error,
-    items: c.counts.map((x) => ({ value: x.name ?? "", label: label(c.field, x.name), count: Number(x.count) || 0 })),
+    items: c.counts.map((x) => ({ value: valueOf(c.field, x.name), label: label(c.field, x.name), count: Number(x.count) || 0 })),
   }));
   if (tags) {
     sections.push({
@@ -128,6 +148,8 @@ export function FrappeGroupBySidebar({ doctype, fields, filters, labelOf, userNa
     const field = c.field === "_assign" ? "assigned_to" : c.field;
     if (c.field === "_user_tags") active[field] = c.operator === "not_like" && c.value === "," ? "" : c.operator === "like" ? c.value : undefined;
     else if (c.operator === "is_not_set") active[field] = "";
+    // a Check condition as the request reads it ("true" from the filter builder, "1" from the sidebar → "1")
+    else if (c.operator === "equals" && checkFields.includes(field)) active[field] = String(checkFilterValue(String(c.value)));
     else if (c.operator === "equals" || (c.field === "_assign" && c.operator === "like")) active[field] = c.value;
   }
   const onSelect = (field: string, value: string | null) => {

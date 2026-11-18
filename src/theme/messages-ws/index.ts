@@ -24,8 +24,21 @@ import { familyEn, familyAr } from "./family";
 import { designerEn, designerAr } from "./designer";
 // SayrRecordPage (record header and side cards)
 import { recordPageEn, recordPageAr } from "./recordPage";
+// Record rail (RecordRail)
+import { recordRailEn, recordRailAr } from "./recordRail";
+// Record page parts: RecordEditSession (res*), About cards (rpg*)
+import { recordEditSessionEn, recordEditSessionAr } from "./recordEditSession";
+import { recordAboutEn, recordAboutAr } from "./recordAbout";
+// Run 1 (P1 / P2 closures)
+import { run1En, run1Ar } from "./run1";
+// 0.8.0-dev.9 Phase 4 (BulkEditDialog, BulkTagsDialog, bulk pre-flight, Assignment team change)
+import { parityEn, parityAr } from "./parity";
+// Type configuration page (TypeConfigPage, TypeFieldPicker)
+import { typeConfigEn, typeConfigAr } from "./typeConfig";
+// Form builder (FormBuilder, FieldTypePicker, FormFieldInspector)
+import { formBuilderEn, formBuilderAr } from "./formBuilder";
 // SchedulingCalendar
 import { scheduleEn, scheduleAr } from "./schedule";
 
-export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn, ...scheduleEn };
-export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr, ...scheduleAr };
+export const wsEn = { ...formEn, ...recordEn, ...listEn, ...viewsEn, ...coreEn, ...searchEn, ...sidebarEn, ...socialEn, ...fieldsEn, ...historyEn, ...ftypesEn, ...printEn, ...submitEn, ...lifecycleEn, ...familyEn, ...designerEn, ...recordPageEn, ...recordRailEn, ...recordEditSessionEn, ...recordAboutEn, ...run1En, ...parityEn, ...typeConfigEn, ...formBuilderEn, ...scheduleEn };
+export const wsAr: { [K in keyof typeof wsEn]: string } = { ...formAr, ...recordAr, ...listAr, ...viewsAr, ...coreAr, ...searchAr, ...sidebarAr, ...socialAr, ...fieldsAr, ...historyAr, ...ftypesAr, ...printAr, ...submitAr, ...lifecycleAr, ...familyAr, ...designerAr, ...recordPageAr, ...recordRailAr, ...recordEditSessionAr, ...recordAboutAr, ...run1Ar, ...parityAr, ...typeConfigAr, ...formBuilderAr, ...scheduleAr };

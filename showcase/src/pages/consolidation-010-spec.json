@@ -1,0 +1,79 @@
+{
+  "_comment": "Shared by showcase/src/pages/consolidation-010.tsx (what it renders) and e2e/consolidation-010.mjs (what it expects). Changing one changes both.",
+  "sada": {
+    "initial": "draft",
+    "current": "in_review",
+    "path": ["draft", "in_review"],
+    "states": [
+      { "id": "draft", "en": "Draft", "ar": "مسودة", "phase": "open" },
+      { "id": "in_review", "en": "In Review", "ar": "قيد المراجعة", "phase": "on_hold" },
+      { "id": "approved", "en": "Approved", "ar": "معتمد", "phase": "closed" },
+      { "id": "archived", "en": "Archived", "ar": "مؤرشف", "phase": "closed" }
+    ],
+    "transitions": [
+      { "id": "submit", "from": "draft", "to": "in_review", "en": "Submit for Review", "ar": "إرسال للمراجعة" },
+      { "id": "approve", "from": "in_review", "to": "approved", "en": "Approve", "ar": "اعتماد" },
+      { "id": "archive", "from": "approved", "to": "archived", "en": "Archive", "ar": "أرشفة" },
+      { "id": "request_changes", "from": "in_review", "to": "draft", "en": "Request Changes", "ar": "طلب تعديلات" }
+    ],
+    "expectKinds": { "request_changes": "side" }
+  },
+  "branching": {
+    "initial": "new",
+    "current": "negotiation",
+    "path": ["new", "quoted", "negotiation"],
+    "states": [
+      { "id": "new", "en": "New", "ar": "جديد", "phase": "open" },
+      { "id": "quoted", "en": "Quoted", "ar": "تم التسعير", "phase": "open" },
+      { "id": "rejected", "en": "Rejected", "ar": "مرفوض", "phase": "closed" },
+      { "id": "negotiation", "en": "Negotiation", "ar": "تفاوض", "phase": "on_hold" },
+      { "id": "won", "en": "Won", "ar": "مكسوب", "phase": "closed" },
+      { "id": "closed", "en": "Closed", "ar": "مغلق", "phase": "closed" }
+    ],
+    "transitions": [
+      { "id": "send_quote", "from": "new", "to": "quoted", "en": "Send Quote", "ar": "إرسال العرض" },
+      { "id": "reject", "from": "new", "to": "rejected", "en": "Reject", "ar": "رفض" },
+      { "id": "decline", "from": "quoted", "to": "rejected", "en": "Decline", "ar": "اعتذار" },
+      { "id": "negotiate", "from": "quoted", "to": "negotiation", "en": "Negotiate", "ar": "تفاوض" },
+      { "id": "accept", "from": "quoted", "to": "won", "en": "Accept", "ar": "قبول" },
+      { "id": "agree", "from": "negotiation", "to": "won", "en": "Agree", "ar": "اتفاق" },
+      { "id": "walk_away", "from": "negotiation", "to": "rejected", "en": "Walk Away", "ar": "انسحاب" },
+      { "id": "revise", "from": "negotiation", "to": "quoted", "en": "Revise Quote", "ar": "تعديل العرض" },
+      { "id": "counter", "from": "negotiation", "to": "negotiation", "en": "Counter-offer", "ar": "عرض مضاد" },
+      { "id": "close", "from": "won", "to": "closed", "en": "Close", "ar": "إغلاق" }
+    ],
+    "expectKinds": { "send_quote": "down", "reject": "down", "decline": "row", "agree": "row", "walk_away": "up", "revise": "side", "counter": "loop" },
+    "expectRows": [["new"], ["quoted", "rejected"], ["negotiation", "won"], ["closed"]]
+  },
+  "form": {
+    "doctype": "Customer Visit",
+    "docs": { "section": "CV-0001", "record": "CV-0002", "plain": "CV-0003" },
+    "sections": [
+      { "fieldname": "sec_visit", "en": "Visit", "ar": "الزيارة", "columns": [["subject", "contact_person", "city"], ["visit_date", "channel"]] },
+      { "fieldname": "sec_outcome", "en": "Outcome", "ar": "النتيجة", "columns": [["summary", "next_step"]] },
+      { "fieldname": "sec_internal", "en": "Internal", "ar": "داخلي", "columns": [["reference", "follow_up"]] }
+    ],
+    "fields": {
+      "subject": { "fieldtype": "Data", "en": "Subject", "ar": "الموضوع", "reqd": 1 },
+      "contact_person": { "fieldtype": "Data", "en": "Contact person", "ar": "جهة الاتصال" },
+      "city": { "fieldtype": "Data", "en": "City", "ar": "المدينة" },
+      "visit_date": { "fieldtype": "Date", "en": "Visit date", "ar": "تاريخ الزيارة" },
+      "channel": { "fieldtype": "Select", "en": "Channel", "ar": "القناة", "options": "\nOn site\nPhone\nVideo" },
+      "summary": { "fieldtype": "Small Text", "en": "Summary", "ar": "الملخص" },
+      "next_step": { "fieldtype": "Data", "en": "Next step", "ar": "الخطوة التالية" },
+      "reference": { "fieldtype": "Data", "en": "Reference", "ar": "المرجع" },
+      "follow_up": { "fieldtype": "Check", "en": "Follow-up needed", "ar": "تحتاج متابعة" }
+    },
+    "values": {
+      "subject": "Quarterly review — مراجعة ربعية",
+      "contact_person": "Lina Q",
+      "city": "Riyadh",
+      "visit_date": "2026-11-20",
+      "channel": "On site",
+      "summary": "Discussed renewal terms and the new support tier.",
+      "next_step": "Send the revised proposal",
+      "reference": "REF-2211",
+      "follow_up": 1
+    }
+  }
+}

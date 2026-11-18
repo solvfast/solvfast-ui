@@ -16,7 +16,8 @@
  */
 import * as React from "react";
 import { isAdministrator, rolePermissions } from "../services/permissions";
-import type { DocTypeMeta, FrappeDoc } from "../contract";
+import type { DocTypeMeta, FrappeDoc, RealtimePort } from "../contract";
+import { useRealtimeInvalidation } from "../hooks/useRealtime";
 import { useFrappeSettings } from "../FrappeProvider";
 import { useDoc, useMetaBundle } from "../hooks/useDoc";
 import { useDocAction, useSaveDoc } from "../hooks/useDocMutations";
@@ -40,7 +41,7 @@ import { useLocale } from "../../theme/ThemeProvider";
  *  wiring of that entry (e.g. `onDuplicate` / `onNew` to route instead of opening the document in this form). */
 export interface FrappeFormMenuOptions extends Partial<Pick<FrappeRecordMenuProps,
   "exclude" | "extra" | "printSettings" | "onDuplicate" | "onRenamed" | "onDeleted" | "onNew" | "onPrint" | "onEmail" | "onRemind" | "onCustomize"
-  | "deskUrl" | "onCopied" | "writeClipboard" | "printProps" | "emailProps" | "onReminderCreated" | "className">> {
+  | "deskUrl" | "onCopied" | "writeClipboard" | "printProps" | "emailProps" | "onReminderCreated" | "className" | "shortcuts">> {
   /** The built-in Duplicate / New opened this unsaved document in the form (route to it if the app routes by name). */
   onOpened?: (doc: FrappeDoc, via: "duplicate" | "new") => void;
 }
@@ -69,6 +70,12 @@ export interface FrappeFormProps extends Omit<FrappeFormViewProps, "bundle" | "d
   newDocDefaults?: DefaultsContext;
   /** Quick Entry's "Edit Full Form" / a not-eligible target (P35): route to the full form with this unsaved document. */
   onOpenFullForm?: (doc: FrappeDoc) => void;
+  /** Run 1 (C-79): the realtime port (Socket.IO `doc_subscribe`): another user's save refreshes a clean form and shows
+   *  "modified after you opened it" with Reload on a dirty one. Without it the change shows with the next read. */
+  realtime?: RealtimePort;
+  /** Run 1 (C-67): the document was renamed from its title dialog (route to the new name). The menu's Rename uses
+   *  `menu.onRenamed`; this one is used for both when the menu has none. */
+  onRenamed?: (newName: string) => void;
 }
 
 const isNewName = (name?: string) => !name || name.startsWith("new-");
@@ -94,7 +101,7 @@ export function canCancelDoctype(meta: DocTypeMeta, session: SessionLike): boole
 export { FormSkeleton } from "./FormSkeleton";
 import { FormSkeleton } from "./FormSkeleton";
 
-export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu, connections, ...rest }: FrappeFormProps) {
+export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu, connections, realtime, onRenamed, ...rest }: FrappeFormProps) {
   const { session, userDefaults } = useFrappeSettings();
   const { t } = useLocale();
   const meta = useMetaBundle(doctype);
@@ -113,7 +120,11 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu
   // P35: a document the menu opened in this form (Duplicate / New) — unsaved, until it is saved or the route changes
   const [local, setLocal] = React.useState<FrappeDoc | null>(null);
   React.useEffect(() => { setLocal(null); }, [doctype, name]);
-  const doc = local ?? (saved && (!loaded.data || saved.modified !== loaded.data.doc.modified) ? saved : loaded.data?.doc ?? fresh);
+  // the newer of the server's answer to a save and the loaded copy (Run 1 C-79: a later change by someone else — a
+  // realtime doc_update, a refetch — is shown, not hidden behind this session's own save)
+  const loadedDoc = loaded.data?.doc;
+  const doc = local ?? (saved && (!loadedDoc || saved.name !== loadedDoc.name || String(saved.modified ?? "") > String(loadedDoc.modified ?? "")) ? saved : loadedDoc ?? fresh);
+  useRealtimeInvalidation(realtime, creating ? undefined : doctype, creating ? undefined : name);
   // the loaded docinfo belongs to the loaded name only (not to a duplicate, a new document or a saved amendment)
   const docinfo = doc && loaded.data && doc.name === loaded.data.doc.name ? loaded.data.docinfo : undefined;
   const permissions = usePermissions(bundle, doc ?? undefined, docinfo);
@@ -159,7 +170,7 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu
   const menuSlot = menuOpts ? (ctx: FrappeFormMenuContext) => {
     const { onOpened: _o, ...opts } = menuOpts;
     return (
-      <FrappeRecordMenu {...opts} bundle={bundle} doc={ctx.doc} docinfo={docinfo} dirty={ctx.dirty}
+      <FrappeRecordMenu shortcuts={rest.hotkeys !== false} {...opts} onRenamed={opts.onRenamed ?? onRenamed} bundle={bundle} doc={ctx.doc} docinfo={docinfo} dirty={ctx.dirty}
         onDuplicate={opts.onDuplicate ?? ((copy) => openLocal(copy, "duplicate"))}
         onNew={opts.onNew ?? (() => openLocal(newDoc(bundle, { user: session?.user, userFullname: session?.fullName, userDefaults, ...newDocDefaults }), "new"))}
         onReload={ctx.reload}
@@ -189,6 +200,17 @@ export function FrappeForm({ doctype, name, newDocDefaults, onOpenFullForm, menu
         return r;
       }}
       // a reload re-reads the loaded name: not offered for a new document, a local copy or another saved name (amendment)
+      // Run 1 C-67: the title dialog (update_document_title); a new name goes to `onRenamed` (route to it), else reload
+      onRenameTitle={rest.onRenameTitle ?? (async ({ docname, name: next, title, merge }) => {
+        const res = await api.call("frappe.model.rename_doc.update_document_title", { doctype, docname, name: next, title, merge: merge ? 1 : 0, enqueue: 0 });
+        const newName = typeof res.message === "string" && res.message ? res.message : next;
+        if (newName !== docname) {
+          const opts = isMenuOptions(menu) ? menu : undefined;
+          (onRenamed ?? opts?.onRenamed)?.(newName);
+        }
+        setSaved(null);
+        await loaded.refetch?.();
+      })}
       onReload={creating || local || (loaded.data && doc.name !== loaded.data.doc.name) ? undefined : async () => {
         const r = await loaded.refetch();
         const data = r.data as unknown as (FrappeDoc & { doc?: FrappeDoc }) | undefined;

@@ -1,8 +1,8 @@
 /**
  * Core Export — the data side of the Design System's "Export Data" dialog (`ExportDialog`), with no backend: field
  * groups in, a selection out. Where the file comes from is the host's business — `FrappeExportDialog` asks the Frappe
- * server (`download_template`); an app without a server builds it from its own rows (`buildCsv` here; XLSX needs a
- * spreadsheet library, which the package does not ship).
+ * server (`download_template`); an app without a server builds it from its own rows (`buildCsv` here; XLSX: the
+ * minimal `buildXlsx` in ./xlsx.ts since 0.8.0-dev.9, or a spreadsheet library for styles / formulas / several sheets).
  */
 
 export type ExportFileType = "CSV" | "Excel";

@@ -163,8 +163,8 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.A1 | Data | COMPLETE | COMPLETE | both | `FF` DebouncedText, soft Email/Phone/URL | ff "dispatches fieldtypes…"; ff "mandatory_depends_on is evaluated at save"; fft "FV.A19 … A1 Data honours the placeholder (A41)" | `#frappe-forms` | simulator (+real meta) | IBAN option not validated (Email / Phone / Name / URL use Desk's patterns since 0.7.0-dev.5, P36D.fields.*; server refusal = F-FIELD-1) |
 | FV.A2 | Link | COMPLETE | COMPLETE | Frappe (+Core LinkInput) | `FLF` | ff "searches search_link 500 ms…"; sr "search_link", "validate_link" | `#frappe-forms` todo, `#frappe-form-p35` | simulator; recorded-real (API shape) | see §F |
 | FV.A3 | Select | PARTIAL | **COMPLETE** | both | `FF` Select branch | fft "FV.A3 Select: newline options, blank first option, translated labels, an unknown stored value is kept" | `#frappe-forms` travel | unit | — |
-| FV.A4 | Date | COMPLETE | COMPLETE | both | `FF` DateField (site `date_format`) | dd (6); fft "FV.A6 … A4 Date a date trigger" | `#frappe-forms` travel | unit | no TZ conversion needed |
-| FV.A5 | Datetime | PARTIAL | PARTIAL | both | `FF` DateTimeField | fft "FV.A6 … A5 Datetime a date-time picker trigger" (dispatch only) | — | unit | edited in browser TZ; system↔user TZ conversion while editing not done; seconds forced to `:00` |
+| FV.A4 | Date | COMPLETE | COMPLETE | both | `FF` DateField (site `date_format`; Run 1 C-24: clearable, typed in the site format, Today, aria-invalid) | dd (6); fft "FV.A6 … A4 Date a date trigger"; `run1-c24-c25-dates` | `#frappe-forms` travel | unit | no TZ conversion needed. **Run 1 correction**: this row said COMPLETE while a set Date could not be cleared nor typed (C-24, P1) — true only since 0.8.0-dev.6 |
+| FV.A5 | Datetime | PARTIAL | PARTIAL | both | `FF` DateTimeField (Run 1 C-25: every minute, seconds kept, Clear / Now, user ↔ system TZ) | fft "FV.A6 … A5 …"; `run1-c24-c25-dates` | — | unit + simulator (TZ) | Run 1: no typed entry yet; TZ conversion simulator-only (real site pending) |
 | FV.A6 | Time | PARTIAL | **COMPLETE** | both | `FF` → `TimeInput` | fft "FV.A6 Time is a time box (12 h when the site's time_format has 'a')…" | `core-fields` | unit | — |
 | FV.A7 | Check | COMPLETE | COMPLETE | both | `FF` | ff "Note: depends_on hides and shows fields"; fft "FV.A28 … A7 Check writes 0/1" | `#frappe-forms` travel | simulator (+real meta) | — |
 | FV.A8 | Int / Long Int | COMPLETE | COMPLETE | both | `FF` → NumberInput int | ff "dispatches fieldtypes"; fft "FV.A8 / A9 / A10 / A11 numbers…" | `core-fields` | unit | — |
@@ -174,7 +174,7 @@ Showcase: hash routes in `showcase/src/routes.ts`. New P35 pages: `#frappe-form-
 | FV.A12 | Text | PARTIAL | **COMPLETE** | both | `FF` textarea, 500 ms debounce | fft "FV.A12-A14 Small Text / Text / Long Text are textareas…", "FV.A12 a textarea writes 500 ms after typing stops (and on blur)" | — | unit | — |
 | FV.A13 | Small Text | PARTIAL | **COMPLETE** | both | `FF` textarea | fft "FV.A12-A14 …" | `#frappe-forms` travel | unit | — |
 | FV.A14 | Long Text | PARTIAL | **COMPLETE** | both | `FF` textarea | fft "FV.A12-A14 …" | — | unit | — |
-| FV.A15 | Text Editor | COMPLETE | COMPLETE | both | `FF` RichTextEditor / RichText | ff "loads a ToDo, edits a field…", R1-F4 | `#frappe-forms` todo | simulator (+real meta) | no mentions / image upload |
+| FV.A15 | Text Editor | COMPLETE | COMPLETE | both | `FF` RichTextEditor / RichText, sanitizer profile "desk" (Run 1 C-29) | ff "loads a ToDo, edits a field…", R1-F4; `run1-c29-text-editor` | `#frappe-forms` todo | simulator (+real meta) | no mentions / image upload / table editing in the editor. **Run 1 correction**: this row said COMPLETE while the editor stripped attributes, images and tables from Desk content on the first keystroke (C-29, P1, data loss) — true only since 0.8.0-dev.6 |
 | FV.A16 | Markdown Editor | PARTIAL | PARTIAL | both | `FF` monospace textarea | fft "FV.A12-A14 …; A16-A18, A32 … monospace, LTR" (dispatch) | — | unit | no preview, no markdown rendering |
 | FV.A17 | HTML Editor | PARTIAL | PARTIAL | both | `FF` monospace textarea | fft (same) | — | unit | no preview, no syntax highlighting |
 | FV.A18 | Code | PARTIAL | PARTIAL | both | `FF` monospace textarea `dir=ltr` | fft (same) | — | unit | no syntax editor |
@@ -716,7 +716,7 @@ Component docs: `docs/components/forms.md` (WS1), `record.md` §5 (WS2), `list.m
   that lives in app JavaScript or other server documents, extra libraries, low relevance).
 
 ### 7.2 Partial
-- **Form:** FV.A5 Datetime (no TZ conversion while editing, seconds dropped) · A10 Currency (no symbol from `df.options`) ·
+- **Form:** FV.A5 Datetime (Run 1: TZ conversion and seconds done; no typed entry) · A10 Currency (no symbol from `df.options`) ·
   A16 Markdown / A17 HTML Editor (no preview) · A18 Code (no syntax editor) · A29 Signature / A30 Geolocation / A31 Barcode /
   A35 Icon (read-only, no control) · A32 JSON (no validation) · A33 Phone (no country picker) · A40 Fold (no folding) ·
   A41 placeholders on non-Data controls · A42 required mark untested at FrappeField level · B4 `collapsible_depends_on`

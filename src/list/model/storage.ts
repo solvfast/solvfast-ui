@@ -7,7 +7,7 @@
 import type { FilterQuery } from "./filters";
 import type { SortState } from "./sort";
 
-export interface ListPrefs { visible?: string[]; sort?: SortState; groupBy?: string; quick?: string[]; /** Only stored by adapters that set `persistQuery`. */ query?: FilterQuery; /** Rows per page the user chose (`pageSizes`). */ pageSize?: number; }
+export interface ListPrefs { visible?: string[]; sort?: SortState; groupBy?: string; quick?: string[]; /** Only stored by adapters that set `persistQuery`. */ query?: FilterQuery; /** Rows per page the user chose (`pageSizes`). */ pageSize?: number; /** Run 1 (E-14): the user's "Show totals row". */ showTotals?: boolean; }
 export interface ListPrefsStorage {
   /** Also restore and save the filter query (Desk keeps the current filters in the user's settings). Default: no. */
   persistQuery?: boolean;

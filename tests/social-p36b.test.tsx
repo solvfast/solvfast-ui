@@ -411,8 +411,9 @@ describe("P36b social — Comments (desk/form/utils.py, form_timeline.js, footer
     mount(t, <FrappeComments doctype="Deal" name="D-1" />);
     await waitFor(() => expect(commentEl("C-ME")).toBeTruthy());
     fireEvent.click(within(commentEl("C-ME")).getByRole("button", { name: "Edit" }));
+    // Run 1 D-28: the rich editor (contenteditable) — type by changing its content + input
     const ta = within(commentEl("C-ME")).getByRole("textbox");
-    fireEvent.change(ta, { target: { value: "final text" } });
+    ta.innerHTML = "final text"; fireEvent.input(ta);
     fireEvent.click(within(commentEl("C-ME")).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(commentEl("C-ME").textContent).toContain("final text"));
     expect(callsOf(t, "frappe.desk.form.utils.update_comment")).toEqual([{ name: "C-ME", content: "final text" }]);

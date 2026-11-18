@@ -9,6 +9,7 @@
  * (dates, numbers, currency, time zones) — and the host that shows server messages (msgprint semantics).
  */
 import * as React from "react";
+import { useLocale } from "../theme/ThemeProvider";
 import { QueryClient, QueryClientContext, QueryClientProvider } from "@tanstack/react-query";
 import { createFrappeClient, FrappeError, withFrappeApi, type FrappeApi, type FrappeClient } from "./client";
 import type { FrappeMessage } from "./contract";
@@ -97,10 +98,40 @@ export interface FrappeProviderProps {
   /** Route alert messages (`alert: 1`, e.g. "Saved") elsewhere, e.g. to `toast()` from "@solvfast/ui/toast". Default:
    *  the built-in alert region. */
   onAlert?: (message: FrappeMessage) => void;
+  /** Run 1 (A-22): apply the session language (`boot.lang`, Desk `frappe.boot.lang`) to the ThemeProvider above —
+   *  direction from Frappe's RTL list (ar, he, fa, ps), chrome Arabic for "ar*", else English. Default true when a
+   *  `boot` with a language is given; `false` leaves the language to the app. */
+  applyBootLanguage?: boolean;
+  /**
+   * Run 1 (A-61, Desk request.js:133-140, 430-438): what happens when a request made through this provider's queries or
+   * mutations answers "session expired" (401 / `session_expired: 1`) — also for background requests no component shows.
+   * "redirect": Desk's `/login?redirect-to=<current path>`; a function: the app's own (e.g. a login dialog). Fired once
+   * per burst (several failing requests → one call). Omitted: nothing global (each error state still offers Log in).
+   */
+  onSessionExpired?: "redirect" | ((error: FrappeError) => void);
   children: React.ReactNode;
 }
 
-export function FrappeProvider({ client, queryClient, session, translations, translatedDoctypes, formatContext, boot, userDefaults, serverMessages = "show", onAlert, children }: FrappeProviderProps) {
+/** Boot languages already applied in this page load (A-22). */
+const appliedBootLanguages = new Set<string>();
+/** For tests: forget which boot languages were applied. */
+export function resetBootLanguageForTests(): void { appliedBootLanguages.clear(); }
+
+/** Desk's login redirect (desk.js `redirect_to_login`): `/login?redirect-to=<path + query>`. */
+export function loginRedirectUrl(loc: Pick<Location, "pathname" | "search"> = typeof location !== "undefined" ? location : { pathname: "/", search: "" }): string {
+  return `/login?redirect-to=${encodeURIComponent(loc.pathname + loc.search)}`;
+}
+
+export function FrappeProvider({ client, queryClient, session, translations, translatedDoctypes, formatContext, boot, userDefaults, serverMessages = "show", onAlert, applyBootLanguage = true, onSessionExpired, children }: FrappeProviderProps) {
+  // Run 1 A-22: the boot language reaches the ThemeProvider ONCE per page load and language (several providers, or one
+  // remounted per page, never reset a language the user switched to afterwards)
+  const { setLocale } = useLocale();
+  const bootLang = boot?.lang;
+  React.useEffect(() => {
+    if (!applyBootLanguage || !bootLang || appliedBootLanguages.has(bootLang)) return;
+    appliedBootLanguages.add(bootLang);
+    setLocale(bootLang);
+  }, [applyBootLanguage, bootLang, setLocale]);
   const existing = React.useContext(QueryClientContext);
   const [own] = React.useState(() => queryClient ?? (existing ? undefined : createFrappeQueryClient()));
   // one FrappeApi per client: hooks (useFrappeApi) and the server-message subscription then share the same object,
@@ -120,6 +151,26 @@ export function FrappeProvider({ client, queryClient, session, translations, tra
     }),
     [session, translations, translatedDoctypes, formatContext, boot, outer, userDefaults],
   );
+  // Run 1 A-61: a global session-expiry handler over the active query client (queries and mutations), once per burst
+  const activeQc = own ?? existing;
+  const expiredRef = React.useRef(onSessionExpired);
+  expiredRef.current = onSessionExpired;
+  React.useEffect(() => {
+    if (!onSessionExpired || !activeQc) return;
+    let last = 0;
+    const seen = (error: unknown) => {
+      if (!(error instanceof FrappeError) || error.kind !== "session_expired") return;
+      const now = Date.now();
+      if (now - last < 5000) return;
+      last = now;
+      const h = expiredRef.current;
+      if (h === "redirect") { if (typeof window !== "undefined") window.location.assign(loginRedirectUrl()); }
+      else h?.(error);
+    };
+    const offQ = activeQc.getQueryCache().subscribe((e) => { if (e.type === "updated" && e.action.type === "error") seen(e.action.error); });
+    const offM = activeQc.getMutationCache().subscribe((e) => { if (e.type === "updated" && e.action.type === "error") seen(e.action.error); });
+    return () => { offQ(); offM(); };
+  }, [activeQc, !!onSessionExpired]); // eslint-disable-line react-hooks/exhaustive-deps
   const source = serverMessages === "show" ? value : undefined;
   let inner = <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>;
   if (serverMessages) inner = <FrappeMessagesProvider source={source} onAlert={onAlert}>{inner}</FrappeMessagesProvider>;

@@ -30,7 +30,8 @@ import { StatusDot } from "../../primitives/status-dot";
 import { Stepper, type StepState } from "../../primitives/stepper";
 import { ExportDialog, type ExportDialogProps } from "./ExportDialog";
 import { ColumnMappingForm, DONT_IMPORT, ImportPreviewTable, ImportWarningsPanel, useImportDialogLabels } from "./ImportParts";
-import { fmt, importResultHeadline, importStatusLabel, importStatusTone, type ImportDialogLabels } from "./importLabels";
+import { DEFAULT_IMPORT_ACCEPT, fmt, importFileHint, importResultHeadline, importStatusLabel, importStatusTone, type ImportDialogLabels } from "./importLabels";
+import { useLocale } from "../../theme/ThemeProvider";
 import {
   autoMapColumns, importPreviewColumns, importableRows, validateImport,
   type ColumnMap, type ImportDuplicateCheck, type ImportField, type ImportRowCheck, type ImportType, type ParsedImportFile,
@@ -52,9 +53,10 @@ export interface ImportRunResult {
 /** What a host supplies: its fields, how a file is read, how duplicates are found, and whether / how the import runs. */
 export interface DataImportAdapter {
   fields: ImportField[];
-  /** Read the chosen file (CSV: `parseCsv`; XLSX needs a spreadsheet library in the host). Reject with a readable error. */
+  /** Read the chosen file (CSV: `parseCsv`; XLSX: `parseXlsx`, 0.8.0-dev.9). Reject with a readable error. */
   parse: (file: File) => Promise<ParsedImportFile>;
-  /** File types accepted by the picker. Default ".csv,.xls,.xlsx". */
+  /** File types accepted by the picker. Default ".csv,.xls,.xlsx". The file hint under the picker names these types
+   *  (0.8.0-dev.9, `importFileHint`) unless `labels.fileHint` is given. */
   accept?: string;
   /** Import types offered. Default: Insert New Records only. */
   importTypes?: ImportType[];
@@ -87,6 +89,10 @@ interface Result extends ImportRunResult { total: number; status: "Success" | "P
 
 export function DataImportDialog({ adapter, description, open, onOpenChange, previewRows = 10, onFinished, labels, className }: DataImportDialogProps) {
   const L = useImportDialogLabels(labels);
+  const { language } = useLocale();
+  const accept = adapter.accept ?? DEFAULT_IMPORT_ACCEPT;
+  // L-07: the hint names what the picker accepts; a host's explicit `labels.fileHint` wins
+  const fileHint = labels?.fileHint ?? importFileHint(accept, language) ?? L.fileHint;
   const importTypes = adapter.importTypes?.length ? adapter.importTypes : (["Insert New Records"] as ImportType[]);
   const [phase, setPhase] = React.useState<Phase>("setup");
   const [importType, setImportType] = React.useState<ImportType>(importTypes[0]);
@@ -198,7 +204,7 @@ export function DataImportDialog({ adapter, description, open, onOpenChange, pre
           </div>
           <div className="space-y-1 text-sm">
             <label htmlFor={`${uid}-file`} id={`${uid}-file-label`} className="block">{L.importFile}</label>
-            <input ref={fileInput} id={`${uid}-file`} type="file" accept={adapter.accept ?? ".csv,.xls,.xlsx"} disabled={!!busy} tabIndex={-1} className="sr-only" data-import-file-input=""
+            <input ref={fileInput} id={`${uid}-file`} type="file" accept={accept} disabled={!!busy} tabIndex={-1} className="sr-only" data-import-file-input=""
               onChange={(e) => { setFile(e.target.files?.[0] ?? null); setError(null); }} />
             <div className="flex min-w-0 items-center gap-3">
               <Button type="button" variant="outline" size="sm" disabled={!!busy} aria-describedby={`${uid}-file-label ${uid}-file-name`} onClick={() => fileInput.current?.click()}>
@@ -206,7 +212,7 @@ export function DataImportDialog({ adapter, description, open, onOpenChange, pre
               </Button>
               <span id={`${uid}-file-name`} dir="auto" className={cn("min-w-0 truncate", !file && "text-muted-foreground")} data-import-file-name="">{file?.name ?? L.noFileChosen ?? "No file chosen"}</span>
             </div>
-            <p className="text-xs text-muted-foreground">{L.fileHint}</p>
+            <p className="text-xs text-muted-foreground" data-import-file-hint="">{fileHint}</p>
           </div>
           {errorView}
           <div className="flex flex-wrap justify-between gap-2">

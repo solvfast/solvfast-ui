@@ -106,7 +106,11 @@ export function SavedFilters({ saved, activeCount, onApply, onSave, onDelete, ca
  * field. Locked columns (`alwaysVisible`) stay at the top and can't be moved or removed; `hideable: false` columns are
  * not offered. Positions of keys this menu doesn't manage (locked, or not loaded yet) are kept as they are.
  */
-export function ColumnManager<T>({ columns, visibleKeys, onChange }: { columns: ColumnDef<T>[]; visibleKeys: string[]; onChange: (keys: string[]) => void }) {
+export function ColumnManager<T>({ columns, visibleKeys, onChange, totalsToggle }: {
+  columns: ColumnDef<T>[]; visibleKeys: string[]; onChange: (keys: string[]) => void;
+  /** Run 1 (E-14): the user's "Show totals row" switch at the end of the manager (the CRM's money lists). */
+  totalsToggle?: { checked: boolean; onChange: (on: boolean) => void };
+}) {
   const { language, t } = useLocale();
   const [adding, setAdding] = React.useState(false);
   const [q, setQ] = React.useState("");
@@ -258,6 +262,12 @@ export function ColumnManager<T>({ columns, visibleKeys, onChange }: { columns: 
             </div>
           )}
         </div>
+        {totalsToggle ? (
+          <label className="mt-1 flex items-center justify-between gap-2 border-t border-border px-2 pt-2 pb-1 text-xs font-medium text-foreground">
+            <span>{t("listShowTotals")}</span>
+            <Checkbox checked={totalsToggle.checked} onCheckedChange={(c) => totalsToggle.onChange(c === true)} aria-label={t("listShowTotals")} />
+          </label>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
@@ -321,12 +331,19 @@ export function QuickFilters({ fields, shown, onShownChange, customizable, query
   );
 }
 
-export function SortMenu<T>({ columns, sort, onChange }: { columns: ColumnDef<T>[]; sort: SortState; onChange: (s: SortState) => void }) {
+export function SortMenu<T>({ columns, sort, onChange, directionToggle, clearable = true }: {
+  columns: ColumnDef<T>[]; sort: SortState; onChange: (s: SortState) => void;
+  /** Run 1 (B-26): a separate button flips the direction (Desk sort_selector.js), named with the current one. */
+  directionToggle?: boolean;
+  /** Run 1 (B-26): false = no Clear (Desk has none). Default true. */
+  clearable?: boolean;
+}) {
   const { language, t } = useLocale();
   const sortable = columns.filter((c) => c.sortable !== false);
   const active = columns.find((c) => c.key === sort.key);
   const Dir = sort.dir === "asc" ? ArrowUp : ArrowDown;
-  return (
+  const dirName = sort.dir === "asc" ? t("sortAscending") : t("sortDescending");
+  const menu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5">
@@ -344,7 +361,7 @@ export function SortMenu<T>({ columns, sort, onChange }: { columns: ColumnDef<T>
             {sort.key === c.key && <Dir className="h-3.5 w-3.5" />}
           </DropdownMenuItem>
         ))}
-        {sort.key && (
+        {sort.key && clearable && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onChange({ key: null, dir: "desc" }); }}>{t("clearSort")}</DropdownMenuItem>
@@ -352,6 +369,17 @@ export function SortMenu<T>({ columns, sort, onChange }: { columns: ColumnDef<T>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+  if (!directionToggle) return menu;
+  return (
+    <div className="inline-flex items-center gap-1" data-sort-selector="">
+      {menu}
+      <Button variant="outline" size="sm" className="px-2" disabled={!sort.key}
+        aria-label={t("sortToggleDirection").replace("{dir}", dirName)} title={dirName}
+        onClick={() => sort.key && onChange({ key: sort.key, dir: sort.dir === "asc" ? "desc" : "asc" })}>
+        <Dir className="h-4 w-4" aria-hidden />
+      </Button>
+    </div>
   );
 }
 

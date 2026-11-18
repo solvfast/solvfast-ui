@@ -1,9 +1,9 @@
-/** Lifecycle components (src/record): LifecycleRail, the diagram pieces, and LifecycleBar's shared dot atoms. */
+/** Lifecycle components (src/record): LifecycleRail, the diagram pieces, and the shared dot atom (LifecycleStepDot). */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as React from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
-  LifecycleBar, LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleEdgeLabel, LifecycleRail, LifecycleStateCard, LIFECYCLE_DIAGRAM_COLORS,
+  LifecycleDiagramDialog, LifecycleDiagramLegend, LifecycleEdgeLabel, LifecycleRail, LifecycleStateCard, LifecycleStepDot, LIFECYCLE_DIAGRAM_COLORS,
 } from "../src/record";
 import { ThemeProvider } from "../src";
 import * as core from "../src";
@@ -135,6 +135,25 @@ describe("Lifecycle diagram pieces", () => {
     expect(LIFECYCLE_DIAGRAM_COLORS.taken).toBe("hsl(var(--success))");
   });
 
+  it("dialog: opened from a plain button (no trigger), closing gives focus back to that button (WCAG 2.4.3)", async () => {
+    function Host() {
+      const [open, setOpen] = React.useState(false);
+      return (<>
+        <button type="button" onClick={() => setOpen(true)}>View full lifecycle</button>
+        <LifecycleDiagramDialog open={open} onOpenChange={setOpen} title="Lifecycle"><div /></LifecycleDiagramDialog>
+      </>);
+    }
+    wrap(<Host />);
+    const opener = screen.getByRole("button", { name: "View full lifecycle" });
+    opener.focus();
+    fireEvent.click(opener);
+    const dlg = await screen.findByRole("dialog");
+    await waitFor(() => expect(dlg.contains(document.activeElement)).toBe(true));
+    fireEvent.keyDown(dlg, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
   it("dialog: title, subtitle, canvas slot, legend, localized close; closes via the button", () => {
     const onOpenChange = vi.fn();
     wrap(<LifecycleDiagramDialog open onOpenChange={onOpenChange} title="Ticket lifecycle · Support" subtitle="TKT-1 · currently Assigned">
@@ -150,15 +169,22 @@ describe("Lifecycle diagram pieces", () => {
   });
 });
 
-describe("LifecycleBar shares the rail's atoms", () => {
-  it("past = success dot + solid success connector, current = primary, future = hollow", () => {
-    const { container } = wrap(<LifecycleBar states={[{ id: "a", label: "A" }, { id: "b", label: "B" }, { id: "c", label: "C" }]} current="b" />);
+describe("LifecycleStepDot — the rail's shared dot atom", () => {
+  it("is exported from the core entry", () => {
+    expect(core.LifecycleStepDot).toBe(LifecycleStepDot);
+  });
+  it("past = success dot, current = primary, future = hollow (as in the rail); the rail's past connector is solid success", () => {
+    const { container } = wrap(<>{(["past", "current", "future"] as const).map((s) => <LifecycleStepDot key={s} step={s} />)}</>);
     expect(Array.from(container.querySelectorAll("[data-dot]")).map((d) => d.getAttribute("data-dot"))).toEqual(["past", "current", "future"]);
     expect(container.querySelector("[data-dot='past']")?.className).toContain("bg-success");
-    expect(container.querySelector("li[data-step='past'] > span[aria-hidden]")?.className).toContain("border-success");
+    expect(container.querySelector("[data-dot='current']")?.className).toContain("bg-primary");
+    expect(container.querySelector("[data-dot='future']")?.className).toContain("border-muted-foreground/40");
+    cleanup();
+    const rail = wrap(<LifecycleRail path={path} next={[]} />);
+    expect(rail.container.querySelector("li[data-step='current'] > span[aria-hidden]")?.className).toContain("border-success");
   });
-  it("a failed current state keeps the destructive halo", () => {
-    const { container } = wrap(<LifecycleBar states={[{ id: "a", label: "A" }, { id: "l", label: "Lost", step: "failed" }]} current="l" />);
+  it("failed = destructive, its className merges (a host's halo)", () => {
+    const { container } = wrap(<LifecycleStepDot step="failed" className="ring-4 ring-destructive/20" />);
     const dot = container.querySelector("[data-dot='failed']")!;
     expect(dot.className).toContain("bg-destructive");
     expect(dot.className).toContain("ring-destructive/20");

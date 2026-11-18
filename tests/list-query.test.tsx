@@ -286,7 +286,9 @@ describe("width-based column limit (list_view.js:375-457) — SIMULATED (jsdom w
     await waitFor(() => expect(headers()).toEqual(["Title", "FA", "FB"]));
   });
 
-  it("a DocType with an indicator spends Desk's Status slot: the status field column takes it (the indicator column is hidden by default)", async () => {
+  // Run 1 B-03 (decision B-D2): the indicator column is shown by default and, as Desk (list_view.js:412-416), the
+  // `status` field's own column then is not — the Status header is now the indicator's (was: the status field's).
+  it("a DocType with an indicator spends Desk's Status slot: the indicator column takes it and the status field column is hidden", async () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, writable: true, value: 1366 });
     const SO = { ...DEAL, name: "Sales Order", is_submittable: 1, fields: [...(DEAL.fields as object[]).slice(0, 1), { fieldname: "status", label: "Status", fieldtype: "Select", options: "Draft\nTo Bill", in_list_view: 1 }, ...(DEAL.fields as object[]).slice(1)] } as unknown as DocMeta;
     mountHook(site(SO).transport, { doctype: "Sales Order", columnLimit: true });

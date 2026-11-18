@@ -764,7 +764,10 @@ describe("rows", () => {
     const onRowClick = vi.fn();
     renderList({ onRowClick, selectable: true });
     const tr = bodyRows()[1];
-    expect(tr.getAttribute("tabindex")).toBe("0");
+    // Run 1 B-56: one Tab stop for the rows (roving tabindex: the first row 0, the others -1, reached with ↑ / ↓) —
+    // before, every row was a Tab stop ("0")
+    expect(bodyRows()[0].getAttribute("tabindex")).toBe("0");
+    expect(tr.getAttribute("tabindex")).toBe("-1");
     fireEvent.keyDown(tr, { key: "Enter" });
     expect(onRowClick).toHaveBeenCalledWith(ROWS[1]);
     fireEvent.keyDown(within(tr).getByRole("checkbox"), { key: "Enter" });

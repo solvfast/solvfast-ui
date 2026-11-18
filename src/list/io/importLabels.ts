@@ -100,6 +100,41 @@ export const fmt = (template: string, ...args: (string | number)[]): string => t
  * Strings only the Core dialog uses (a client-side import: its own file reading, mapping, validation and duplicate
  * check). Optional so a full `DataImportLabels` object stays valid; the defaults are `IMPORT_DIALOG_LABELS_EN / _AR`.
  */
+/** The picker's default file types (`DataImportAdapter.accept`). */
+export const DEFAULT_IMPORT_ACCEPT = ".csv,.xls,.xlsx";
+
+const HINT_ORDER = ["CSV", "TSV", "TXT", "XLS", "XLSX", "ODS"];
+const MIME_EXT: Record<string, string> = {
+  "text/csv": "CSV", "application/csv": "CSV", "text/comma-separated-values": "CSV", "text/tab-separated-values": "TSV",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX", "application/vnd.ms-excel": "XLS",
+  "application/vnd.oasis.opendocument.spreadsheet": "ODS",
+};
+
+/**
+ * 0.8.0-dev.9 (L-07): the file hint for a picker's `accept` — the listed types, upper-case, joined as the language lists
+ * them: ".csv" → "CSV"; ".csv,.xlsx" → "CSV or XLSX"; ".csv,.xls,.xlsx" → "CSV, XLS or XLSX" (Arabic: "CSV أو XLSX").
+ * Known types are named in a fixed order (CSV, TSV, TXT, XLS, XLSX, ODS — so ".csv,.xlsx,.xls" reads like the default
+ * hint), others after them in `accept` order. Known MIME types count as their extension; a wildcard or unknown MIME type
+ * cannot be named, so then (and for an empty `accept`) the result is null and the caller keeps its static hint.
+ */
+export function importFileHint(accept: string | undefined, language: "en" | "ar" = "en"): string | null {
+  const names: string[] = [];
+  for (const raw of (accept ?? "").split(",")) {
+    const tok = raw.trim().toLowerCase();
+    if (!tok) continue;
+    let name: string | undefined;
+    if (tok.startsWith(".") && /^\.[a-z0-9]+$/.test(tok)) name = tok.slice(1).toUpperCase();
+    else name = MIME_EXT[tok];
+    if (!name) return null;
+    if (!names.includes(name)) names.push(name);
+  }
+  if (!names.length) return null;
+  const rank = (n: string) => { const i = HINT_ORDER.indexOf(n); return i < 0 ? HINT_ORDER.length : i; };
+  names.sort((a, b) => rank(a) - rank(b)); // stable: unknown types keep their order
+  if (language === "ar") return names.join(" أو ");
+  return names.length === 1 ? names[0]! : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+}
+
 export interface ImportDialogExtraLabels {
   fileSummary: string; readingFile: string; readFailed: string; emptyFile: string;
   notMapped: string; mappedTwice: string; mandatoryNotMapped: string; valueMissing: string; invalidValue: string;

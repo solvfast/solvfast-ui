@@ -1,5 +1,8 @@
 import { StatusBadge } from "../../record/StatusBadge";
+import { DESK_INDICATOR_COLOURS } from "../../primitives/status-dot";
+const deskColour = (c?: string) => (c && DESK_INDICATOR_COLOURS.includes(c.toLowerCase()) ? c.toLowerCase() : undefined);
 import { useLocale } from "../../theme/ThemeProvider";
+import { useFrappeTranslate } from "../services/useTranslate";
 import type { FrappeDoc, MetaBundle } from "../contract";
 import { useRecordMeta } from "./data";
 import { indicatorFor, type Indicator } from "./indicator";
@@ -12,14 +15,17 @@ export interface FrappeStatusIndicatorProps {
   bundle?: MetaBundle;
   /** Pass the definition when the page already has it; otherwise it is loaded. */
   workflow?: RecordWorkflow | null;
+  /** Server labels → the session language. Default (Run 1 D-54): the provider's translations (Desk `__(state)`). */
   translate?: (text: string) => string;
   variant?: "pill" | "dot";
   className?: string;
 }
 
 /** The record’s status chip: `frappe.get_indicator` precedence (workflow state → Draft / Cancelled → meta.states → Submitted → status → enabled). */
-export function FrappeStatusIndicator({ doc, bundle, workflow, translate = (s) => s, variant, className }: FrappeStatusIndicatorProps) {
+export function FrappeStatusIndicator({ doc, bundle, workflow, translate: translateProp, variant, className }: FrappeStatusIndicatorProps) {
   const { t } = useLocale();
+  const tr = useFrappeTranslate(bundle);
+  const translate = translateProp ?? ((s: string) => tr(s, null));
   const meta = useRecordMeta(doc.doctype, bundle);
   const def = useWorkflowDefinition(doc.doctype, workflow === undefined);
   const wf = workflow === undefined ? def.workflow : workflow;
@@ -29,5 +35,6 @@ export function FrappeStatusIndicator({ doc, bundle, workflow, translate = (s) =
   const label = ind.builtin
     ? t(({ notSaved: "recNotSaved", draft: "recDraft", cancelled: "recCancelledStatus", submitted: "recSubmittedStatus", enabled: "recEnabled", disabled: "recDisabled" } as const)[ind.builtin])
     : translate(ind.label);
-  return <StatusBadge label={label} tone={ind.tone} variant={variant} className={className} />;
+  // Run 1 D-64: Desk's colour (light-blue ≠ blue ≠ cyan) through the themed palette; the tone stays the data-tone
+  return <StatusBadge label={label} tone={ind.tone} color={deskColour(ind.color)} variant={variant} className={className} />;
 }

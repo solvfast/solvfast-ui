@@ -10,6 +10,7 @@ import {
 } from "../primitives/alert-dialog";
 import { useLocale } from "../theme/ThemeProvider";
 import { CommentComposer, type CommentComposerLabels } from "./CommentComposer";
+import { CommentRichEditor } from "./CommentRichEditor";
 import { errorText, fmt, stripIsolates } from "./format";
 import { sanitizeCommentHtml } from "./sanitize";
 import type { MentionOption, TimelineItem, TimelineKind, Tone } from "./types";
@@ -242,8 +243,14 @@ function Entry({ item, now, isRTL, L, onEdit, onDelete, searchMentions, composer
           ) : null}
         </div>
         {editing ? (
-          <CommentComposer initialHtml={item.body ?? ""} autoFocus searchMentions={searchMentions} labels={{ ...composerLabels, submit: L.save }}
-            onCancel={() => setEditing(false)} onSubmit={async (html) => { await onEdit?.(item, html); setEditing(false); }} className="border-0 p-0" />
+          item.bodyFormat === "text" ? (
+            <CommentComposer initialHtml={item.body ?? ""} autoFocus searchMentions={searchMentions} labels={{ ...composerLabels, submit: L.save }}
+              onCancel={() => setEditing(false)} onSubmit={async (html) => { await onEdit?.(item, html); setEditing(false); }} className="border-0 p-0" />
+          ) : (
+            // Run 1 D-28: an HTML comment is edited in the rich editor, so its formatting, links, images and mentions survive
+            <CommentRichEditor initialHtml={item.body ?? ""} autoFocus searchMentions={searchMentions} labels={{ ...composerLabels, submit: L.save }}
+              onCancel={() => setEditing(false)} onSubmit={async (html) => { await onEdit?.(item, html); setEditing(false); }} className="border-0 p-0" />
+          )
         ) : body}
         {err ? <p role="alert" className="mt-1 text-xs text-destructive">{err}</p> : null}
         {canPublish && onPublish ? (

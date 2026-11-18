@@ -37,10 +37,10 @@ server-sent text (state and action names, "Workflow Status", "Not a valid Workfl
 
 ```tsx
 <FrappeWorkflowActions
-  doc={doc} user={session.user} roles={session.roles} variant="steps" translate={(s) => translateLabel(bundle, s)}
-  currentMarker="Current status"
+  doc={doc} user={session.user} roles={session.roles} variant="actions" translate={(s) => translateLabel(bundle, s)}
   actionLabels={{ actions: "Actions", none: "No actions from this status" }}
 />
+<FrappeWorkflowActions doc={doc} user={session.user} roles={session.roles} variant="rail" translate={(s) => translateLabel(bundle, s)} />
 <FrappeAssignTo doc={doc} user={session.user} single variant="list" heading="Assignee"
   labels={{ assignedTo: "Assignee", none: "No assignee", add: "Set assignee", confirm: "Assign" }} />
 ```
@@ -54,7 +54,9 @@ server-sent text (state and action names, "Workflow Status", "Not a valid Workfl
 `Tone` = `neutral | success | warning | danger | info | brand`. `TimelineItem` = `{ id, kind, at (epoch ms), actor?, actorId?, summary?,
 body?, bodyFormat?, changes?, canEdit?, canDelete?, href?, icon? }` with `kind` one of `comment, change, assignment, attachment, state,
 created, modified, info, like, communication, custom`. `Assignee` = `{ id, name, image?, description? }`. `UserOption` =
-`{ id, label, image?, description? }`. `MentionOption` = `{ id, label, isGroup? }`. `LifecycleStateItem` = `{ id, label, tone?, by?, at? }`.
+`{ id, label, image?, description? }`. `MentionOption` = `{ id, label, isGroup? }`. `LifecycleStateItem` = `{ id, label, tone?, by?, at?, step? }`
+(`lifecycleStates` returns it: label and tone feed `FrappeWorkflowActions`' state badge; `by` / `at` / `step` are data for a host's own
+lifecycle UI — no package component renders them).
 `LifecycleActionItem` = `{ id, label, tone?, confirm?, disabled? }` (`confirm`: `true` = default text, a string = the body text).
 
 ### 2.2 `Timeline`
@@ -124,30 +126,22 @@ server answers it with "Already in …"; the Table MultiSelect refuses repeats w
 note says so); re-picking the same group or clearing it changes nothing; a refused search or members read is shown under the field
 (`role="alert"`) and the list is kept. Strings: `sbAssignGroup`, `sbAssignGroupSearch`, `sbAssignGroupEmpty`, `sbAssignGroupMembers`.
 
-### 2.5 `LifecycleBar`, `ActionBar`, `StatusBadge`
+### 2.5 `ActionBar`, `StatusBadge`
 
 `StatusBadge { label, tone, variant: "pill" | "dot", title }`: the label is always shown; colour is never the only carrier.
 
-`LifecycleBar { states, current, currentLabel, actions, onAction, variant: "steps" | "compact", busy, actionsDisabled,
-actionsDisabledReason, actionLabels, currentMarker, showCurrentEntry, now }`:
-
-- `states` in lifecycle order; each may carry `by` and `at` (who moved the record into it, and when). The stepper marks past / current /
-  future (`aria-current="step"`, `data-step`), and shows "actor · relative time" under **past** states (current too with `showCurrentEntry`),
-  like the CRM's rail widget.
-- If `current` is not among `states`, `currentLabel` is shown in the badge.
-- `compact` shows only the badge and the actions.
+The record's lifecycle is shown by `LifecycleRail` (where it is, where it can go: §8–9.4) with the header's `LifecycleActions`
+(§9.4), both built on these two.
 
 `ActionBar { actions, onAction, variant: "menu" | "buttons", busy, disabled, disabledReason, labels }`: an action with `confirm` opens an
 alert dialog first. `onAction` may return a promise; a rejection is shown under the bar (`role="alert"`) and the action can be retried.
 `labels`: `actions, none, confirmTitle ("… {0} …"), confirmBody, confirm, cancel, working`.
 
 ```tsx
-<LifecycleBar
-  states={[{ id: "new", label: "New", by: "Ann", at: Date.now() - 3.6e6 }, { id: "won", label: "Won", tone: "success" }]}
-  current="new" variant="steps"
-  actions={[{ id: "win", label: "Mark won", confirm: "Close this deal as won?" }]}
-  onAction={async (a) => api.apply(a.id)}
-/>
+<div className="flex items-center justify-between gap-2">
+  <StatusBadge label="New" tone="info" />
+  <ActionBar actions={[{ id: "win", label: "Mark won", confirm: "Close this deal as won?" }]} onAction={async (a) => api.apply(a.id)} />
+</div>
 ```
 
 ---
@@ -170,10 +164,16 @@ and assignment writes invalidate docinfo and list). The wrappers never touch the
 
 ### 3.1 `FrappeWorkflowActions`, `useWorkflow`, `useWorkflowDefinition`
 
-`<FrappeWorkflowActions doc user roles? variant? translate? confirm? onApplied? fallback? docinfo? currentMarker? actionLabels? showCurrentEntry? className? />`
+`<FrappeWorkflowActions doc user roles? variant? translate? confirm? onApplied? fallback? docinfo? actionLabels? className? />`
 
-- Renders the current state (badge, tone from the Workflow State `style`) and the actions the user may apply now. `variant="steps"` adds the
-  stepper with actor/time (see 3.6); `"compact"` (default) is badge + Actions.
+- `"compact"` (default) renders the current state (`StatusBadge`, tone from the Workflow State `style`; a state the workflow does not list
+  shows its translated name, neutral) and the actions the user may apply now (`ActionBar`) — Desk's form toolbar (`FrappeForm`).
+  `"actions"` is the header Actions menu alone and `"rail"` the Lifecycle card (§9.5); `docinfo` feeds the rail's who · when (3.6).
+- `hideCurrent` (`"compact"`, 0.10.0, default off): no badge of the current state, because the page shows it elsewhere.
+  `FrappeForm` sets it from `stateInHeader`. `SayrRecordPage` turns `stateInHeader` on only when the record has a Sayr
+  lifecycle (its state is then shown by the title in the header card). Otherwise it stays off, so a Frappe Workflow's
+  badge or a `status` field's indicator shows in the form's toolbar, as in 0.9.0. A host can pass `stateInHeader` either
+  way to override this.
 - Nothing for a new document (`__islocal`); `fallback` for a DocType without a workflow; a skeleton while loading.
 - **Unsaved edits** (`__unsaved`): transitions are not fetched and the actions are disabled with a reason, because `apply_workflow`
   reloads the document from the database and discards posted edits (Desk hides them). Save first.
@@ -207,7 +207,7 @@ Rules implemented (pure functions in `workflow.ts`, all exported):
 | `isReadOnlyState(wf, doc, roles?, user?)` | read-only when none of the user's roles equals the state's `allow_edit`; new docs never; roles unknown → read-only (rule 9); the Administrator never (same rule as `isWorkflowReadOnly`) |
 | `workflowLockedFields` | the state field and every `update_field` stay read-only |
 | `canCancelDocument`, `standardActionsUnderWorkflow` | Submit is never offered; Save only when dirty; Cancel only if no transition leads to a docstatus-2 state; the primary/secondary buttons give way to the workflow actions |
-| `toneForStyle`, `lifecycleStates`, `lifecycleActions` | mapping to `LifecycleBar` items |
+| `toneForStyle`, `lifecycleStates`, `lifecycleActions` | mapping to the state badge / rail labels (`LifecycleStateItem`) and the Actions menu items (`LifecycleActionItem`) |
 
 APIs: `getdoctype` (definition), `frappe.model.workflow.get_transitions`, `frappe.model.workflow.apply_workflow` (via `RecordApi`).
 Permissions: the user needs read on the document for transitions; the role per transition (`allowed`) is enforced by the server.
@@ -313,8 +313,8 @@ adapter (returns tone, label, list filter, source); built-in words go through th
 
 ### 3.6 `stateEntries` — actor and time per workflow state
 
-`stateEntries({ doc, docinfo, stateField, states, translate? }) → Map<state, { by, at }>` feeds `LifecycleBar` (`variant="steps"` in
-`FrappeWorkflowActions` calls it for you).
+`stateEntries({ doc, docinfo, stateField, states, translate? }) → Map<state, { by, at }>` feeds the Lifecycle rail's path and its
+who · when (`FrappeWorkflowActions variant="rail"` calls it for you).
 
 1. `docinfo.workflow_logs`: `apply_workflow` adds a Comment of type Workflow whose content is the state entered; owner = actor,
    creation = time. The latest per state wins. The server translates the content (`_()`), so both the state and `translate(state)` are matched.
@@ -351,7 +351,7 @@ Showcase: `#frappe-record-actions` ("Record actions (P35)") — every backend op
 
 | Component | Purpose | Key props |
 |---|---|---|
-| `RecordMenu` | The "⋯" menu: groups separated, shortcut hints (display only), `hidden` / `disabled` (+ `disabledReason`) items, `confirm` (AlertDialog; `{ title, body, confirmLabel }`), `destructive` styling. A promise from `onSelect` shows a spinner; a rejection is shown under the trigger (`role="alert"`) and passed to `onError`. Renders nothing without visible items. | `items: RecordMenuItem[]`, `onSelect?`, `onError?`, `disabled?`, `busy?`, `align?`, `labels?`, `trigger?` |
+| `RecordMenu` | The "⋯" menu: groups separated, shortcut hints (display only unless `bindShortcuts`), `hidden` / `disabled` (+ `disabledReason`) items, `confirm` (AlertDialog; `{ title, body, confirmLabel }`), `destructive` styling. A promise from `onSelect` shows a spinner; a rejection is shown under the trigger (`role="alert"`) and passed to `onError`. Renders nothing without visible items. **0.8.0-dev.9 (M-07) `bindShortcuts`**: each item's `shortcut` ("Shift+D", "Ctrl+B", "Shift+Ctrl+D", "Shift+R", "Ctrl+Z"; "Ctrl" also matches ⌘; letters / digits also by physical key) runs the item through the same `confirm` as a click; exact modifiers; not while typing (input, textarea, select, contenteditable), not while a dialog or menu is open, not for `hidden` / `disabled` items or a `disabled` / busy menu; the last mounted bound menu answers; removed on unmount. Off by default. `parseShortcut` / `shortcutMatches` are exported. Do not turn it on where the host already binds the keys (`FrappeRecordMenu shortcuts`). | `items: RecordMenuItem[]`, `onSelect?`, `onError?`, `disabled?`, `busy?`, `align?`, `labels?`, `trigger?`, `bindShortcuts?` |
 | `groupMenuItems(items)` | Pure: visible items grouped in order of first appearance. | — |
 | `RenameDialog` | Desk's "Rename {name}" (model.js:733-779): required "New Name", "Merge with existing", "Unchanged" for the same name; a rejection stays in the dialog. | `open`, `onOpenChange`, `name`, `nameLabel?`, `allowMerge?`, `onRename({ newName, merge })` |
 | `PrintPreviewFrame` | Server print HTML in an `<iframe sandbox="">` (no scripts, no same-origin, no forms); loading / "No Preview Available" / error + Retry. `printSrcDoc(html, style, dir)` builds the srcdoc and neutralises `</style`. | `html`, `style`, `loading`, `error`, `onRetry`, `title`, `dir`, `height` |
@@ -692,17 +692,39 @@ transitions, roles, logs) and the graph engine for the diagram.
   `currentLabel?`, `title?`, `style?`. A diagram node body (58 px high; the consumer sets the width).
 - `LifecycleEdgeLabel` — `label`, `taken?`. `LifecycleDiagramLegend` — `labels?`.
 - `LIFECYCLE_DIAGRAM_COLORS` — `{ taken, edge, grid }` as token-based CSS colours for SVG edges / markers / grid.
-- `LifecycleGraph` (`src/record/LifecycleGraph.tsx`, 0.7.0-dev.33) — the whole diagram, dependency-free: `states`
-  (`{ key, label, meta?, metaTitle?, kind, phase? }`), `transitions` (`{ key, from, to, label, taken? }`), `initial?`,
-  `currentLabel?`, `labels?: { zoomIn, zoomOut, fit }`. A layered layout (`layoutLifecycle`: rows by breadth-first
-  distance from `initial`; states no transition reaches in a last row), an SVG arrow per transition with its label,
-  an arrow back to an earlier row curving along the side, `taken` arrows in the success colour, + / − / fit (fits on
-  open). It fills its parent (`absolute inset-0`): put it inside `LifecycleDiagramDialog`. A consumer may still use its
-  own engine (React Flow + dagre) with the pieces above; none is a package dependency.
-- `LifecycleGraphDialog` (`@solvfast/ui/sayr`) — the dialog and the graph from Sayr's data: `lifecycle` (`states`,
-  `initial_state`, `transitions` as `record_state` / `type_preview` return them), `status` (current), `path` (the
-  rail's steps: done states, and the path taken from consecutive steps), `title`, `subtitle?`. Each state's second
-  line is its phase (`lc*` messages) and, when the record passed it, who and when.
+- **One model, two renderers (0.10.0).** The diagram's data is always the core model `LifecycleGraph`
+  (`lifecycleGraph(def, current, pathIds?, visitedIds?)`, §9.4): nodes `{ id, label, phase, kind, meta?, metaTitle? }`
+  (`meta` / `metaTitle`, optional since 0.10.0: who moved the record there and when — an adapter adds them, the
+  function never does; `LifecycleGraphView` draws them, `LifecycleFlow` still takes who · when from its own `meta`
+  option and ignores the node fields) and edges `{ id, from, to, label?, taken }`. Two renderers draw it:
+  - `LifecycleGraphView` (core, `src/record/LifecycleGraphView.tsx`, dependency-free SVG) — below;
+  - `LifecycleFlow` / `LifecycleFlowDialog` (the optional `@solvfast/ui/lifecycle-diagram` entry, React Flow + dagre as
+    optional peers).
+- `LifecycleGraphView` — props: `graph: LifecycleGraph`, `initial?` (the top row; default the first node),
+  `currentLabel?`, `labels?: { zoomIn?, zoomOut?, fit?, transitions?, diagram? }`, `dir?: "ltr" | "rtl"` (default the
+  ThemeProvider's), `className?`. A layered layout (`layoutLifecycle(graph, initial?, { rtl? })` →
+  `{ placed: Map<id, node & { x, y, row }>, edges: { edge, kind, d, lx, ly }[], width, height }`, pure and
+  deterministic): rows by breadth-first distance from `initial`, states no transition reaches in a last row. Arrows:
+  down a row from bottom to top (several into one state spread along it); within a row straight, a pair of opposite
+  arrows a little apart; up to an earlier row straight into the state when it is in another column, else round the
+  side of the canvas; a transition from a state to itself is a small loop on the state's end side (`kind`: `down`,
+  `row`, `up`, `side`, `loop`). Labels are kept off each other and off the states; `taken` arrows in the success
+  colour; + / − / fit (fits on open). Each state's second line is its phase word (`lcPhase*`) and, when the node has
+  one, its `meta`. In a right-to-left language the whole diagram is mirrored (no forced `dir="ltr"`).
+  **Accessibility:** the drawing is `aria-hidden`; the canvas is a `group` named "Lifecycle diagram", every state card
+  says "Reached" / "Not reached" (the current one shows "Current"), and a visually hidden list named "Transitions" reads
+  every transition as a sentence — "From New to In Progress: Start Work" (Arabic «من … إلى …: …»), "(Path taken)" on
+  the record's path (`lcDiagram`, `lcTransitions`, `lcTransitionItem`, `lcTransitionItemPlain`, `lcReached`). Arrow-head
+  ids come from `React.useId`, so two graphs on one page never share them. It fills its parent (`absolute inset-0`):
+  put it inside `LifecycleDiagramDialog`.
+- `LifecycleGraphDialog` (`@solvfast/ui/sayr`) — `LifecycleDiagramDialog` + `LifecycleGraphView` on Sayr's data:
+  `open`, `onOpenChange`, `title`, `subtitle?`, `lifecycle` (`states`, `initial_state`, `transitions` as `record_page` /
+  `type_preview` return them), `status?` (the current state), `path?: LifecyclePathStep[]` (`{ id, meta?, metaTitle? }`,
+  the rail's steps: done states with who · when, and the transitions between consecutive steps taken). An internal
+  adapter turns Sayr's lifecycle into a `LifecycleDefinition` (labels in the current language, Sayr's phases open /
+  on_hold / closed one to one, anything else open) and then the model. No `path`: nothing is marked done or taken. An
+  older Sayr that sends no `transitions` still shows every state. `src/sayr` cannot use the React Flow renderer (the
+  boundary rule keeps it off `./lifecycle-diagram`).
 
 ### 8.3 One colour mapping, both themes (semantic tokens only)
 
@@ -713,8 +735,268 @@ transitions, roles, logs) and the graph engine for the diagram.
 | Future dot, dashed connectors | `muted-foreground/40` stroke on `background` (`/35` dashed) |
 | Back tag, options box | `border`, `muted`, `muted-foreground` |
 | Labels / meta | `foreground` / `muted-foreground` |
-| Skipped / failed (LifecycleBar) | dashed `muted-foreground/50` / `destructive` |
+| Skipped / failed (`LifecycleStepDot step`) | dashed `muted-foreground/50` / `destructive` |
 | Phase icon (diagram) | open `info`, on hold `warning`, closed `success` |
 
-`LifecycleBar` (§2.5) uses the same dot and connector atoms (`LifecycleStepDot`): past states are `success` (was `primary`),
-the current label is `primary`, future connectors are dashed. Its API and `data-step` markup are unchanged.
+`LifecycleStepDot` (exported) is the rail's dot atom; it also draws `skipped` / `failed` for a host's own lifecycle UI.
+
+### 9.4 The Lifecycle contract and the Actions menu (Core, 0.8.0-dev.5)
+
+The reference is the CRM record page's Lifecycle (`docs/audit/p08/CRM-REFERENCE.md` §3). Core is framework-free
+(`src/record/lifecycle.ts`, no renderer, no graph library):
+
+| Export | What it gives |
+|---|---|
+| `LifecycleDefinition` | `{ states: { id, label, phase: "open" \| "on_hold" \| "closed", color? }[], transitions: { id, from, to, label?, trigger?, roles? }[] }` |
+| `lifecycleTone(state)` | The status badge tone: open → info, on hold → warning; closed → by colour (red → danger, grey → neutral, else success) |
+| `lifecyclePath(def, current)` | The rail's path: the **shortest** path from a root to the current state (not the record's history) |
+| `lifecycleTransitionsFrom(def, current, roles?)` | The Actions menu: the transitions out of the current state, not automatic ones, role-restricted ones only for a holder |
+| `lifecycleNext(def, current, pathIds)` | The rail's ways forward: every target out of the state (automatic and role-restricted included), `back` when on the path |
+| `lifecycleGraph(def, current, pathIds?, visitedIds?)` | The diagram model: nodes done / current / future, edges `taken` — for any renderer: core `LifecycleGraphView` (§8.2) or `LifecycleFlow` (`./lifecycle-diagram`, React Flow + dagre) |
+
+`LifecycleActions` — {actions: {id, label, confirm?, disabledReason?}[], onAction(id), blockedReason?, blockedIcon?,
+busy?, labels?}: the header Actions menu. Plain items (no colour); a transition runs as soon as it is chosen (unless the
+item asks to `confirm`); "No actions from this status" when there is none; an item with a `disabledReason` stays visible,
+disabled, its reason after its label; `blockedReason` (e.g. "Save your changes first" while the page is dirty) replaces
+the menu by a disabled button with that tooltip (and `blockedIcon`).
+
+The record page pattern: **transitions only from the header Actions menu; the rail is read-only** (path, where it can go
+next, End of lifecycle, View full lifecycle). No failed / lost step kind: a closed state reads as any current state; its
+badge tone comes from `lifecycleTone`.
+
+### 9.5 Lifecycle on Frappe data — `FrappeWorkflowActions`
+
+`FrappeWorkflowActions` (`@solvfast/ui/frappe`) gives the same pattern from a Frappe Workflow (0.8.0-dev.5):
+
+- **`variant="actions"`** — the header Actions menu alone (`LifecycleActions`): the server's `get_transitions` answer for
+  this user (authoritative; roles, self-approval and conditions are the server's). Blocked with `recSaveBeforeAction`
+  while the document is unsaved, or with the host's `blockedReason` (e.g. the page has unsaved changes). `confirm`,
+  `beforeApply` / `afterApply`, `onApplied` as in the other variants; a refusal is shown under the menu.
+- **`variant="rail"`** — the Lifecycle card, **read-only by default**: path = the states the record entered, oldest first
+  (docinfo `workflow_logs`, then Version rows; `stateEntries`), ending with the current state, meta `who · day`; next =
+  every state the **workflow** leads to from here (`workflowLifecycle` + `lifecycleNext`: whoever may run it); End of
+  lifecycle when no transition leaves the state. `onViewAll`, `railLabels` pass through.
+  `applyFromRail` restores the 0.8.0-dev.1–dev.4 rail whose ways forward are buttons applying this user's transitions.
+- `variant="compact"` (default; badge + menu; FrappeForm's toolbar) is unchanged.
+- `workflowLifecycle(workflow, translate)` maps a Workflow to a `LifecycleDefinition` (`allowed` → `roles`). Phase from
+  Frappe's data: a state with `doc_status` 1 / 2, or with no transition out to another state, is `"closed"` (a closed
+  Danger state gets a red `color`, no style / Gray / Inverse a grey one, for `lifecycleTone`); every other state is
+  `"open"`. A Frappe Workflow marks nothing as on hold, so `"on_hold"` is never given.
+
+On Frappe data the path is the record's real history (it is known); on host data without a log, `lifecyclePath` (the
+shortest path) is the reference's display. Workflow semantics (field names, states, transitions, `apply_workflow`,
+permissions) are unchanged. Tests: `tests/frappe-lifecycle-rail.test.tsx` (stub client — request / response shapes,
+**simulated**; validation on a real site is pending, P1), `tests/lifecycle-contract.test.tsx`.
+
+### 9.6 The diagram renderer — `@solvfast/ui/lifecycle-diagram` (Run 1 I1)
+
+A separate entry with two **optional peer dependencies**, `reactflow` (11, the CRM's version) and `@dagrejs/dagre`. Core
+never imports it (boundary check). It draws Core's `lifecycleGraph` model with Core's look:
+
+```tsx
+import { LifecycleFlowDialog } from "@solvfast/ui/lifecycle-diagram";
+import "reactflow/dist/style.css";
+import "@solvfast/ui/lifecycle-diagram.css";
+<LifecycleFlowDialog open={open} onOpenChange={setOpen} title="Deal lifecycle · New business"
+  graph={lifecycleGraph(definition, currentId, pathIds)} meta={{ [stateId]: "Omar · Apr 12" }} />
+```
+
+- `LifecycleFlow` (the canvas; fills its positioned parent), `LifecycleFlowDialog` (Core `LifecycleDiagramDialog` + the
+  canvas), `lifecycleFlowLayout` (dagre layout → nodes / edges), `roundedPath`.
+- Port of the CRM's `LifecycleDiagramPopup`: dagre top-to-bottom, rounded orthogonal edges on dagre's waypoints, the path
+  taken highlighted, read-only pan / zoom, fit to view, re-centred on the current state above 10 states.
+- `phaseLabels` (default the catalogue's Open / On Hold / Closed), `currentLabel`, `dir`, `focusCurrentAbove`.
+
+### 9.7 Editing a comment, form shortcuts, the title dialog (Run 1)
+
+- **`CommentRichEditor`** (D-28): an HTML comment is edited in the rich editor ("desk" sanitizer profile + @mentions):
+  formatting, links, images and mentions survive; Ctrl/⌘+Enter saves, Escape cancels. `Timeline` uses it for HTML
+  comments; plain-text comments keep `CommentComposer`; writing a new comment is unchanged.
+- **Form shortcuts** (C-81…C-84): `FrappeRecordMenu shortcuts` — Ctrl/⌘+P Print, Ctrl/⌘+E Email, Shift+D Duplicate,
+  Shift+Ctrl/⌘+D Delete (asks first); `FrappeForm` turns them on (`hotkeys={false}` off). A host with its own menu (the
+  CRM's `useRecordMenu`) does not render `FrappeRecordMenu`, so there is never a second handler.
+- **Title dialog** (C-67): `FrappeFormView onRenameTitle` — the form title opens Desk's title / rename dialog
+  (`update_document_title`); `FrappeForm onRenamed` gets a new name. `EditableTitle` saves asynchronously (pending,
+  revert with the message); `PageHeader titleInShell` makes an editable title the page's one `<h1>`.
+
+## 10. RecordRail — the CRM record page's right rail
+
+The right rail of the CRM record pages (Deal, Lead, Contact, Organization; Tickets reuse the cards), as DS components.
+It is a **port, not a redesign**: the DOM and class strings of the CRM's `SidebarCard`, `RailSection` (its DS-scope
+branch), `RelatedRecordRow`, `SidebarCustomizer` (DS-scope branch), `RailFooter` and `ReferencesPanel`, with
+`brand-violet` → `primary`. On the CRM Deal page the migrated rail is pixel-identical to the pre-migration capture
+(12 theme × language × width combinations; see `docs/audit/p0/P0-CONSOLIDATION.md`).
+
+**Two sidebar systems, both kept.** `RecordRail` is not the Desk form sidebar. `FormSidebar` / `FrappeFormSidebar` (§6:
+Assigned To, Attachments, Tags, Share, stats, Created / Modified, in Desk's order and look) are unchanged and remain the
+Frappe-native sidebar. The two can share data adapters (`FrappeAssignTo`, `FrappeAttachments`) but not their look.
+
+### 10.1 The rail
+
+`RecordRail` (renders an `aside`) — Customize sections, pinned sections, the visible sections in order, `footer`, then
+`after` (outside Customize).
+
+| Prop | Meaning |
+|---|---|
+| `sections` | `RecordRailSectionDef[]` = `{ id, label, render, pinned? }`, in order. `pinned` = always shown, first, not in Customize (the CRM's Lifecycle). `render` may return `null` when the section does not apply now (the CRM's Playbook). |
+| `visible` / `onVisibleChange` | Controlled visible ids (non-pinned). |
+| `defaultVisible` | Uncontrolled initial ids (default: all). |
+| `storageKey` | **Opt-in** persistence of the hidden ids (`localStorage` `sf-record-rail:<key>`). The CRM does not persist (per page view). |
+| `customize`, `customizeLabels`, `customizeIcon` | Show the button (default true); its strings; its glyph. |
+| `footer`, `after` | E.g. `RecordRailFooter`; `RecordRailArticles` (the CRM shows Articles after the footer). |
+| `className` | The aside's classes (the CRM: `lg:col-span-1 lg:sticky lg:top-4 lg:self-start space-y-4`). |
+
+Reordering by drag is not implemented (the CRM has none: its `SortableSidebar` is not mounted); cards accept a
+`dragHandle` (HTML attributes for the grip) for a host that adds one.
+
+### 10.2 Building blocks
+
+| Component | What it is |
+|---|---|
+| `RecordRailCard` | A card: hover grip, icon, uppercase title, end `action`, body. `accent` = border classes (default `border-primary/20 hover:border-primary/40`). `recordRailCardClass(accent, stacked)` is its surface for hosts that draw their own header (the CRM's Attachments card). |
+| `RecordRailSection` | A card whose `spec.kind` decides the header controls: `process` (none), `single` (pencil Change, × Clear), `multi` (count in the title, + Link), `content` (optional + Add). `notice` renders above the body. |
+| `RecordRailRow` | A linked record: tinted icon square, `#id`, name (Arabic with `nameAr` + `isAr`), subline, `chips`, a hover `action`. Clickable rows are `div[role=button]` (Enter / Space). |
+| `RecordRailCustomize` | "Customize sections" + the "Visible sections" checklist. |
+| `RecordRailFooter` | `lines: { label, who?, when?, whenTitle? }[]` and `seenBy: { label, people }`. Times are formatted by the host. |
+
+### 10.3 Modules
+
+| Module | Component | Host supplies |
+|---|---|---|
+| Assignment | `RecordRailAssignment` (inside a `single` section) | The assignee UI as children — `AssigneeGroup variant="list" withDetails` (mock / local data) or `FrappeAssignTo` (Frappe) — plus `team`, `autoAssign`, `footer` (e.g. open ToDo details). **0.8.0-dev.9 (AS-06)**: `team={{ label, value, options, onChange, changeLabel? }}` adds a focusable "Change team" button on the team row (a menu of `options`, the current one checked; `onChange(value)` — the host stores it and logs the history entry). Without `onChange` the row is the static one, unchanged. |
+| Attachments | `FrappeAttachments` (`@solvfast/ui/frappe`) with `className={recordRailCardClass(accent, false)}` | A `FrappeProvider` (a real site, or a local mock client as the CRM does). The section keeps the Desk attachments header (sentence case), as the CRM shows it today. Upload / Library / Link / remove / limits are `FrappeAttachments`' (§6). |
+| Organization (any single link) | `RecordRailLinkedRecord` | `record` (row props) or `emptyLabel`; `onChange` (toggle the host's picker), `onClear`; the `picker` element (e.g. a `LinkInput`-based record picker). |
+| Tasks | `RecordRailTasks` | `tasks: { id, title, titleAr?, subline?, status?, onOpen? }[]` (count in the title, max 5 rows, state badge, "Open in …" link only where `onOpen` is given), `emptyLabel`, `openLabel`; optional `onAdd` (the CRM has none). |
+| Articles | `RecordRailArticles` + `RecordRailArticleReader` | `articles: { id, title, meta? }[]`, `onOpen(id)`; the reader's `kicker`, `title`, body (the host renders / sanitises it), `link`. Renders nothing without articles. The reader's `side` is the logical Sheet side (default `right` = end edge). |
+
+Domain logic stays in the app: which organization / tasks / articles belong to a record, stores, undo, history logging,
+permissions and routing come in through props and callbacks.
+
+### 10.4 Glyphs and the host's icon version
+
+Every icon the package draws in the rail can be replaced (`gripIcon`, `icons`, `customizeIcon`, `openIcon`, …). The CRM
+is on `lucide-react` 0.462, the package on 1.28; some shapes differ (measured: `BookOpen`, `Settings2`, `CheckSquare`),
+so the CRM passes its own glyphs to keep its look exactly. Hosts on the package's version can omit them.
+
+### 10.5 Strings
+
+`rr*` messages (en / ar): Customize sections, Visible sections, Drag to reorder, Link, Add, Change, Clear, Articles.
+Pass `labels` when rendering outside a ThemeProvider or when the host's language state is not the provider's.
+
+### 10.6 FormView: `FrappeFormView aside`
+
+`FrappeFormView` / `FrappeForm` take `aside` (a node, or a function of the live form context like `menu`): the form
+takes 3 of 4 columns from `lg` up and the aside the 4th — the CRM record page's grid. Pass a `RecordRail` for the CRM
+experience or a `FrappeFormSidebar` for Desk's. Without `aside` the form's DOM is unchanged.
+
+## 11. RecordPage — a record's details page (0.8.0-dev.2; neutral names 0.8.0-dev.3)
+
+A record's details page as DS components. **The reference is the CRM record page** (Deal first; the same parts on Lead,
+Contact, Organization, Ticket): **ports, not a redesign**. Each reproduces the CRM's markup inside its @solvfast/ui scope, verified by
+structural signatures (every element's position, size and computed styles) and screenshots against the live page, 15
+states × 4 theme / language / width combinations (`docs/audit/p08/` record).
+
+### 11.1 Layout and surfaces
+
+- `RecordPage` — `back` ({label, onClick, icon}), `actions` (the toolbar's end: Save, Actions, ⋯), `header`, `children`
+  (the tabs), `aside` (a `RecordRail`), `between` (dialogs, bridges). The page container, toolbar and 3 + 1 grid.
+- **`surface`** (0.8.0-dev.4): `"glass"` (**default**) or `"plain"`.
+  - `"glass"` (or no `surface`) sets **`sf-record-page`**, the record page's glass surfaces
+    (`styles/src/sf-record-page.css`, shipped in glass.css: import glass.css to get them). The CRM's airy glass cards
+    (`.bg-card` + `.rounded-*` → the glass pane, 20 px corners on the large ones), band strips and page roots — the
+    reference look in any app. The package's own `Card` stays as it is (solid in light).
+  - `"plain"` omits `sf-record-page`: no record page surface styling; each component keeps its own surface classes (e.g.
+    a solid `bg-card`). Nothing else changes (same DOM, roles and focus order).
+  - Type: `RecordPageSurface`.
+
+### 11.2 Header and actions
+
+- `RecordHeaderCard variant="page"` — `avatar` (e.g. `RecordHeaderIcon` {icon, color}: the brand halo tile; or a photo),
+  `title` (e.g. `EditableTitle`), `name` (#id), `statusNode` (e.g. `StatusBadge` in the lifecycle tone), `titleExtra`
+  (e.g. `RecordNotSavedPill`), `facts` ({icon, text, onClick?: a link}), `value` (left-to-right, tabular), `chips`, `actions`.
+  The default variant is unchanged. **`variant="crm"`** (its 0.8.0-dev.2 name) is a **deprecated alias**
+  of `"page"`: the same output, kept for existing code; prefer `"page"`. (The header's `data-record-header` attribute
+  reads `"page"` for both.)
+- `RecordQuickAction` (outline pill; `variant="primary"` = filled) and `RecordQuickActionMenu` (`variant="split"`: Meeting ▾;
+  `"more"`: More ▾; `items` with icon, icon colour, onSelect).
+- The toolbar's ⋯: `RecordMenu` with `contentClassName="w-60"`, `shortcutDir="inherit"`, `layout="inline"` and the host's
+  trigger; Actions: `ActionBar variant="menu"`; Save: `RecordSaveButton`.
+- `RecordTabs` — {value, onValueChange, tabs: {value, label, icon, hidden?}[], overflow?, ariaLabel?} + the `TabsContent`
+  panels. `overflow="fill"` (default): equal tabs sharing the bar (the CRM's main record tabs). `overflow="scroll"`: each
+  tab keeps its content width and the bar scrolls horizontally when they don't fit — the CRM's own scrollable tab bar
+  (its Activities sub-tabs: `w-full overflow-x-auto` around a `min-w-max` list, no-wrap tabs); on a wide screen it still
+  fills. `hidden` leaves a tab out (the CRM's feature-flagged tabs); `ariaLabel` names the list. Keyboard: arrow keys
+  move between the shown tabs (reversed in RTL). Not added (no CRM evidence): per-tab disabled, count badges (a
+  `label` is a node), render-on-demand content.
+
+### 11.3 Editing — `RecordEditSession`
+
+One session per page. **Page-level Save** (`pageSave` + `commit`): many cards edit at once; every change feeds one save —
+`RecordNotSavedPill`, `RecordSaveButton` (toolbar), Ctrl/Cmd+S; `saveAll()` merges the dirty regions' patches (a region's
+`getPatch` returning `false` refuses and is focused) and calls `commit` once. **Single card** (default): one card at a
+time, its own Save. Leaving while dirty (`useRecordEditSession().guard(fn)`) asks: Save and leave · Discard · Keep editing.
+Host hooks: `notify` (saved / error — e.g. a toast), `onDirtyChange` (e.g. a shell guard), `renderUnsavedDialog` (an app's
+own popup), `labels` (`res*` messages, in `messages-ws/recordEditSession.ts`; the About cards' `rpg*` are in `recordAbout.ts`. Both
+were one module, `recordPageCrm.ts`, until 0.8.0-dev.2 — keys and wording unchanged). `RecordEditableCard` — {cardId, label, renderEdit({markDirty}), getPatch, onSave,
+onCancel, editableWhenClosed, readOnly, icon, headerExtra}: header (icon, title, Edit), body, Cancel (+ Save) while editing.
+
+### 11.4 About cards
+
+`RecordInfoTile` (labelled tile; `tone` = border + wash classes), `RecordInfoRow` (icon square + label + value; `tone`),
+`RecordScoreRing` (0–100; ≤ 64 px = compact), `RecordFieldList` (label / value rows; `emptyLabel`), `RecordInsightCard`
+(icon, title, subtitle; e.g. an AI summary whose text the app writes), `RecordClosedNotice`, `RecordInteractions`
+(inbound / outbound columns of `RecordInteraction`, up to 4 each, a row opens to its body). Domain content (the summary's
+text, health signals, which interactions are inbound) stays in the app.
+
+`RecordSectionCard` (0.8.0-dev.5) — {label, icon, headerExtra, children, cardId, className, bodyClassName}: a read-only
+card in the record page family, the shell of `RecordEditableCard` without editing (same DOM as a read-only editable card:
+`section.rounded-xl.border.bg-card` › header with icon, `h3` title and `headerExtra` › `p-4` body). For an app's own
+content in a tab. Use `RecordEditableCard` when the card edits.
+
+### 11.5 Composing a record page (Core, Frappe adapters, app)
+
+A record page is **composed by the app** from Core parts; nothing in Core knows the app's record type.
+
+```tsx
+<RecordEditSession pageSave commit={save}>                 {/* optional: one Save for the page */}
+  <RecordPage
+    surface="glass"                                        {/* default; "plain" opts out */}
+    back={{ label: "Back to …", onClick }}                 {/* toolbar start */}
+    actions={<><RecordSaveButton /><ActionBar variant="menu" … /><RecordMenu … /></>}   {/* toolbar end */}
+    header={<RecordHeaderCard variant="page" avatar={<RecordHeaderIcon icon={…} />} title={…} facts={…}
+              actions={<><RecordQuickAction … /><RecordQuickActionMenu … /></>} />}  {/* header + quick actions */}
+    aside={<RecordRail sections={[{ id, label, render }, …]} footer={<RecordRailFooter … />} />}       {/* right rail */}
+  >
+    <RecordTabs value={tab} onValueChange={setTab} tabs={[…]} overflow="scroll">
+      <TabsContent value="about">
+        <RecordEditableCard … />                           {/* edits */}
+        <RecordSectionCard label="…" icon={…}>{appContent}</RecordSectionCard>   {/* read-only, app content */}
+      </TabsContent>
+      <TabsContent value="history"><Timeline … /></TabsContent>
+    </RecordTabs>
+  </RecordPage>
+</RecordEditSession>
+```
+
+| Slot | What goes there | Owner |
+|---|---|---|
+| `back`, `actions` | navigation, Save, the transitions menu, the ⋯ menu | Core components; the handlers are the app's |
+| `header` | `RecordHeaderCard variant="page"` (title, status, facts, value, quick actions) | Core component; the values and actions are the app's |
+| `children` | `RecordTabs` + panels: `RecordEditableCard`, `RecordSectionCard`, the About cards, any app component | Core components; the content (fields, wording, business rules) is the app's |
+| `aside` | `RecordRail` with the app's sections (Lifecycle, Assignment, Linked records, Tasks, custom ones) | Core component; each section's `render` is the app's |
+| data, permissions, stores, routing, history storage | — | the app (or a Frappe adapter: `@solvfast/ui/frappe`) |
+
+The CRM record page is the reference composition (`showcase` › Record page (CRM)); the package keeps no CRM content.
+`showcase` › **Record page (dental patient)** composes the same parts for a dental clinic (package components only): a patient
+journey (`LifecycleActions` in the toolbar, a read-only `LifecycleRail` from `lifecyclePath` / `lifecycleNext`, the badge
+from `lifecycleTone`), five tabs (`overflow="scroll"`), an edit session, an app card (`RecordSectionCard`), an app rail
+section and an embedded `ListView`.
+
+### 11.6 Not yet
+
+- The Frappe adapter: `FrappeFormView` rendering this page (header from the doc, sections as `RecordEditableCard`s bound
+  to the form controller's dirty / save). Today `FrappeFormView aside` (§10.6) hosts the rail beside Desk's form. Run 1
+  I2: the boundary is proposed in `docs/specs/FRAPPE-RECORDPAGE-BOUNDARY.md` (a headless form controller + binding
+  hooks, no page component) — **awaiting the owner's review; no hooks are implemented**.
+- Lead, Contact, Organization, Ticket, Service Request, Order: their headers / toolbars / About cards are not on these
+  components yet (their rail cards and the edit session are).

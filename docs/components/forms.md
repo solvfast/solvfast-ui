@@ -241,15 +241,37 @@ const guard = useUnsavedChangesBlocker(dirty);
 (`{ open, onSave, onDiscard, onStay, saving? }`; Escape or closing = Keep editing). The host opens it, e.g. from a data
 router's `useBlocker(dirty)`, and saves with the form's `controllerRef.current.save()`.
 
-`sectionEdit` (0.7.0-dev.35): a saved record reads until a section's **Edit** (`data-section-edit`), which opens that
-section only, with **Cancel** (`data-section-cancel`) putting back that section's saved values (the last section's
-Cancel puts the whole record back, so it is clean again). An open section counts as not saved (Not Saved tag, Save,
-`onDirtyChange(true)`); Save saves all open sections and closes them; a field to fix (mandatory, server error) opens its
-section. A new record is edited whole. The look is the CRM reference's read view: each section a card (icon tile,
-title or "Details", Edit / Cancel in its header); a section that reads lays its fields out two to a line as `ReadRow`s
-(`data-read-row`: an icon tile by field type, the label small and upper-case, FrappeField's read value under it, "— Not
-provided" when empty; text and pictures take the whole line); help texts show only in an open section. `stateInHeader`: no state indicator in the toolbar (and, in `FrappeForm`, no state
-badge in the workflow bar); Not Saved / Draft / Submitted / Cancelled stay.
+`sectionEdit` (0.7.0-dev.35; 0.10.0): a saved record reads until it is opened for editing; a new record is edited whole.
+What an Edit opens is `editScope` (0.10.0, one mechanism — the form's set of open sections — under two controls):
+
+- `"section"` (default): each section has its own **Edit** (`data-section-edit`), which opens that section only, and
+  **Cancel** (`data-section-cancel`), which puts back that section's saved values (the last section's Cancel puts the
+  whole record back).
+- `"record"`: one **Edit** (`data-record-edit`, message `rpEdit`) opens every editable section at once; the toolbar then
+  has **Save** and one **Cancel** (`data-record-cancel-edit`, message `rpCancelEdit`) that closes them all and puts the
+  saved copy back; there are no section buttons. The Edit goes where the host's `header` places it: `header` may be a
+  function of `FrappeFormHeaderContext` (`{ editAction, editing }`) — `SayrRecordPage` puts `editAction` by the record's
+  name; with a plain `header` (or none) it is in the toolbar.
+
+In both, **opening is not a change** (0.10.0): the record counts as not saved only once a value changes — the Not Saved
+tag, `onDirtyChange(true)` and the leave guard wait for a change; while something is open Save shows, disabled until
+then (also on a workflow DocType, whose clean form otherwise shows its actions instead of Save). Cancelling an untouched
+section, or the last changed one, leaves the form clean. A newer server copy (a refetch, someone else's save) while
+nothing was changed just refreshes the values — open sections stay open, no "modified after you opened it" banner;
+after a change the banner shows as before. Save saves all open sections and closes them; a field to fix (mandatory,
+server error) opens its section (in `"record"` scope: the record).
+
+The look is the CRM reference's read view: each section a card (icon tile, title or "Details", Edit / Cancel in its
+header in `"section"` scope); a section that reads shows its fields as read rows (internal) in a description list (`<dl>`, each row
+a `dt` label with the icon tile and a `dd` value; `data-read-row`, `data-not-provided`). Desk's columns stay columns
+(`data-read-column`, each read top to bottom, side by side from `sm` up); a one-column section lays its rows two to a
+line, in order (text and pictures take the whole line). The icon tiles use theme tokens (primary, success, info,
+warning, brand orange). The label is small capitals with letter-spacing in a Latin-script UI only, never in Arabic. The
+value is FrappeField's read rendering, "— Not provided" when empty; help texts show only in an open section.
+
+`stateInHeader`: no state indicator in the toolbar (and, in `FrappeForm`, no state badge in the workflow bar —
+`FrappeWorkflowActions` `hideCurrent`); Not Saved / Draft / Submitted / Cancelled stay. `SayrRecordPage` sets it only
+when the record has a Sayr lifecycle (see record.md).
 
 ### 2.3 User defaults (P35)
 
