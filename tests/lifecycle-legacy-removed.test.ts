@@ -22,6 +22,9 @@ import type { LifecycleBarProps as _FrappeProps } from "../src/frappe";
 // the retained types the CRM imports still resolve
 import type { DocStatus, DocstatusField, LifecycleDefinition, LifecycleRailNext, LifecycleRailStep, LifecycleStateItem, LifecycleStep } from "../src";
 import type { FrappeWorkflowActionsProps, WorkflowInfo, WorkflowState, WorkflowTransition } from "../src/frappe";
+// Importing / scanning the whole built package in a busy test worker takes several seconds (1.6 s alone, >5 s in the
+// full suite): these two dist checks (run only when dist/ is fresh) get their own timeout instead of the 5 s default.
+const DIST_TIMEOUT = 30_000;
 
 const root = path.resolve(__dirname, "..");
 const dist = path.join(root, "dist");
@@ -56,7 +59,7 @@ describe("(a) LifecycleBar is not exported (0.8.0-dev.10)", () => {
     for (const f of ["index.d.ts", "frappe/index.d.ts", "record/index.d.ts"]) {
       expect(fs.readFileSync(path.join(dist, f), "utf8")).not.toMatch(/LifecycleBar/);
     }
-  });
+  }, DIST_TIMEOUT);
 });
 
 describe("(b) the retained lifecycle API is exported", () => {
@@ -89,7 +92,7 @@ describe("(d) dist scan", () => {
     expect(files.length).toBeGreaterThan(100);
     const hits = files.filter((f) => /LifecycleBar|currentMarker|showCurrentEntry/.test(fs.readFileSync(f, "latin1"))).map((f) => path.relative(root, f));
     expect(hits).toEqual([]);
-  });
+  }, DIST_TIMEOUT);
   it("reports whether the dist checks ran", () => {
     if (!distFresh) console.info("[lifecycle-legacy-removed] dist/ is missing or older than src/: the dist checks were skipped — run `npm run build` first");
     expect(true).toBe(true);
