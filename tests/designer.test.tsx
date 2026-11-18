@@ -562,6 +562,7 @@ describe("FD.sayr — createSayrFieldDesignerAdapter (SIMULATED)", () => {
   it("FD.sayr.5 no right → a refusal, not an error; a removal says how many records hold values", async () => {
     const denied = recordingApi({ "sear_product.apis.field_library.deployments.doctype_deployment": () => { throw Object.assign(new Error("Not permitted"), { status: 403 }); } });
     expect((await createSayrFieldDesignerAdapter(denied.api, "X", { language: "ar" }).load()).refusal).toMatch(/مسؤول منصة سير/);
+    expect((await createSayrFieldDesignerAdapter(denied.api, "X").load()).refusal).toBe("Designing this form needs the Sayr Platform Administrator role.");
     const { api } = recordingApi();
     const adapter = createSayrFieldDesignerAdapter(api, "SRF Ticket Refund Request");
     await adapter.load();

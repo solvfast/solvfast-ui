@@ -186,7 +186,7 @@ created). Saving it deploys it.
 
 Every added row is anchored by Sayr's tokens, which the server resolves: `@<set>::<key>`, `@<set>::__section`,
 `@own::<key>`, `@section::<label>`, `@tab::<label>` (`sayrToken`). `definitionOfRow` / `rowOfDefinition` map Sayr's row
-to `FieldDefinition` and back (only the properties the type takes are sent). Needs the Sear Platform Administrator
+to `FieldDefinition` and back (only the properties the type takes are sent). Needs the Sayr Platform Administrator
 role; without it, and for a DocType Sayr cannot deploy on, the section shows why instead of the tools. A field set
 that changed since it was saved shows a note to redeploy it from the Field Library.
 

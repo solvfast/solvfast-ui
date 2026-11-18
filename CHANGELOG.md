@@ -8,7 +8,7 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## 0.10.0 — one line again: the 0.9.0 release and the 0.7.x line, consolidated (unreleased)
 
-The published **0.9.0** with the 0.7.x `main` line (**0.7.0-dev.23 … dev.35**, never published) merged into it (a true
+The published **0.9.0** with the 0.7.x `main` line (**0.7.0-dev.23 … dev.36**, never published) merged into it (a true
 merge: both histories are kept), then the conflicts and duplicates resolved. Every export and component prop of 0.9.0
 is still there (`npm run check:api` against `api/0.9.0.json`: 0 removals); the breaking changes below are behavioural
 or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest suite of both lines.
@@ -98,7 +98,7 @@ or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest su
 - **From 0.9.0:** no code change needed. Check the behaviour changes above (lifecycle dialog; Lifecycle/SLA/Playbook
   cards on DocTypes without a lifecycle; Frappe Workflow phases). To keep linking to Sayr Studio for now, pass
   `lifecycleHref={defaultLifecycleHref}` (deprecated).
-- **From 0.7.0-dev.23 … dev.35 (the 0.7.x line):** you also get the 0.8.0 / 0.9.0 changes since 0.7.0-dev.22 (see 0.8.0
+- **From 0.7.0-dev.23 … dev.36 (the 0.7.x line):** you also get the 0.8.0 / 0.9.0 changes since 0.7.0-dev.22 (see 0.8.0
   and 0.9.0 below), notably: `LifecycleBar` and `FrappeWorkflowActions variant="steps"` / `currentMarker` /
   `showCurrentEntry` are gone (use `variant="rail"` — read-only unless `applyFromRail` — or `"actions"`); new default
   form behaviour (shortcuts Ctrl/⌘+P/E, Shift+D; fields locked while saving; the "modified after you opened it"
@@ -113,6 +113,12 @@ These builds were made on `main` after it diverged from the 0.8.x/0.9.x line at 
 pre-releases of 0.7.0 they sort **below** the published 0.7.0; 0.10.0 supersedes all of them. Two labels were used for
 two different builds each: **dev.33** (7afb046, then 108f768 — the LifecycleGraph arrow-routing fix) and **dev.35**
 (ceb058e, then 86cba02 — the read view as the CRM reference). Their entries are kept as written.
+
+### 0.7.0-dev.36 — The form designer names the Sayr Platform Administrator role
+
+Patch (main 67ec684, merged into 0.10.0). `createSayrFieldDesignerAdapter`'s refusal (403) says "Designing this form
+needs the Sayr Platform Administrator role.": Sayr's roles are named Sayr, no longer Sear. The Arabic text is unchanged
+(منصة سير). Test FD.sayr.5.
 
 ### 0.7.0-dev.35 — A record is edited section by section; the state shows once; an unsaved-changes dialog
 
