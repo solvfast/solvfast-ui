@@ -273,6 +273,24 @@ describe("RE.record — editScope=\"record\": one Edit, one Cancel, on the same 
     expect(screen.queryByText("Not Saved")).toBeNull();
   });
 
+  it("RE.record.7 while held, an invisible Not Saved placeholder keeps the toolbar still; the first change swaps it for the real badge", () => {
+    render(view(D1, { editScope: "record" }));
+    expect(document.querySelector("[data-form-indicator-placeholder]")).toBeNull(); // reading: nothing reserved
+    fireEvent.click(document.querySelector("[data-record-edit]") as HTMLElement);
+    const ph = document.querySelector("[data-form-indicator-placeholder]") as HTMLElement;
+    expect(ph).not.toBeNull();
+    expect(ph.getAttribute("aria-hidden")).toBe("true");
+    expect(ph.className).toContain("invisible");
+    expect(ph.getAttribute("data-label")).toBe("Not Saved");
+    expect(ph.textContent).toBe(""); // no text node: never found as a second "Not Saved"
+    expect(screen.queryByText("Not Saved")).toBeNull();
+    fireEvent.change(box("City")!, { target: { value: "Giza" } }); fireEvent.blur(box("City")!);
+    expect(document.querySelector("[data-form-indicator-placeholder]")).toBeNull();
+    expect(document.querySelector("[data-form-indicator]")?.textContent).toBe("Not Saved");
+    fireEvent.click(document.querySelector("[data-record-cancel-edit]") as HTMLElement);
+    expect(document.querySelector("[data-form-indicator-placeholder]")).toBeNull();
+  });
+
   it("RE.record.3 a header render function places the Edit (and the toolbar then has none)", () => {
     render(view(D1, { editScope: "record", header: ({ editAction, editing }) => <div data-test-header={editing ? "editing" : "reading"}>{editAction}</div> }));
     const header = document.querySelector("[data-test-header]") as HTMLElement;

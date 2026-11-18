@@ -1069,6 +1069,14 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           </div>
           </>}
           {indicator && !(props.stateInHeader && !ind?.builtin) && <Badge variant={indicator.variant} style={indicator.style} data-color={indicator.colour} data-form-indicator>{indicator.text}</Badge>}
+          {/* Open for editing, nothing changed yet, no indicator shown: keep "Not Saved"'s place (invisible), so the first
+              change does not push the toolbar's buttons — on a narrow, wrapping toolbar a press on Save would otherwise
+              land where Save was a moment before the change committed, and be lost. The label is CSS-generated
+              (no text node), so nothing reads or finds a second "Not Saved". */}
+          {held && !(indicator && !(props.stateInHeader && !ind?.builtin)) && (
+            <Badge variant="outline" className="invisible before:content-[attr(data-label)]" aria-hidden
+              data-label={t("formNotSaved")} data-form-indicator-placeholder="" />
+          )}
           {notice && <span role="status" className="text-xs text-muted-foreground">{notice}</span>}
           {!notice && permissionsUnknown && <span role="status" data-permissions="unknown" className="text-xs text-muted-foreground">{t("formReadOnly")}</span>}
           {props.toolbarExtra}

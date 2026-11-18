@@ -63,6 +63,8 @@ or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest su
   While a section is open and nothing has changed, Save is **held**: shown and clickable (`data-primary-held`), never
   disabled — pressing it right after typing commits the field and saves on that first press; with nothing changed it
   just closes the open sections (no request).
+  While held, an invisible, unannounced placeholder keeps Not Saved's place, so the first change does not move Save on
+  a narrow, wrapping toolbar (a press landing there was lost on phones).
 - `SayrRecordPage` no longer hides a Frappe Workflow's or a status field's state on records without a Sayr lifecycle
   (0.7.0-dev.35 showed it nowhere); while the record page loads, the toolbar state never flashes on a lifecycle record.
 - Read view: Desk's column order kept, description-list semantics, theme-token icon tiles, no capitals or letter-spacing
