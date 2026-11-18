@@ -153,7 +153,7 @@ export function withMadeFields(items: DesignerItem[], made: Screen["target_field
 
 /** A FieldDesigner adapter for one type DocType (a family type, or any DocType Sayr's Field Library can deploy on), or
  *  for a family type not created yet (`SayrNewType`: it starts with the family's shared fields, and its Save deploys onto
- *  the DocType the type's Save made). Needs the Sear Platform Administrator role; without it `load` resolves to a refusal. */
+ *  the DocType the type's Save made). Needs the Sayr Platform Administrator role; without it `load` resolves to a refusal. */
 export function createSayrFieldDesignerAdapter(api: SayrApi, target: string | SayrNewType, options: SayrFieldDesignerOptions = {}): FieldDesignerAdapter {
   const ar = options.language === "ar";
   let doctype: string | null = typeof target === "string" ? target : null;
@@ -211,7 +211,7 @@ export function createSayrFieldDesignerAdapter(api: SayrApi, target: string | Sa
         : await call<Screen>(`${METHODS}.new_type_deployment`, { parent: target.parent });
     } catch (e) {
       const status = (e as { status?: number }).status;
-      if (status === 403) return { items: [], refusal: ar ? "يتطلب تصميم النموذج دور مسؤول منصة سير." : "Designing this form needs the Sear Platform Administrator role." };
+      if (status === 403) return { items: [], refusal: ar ? "يتطلب تصميم النموذج دور مسؤول منصة سير." : "Designing this form needs the Sayr Platform Administrator role." };
       throw e;
     }
     screen = s;

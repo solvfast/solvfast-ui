@@ -6,6 +6,12 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.36 — The form designer names the Sayr Platform Administrator role
+
+Patch. `createSayrFieldDesignerAdapter`'s refusal (403) says "Designing this form needs the Sayr Platform
+Administrator role.": Sayr's roles are named Sayr, no longer Sear. The Arabic text is unchanged (منصة سير).
+Test FD.sayr.5.
+
 ## 0.7.0-dev.35 — A record is edited section by section; the state shows once; an unsaved-changes dialog
 
 Visual. `FrappeFormView` / `FrappeForm` `sectionEdit`: a saved record reads until a section's own **Edit**, which opens
