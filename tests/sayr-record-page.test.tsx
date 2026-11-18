@@ -468,6 +468,61 @@ describe("RP.cards — empty states, tasks, customize", () => {
   });
 });
 
+describe("RP.sayrLabels — the fields Sayr adds to a lifecycle DocType, on a site without their translation", () => {
+  // Sayr's deployment adds sear_lifecycle "Lifecycle" and sear_state_since "Status Since" (read-only) to every lifecycle
+  // DocType; on the Sada post they sit in an unlabelled section, so its card is titled from them.
+  const POST: DocTypeMeta = {
+    name: "Post X", autoname: "hash", title_field: "title", permissions: ALL,
+    fields: [
+      { fieldname: "title", fieldtype: "Data", label: "Title" },
+      { fieldname: "content_section", fieldtype: "Section Break", label: "Content" },
+      { fieldname: "body", fieldtype: "Data", label: "Body" },
+      { fieldname: "own_block", fieldtype: "Section Break" },
+      { fieldname: "sear_lifecycle", fieldtype: "Data", label: "Lifecycle", read_only: 1 },
+      { fieldname: "sear_state_since", fieldtype: "Datetime", label: "Status Since", read_only: 1 },
+    ],
+  };
+  const pdoc = { doctype: "Post X", name: "PX-1", owner: "omar@x.test", creation: T, modified: T, modified_by: "Administrator", docstatus: 0, title: "Hajj guide", body: "Step by step", sear_lifecycle: "SEAR-LC-00002", sear_state_since: "2026-11-17 21:26:09" } as FrappeDoc;
+  const mountPost = (language: "en" | "ar", translations?: Record<string, string>, meta: DocTypeMeta = POST) => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tr = createFixtureTransport({ meta: { "Post X": [meta] }, docs: { "Post X": [pdoc] } }, { handlers: { [RECORD_PAGE_METHOD]: () => ({ message: PAGE() }) } });
+    return render(
+      <QueryClientProvider client={qc}>
+        <FrappeProvider client={createFrappeClient({ transport: tr })} queryClient={qc} translations={translations} session={{ user: "Administrator", fullName: "Administrator", roles: ["System Manager"] }}>
+          <ThemeProvider defaultLanguage={language} storageKeys={null}>
+            <SayrRecordPage doctype="Post X" name="PX-1" typeLabel="Post" onBack={() => {}} viewFirst editScope="record" />
+          </ThemeProvider>
+        </FrappeProvider>
+      </QueryClientProvider>,
+    );
+  };
+  const titles = (c: HTMLElement) => [...c.querySelectorAll("section[data-section]")].map((e) => e.getAttribute("aria-label"));
+
+  it("RP.sayrLabels.1 Arabic: the two labels and the card titled from them are in Arabic; the site's own words are untouched", async () => {
+    const { container } = mountPost("ar", { Content: "المحتوى" });
+    await waitFor(() => expect(titles(container).length).toBe(3));
+    expect(titles(container)).toEqual(["التفاصيل", "المحتوى", "دورة الحياة · الحالة منذ"]);
+    expect(container.querySelector('[data-read-row="sear_lifecycle"]')?.textContent).toContain("دورة الحياة");
+    expect(container.querySelector('[data-read-row="sear_state_since"]')?.textContent).toContain("الحالة منذ");
+    expect(container.querySelector('[data-read-row="title"]')?.textContent).toContain("Title"); // not Sayr's: no translation, stays
+  });
+
+  it("RP.sayrLabels.2 English stays as it was; a site translation wins; a label the site renamed is never replaced", async () => {
+    const en = mountPost("en");
+    await waitFor(() => expect(titles(en.container).length).toBe(3));
+    expect(titles(en.container)[2]).toBe("Lifecycle · Status Since");
+    cleanup();
+    const site = mountPost("ar", { Lifecycle: "مسار الحالات" });
+    await waitFor(() => expect(titles(site.container).length).toBe(3));
+    expect(titles(site.container)[2]).toBe("مسار الحالات · الحالة منذ");
+    cleanup();
+    const renamed = { ...POST, fields: POST.fields.map((f) => (f.fieldname === "sear_state_since" ? { ...f, label: "Moved On" } : f)) };
+    const r = mountPost("ar", undefined, renamed);
+    await waitFor(() => expect(titles(r.container).length).toBe(3));
+    expect(titles(r.container)[2]).toBe("دورة الحياة · Moved On");
+  });
+});
+
 describe("RP.assign — AssignDialog threePriorities", () => {
   it("RP.assign.1 offers only Low / Medium / High, Medium first, and keeps the given comment", async () => {
     render(

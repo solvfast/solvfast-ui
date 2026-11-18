@@ -30,6 +30,7 @@ import { htmlToText } from "../record/sanitize";
 import { useLocale } from "../theme/ThemeProvider";
 import type { FrappeDoc } from "../frappe/contract";
 import { FrappeForm, type FrappeFormProps } from "../frappe/form/FrappeForm";
+import { FrappeFormServices, useFormServices, type FormServices } from "../frappe/form/services";
 import type { FrappeFormHeaderContext } from "../frappe/form/FrappeFormView";
 import { useFrappeApi, useFrappeSettings } from "../frappe/FrappeProvider";
 import { useDoc, useMetaBundle, usePermissions, useRefreshDoc } from "../frappe/hooks";
@@ -137,6 +138,23 @@ export function SayrRecordPage({
   const doc = loaded.data?.doc as FrappeDoc | undefined;
   const docinfo = loaded.data?.docinfo;
   const permissions = usePermissions(meta.data, doc, docinfo);
+  // The fields Sayr's deployment adds to every lifecycle DocType carry fixed English labels; a site without their
+  // translation showed them (and a section titled from them) in English on an Arabic page. Only those labels, only while
+  // the site has no translation of its own: the package's words for them.
+  const outerServices = useFormServices();
+  const sayrLabels = React.useMemo(() => {
+    const own: Record<string, string> = { sear_lifecycle: "Lifecycle", sear_state_since: "Status Since" };
+    const ours: Record<string, string> = { sear_lifecycle: t("rpLifecycle"), sear_state_since: t("rpStateSince") };
+    const m = new Map<string, string>();
+    for (const f of meta.data?.meta.fields ?? []) if (own[f.fieldname] && f.label === own[f.fieldname]) m.set(f.label, ours[f.fieldname]);
+    return m;
+  }, [meta.data, t]);
+  const formServices = React.useMemo<Partial<FormServices>>(() => ({
+    translate: (bundle, text) => {
+      const done = outerServices.translate(bundle, text);
+      return done === text ? (sayrLabels.get(text) ?? done) : done;
+    },
+  }), [outerServices, sayrLabels]);
   const canWrite = !!doc && permissions.can("write");
   const [dirty, setDirty] = React.useState(false);
   const [formKey, setFormKey] = React.useState(0);
@@ -317,6 +335,7 @@ export function SayrRecordPage({
   return (
     <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-4" data-sayr-record-page>
       <div className="min-w-0 lg:col-span-3">
+        <FrappeFormServices value={formServices}>
         <FrappeForm
           key={formKey}
           {...form}
@@ -345,6 +364,7 @@ export function SayrRecordPage({
           onDirtyChange={(d) => { setDirty(d); onDirtyChange?.(d); }}
           onSaved={(saved, action) => { void refresh(); onSaved?.(saved, action); }}
         />
+        </FrappeFormServices>
       </div>
       <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start" aria-label={t("rpVisibleSections")}>
         <CustomizeSections hidden={hidden} onToggle={toggle} extra={extraCards} />

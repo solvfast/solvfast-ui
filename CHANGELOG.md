@@ -72,6 +72,10 @@ or type-level. Gates: typecheck, check:boundaries, check:api, the full vitest su
 - Section cards: an unlabelled section after the first is titled from its own visible fields ("Lifecycle · Status Since";
   translated), so two cards never both read "Details" (the first unlabelled section stays "Details"); a section's Edit
   button is named with its title.
+- `SayrRecordPage`: the two fields Sayr's deployment adds to a lifecycle DocType (`sear_lifecycle` "Lifecycle",
+  `sear_state_since` "Status Since") read in the UI language when the site has no translation of them (ar: "دورة الحياة",
+  "الحالة منذ"), so the card titled from them is not English on an Arabic page. A site translation, or a label the site
+  renamed, is used as is.
 - `LifecycleGraphView`: mirrors in right-to-left languages (was forced left-to-right), a text alternative (hidden list
   of transitions, each state's progress; en / ar), self-transitions drawn as loops, arrow-head ids unique per graph.
 - `LifecycleDiagramDialog` (and so `LifecycleGraphDialog`): closing it gives focus back to the button that opened it, as
