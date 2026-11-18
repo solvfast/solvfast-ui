@@ -6,6 +6,11 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.7.0-dev.37 — The record header no longer repeats who created the record
+
+Visual. `SayrRecordPage`'s header card no longer shows who created the record and when: the rail's footer card shows it
+(with who last edited it), so it is not repeated (message `rpCreatedOn` removed). Test RP.header.2.
+
 ## 0.7.0-dev.36 — The form designer names the Sayr Platform Administrator role
 
 Patch. `createSayrFieldDesignerAdapter`'s refusal (403) says "Designing this form needs the Sayr Platform

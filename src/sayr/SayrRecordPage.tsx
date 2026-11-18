@@ -10,8 +10,8 @@
  */
 import * as React from "react";
 import {
-  ArrowLeft, ArrowRight, Calendar, CheckSquare, FileText, GitBranch, History, ListChecks, Paperclip, ShieldCheck,
-  StickyNote, Timer, User, UsersRound,
+  ArrowLeft, ArrowRight, CheckSquare, FileText, GitBranch, History, ListChecks, Paperclip, ShieldCheck,
+  StickyNote, Timer, UsersRound,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { relativeTime } from "../lib/relative-time";
@@ -186,10 +186,7 @@ export function SayrRecordPage({
       name={name}
       avatar={photo ? <img src={photo} alt="" className="h-full w-full rounded-xl object-cover" data-record-photo /> : initials(title) || <FileText className="h-6 w-6" />}
       status={current ? { label: stateLabel(current), variant: PHASE_VARIANT[current.phase as keyof typeof PHASE_VARIANT] ?? "outline", key: current.state_key } : undefined}
-      facts={data ? [
-        { icon: User, text: data.header.owner_name || data.header.owner },
-        { icon: Calendar, text: fmt(t("rpCreatedOn"), dateTime(parseFrappeTime(data.header.creation), language)), title: dateTime(parseFrappeTime(data.header.creation), language) },
-      ] : undefined}
+      // Who created it and when is the rail's footer card (with who last edited it): not repeated here.
       chips={typeLabel ? <Badge variant="brand">{typeLabel}</Badge> : undefined}
       subtitle={typeof headerLine === "function" ? (doc ? headerLine(doc) : undefined) : headerLine}
       actions={headerActions}

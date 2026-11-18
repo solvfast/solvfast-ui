@@ -100,12 +100,14 @@ describe("RP.header — the header card and the type's tabs", () => {
       if (!el) throw new Error("no header yet");
       return el as HTMLElement;
     });
-    await waitFor(() => expect(within(header).getByText("Omar Ali")).toBeTruthy());
-    expect(within(header).getByText("Login does nothing")).toBeTruthy();
+    await waitFor(() => expect(within(header).getByText("Login does nothing")).toBeTruthy());
     expect(within(header).getByText("#TKT-00008")).toBeTruthy();
     expect(within(header).getByText("New")).toBeTruthy();
     expect(within(header).queryByText("omar@x.test")).toBeNull();
-    expect(within(header).getByText(/^Created /)).toBeTruthy();
+    // Who created it shows once, in the rail's footer card, not again in the header.
+    expect(within(header).queryByText("Omar Ali")).toBeNull();
+    expect(within(header).queryByText(/^Created /)).toBeNull();
+    await waitFor(() => expect(screen.getAllByText("Omar Ali").length).toBeGreaterThan(0));
   });
 
   it("RP.header.3 the record's photo (its DocType's image field) replaces the initials", async () => {
@@ -122,7 +124,7 @@ describe("RP.header — the header card and the type's tabs", () => {
     );
     await waitFor(() => expect(container.querySelector("[data-record-photo]")?.getAttribute("src")).toBe("/files/omar.png"));
     const plain = mount(PAGE());
-    await waitFor(() => expect(within(plain.container.querySelector("[data-record-header]") as HTMLElement).getByText("Omar Ali")).toBeTruthy());
+    await waitFor(() => expect(within(plain.container.querySelector("[data-record-header]") as HTMLElement).getByText("Login does nothing")).toBeTruthy());
     expect(plain.container.querySelector("[data-record-photo]")).toBeNull();
   });
 
