@@ -185,6 +185,13 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(screen.queryByText("Not Saved")).toBeNull();
   });
 
+  it("RP.view.7 oneForm keeps the app's fieldFilter: the fields it leaves out stay out, the tabs' fields read in one form", async () => {
+    const { container } = mount(PAGE(), "en", [], undefined, { oneForm: true, viewFirst: true, fieldFilter: (df) => df.fieldname !== "summary" });
+    await waitFor(() => expect(container.querySelector('[data-read-row="booking"]')).toBeTruthy());
+    expect(container.querySelector('[data-read-row="summary"]')).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Booking Change Request" })).toBeNull();
+  });
+
   it("RP.view.3 without viewFirst the page stays editable as before", async () => {
     const { container } = mount(PAGE());
     await waitFor(() => expect(screen.getByDisplayValue("Login does nothing")).toBeTruthy());

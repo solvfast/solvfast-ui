@@ -6,6 +6,11 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.11.0-dev.2 — `oneForm` keeps the app's `fieldFilter`
+
+Fix. `SayrRecordPage` with `oneForm` replaced the app's `fieldFilter` with its own (drop the tab breaks), so a field the
+app left out still showed. Both apply now. Test RP.view.7.
+
 ## 0.11.0-dev.1 — The record header no longer repeats who created the record
 
 Visual. `SayrRecordPage`'s header card no longer shows who created the record and when: the rail's footer card shows it

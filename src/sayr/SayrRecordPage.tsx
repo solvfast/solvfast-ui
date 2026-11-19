@@ -29,7 +29,7 @@ import { RecordHeaderCard } from "../record/RecordHeaderCard";
 import type { RecordPageSurface } from "../record/RecordPage";
 import { htmlToText } from "../record/sanitize";
 import { useLocale } from "../theme/ThemeProvider";
-import type { FrappeDoc } from "../frappe/contract";
+import type { FrappeDoc, FrappeDocField } from "../frappe/contract";
 import { FrappeForm, type FrappeFormProps } from "../frappe/form/FrappeForm";
 import { FrappeFormServices, useFormServices, type FormServices } from "../frappe/form/services";
 import type { FrappeFormHeaderContext } from "../frappe/form/FrappeFormView";
@@ -138,6 +138,9 @@ export function SayrRecordPage({
   const { t, language, isRTL } = useLocale();
   const api = useFrappeApi();
   const refreshDoc = useRefreshDoc();
+  const ownFilter = form.fieldFilter;
+  // One form drops the tab breaks and still leaves out what the app's own `fieldFilter` leaves out.
+  const oneFormFilter = React.useCallback((df: FrappeDocField) => noTabBreaks(df) && (ownFilter ? ownFilter(df) : true), [ownFilter]);
   const { session } = useFrappeSettings();
   const meta = useMetaBundle(doctype);
   const loaded = useDoc(doctype, name);
@@ -364,7 +367,7 @@ export function SayrRecordPage({
           pageTabPanel={!pageTabs?.length || openTab === "about" ? undefined : openTab === "history" ? (
             doc && session?.user ? <FrappeTimeline doc={doc} docinfo={docinfo} bundle={meta.data} user={session.user} /> : <Skeleton className="h-32" />
           ) : (pageTabs.find((tab) => tab.id === openTab)?.render(doc) ?? null)}
-          fieldFilter={oneForm ? noTabBreaks : form.fieldFilter}
+          fieldFilter={oneForm ? oneFormFilter : form.fieldFilter}
           onDirtyChange={(d) => { setDirty(d); onDirtyChange?.(d); }}
           onSaved={(saved, action) => { void refresh(); onSaved?.(saved, action); }}
         />
