@@ -6,6 +6,15 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.11.0-dev.4 — Each section saves itself (sectionEdit, editScope "section")
+
+**Behaviour change.** A record page read first (`sectionEdit`, `editScope` "section", the default) now works like the
+CRM reference's Tickets / Deals cards: one section is open at a time, and its header has **Cancel** and **Save** (Update
+on a submitted document) and, after a change, **Not saved**. The toolbar no longer shows Save or the Not saved tag
+(Submit, Amend and the workflow's actions stay). Opening another section while the open one has unsaved changes asks
+Save / Discard / Keep editing (`UnsavedChangesDialog`). With one section open, its Save saves that section's changes
+only. `editScope` "record" is unchanged. Tests RE.dirty.1, .3, .5, .6, .8 and RP.view.2.
+
 ## 0.11.0-dev.3 — The record page tells the host when a rail change is saved
 
 Additive. `SayrRecordPage` takes `notify(message)`: after a lifecycle move, an assignment change or a playbook step (each

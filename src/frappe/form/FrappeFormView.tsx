@@ -69,6 +69,7 @@ import { controlStatus, ladderStatus } from "./model/status";
 import type { DefaultsContext } from "./model/defaults";
 import { TABLE_TYPES, analyzeFieldtypes } from "./model/fieldtypes";
 import { runEvent, type CustomButton, type FormController, type FormEventsConfig, type LinkQuery } from "./events";
+import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import { useFormServices } from "./services";
 import { ReadRow } from "./ReadRow";
 import { useLinkTitles } from "./linkTitles";
@@ -280,6 +281,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const [linkedCancellable, setLinkedCancellable] = React.useState<boolean | undefined>(undefined);
   const [version, setVersion] = React.useState(0);
   const [openSections, setOpenSections] = React.useState<ReadonlySet<string>>(() => new Set());
+  /** A section asked to open while the open one has unsaved changes: the Save / Discard / Keep editing question. */
+  const [pendingOpen, setPendingOpen] = React.useState<string | null>(null);
   const savingRef = React.useRef(false);
   const latestProps = React.useRef(props);
   latestProps.current = props;
@@ -493,6 +496,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   const sectionEdit = !!props.sectionEdit && !doc.__islocal;
   // editScope "record": the same open sections, opened and closed all at once (one Edit, one Cancel).
   const recordScope = sectionEdit && props.editScope === "record";
+  // editScope "section" (the default): each section has its own Save and "Not saved" in its header; the toolbar has none.
+  const ownSave = sectionEdit && !recordScope;
   const sectionOf = React.useMemo(() => {
     const m = new Map<string, string>();
     for (const tab of layout.tabs) for (const sec of tab.sections) for (const f of sectionFields(sec)) m.set(f.fieldname, sec.key);
@@ -511,7 +516,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   // Opening a section (or the whole record) does not count as a change: the form is "not saved" only once a value
   // changes (no Not saved tag, onDirtyChange or leave guard before that).
   const openSection = (key: string) => {
-    setOpenSections((o) => new Set(o).add(key));
+    // Each section saves itself: one is open at a time. Another one with unsaved changes asks first (Save / Discard /
+    // Keep editing), as a record page's Tickets / Deals cards do.
+    if (ownSave && openSections.size && !openSections.has(key) && store.isDirty()) { setPendingOpen(key); return; }
+    setOpenSections((o) => (ownSave ? new Set([key]) : new Set(o).add(key)));
     setCollapsed((c) => ({ ...c, [key]: false }));
   };
   const putBackSaved = () => { store.replace(savedRef.current); setVersion((v) => v + 1); };
@@ -941,9 +949,18 @@ export function FrappeFormView(props: FrappeFormViewProps) {
     const regionId = `sf-sec-${sec.key}`;
     const isOpen = isSectionOpen(sec.key);
     const tools = !recordScope && sectionEditable(sec) ? (isOpen ? (
-      <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => cancelSection(sec)} data-section-cancel={sec.key}>
-        {t("formSectionCancel")}
-      </Button>
+      <span className="inline-flex items-center gap-1.5">
+        {unsaved && <Badge variant="warning" className="h-5 px-1.5 text-[10px]" data-section-not-saved={sec.key}>{t("formNotSaved")}</Badge>}
+        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={!!saving} onClick={() => cancelSection(sec)} data-section-cancel={sec.key}>
+          {t("formSectionCancel")}
+        </Button>
+        {/* Clickable while nothing changed (a click blurs the field being typed in, which commits its value): with no
+            change it just closes the section, with one it saves — only this section is open, so only its changes. */}
+        <Button type="button" size="sm" className="h-7 px-3 text-xs" loading={saving === sectionPrimary} disabled={!!saving && saving !== sectionPrimary}
+          onClick={() => runHeld(sectionPrimary)} data-section-save={sec.key}>
+          {actionLabel(sectionPrimary)}
+        </Button>
+      </span>
     ) : (
       <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => openSection(sec.key)} data-section-edit={sec.key}
         aria-label={`${t("formSectionEdit")} · ${label ?? untitledSectionTitle(sec)}`}>
@@ -1025,6 +1042,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
   // A held Save stays clickable (not disabled): pressing it blurs the field being typed in, which commits its value, so by
   // the click a change is in the store — then it saves (a disabled button would swallow that first click). With nothing
   // changed, Save just closes the open sections (no request). "Not saved" still shows only after a real change.
+  // A section's own Save: Update on a submitted document, else Save.
+  const sectionPrimary: FormAction = held ?? (actions.primary === "Update" ? "Update" : "Save");
   const runHeld = (a: FormAction) => {
     if (store.isDirty()) { runPrimary(a); return; }
     setOpenSections(new Set());
@@ -1068,12 +1087,12 @@ export function FrappeFormView(props: FrappeFormViewProps) {
             )}
           </div>
           </>}
-          {indicator && !(props.stateInHeader && !ind?.builtin) && <Badge variant={indicator.variant} style={indicator.style} data-color={indicator.colour} data-form-indicator>{indicator.text}</Badge>}
+          {indicator && !(props.stateInHeader && !ind?.builtin) && !(ownSave && ind?.builtin === "notSaved") && <Badge variant={indicator.variant} style={indicator.style} data-color={indicator.colour} data-form-indicator>{indicator.text}</Badge>}
           {/* Open for editing, nothing changed yet, no indicator shown: keep "Not Saved"'s place (invisible), so the first
               change does not push the toolbar's buttons — on a narrow, wrapping toolbar a press on Save would otherwise
               land where Save was a moment before the change committed, and be lost. The label is CSS-generated
               (no text node), so nothing reads or finds a second "Not Saved". */}
-          {held && !(indicator && !(props.stateInHeader && !ind?.builtin)) && (
+          {held && !ownSave && !(indicator && !(props.stateInHeader && !ind?.builtin)) && (
             <Badge variant="outline" className="invisible before:content-[attr(data-label)]" aria-hidden
               data-label={t("formNotSaved")} data-form-indicator-placeholder="" />
           )}
@@ -1102,7 +1121,8 @@ export function FrappeFormView(props: FrappeFormViewProps) {
           {actions.secondary && onCancelDoc && (
             <Button type="button" variant="outline" disabled={!!saving} loading={saving === "Cancel"} onClick={() => void startCancel()}>{actionLabel("Cancel")}</Button>
           )}
-          {primary && !(viewOnly && (primary === "Save" || primary === "Update")) && !(sectionEdit && primary === "Save" && !unsaved && !held) && (
+          {primary && !(viewOnly && (primary === "Save" || primary === "Update")) && !(sectionEdit && primary === "Save" && !unsaved && !held)
+            && !(ownSave && (primary === "Save" || primary === "Update")) && (
             <Button type="button" disabled={!!saving || (!held && actions.primaryDisabled) || (primary === "Amend" && !props.onAmend && !canAmend(meta))}
               title={!held && actions.primaryDisabled ? t("formAlreadyAmended") : undefined} loading={saving === primary}
               data-primary-held={held ? "" : undefined} onClick={() => (held ? runHeld(held) : runPrimary(primary))}>
@@ -1113,6 +1133,10 @@ export function FrappeFormView(props: FrappeFormViewProps) {
         </div>
       )}
 
+      <UnsavedChangesDialog open={pendingOpen !== null} saving={!!saving}
+        onSave={() => void save(sectionPrimary).then((ok) => { if (ok && pendingOpen) openSection(pendingOpen); setPendingOpen(null); })}
+        onDiscard={() => { putBackSaved(); if (pendingOpen) setOpenSections(new Set([pendingOpen])); setPendingOpen(null); }}
+        onStay={() => setPendingOpen(null)} />
       {newerOnServer && newerOnServer.name === doc.name && (
         <div role="alert" data-newer-on-server="" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-foreground">
           <span>{t("feHintTimestamp")}</span>

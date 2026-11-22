@@ -152,7 +152,7 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     expect(container.querySelector('[data-section][aria-label="Details"] [data-read-row="summary"]')?.textContent).toContain("Fails on Chrome");
   });
 
-  it("RP.view.2 a section's Edit opens it alone (Save shown and held until a change; not yet Not saved); its Cancel puts back what is saved there only", async () => {
+  it("RP.view.2 one section at a time, each with its own Save and Not saved in its header; switching with changes asks first", async () => {
     const dirty: boolean[] = [];
     const { container } = mount(PAGE(), "en", [], undefined, { viewFirst: true, onDirtyChange: (d) => dirty.push(d) });
     const edits = await waitFor(() => {
@@ -163,22 +163,25 @@ describe("RP.view — read first, each section's own Edit; the header's key line
     fireEvent.click(edits[0]);
     const title = await waitFor(() => screen.getByDisplayValue("Login does nothing") as HTMLInputElement);
     expect(screen.queryByDisplayValue("Fails on Chrome")).toBeNull();
-    // Opening is not a change (A-3): Save is held (clickable); no Not saved, no onDirtyChange(true).
-    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false); expect(screen.getByRole("button", { name: "Save" }).hasAttribute("data-primary-held")).toBe(true);
+    // Opening is not a change (A-3): the section's own Save shows (clickable); no Not saved, no onDirtyChange(true).
+    const first = container.querySelectorAll("[data-section]")[0] as HTMLElement;
+    expect(first.querySelector("[data-section-save]")).not.toBeNull();
     expect(screen.queryByText("Not Saved")).toBeNull();
     expect(dirty.includes(true)).toBe(false);
-    fireEvent.change(title, { target: { value: "Changed, then cancelled" } });
+    fireEvent.change(title, { target: { value: "Changed, then discarded" } });
     fireEvent.blur(title);
-    expect(screen.getByText("Not Saved")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(within(first).getByText("Not Saved")).toBeTruthy();
+    // No Save and no Not saved at the top: only in the section being edited.
+    expect(screen.getAllByRole("button", { name: "Save" })).toHaveLength(1);
+    expect(screen.getAllByText("Not Saved")).toHaveLength(1);
+    // Another section while this one has changes: Save / Discard / Keep editing. Discard puts this one back and opens it.
     fireEvent.click(container.querySelector("[data-section-edit]") as HTMLElement);
+    await waitFor(() => expect(document.querySelector("[data-unsaved-dialog]")).not.toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     const summary = await waitFor(() => screen.getByDisplayValue("Fails on Chrome") as HTMLInputElement);
-    fireEvent.change(summary, { target: { value: "Kept until saved" } });
-    fireEvent.click(container.querySelectorAll("[data-section-cancel]")[0] as HTMLElement);
-    await waitFor(() => expect(screen.queryByDisplayValue("Changed, then cancelled")).toBeNull());
     expect(within(container.querySelectorAll("[data-section]")[0] as HTMLElement).getByText("Login does nothing")).toBeTruthy();
-    expect(screen.getByDisplayValue("Kept until saved")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Save" })).toBeTruthy();
+    expect(screen.queryByText("Not Saved")).toBeNull();
+    fireEvent.change(summary, { target: { value: "Changed, then cancelled" } });
     fireEvent.click(container.querySelector("[data-section-cancel]") as HTMLElement);
     await waitFor(() => expect(screen.queryByRole("button", { name: "Save" })).toBeNull());
     expect(screen.getByText("Fails on Chrome")).toBeTruthy();

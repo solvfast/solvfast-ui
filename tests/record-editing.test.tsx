@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import * as React from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { FrappeProvider, createFrappeClient } from "../src/frappe";
@@ -111,7 +111,7 @@ describe("RE.dirty — opening a section is not a change (A-3)", () => {
     expect(saveButton()).toBeNull();
     fireEvent.click(document.querySelector("[data-section-edit]") as HTMLElement);
     expect(box("Title")).not.toBeNull();
-    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-primary-held")).toBe(true); // held: shown, clickable, not yet a change
+    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-section-save")).toBe(true); // the section's own Save: shown, clickable, not yet a change
     expect(screen.queryByText("Not Saved")).toBeNull();
     expect(dirty.includes(true)).toBe(false);
     fireEvent.change(box("Title")!, { target: { value: "Budget 2" } }); fireEvent.blur(box("Title")!);
@@ -139,13 +139,34 @@ describe("RE.dirty — opening a section is not a change (A-3)", () => {
     expect(saveButton()).toBeNull();
     fireEvent.click(within(section("Details")).getByRole("button", { name: /Edit/ }));
     fireEvent.change(box("Title")!, { target: { value: "Changed" } }); fireEvent.blur(box("Title")!);
+    expect(within(section("Details")).getByText("Not Saved")).toBeTruthy();
+    // One section at a time: another one asks first while this one has unsaved changes; Keep editing stays.
     fireEvent.click(within(section("More")).getByRole("button", { name: /Edit/ }));
-    expect(screen.getByText("Not Saved")).toBeTruthy();
+    expect(document.querySelector("[data-unsaved-dialog]")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(section("More").getAttribute("data-section-open")).toBeNull();
     fireEvent.click(within(section("Details")).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText("Not Saved")).toBeNull();
     expect(dirty.at(-1)).toBe(false);
     expect(within(section("Details")).getByText("Budget")).toBeTruthy();
-    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-primary-held")).toBe(true); // held: shown, clickable, not yet a change
+    expect(saveButton()).toBeNull();
+  });
+
+  it("RE.dirty.8 the section's own Save saves its change and closes it; Save switching sections saves, then opens the other", async () => {
+    const sent: FrappeDoc[] = [];
+    render(view(D1, { onSave: async (d) => { sent.push(d); return { ...d, __unsaved: undefined, modified: "2026-11-01 11:00:00" }; } }));
+    fireEvent.click(within(section("Details")).getByRole("button", { name: /Edit/ }));
+    fireEvent.change(box("Title")!, { target: { value: "Budget 3" } }); fireEvent.blur(box("Title")!);
+    fireEvent.click(within(section("Details")).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(sent.map((d) => d.title)).toEqual(["Budget 3"]));
+    await waitFor(() => expect(box("Title")).toBeNull());
+    expect(screen.queryByText("Not Saved")).toBeNull();
+    fireEvent.click(within(section("Details")).getByRole("button", { name: /Edit/ }));
+    fireEvent.change(box("Title")!, { target: { value: "Budget 4" } }); fireEvent.blur(box("Title")!);
+    fireEvent.click(within(section("More")).getByRole("button", { name: /Edit/ }));
+    fireEvent.click(await waitFor(() => screen.getByRole("button", { name: "Save and leave" })));
+    await waitFor(() => expect(sent.map((d) => d.title)).toEqual(["Budget 3", "Budget 4"]));
+    await waitFor(() => expect(section("More").getAttribute("data-section-open")).toBe("1"));
   });
 
   it("RE.dirty.4 a newer server copy while an open section is untouched just refreshes (no banner, the section stays open); after a change it warns", () => {
@@ -165,7 +186,7 @@ describe("RE.dirty — opening a section is not a change (A-3)", () => {
     render(view(D1, { workflowActionsShown: true }));
     expect(saveButton()).toBeNull();
     fireEvent.click(within(section("Details")).getByRole("button", { name: /Edit/ }));
-    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-primary-held")).toBe(true); // held: shown, clickable, not yet a change
+    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-section-save")).toBe(true); // the section's own Save: shown, clickable, not yet a change
     fireEvent.change(box("Code")!, { target: { value: "B-2" } }); fireEvent.blur(box("Code")!);
     expect(saveButton()?.disabled).toBe(false);
   });
@@ -184,7 +205,7 @@ describe("RE.dirty (more) — the keyboard and a right taken away", () => {
     expect(screen.getByRole("button", { name: "Submit" })).toBeTruthy();
     fireEvent.click(within(section("Details")).getByRole("button", { name: /Edit/ }));
     expect(screen.queryByRole("button", { name: "Submit" })).toBeNull();
-    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-primary-held")).toBe(true); // held: shown, clickable, not yet a change
+    expect(saveButton()?.disabled).toBe(false); expect(saveButton()?.hasAttribute("data-section-save")).toBe(true); // the section's own Save: shown, clickable, not yet a change
     fireEvent.keyDown(document, { key: "s", ctrlKey: true });
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
