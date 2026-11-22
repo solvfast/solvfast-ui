@@ -93,6 +93,9 @@ export interface SayrRecordPageProps extends Omit<FrappeFormProps, "doctype" | "
   headerLine?: React.ReactNode | ((doc: FrappeDoc) => React.ReactNode);
   /** The record's own buttons in the header card (e.g. Meeting, Note, More). */
   headerActions?: React.ReactNode;
+  /** A change made in the rail is saved at once — a lifecycle move, the assignment, a playbook step: the page calls this
+   *  with "Saved" (translated) after each, e.g. for the host's toast. The change is in the History tab too. */
+  notify?: (message: string) => void;
   /** The page's tabs after About (the form) and History (the record's timeline), e.g. the app's Activities. With none
    *  the page has no page tabs, as before. */
   pageTabs?: readonly RecordPageTab[];
@@ -133,7 +136,7 @@ export function useSayrCall<D>(method: string, args: Record<string, unknown>, ke
 
 export function SayrRecordPage({
   doctype, name, onBack, backLabel, typeLabel, lifecycleHref, railStorageKey, oneForm, extraCards, pageTabs, pageTab,
-  onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, surface = "plain", ...form
+  onPageTabChange, onDirtyChange, onSaved, viewFirst, headerLine, headerActions, notify, surface = "plain", ...form
 }: SayrRecordPageProps) {
   const { t, language, isRTL } = useLocale();
   const api = useFrappeApi();
@@ -202,6 +205,7 @@ export function SayrRecordPage({
       // The form keeps the copy it last saved; a new key reads the moved record instead.
       setFormKey((k) => k + 1);
       setMoveNote({ text: fmt(t("rpMoved"), (isRTL && to?.name_ar) || to?.name_en || next.label), error: false });
+      notify?.(t("formSaved"));
     } catch (e) {
       setMoveNote({ text: (e as Error).message, error: true });
     } finally {
@@ -289,7 +293,7 @@ export function SayrRecordPage({
       <RailCard id="assignment" icon={ShieldCheck} title={t("rpAssignment")}>
         {doc && session?.user ? (
           <FrappeAssignTo layout="sidebar" doc={doc} docinfo={docinfo} bundle={meta.data} user={session.user} userFullName={session.fullName}
-            canWrite={canWrite} comment={data?.assignment.todo_description ?? undefined} threePriorities onChanged={refresh} />
+            canWrite={canWrite} comment={data?.assignment.todo_description ?? undefined} threePriorities onChanged={() => { void refresh(); notify?.(t("formSaved")); }} />
         ) : <Skeleton className="h-8" />}
       </RailCard>
     ),
@@ -297,7 +301,7 @@ export function SayrRecordPage({
     playbook: (
       <RailCard id="playbook" icon={ListChecks} title={t("rpPlaybook")}>
         {page.pending ? <Skeleton className="h-12" /> : lc?.playbook && lc.status ? (
-          <PlaybookBody doctype={doctype} name={name} status={lc.status} t={t} />
+          <PlaybookBody doctype={doctype} name={name} status={lc.status} t={t} onSaved={() => notify?.(t("formSaved"))} />
         ) : <Empty>{t("rpNoPlaybook")}</Empty>}
       </RailCard>
     ),
@@ -467,7 +471,7 @@ function SlaBody({ data, t, language }: { data?: RecordPageData; t: T; language:
   );
 }
 
-function PlaybookBody({ doctype, name, status, t }: { doctype: string; name: string; status: string; t: T }) {
+function PlaybookBody({ doctype, name, status, t, onSaved }: { doctype: string; name: string; status: string; t: T; onSaved: () => void }) {
   const api = useFrappeApi();
   const checklist = useSayrCall<ChecklistData | null>(OPEN_CHECKLIST_METHOD, { doctype, name }, `${doctype}\u0001${name}\u0001${status}`);
   const [ticking, setTicking] = React.useState(false);
@@ -477,6 +481,7 @@ function PlaybookBody({ doctype, name, status, t }: { doctype: string; name: str
     setTickError(null);
     try {
       checklist.set((await api.call(TICK_STEP_METHOD, { checklist: checklist.data!.name, step, done: done ? 1 : 0 })).message as ChecklistData);
+      onSaved();
     } catch (e) {
       setTickError((e as Error).message);
     } finally {

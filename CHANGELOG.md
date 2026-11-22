@@ -6,6 +6,11 @@ with the owner's approval. Releases are published by the owner (GitHub Packages,
 
 ## [Unreleased]
 
+## 0.11.0-dev.3 — The record page tells the host when a rail change is saved
+
+Additive. `SayrRecordPage` takes `notify(message)`: after a lifecycle move, an assignment change or a playbook step (each
+saved at once) it is called with "Saved", for the host's toast. Test RP.lifecycle.4.
+
 ## 0.11.0-dev.2 — `oneForm` keeps the app's `fieldFilter`
 
 Fix. `SayrRecordPage` with `oneForm` replaced the app's `fieldFilter` with its own (drop the tab breaks), so a field the

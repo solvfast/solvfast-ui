@@ -344,6 +344,14 @@ describe("RP.lifecycle — current status, next actions, the builder link", () =
     expect(screen.getByRole("button", { name: "View full lifecycle" })).toBeTruthy();
   });
 
+  it("RP.lifecycle.4 a move from the rail is saved at once and the host is told (its toast)", async () => {
+    const calls: string[] = [];
+    const told: string[] = [];
+    mount(PAGE(), "en", calls, undefined, { notify: (m) => told.push(m) });
+    fireEvent.click(await waitFor(() => screen.getByRole("button", { name: "Start Work" })));
+    await waitFor(() => expect(told).toEqual(["Saved"]));
+  });
+
   it("RP.lifecycle.3 View full lifecycle opens the whole diagram in a dialog, not Sayr Studio", async () => {
     const opened: unknown[] = [];
     const open = window.open;
